@@ -7,20 +7,36 @@ import type { CourseListItem } from "@/types/course";
 
 const FAQ_ITEMS: { q: string; a: string }[] = [
   {
-    q: "수료증은 언제 받을 수 있나요?",
-    a: "강의 수강 완료 및 퀴즈 합격 후 즉시 발급 가능합니다.",
+    q: "수료증 또는 상담의견서 등은 언제 어떻게 받을 수 있나요?",
+    a: "수강자가 강의를 수강한 내역이 확인되면 익일 24시까지 가입하신 이메일을 통해 pdf파일로 보내드립니다.\n상담의견서는 상담 후 24시간 이내에 가입하신 이메일을 통해 pdf파일로 보내드립니다.",
   },
   {
-    q: "변호사 상담을 받을 수 있나요?",
-    a: "본 센터는 변호사 소개·알선·상담을 제공하지 않습니다.",
+    q: "수료증을 재발급 받을 수 있나요?",
+    a: "수료증을 재발급 받기 위해서는 법령에 따른 개인정보 보관 기간 내에 admin@kcpec.co.kr 이메일로 문의주시면 1회에 한하여 재발급해드립니다.",
   },
   {
-    q: "환불이 가능한가요?",
-    a: "결제 후 3일 이내, 수강 시작 전에 한해 전액 환불 가능합니다.",
+    q: "환불 및 취소가 가능한가요?",
+    a: "결제 오류에 대한 환불이나 취소는 가능하나, 강의 수강 시작 후 또는 상담 의뢰 후 환불이나 취소는 불가합니다.",
   },
   {
-    q: "상담 의견서는 어떻게 받나요?",
-    a: "Standard/Premium 패키지 결제 후 설문 작성 시 전문가 검토를 거쳐 24시간 이내 이메일로 발송됩니다.",
+    q: "상담 절차는 어떻게 진행되나요?",
+    a: "기본 상담 절차는 이용자가 상담 설문지를 작성하여 제출하는 서면상담 방식으로 진행됩니다.\n심화상담은 의뢰를 하실 경우 상담사와 일정을 맞춘 후 상담사가 해당 시간에 이용자에게 전화를 드리거나 대면상담을 진행합니다.\n모든 상담이 종료된 후 24시간 이내에 상담의견서 등을 pdf파일로 가입하신 이메일로 보내드립니다.",
+  },
+  {
+    q: "발급받은 서류를 법원이나 수사기관에 제출해도 되나요?",
+    a: "네, 저희 센터에서 발급한 수료증, 상담 의견서, 서약서 등 자료는 법원이나 수사기관, 학교 등 공공기관에 제출하셔도 됩니다.",
+  },
+  {
+    q: "양형자료만 내면 무조건 감형이 되는 건가요?",
+    a: "그렇지 않습니다. 검찰이나 법원의 양형판단은 다양한 요소들을 바탕으로 종합적으로 이루어지기 때문입니다.\n다만 수료증, 상담 의견서 등 양형자료는 재범예방교육 또는 심리상담을 통해 피고인(또는 피의자)이 재범하지 않을 것을 굳게 다짐하고 있다는 사정을 경찰, 검찰이나 법원에 알리는 효과적인 방법이 될 수 있습니다.",
+  },
+  {
+    q: "발급받은 서류의 진위 확인이 가능한가요?",
+    a: "네 가능합니다. 저희 센터에서 발급하는 서류는 워터마크가 삽입되어 있으며 문서일련번호로 진위 확인이 가능합니다.\n서류의 진위확인을 원하시는 경우, 서류 사본과 문의하실 내용을 적어 admin@kcpec.co.kr로 이메일 문의를 주시면 답변드립니다.",
+  },
+  {
+    q: "사건에 대한 변호사 상담을 받을 수 있나요?",
+    a: "본 센터는 변호사 소개나 알선, 상담을 제공하지 않습니다.",
   },
 ];
 
@@ -379,7 +395,7 @@ function FaqSection() {
                   </span>
                 </button>
                 {open ? (
-                  <div className="border-t border-[var(--color-border)] bg-[var(--color-muted)]/50 px-5 py-4 text-sm leading-relaxed text-zinc-700">
+                  <div className="whitespace-pre-line border-t border-[var(--color-border)] bg-[var(--color-muted)]/50 px-5 py-4 text-sm leading-relaxed text-zinc-700">
                     A. {item.a}
                   </div>
                 ) : null}
@@ -397,14 +413,43 @@ function FaqSection() {
 function Footer() {
   return (
     <footer className="bg-[var(--color-primary)] text-white/80">
-      <div className="mx-auto max-w-6xl px-4 py-10 text-sm">
-        <p className="font-sans text-base font-bold text-white">
-          한국범죄예방교육센터
-        </p>
-        <p className="mt-2 text-xs text-white/60">
-          상담문의 02-0000-0000 · 운영시간 평일 10:00 — 18:00
-        </p>
-        <p className="mt-6 text-xs text-white/50">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 text-sm md:grid-cols-2">
+        <div className="space-y-1.5">
+          <p className="font-sans text-base font-bold text-white">
+            주식회사 한국범죄예방교육센터
+          </p>
+          <p className="text-xs text-white/70">대표자명: 윤승진</p>
+          <p className="text-xs text-white/70">
+            주소: 서울 강남구 언주로147길 42, 2층 2602호(논현동)
+          </p>
+          <p className="text-xs text-white/70">법인등록번호: 110111-8888525</p>
+          <p className="text-xs text-white/70">법인사업자등록번호: 495-86-03325</p>
+          <p className="text-xs text-white/70">
+            통신판매업 신고번호: 제2024-서울강남-02655호
+          </p>
+          <p className="text-xs text-white/70">개인정보관리책임자: 윤승진</p>
+        </div>
+        <div className="space-y-1.5">
+          <p className="font-sans text-base font-bold text-white">고객지원</p>
+          <p className="text-xs text-white/70">
+            상담문의:{" "}
+            <a href="tel:01063773325" className="hover:text-white">
+              010-6377-3325
+            </a>
+          </p>
+          <p className="text-xs text-white/70">
+            이메일:{" "}
+            <a href="mailto:admin@kcpec.co.kr" className="hover:text-white">
+              admin@kcpec.co.kr
+            </a>
+          </p>
+          <p className="text-xs text-white/70">
+            무통장 계좌: 기업은행 232-160450-04-015 (예금주: 한국범죄예방교육센터)
+          </p>
+        </div>
+      </div>
+      <div className="border-t border-white/10">
+        <p className="mx-auto max-w-6xl px-4 py-4 text-xs text-white/50">
           ⓒ 2024 한국범죄예방교육센터. All rights reserved.
         </p>
       </div>
