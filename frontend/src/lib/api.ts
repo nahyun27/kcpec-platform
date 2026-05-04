@@ -3,6 +3,16 @@ import axios, {
   type AxiosRequestConfig,
   type InternalAxiosRequestConfig,
 } from "axios";
+import type {
+  CourseCategory,
+  CourseDetail,
+  CourseListItem,
+  EnrollmentStatus,
+  LectureProgressUpdate,
+  QuizDetail,
+  QuizResult,
+  StreamUrlResponse,
+} from "@/types/course";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
@@ -135,4 +145,59 @@ export async function getMe(): Promise<UserResponse> {
 
 export function logout(): void {
   tokenStorage.clear();
+}
+
+// ---------- courses ---------------------------------------------------------
+
+export async function getCourses(category?: CourseCategory): Promise<CourseListItem[]> {
+  const { data } = await api.get<CourseListItem[]>("/courses", {
+    params: category ? { category } : undefined,
+  });
+  return data;
+}
+
+export async function getCourseDetail(courseId: number): Promise<CourseDetail> {
+  const { data } = await api.get<CourseDetail>(`/courses/${courseId}`);
+  return data;
+}
+
+export async function enrollCourse(courseId: number): Promise<EnrollmentStatus> {
+  const { data } = await api.post<EnrollmentStatus>(`/courses/${courseId}/enroll`);
+  return data;
+}
+
+export async function getCourseProgress(courseId: number): Promise<EnrollmentStatus> {
+  const { data } = await api.get<EnrollmentStatus>(`/courses/${courseId}/progress`);
+  return data;
+}
+
+export async function updateLectureProgress(
+  lectureId: number,
+  payload: LectureProgressUpdate,
+): Promise<EnrollmentStatus> {
+  const { data } = await api.patch<EnrollmentStatus>(
+    `/lectures/${lectureId}/progress`,
+    payload,
+  );
+  return data;
+}
+
+export async function getStreamUrl(lectureId: number): Promise<StreamUrlResponse> {
+  const { data } = await api.get<StreamUrlResponse>(`/lectures/${lectureId}/stream-url`);
+  return data;
+}
+
+export async function getQuiz(courseId: number): Promise<QuizDetail> {
+  const { data } = await api.get<QuizDetail>(`/courses/${courseId}/quiz`);
+  return data;
+}
+
+export async function submitQuiz(
+  courseId: number,
+  answers: Record<number, number>,
+): Promise<QuizResult> {
+  const { data } = await api.post<QuizResult>(`/courses/${courseId}/quiz/submit`, {
+    answers,
+  });
+  return data;
 }
