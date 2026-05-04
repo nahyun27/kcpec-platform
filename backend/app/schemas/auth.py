@@ -32,6 +32,7 @@ class UserResponse(BaseModel):
     birth_date: date | None
     social_provider: str | None
     is_active: bool
+    is_admin: bool
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

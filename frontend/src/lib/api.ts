@@ -24,6 +24,15 @@ import type {
   SurveyResponse,
   SurveyStatusResponse,
 } from "@/types/counseling";
+import type {
+  AdminCourseCreate,
+  AdminLectureCreate,
+  AdminOrdersResponse,
+  AdminQuizQuestion,
+  AdminStats,
+  AdminSurveyRow,
+  AdminUsersResponse,
+} from "@/types/admin";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
@@ -134,6 +143,7 @@ export type UserResponse = {
   birth_date: string | null;
   social_provider: string | null;
   is_active: boolean;
+  is_admin: boolean;
   created_at: string;
 };
 
@@ -279,5 +289,79 @@ export async function submitSurvey(
 
 export async function getSurveyStatus(orderId: number): Promise<SurveyStatusResponse> {
   const { data } = await api.get<SurveyStatusResponse>(`/orders/${orderId}/survey`);
+  return data;
+}
+
+// ---------- admin ----------------------------------------------------------
+
+export async function getAdminStats(): Promise<AdminStats> {
+  const { data } = await api.get<AdminStats>("/admin/stats");
+  return data;
+}
+
+export async function getAdminUsers(page = 1, size = 20): Promise<AdminUsersResponse> {
+  const { data } = await api.get<AdminUsersResponse>("/admin/users", {
+    params: { page, size },
+  });
+  return data;
+}
+
+export async function getAdminOrders(
+  filter: { status?: string; page?: number; size?: number } = {},
+): Promise<AdminOrdersResponse> {
+  const { data } = await api.get<AdminOrdersResponse>("/admin/orders", { params: filter });
+  return data;
+}
+
+export async function createCourse(payload: AdminCourseCreate): Promise<CourseListItem> {
+  const { data } = await api.post<CourseListItem>("/admin/courses", payload);
+  return data;
+}
+
+export async function addLecture(
+  courseId: number,
+  payload: AdminLectureCreate,
+): Promise<{ id: number; title: string }> {
+  const { data } = await api.post<{ id: number; title: string }>(
+    `/admin/courses/${courseId}/lectures`,
+    payload,
+  );
+  return data;
+}
+
+export async function setQuiz(
+  courseId: number,
+  questions: AdminQuizQuestion[],
+): Promise<{ ok: true }> {
+  const { data } = await api.post<{ ok: true }>(
+    `/admin/courses/${courseId}/quiz`,
+    { questions },
+  );
+  return data;
+}
+
+export async function confirmBankOrder(orderId: number): Promise<OrderResponse> {
+  const { data } = await api.post<OrderResponse>(
+    `/admin/orders/bank/confirm/${orderId}`,
+  );
+  return data;
+}
+
+export async function getAdminSurveys(): Promise<AdminSurveyRow[]> {
+  const { data } = await api.get<AdminSurveyRow[]>("/admin/surveys");
+  return data;
+}
+
+export async function uploadFinalPdf(
+  surveyId: number,
+  file: File,
+): Promise<AdminSurveyRow> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const { data } = await api.post<AdminSurveyRow>(
+    `/admin/surveys/${surveyId}/upload-final`,
+    fd,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
   return data;
 }

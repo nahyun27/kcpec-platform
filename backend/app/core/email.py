@@ -50,6 +50,57 @@ def _format_body(
     )
 
 
+def send_final_to_user(
+    *,
+    to_email: str,
+    recipient_name: str,
+    pdf_url: str,
+) -> bool:
+    subject = "[KCPEC] 심리상담 의견서가 발급되었습니다"
+    body = dedent(
+        f"""\
+        안녕하세요, {recipient_name} 님.
+
+        의뢰하신 심리상담 의견서 발급이 완료되었습니다.
+        아래 링크에서 PDF 파일을 다운로드 받으실 수 있습니다.
+
+        다운로드: {pdf_url}
+
+        본 의견서는 양형 자료 등으로 활용하실 수 있습니다.
+        문의 사항은 admin@kcpec.co.kr 로 보내주세요.
+
+        — 한국범죄예방교육센터 —
+        """
+    )
+
+    if not (settings.SMTP_HOST and to_email):
+        logger.info("[EMAIL DEV MODE] 사용자 발송 — 콘솔 출력")
+        print("=" * 60)
+        print(f"To: {to_email or '(미설정)'}")
+        print(f"Subject: {subject}")
+        print("-" * 60)
+        print(body)
+        print("=" * 60)
+        return True
+
+    msg = EmailMessage()
+    msg["From"] = settings.SMTP_FROM or settings.SMTP_USER or "no-reply@kcpec.kr"
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg.set_content(body)
+
+    try:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
+            smtp.starttls()
+            if settings.SMTP_USER and settings.SMTP_PASSWORD:
+                smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            smtp.send_message(msg)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("SMTP 발송 실패: %s", exc)
+        return False
+    return True
+
+
 def send_draft_to_staff(
     *,
     survey_id: int,
