@@ -14,3 +14,10 @@ backend/**/*.pyc
 # 공통
 .DS_Store
 .claude/settings.local.json
+
+# 주의: 이 저장소의 상위 경로(예: ~/github/, ~/) 에
+# 무관한 package.json / package-lock.json 이 존재하면
+# Next.js (Turbopack) 가 워크스페이스 루트를 잘못 인식해
+# tailwindcss 등 frontend/node_modules 모듈 해석이 깨집니다.
+# - 발견 시 해당 파일을 제거하거나
+# - frontend/package.json 의 dev 스크립트가 `--webpack` 플래그를 유지하는지 확인하세요.

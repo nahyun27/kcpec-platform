@@ -2,14 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  use,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import {
   enrollCourse,
@@ -43,8 +36,12 @@ export default function WatchPage({
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const watchedSecondsRef = useRef(0);
+  // Snapshot of saved progress used to seed lecture playback. Refreshed
+  // when the active lecture changes — kept in a ref so the heartbeat
+  // effect can read it without depending on the `status` state object.
+  const savedProgressRef = useRef<EnrollmentStatus["lecture_progresses"]>([]);
 
-  // 1) Initial load: course + ensure enrollment + progress.
+  // 1) Initial load: course + ensure enrollment + first incomplete lecture.
   useEffect(() => {
     let cancelled = false;
     async function init() {
@@ -68,6 +65,7 @@ export default function WatchPage({
         }
         if (cancelled) return;
         setStatus(st);
+        savedProgressRef.current = st.lecture_progresses;
 
         const firstIncomplete =
           detail.lectures.find(
@@ -82,15 +80,17 @@ export default function WatchPage({
     return () => {
       cancelled = true;
     };
-  }, [courseId, router]);
+    // router omitted — useRouter() identity may not be guaranteed stable;
+    // the effect only needs to run when courseId changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId]);
 
-  // 2) Whenever the active lecture changes, fetch a fresh stream URL and
-  //    seed the watched-seconds counter from the saved progress.
+  // 2) On active lecture change: seed counters + fetch a fresh stream URL.
   useEffect(() => {
     if (activeLectureId == null) return;
     let cancelled = false;
     setStreamUrl(null);
-    const saved = status?.lecture_progresses.find((p) => p.lecture_id === activeLectureId);
+    const saved = savedProgressRef.current.find((p) => p.lecture_id === activeLectureId);
     watchedSecondsRef.current = saved?.watched_seconds ?? 0;
 
     getStreamUrl(activeLectureId)
@@ -104,53 +104,58 @@ export default function WatchPage({
     return () => {
       cancelled = true;
     };
-    // status intentionally excluded — we only want to reseed on lecture change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLectureId]);
 
-  // 3) Heartbeat: every 10s, if the video is playing, push progress.
-  const sendProgress = useCallback(
-    async (overrides?: { is_completed?: boolean }) => {
-      if (activeLectureId == null) return;
-      const video = videoRef.current;
-      const last = video ? Math.floor(video.currentTime) : 0;
-      try {
-        const next = await updateLectureProgress(activeLectureId, {
-          watched_seconds: watchedSecondsRef.current,
-          last_position_sec: last,
-          is_completed: overrides?.is_completed ?? false,
-        });
-        setStatus(next);
-      } catch {
-        /* swallow — best-effort heartbeat */
-      }
-    },
-    [activeLectureId],
-  );
-
+  // 3) Heartbeat: while video is playing, push progress every 10s.
+  //    No state/callback in deps — only a primitive id.
   useEffect(() => {
     if (activeLectureId == null) return;
-    const interval = setInterval(() => {
+    const lectureId = activeLectureId;
+
+    const interval = setInterval(async () => {
       const video = videoRef.current;
       if (!video || video.paused || video.ended) return;
       watchedSecondsRef.current += PROGRESS_INTERVAL_MS / 1000;
-      void sendProgress();
+      try {
+        const next = await updateLectureProgress(lectureId, {
+          watched_seconds: watchedSecondsRef.current,
+          last_position_sec: Math.floor(video.currentTime),
+          is_completed: false,
+        });
+        setStatus(next);
+        savedProgressRef.current = next.lecture_progresses;
+      } catch {
+        /* swallow — best-effort heartbeat */
+      }
     }, PROGRESS_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [activeLectureId, sendProgress]);
 
-  // 4) On video metadata load, restore last position.
+    return () => clearInterval(interval);
+  }, [activeLectureId]);
+
+  // 4) On video metadata load, restore last saved position.
   function handleLoadedMetadata() {
     const video = videoRef.current;
     if (!video || activeLectureId == null) return;
-    const saved = status?.lecture_progresses.find((p) => p.lecture_id === activeLectureId);
+    const saved = savedProgressRef.current.find((p) => p.lecture_id === activeLectureId);
     if (saved && saved.last_position_sec > 0 && saved.last_position_sec < video.duration) {
       video.currentTime = saved.last_position_sec;
     }
   }
 
-  function handleEnded() {
-    void sendProgress({ is_completed: true });
+  async function handleEnded() {
+    if (activeLectureId == null) return;
+    const video = videoRef.current;
+    try {
+      const next = await updateLectureProgress(activeLectureId, {
+        watched_seconds: watchedSecondsRef.current,
+        last_position_sec: video ? Math.floor(video.currentTime) : 0,
+        is_completed: true,
+      });
+      setStatus(next);
+      savedProgressRef.current = next.lecture_progresses;
+    } catch {
+      /* swallow */
+    }
   }
 
   const completedIds = useMemo(

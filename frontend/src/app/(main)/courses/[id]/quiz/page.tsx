@@ -44,7 +44,9 @@ export default function QuizPage({
     return () => {
       cancelled = true;
     };
-  }, [courseId, router]);
+    // router omitted — only re-run when courseId changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId]);
 
   const allAnswered = useMemo(
     () => quiz != null && quiz.questions.every((q) => answers[q.id] != null),
