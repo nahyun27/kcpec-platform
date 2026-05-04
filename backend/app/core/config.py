@@ -26,6 +26,16 @@ class Settings(BaseSettings):
         "국민은행 123-456-789012 (예금주: 한국범죄예방교육센터)"
     )
 
+    ANTHROPIC_API_KEY: str | None = None
+    ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"
+
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int = 587
+    SMTP_USER: str | None = None
+    SMTP_PASSWORD: str | None = None
+    SMTP_FROM: str | None = None  # 미설정 시 SMTP_USER 사용
+    STAFF_EMAIL: str | None = None
+
     AWS_REGION: str | None = None
     AWS_ACCESS_KEY_ID: str | None = None
     AWS_SECRET_ACCESS_KEY: str | None = None

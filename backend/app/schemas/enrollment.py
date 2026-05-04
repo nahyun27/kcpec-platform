@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.models.course import CourseCategory
+
 
 class LectureProgressItem(BaseModel):
     lecture_id: int
@@ -25,3 +27,11 @@ class LectureProgressUpdate(BaseModel):
     watched_seconds: int = Field(ge=0)
     last_position_sec: int = Field(ge=0)
     is_completed: bool = False
+
+
+class EnrollmentWithProgress(BaseModel):
+    course_id: int
+    course_title: str
+    category: CourseCategory
+    is_completed: bool
+    overall_progress_pct: int

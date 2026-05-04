@@ -19,6 +19,11 @@ import type {
   PackageWithDocuments,
   PaymentMethod,
 } from "@/types/order";
+import type {
+  EnrollmentWithProgress,
+  SurveyResponse,
+  SurveyStatusResponse,
+} from "@/types/counseling";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
@@ -252,5 +257,27 @@ export async function issueDocument(
 
 export async function getOrderDocuments(orderId: number): Promise<DocumentResponse[]> {
   const { data } = await api.get<DocumentResponse[]>(`/orders/${orderId}/documents`);
+  return data;
+}
+
+// ---------- counseling + my -------------------------------------------------
+
+export async function getMyEnrollments(): Promise<EnrollmentWithProgress[]> {
+  const { data } = await api.get<EnrollmentWithProgress[]>("/courses/my-enrollments");
+  return data;
+}
+
+export async function submitSurvey(
+  orderId: number,
+  responses: Record<string, string>,
+): Promise<SurveyResponse> {
+  const { data } = await api.post<SurveyResponse>(`/orders/${orderId}/survey`, {
+    responses,
+  });
+  return data;
+}
+
+export async function getSurveyStatus(orderId: number): Promise<SurveyStatusResponse> {
+  const { data } = await api.get<SurveyStatusResponse>(`/orders/${orderId}/survey`);
   return data;
 }

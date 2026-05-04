@@ -1,4 +1,5 @@
 import Link from "next/link";
+import HeaderNav from "./HeaderNav";
 
 export default function MainLayout({
   children,
@@ -15,17 +16,7 @@ export default function MainLayout({
           >
             한국범죄예방교육센터
           </Link>
-          <nav className="flex items-center gap-6 text-sm font-medium text-zinc-700">
-            <Link href="/courses" className="hover:text-[var(--color-primary)]">
-              강의 목록
-            </Link>
-            <Link
-              href="/login"
-              className="rounded bg-[var(--color-primary)] px-4 py-2 text-white hover:bg-[var(--color-primary-hover)]"
-            >
-              로그인
-            </Link>
-          </nav>
+          <HeaderNav />
         </div>
       </header>
       <main className="flex-1 bg-[var(--color-muted)]">{children}</main>

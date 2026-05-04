@@ -20,6 +20,7 @@ from app.schemas.course import (
 )
 from app.schemas.enrollment import (
     EnrollmentStatus,
+    EnrollmentWithProgress,
     LectureProgressItem,
     LectureProgressUpdate,
 )
@@ -99,6 +100,49 @@ def list_courses(
     if category is not None:
         stmt = stmt.where(Course.category == category)
     return list(db.scalars(stmt).all())
+
+
+@router.get("/courses/my-enrollments", response_model=list[EnrollmentWithProgress])
+def list_my_enrollments(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[EnrollmentWithProgress]:
+    enrollments = list(
+        db.scalars(
+            select(Enrollment)
+            .where(Enrollment.user_id == current_user.id)
+            .options(selectinload(Enrollment.progresses))
+            .order_by(Enrollment.enrolled_at.desc())
+        ).all()
+    )
+    if not enrollments:
+        return []
+
+    course_ids = [e.course_id for e in enrollments]
+    courses_map = {
+        c.id: c
+        for c in db.scalars(
+            select(Course)
+            .where(Course.id.in_(course_ids))
+            .options(selectinload(Course.lectures))
+        ).all()
+    }
+
+    out: list[EnrollmentWithProgress] = []
+    for e in enrollments:
+        course = courses_map.get(e.course_id)
+        if course is None:
+            continue
+        out.append(
+            EnrollmentWithProgress(
+                course_id=course.id,
+                course_title=course.title,
+                category=course.category,
+                is_completed=e.is_completed,
+                overall_progress_pct=_calc_overall_progress(course, e.progresses),
+            )
+        )
+    return out
 
 
 @router.get("/courses/{course_id}", response_model=CourseDetail)
