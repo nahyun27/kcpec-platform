@@ -13,6 +13,12 @@ import type {
   QuizResult,
   StreamUrlResponse,
 } from "@/types/course";
+import type {
+  DocumentResponse,
+  OrderResponse,
+  PackageWithDocuments,
+  PaymentMethod,
+} from "@/types/order";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
@@ -199,5 +205,52 @@ export async function submitQuiz(
   const { data } = await api.post<QuizResult>(`/courses/${courseId}/quiz/submit`, {
     answers,
   });
+  return data;
+}
+
+// ---------- packages / orders / documents -----------------------------------
+
+export async function getPackages(): Promise<PackageWithDocuments[]> {
+  const { data } = await api.get<PackageWithDocuments[]>("/packages");
+  return data;
+}
+
+export async function createOrder(payload: {
+  course_id: number;
+  package_id: number;
+  payment_method: PaymentMethod;
+  amount: number;
+}): Promise<OrderResponse> {
+  const { data } = await api.post<OrderResponse>("/orders", payload);
+  return data;
+}
+
+export async function confirmTossPayment(payload: {
+  order_id: number;
+  payment_key: string;
+  amount: number;
+}): Promise<OrderResponse> {
+  const { data } = await api.post<OrderResponse>("/orders/toss/confirm", payload);
+  return data;
+}
+
+export async function getMyOrders(): Promise<OrderResponse[]> {
+  const { data } = await api.get<OrderResponse[]>("/orders/my");
+  return data;
+}
+
+export async function issueDocument(
+  orderId: number,
+  payload: { recipient_name: string; recipient_birth: string },
+): Promise<DocumentResponse> {
+  const { data } = await api.post<DocumentResponse>(
+    `/orders/${orderId}/issue`,
+    payload,
+  );
+  return data;
+}
+
+export async function getOrderDocuments(orderId: number): Promise<DocumentResponse[]> {
+  const { data } = await api.get<DocumentResponse[]>(`/orders/${orderId}/documents`);
   return data;
 }

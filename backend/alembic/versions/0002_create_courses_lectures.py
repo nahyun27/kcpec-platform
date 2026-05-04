@@ -34,7 +34,6 @@ CATEGORY_VALUES = (
 
 def upgrade() -> None:
     course_category = sa.Enum(*CATEGORY_VALUES, name="course_category")
-    course_category.create(op.get_bind(), checkfirst=True)
 
     op.create_table(
         "courses",

@@ -1,0 +1,187 @@
+from datetime import datetime, timezone
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.core.admin import require_admin
+from app.core.config import settings
+from app.core.database import get_db
+from app.core.deps import get_current_user
+from app.models.course import Course
+from app.models.enrollment import Enrollment
+from app.models.order import Order, OrderStatus, PaymentMethod
+from app.models.package import Package
+from app.models.user import User
+from app.schemas.order import (
+    BankTransferConfirm,
+    OrderCreate,
+    OrderResponse,
+    TossConfirm,
+)
+
+router = APIRouter(prefix="/orders", tags=["orders"])
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+@router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
+def create_order(
+    payload: OrderCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Order:
+    # 강의/패키지 유효성
+    course = db.get(Course, payload.course_id)
+    if course is None or not course.is_active:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="강의를 찾을 수 없습니다.")
+    pkg = db.get(Package, payload.package_id)
+    if pkg is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="패키지를 찾을 수 없습니다.")
+
+    # 수료 완료 검증
+    enrollment = db.scalar(
+        select(Enrollment).where(
+            Enrollment.user_id == current_user.id,
+            Enrollment.course_id == course.id,
+        )
+    )
+    if enrollment is None or not enrollment.is_completed:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="강의 수료(진도+퀴즈) 후에 결제할 수 있습니다.",
+        )
+
+    # 동일 course+package 의 PAID 주문이 이미 있으면 중복 차단
+    duplicate = db.scalar(
+        select(Order).where(
+            Order.user_id == current_user.id,
+            Order.course_id == course.id,
+            Order.package_id == pkg.id,
+            Order.status == OrderStatus.PAID,
+        )
+    )
+    if duplicate is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="이미 결제 완료된 주문이 있습니다.",
+        )
+
+    order = Order(
+        user_id=current_user.id,
+        course_id=course.id,
+        package_id=pkg.id,
+        payment_method=payload.payment_method,
+        amount=payload.amount,
+        status=OrderStatus.PENDING,
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+@router.get("/my", response_model=list[OrderResponse])
+def list_my_orders(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[Order]:
+    return list(
+        db.scalars(
+            select(Order)
+            .where(Order.user_id == current_user.id)
+            .order_by(Order.created_at.desc())
+        ).all()
+    )
+
+
+def _mark_paid(order: Order, payment_key: str | None) -> None:
+    order.status = OrderStatus.PAID
+    order.paid_at = _now()
+    if payment_key:
+        order.toss_payment_key = payment_key
+
+
+@router.post("/toss/confirm", response_model=OrderResponse)
+def toss_confirm(
+    payload: TossConfirm,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Order:
+    order = db.get(Order, payload.order_id)
+    if order is None or order.user_id != current_user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="주문을 찾을 수 없습니다.")
+    if order.status == OrderStatus.PAID:
+        return order
+    if order.status != OrderStatus.PENDING:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 처리된 주문입니다.")
+    if order.amount != payload.amount:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제 금액이 일치하지 않습니다.")
+
+    if not settings.TOSS_SECRET_KEY:
+        # 시뮬레이션 모드 — 토스 연동 없이 즉시 paid 처리.
+        _mark_paid(order, payment_key=payload.payment_key or "SIMULATED")
+        db.commit()
+        db.refresh(order)
+        return order
+
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            res = client.post(
+                f"{settings.TOSS_API_BASE}/v1/payments/confirm",
+                auth=(settings.TOSS_SECRET_KEY, ""),
+                json={
+                    "paymentKey": payload.payment_key,
+                    "orderId": str(order.id),
+                    "amount": payload.amount,
+                },
+            )
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            detail=f"결제 게이트웨이 호출에 실패했습니다: {exc!s}",
+        ) from exc
+
+    if res.status_code != 200:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=f"토스 결제 승인 실패: {res.text}",
+        )
+
+    _mark_paid(order, payment_key=payload.payment_key)
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+@router.post("/bank/confirm/{order_id}", response_model=OrderResponse)
+def bank_confirm(
+    order_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> Order:
+    order = db.get(Order, order_id)
+    if order is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="주문을 찾을 수 없습니다.")
+    if order.payment_method != PaymentMethod.BANK_TRANSFER:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="무통장 주문이 아닙니다.")
+    if order.status == OrderStatus.PAID:
+        return order
+    _mark_paid(order, payment_key=None)
+    order.bank_confirmed_at = _now()
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+# `/bank/confirm` 본문 기반 호출도 지원 (관리자 일괄 처리용 편의)
+@router.post("/bank/confirm", response_model=OrderResponse)
+def bank_confirm_body(
+    payload: BankTransferConfirm,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+) -> Order:
+    return bank_confirm(payload.order_id, db=db, _=admin)

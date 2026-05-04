@@ -19,6 +19,13 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
+    TOSS_SECRET_KEY: str | None = None
+    TOSS_API_BASE: str = "https://api.tosspayments.com"
+
+    BANK_TRANSFER_ACCOUNT: str = (
+        "국민은행 123-456-789012 (예금주: 한국범죄예방교육센터)"
+    )
+
     AWS_REGION: str | None = None
     AWS_ACCESS_KEY_ID: str | None = None
     AWS_SECRET_ACCESS_KEY: str | None = None

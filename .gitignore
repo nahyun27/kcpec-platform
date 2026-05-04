@@ -11,6 +11,10 @@ backend/**/__pycache__/
 backend/*.pyc
 backend/**/*.pyc
 
+# 생성된 PDF / 다운로드 폰트는 추적하지 않음
+backend/static/pdfs/
+backend/static/fonts/*.ttf
+
 # 공통
 .DS_Store
 .claude/settings.local.json
