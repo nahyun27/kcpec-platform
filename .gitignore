@@ -7,7 +7,10 @@ frontend/node_modules/
 backend/venv/
 backend/.env
 backend/__pycache__/
+backend/**/__pycache__/
 backend/*.pyc
+backend/**/*.pyc
 
 # 공통
-.DS_Store~
+.DS_Store
+.claude/settings.local.json
