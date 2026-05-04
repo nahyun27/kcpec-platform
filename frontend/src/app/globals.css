@@ -1,3 +1,4 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css");
 @import "tailwindcss";
 
 :root {
@@ -9,6 +10,10 @@
   --color-accent-hover: #a87b29;
   --color-muted: #f4f5f8;
   --color-border: #d8dde5;
+
+  --font-sans-stack: "Pretendard Variable", Pretendard, -apple-system,
+    BlinkMacSystemFont, system-ui, "Segoe UI", "Apple SD Gothic Neo",
+    "Noto Sans KR", sans-serif;
 }
 
 @theme inline {
@@ -20,8 +25,7 @@
   --color-brand-accent-hover: var(--color-accent-hover);
   --color-brand-muted: var(--color-muted);
   --color-brand-border: var(--color-border);
-  --font-sans: var(--font-noto-sans-kr);
-  --font-serif: var(--font-noto-serif-kr);
+  --font-sans: var(--font-sans-stack);
 }
 
 html,
@@ -31,5 +35,5 @@ body {
 }
 
 body {
-  font-family: var(--font-noto-sans-kr), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans-stack);
 }

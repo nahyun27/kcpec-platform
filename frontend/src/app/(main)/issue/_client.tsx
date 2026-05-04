@@ -54,7 +54,7 @@ export default function IssuePage() {
     return (
       <div className="mx-auto max-w-xl px-4 py-16">
         <div className="rounded-lg border border-[var(--color-border)] bg-white p-8 text-center shadow-sm">
-          <p className="font-serif text-2xl font-bold text-[var(--color-primary)]">
+          <p className="font-sans text-2xl font-bold text-[var(--color-primary)]">
             이수증이 발급되었습니다
           </p>
           <p className="mt-3 text-sm text-zinc-600">
@@ -87,7 +87,7 @@ export default function IssuePage() {
   return (
     <div className="mx-auto max-w-md px-4 py-16">
       <div className="rounded-lg border border-[var(--color-border)] bg-white p-8 shadow-sm">
-        <h1 className="font-serif text-2xl font-bold text-[var(--color-primary)]">
+        <h1 className="font-sans text-2xl font-bold text-[var(--color-primary)]">
           이수증 발급
         </h1>
         <p className="mt-2 text-sm text-zinc-600">

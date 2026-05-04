@@ -38,7 +38,7 @@ export default function LoginPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="font-serif text-2xl font-bold text-[var(--color-primary)]">
+        <h1 className="font-sans text-2xl font-bold text-[var(--color-primary)]">
           로그인
         </h1>
         <p className="text-sm text-zinc-600">

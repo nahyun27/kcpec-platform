@@ -14,7 +14,7 @@ export default function CheckoutPendingPage() {
   return (
     <div className="mx-auto max-w-xl px-4 py-16">
       <div className="rounded-lg border border-[var(--color-border)] bg-white p-8 shadow-sm">
-        <p className="text-center font-serif text-2xl font-bold text-[var(--color-primary)]">
+        <p className="text-center font-sans text-2xl font-bold text-[var(--color-primary)]">
           무통장 입금 안내
         </p>
         {orderId ? (
@@ -23,7 +23,7 @@ export default function CheckoutPendingPage() {
 
         <div className="mt-6 rounded border border-[var(--color-border)] bg-[var(--color-muted)] p-4 text-center">
           <p className="text-xs text-zinc-500">입금 계좌</p>
-          <p className="mt-1 font-serif text-base font-semibold text-zinc-900">
+          <p className="mt-1 font-sans text-base font-semibold text-zinc-900">
             {BANK_ACCOUNT}
           </p>
         </div>

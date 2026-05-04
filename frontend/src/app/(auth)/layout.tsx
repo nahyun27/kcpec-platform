@@ -9,7 +9,7 @@ export default function AuthLayout({
     <div className="flex flex-1 flex-col items-center justify-center bg-[var(--color-muted)] px-4 py-12">
       <Link
         href="/"
-        className="mb-8 font-serif text-2xl font-bold text-[var(--color-primary)]"
+        className="mb-8 font-sans text-2xl font-bold text-[var(--color-primary)]"
       >
         한국범죄예방교육센터
       </Link>

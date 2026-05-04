@@ -91,7 +91,7 @@ export default function CourseDetailPage({
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center font-serif text-3xl text-zinc-400">
+            <div className="flex h-full w-full items-center justify-center font-sans text-3xl text-zinc-400">
               KCPEC
             </div>
           )}
@@ -101,7 +101,7 @@ export default function CourseDetailPage({
           <span className="inline-block rounded bg-[var(--color-accent)]/10 px-2.5 py-0.5 text-xs font-semibold text-[var(--color-accent)]">
             {course.category}
           </span>
-          <h1 className="font-serif text-3xl font-bold text-[var(--color-primary)]">
+          <h1 className="font-sans text-3xl font-bold text-[var(--color-primary)]">
             {course.title}
           </h1>
           {course.description ? (
@@ -128,14 +128,14 @@ export default function CourseDetailPage({
       </div>
 
       <section className="mt-8 space-y-3">
-        <h2 className="font-serif text-xl font-bold text-[var(--color-primary)]">
+        <h2 className="font-sans text-xl font-bold text-[var(--color-primary)]">
           커리큘럼
         </h2>
         <ol className="divide-y divide-[var(--color-border)] overflow-hidden rounded-lg border border-[var(--color-border)] bg-white">
           {course.lectures.map((lec, idx) => (
             <li key={lec.id} className="flex items-center justify-between gap-4 px-5 py-4">
               <div className="flex items-center gap-4">
-                <span className="font-serif text-lg text-[var(--color-accent)]">
+                <span className="font-sans text-lg text-[var(--color-accent)]">
                   {String(idx + 1).padStart(2, "0")}
                 </span>
                 <span className="text-sm font-medium text-zinc-900">{lec.title}</span>

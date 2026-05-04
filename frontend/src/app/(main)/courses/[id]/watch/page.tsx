@@ -209,7 +209,7 @@ export default function WatchPage({
 
           <div className="rounded-lg border border-[var(--color-border)] bg-white p-4">
             <div className="mb-2 flex items-baseline justify-between">
-              <h2 className="font-serif text-lg font-bold text-[var(--color-primary)]">
+              <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">
                 전체 진도율
               </h2>
               <span className="text-sm font-semibold text-[var(--color-primary)]">
@@ -240,7 +240,7 @@ export default function WatchPage({
         </div>
 
         <aside className="rounded-lg border border-[var(--color-border)] bg-white">
-          <h3 className="border-b border-[var(--color-border)] px-4 py-3 font-serif text-base font-bold text-[var(--color-primary)]">
+          <h3 className="border-b border-[var(--color-border)] px-4 py-3 font-sans text-base font-bold text-[var(--color-primary)]">
             커리큘럼
           </h3>
           <ol className="divide-y divide-[var(--color-border)]">

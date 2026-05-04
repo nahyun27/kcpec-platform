@@ -50,7 +50,7 @@ export default function CheckoutSuccessPage() {
       <div className="rounded-lg border border-[var(--color-border)] bg-white p-8 text-center shadow-sm">
         {error ? (
           <>
-            <p className="font-serif text-2xl font-bold text-red-600">결제 승인 실패</p>
+            <p className="font-sans text-2xl font-bold text-red-600">결제 승인 실패</p>
             <p className="mt-3 text-sm text-zinc-600">{error}</p>
             <Link
               href="/courses"
@@ -63,7 +63,7 @@ export default function CheckoutSuccessPage() {
           <p className="text-sm text-zinc-500">결제 승인 처리 중...</p>
         ) : (
           <>
-            <p className="font-serif text-2xl font-bold text-[var(--color-primary)]">
+            <p className="font-sans text-2xl font-bold text-[var(--color-primary)]">
               결제가 완료되었습니다
             </p>
             <p className="mt-3 text-sm text-zinc-600">

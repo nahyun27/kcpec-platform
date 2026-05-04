@@ -33,7 +33,7 @@ export default function CoursesListPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <div className="mb-8 space-y-2">
-        <h1 className="font-serif text-3xl font-bold text-[var(--color-primary)]">
+        <h1 className="font-sans text-3xl font-bold text-[var(--color-primary)]">
           교육 강의
         </h1>
         <p className="text-sm text-zinc-600">
@@ -114,7 +114,7 @@ function CourseCard({ course }: { course: CourseListItem }) {
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center font-serif text-2xl text-zinc-400">
+          <div className="flex h-full w-full items-center justify-center font-sans text-2xl text-zinc-400">
             KCPEC
           </div>
         )}
@@ -126,7 +126,7 @@ function CourseCard({ course }: { course: CourseListItem }) {
         <span className="text-xs font-medium text-[var(--color-accent)]">
           {course.category}
         </span>
-        <h2 className="font-serif text-lg font-semibold text-zinc-900 group-hover:text-[var(--color-primary)]">
+        <h2 className="font-sans text-lg font-semibold text-zinc-900 group-hover:text-[var(--color-primary)]">
           {course.title}
         </h2>
         <div className="mt-auto flex items-center justify-between text-sm">

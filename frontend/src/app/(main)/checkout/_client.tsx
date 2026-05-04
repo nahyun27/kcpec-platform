@@ -166,7 +166,7 @@ export default function CheckoutPage() {
 
       <header className="mb-8 space-y-2">
         <p className="text-xs font-medium text-[var(--color-accent)]">{course.category}</p>
-        <h1 className="font-serif text-2xl font-bold text-[var(--color-primary)]">
+        <h1 className="font-sans text-2xl font-bold text-[var(--color-primary)]">
           {course.title} · 수료증 발급
         </h1>
         <p className="text-sm text-zinc-600">
@@ -175,7 +175,7 @@ export default function CheckoutPage() {
       </header>
 
       <section className="mb-8">
-        <h2 className="mb-3 font-serif text-lg font-semibold text-[var(--color-primary)]">
+        <h2 className="mb-3 font-sans text-lg font-semibold text-[var(--color-primary)]">
           1. 패키지 선택
         </h2>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -193,7 +193,7 @@ export default function CheckoutPage() {
                 }`}
               >
                 <div className="flex items-baseline justify-between">
-                  <span className="font-serif text-lg font-bold text-[var(--color-primary)]">
+                  <span className="font-sans text-lg font-bold text-[var(--color-primary)]">
                     {pkg.name}
                   </span>
                   <span className="text-sm font-semibold text-zinc-900">
@@ -215,7 +215,7 @@ export default function CheckoutPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-3 font-serif text-lg font-semibold text-[var(--color-primary)]">
+        <h2 className="mb-3 font-sans text-lg font-semibold text-[var(--color-primary)]">
           2. 결제 수단
         </h2>
         <div className="space-y-2">
@@ -245,7 +245,7 @@ export default function CheckoutPage() {
       <div className="rounded-lg border border-[var(--color-border)] bg-white p-6">
         <div className="mb-4 flex items-baseline justify-between">
           <span className="text-sm text-zinc-600">총 결제 금액</span>
-          <span className="font-serif text-2xl font-bold text-[var(--color-primary)]">
+          <span className="font-sans text-2xl font-bold text-[var(--color-primary)]">
             {amount.toLocaleString()}원
           </span>
         </div>

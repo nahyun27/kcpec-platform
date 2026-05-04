@@ -87,7 +87,7 @@ export default function QuizPage({
       <div className="mx-auto max-w-xl px-4 py-12">
         <div className="rounded-lg border border-[var(--color-border)] bg-white p-8 text-center shadow-sm">
           <p
-            className={`font-serif text-3xl font-bold ${
+            className={`font-sans text-3xl font-bold ${
               result.is_passed ? "text-[var(--color-primary)]" : "text-red-600"
             }`}
           >
@@ -149,7 +149,7 @@ export default function QuizPage({
       </div>
 
       <div className="rounded-lg border border-[var(--color-border)] bg-white p-6 shadow-sm">
-        <h2 className="font-serif text-xl font-semibold leading-relaxed text-zinc-900">
+        <h2 className="font-sans text-xl font-semibold leading-relaxed text-zinc-900">
           {question.question_text}
         </h2>
 

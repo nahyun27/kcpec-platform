@@ -11,7 +11,7 @@ export default function MainLayout({
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <Link
             href="/"
-            className="font-serif text-xl font-bold text-[var(--color-primary)]"
+            className="font-sans text-xl font-bold text-[var(--color-primary)]"
           >
             한국범죄예방교육센터
           </Link>
