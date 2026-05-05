@@ -2,9 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { use, useEffect, useMemo, useRef, useState } from "react";
+import {
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { isAxiosError } from "axios";
-import { Maximize, Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { RefreshCw } from "lucide-react";
+import Plyr from "plyr";
+import "plyr/dist/plyr.css";
 import {
   enrollCourse,
   getCourseDetail,
@@ -16,16 +26,18 @@ import type {
   CourseDetail,
   EnrollmentStatus,
   LectureItem,
-  LectureProgressItem,
 } from "@/types/course";
 
 const PROGRESS_INTERVAL_MS = 10_000;
-
-const PLAYBACK_RATES = [0.5, 1, 1.25, 1.5, 2] as const;
-type PlaybackRate = (typeof PLAYBACK_RATES)[number];
-
-// 앞으로 건너뛰기 허용 오차 (초). 0.5 미만의 작은 차이는 자연 재생/시크 노이즈로 간주.
+// 앞으로 건너뛰기 허용 오차 (초). 자연 재생/시크 노이즈는 무시.
 const SEEK_TOLERANCE_SEC = 0.5;
+// 한 번의 timeupdate 에서 누적할 최대 delta (초). 이 이상은 시크/점프로 간주.
+const MAX_TIMEUPDATE_DELTA_SEC = 1.5;
+
+const PLAYER_THEME: CSSProperties = {
+  // Plyr 메인 색상 (시청 완료 구간 등)
+  ["--plyr-color-main" as string]: "#1C3461",
+};
 
 export default function WatchPage({
   params,
@@ -42,28 +54,18 @@ export default function WatchPage({
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // ---- 커스텀 플레이어 상태 -------------------------------------------------
-  const [playbackRate, setPlaybackRate] = useState<PlaybackRate>(1);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [maxWatched, setMaxWatched] = useState(0);
+  // 실시간 누적 시청 시간 (초). 서버 watched_seconds 로 초기화 후 timeupdate 마다 증가.
+  const [liveWatched, setLiveWatched] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const progressBarRef = useRef<HTMLDivElement | null>(null);
-  const watchedSecondsRef = useRef(0);
+  const playerRef = useRef<Plyr | null>(null);
   const savedProgressRef = useRef<EnrollmentStatus["lecture_progresses"]>([]);
-
-  // 사용자가 자연 재생으로 시청한 최대 위치. seek 시도가 이 값을 초과하면 되감김.
+  const liveWatchedRef = useRef(0);
   const maxWatchedRef = useRef(0);
-  // 우리가 programmatic 으로 currentTime 을 변경할 때 onSeeked 가 또 잡지 않도록.
-  const programmaticSeekRef = useRef(false);
-  // 사용자 드래그 중 timeupdate 가 max 를 오염시키지 않도록.
-  const userSeekingRef = useRef(false);
+  const lastTimeRef = useRef(0);
 
-  // 1) Initial load: course + ensure enrollment + first incomplete lecture.
+  // 1) 강의 + 수강 상태 초기 로드
   useEffect(() => {
     let cancelled = false;
     async function init() {
@@ -105,19 +107,19 @@ export default function WatchPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId]);
 
-  // 2) On active lecture change: seed counters + max watched + fetch URL.
+  // 2) 활성 강의가 바뀌면 카운터 초기화 + 스트림 URL 발급
   useEffect(() => {
     if (activeLectureId == null) return;
     let cancelled = false;
     setStreamUrl(null);
-    setCurrentTime(0);
-    setDuration(0);
-    setIsPlaying(false);
+
     const saved = savedProgressRef.current.find((p) => p.lecture_id === activeLectureId);
-    watchedSecondsRef.current = saved?.watched_seconds ?? 0;
+    const initialWatched = saved?.watched_seconds ?? 0;
     const initialMax = saved?.last_position_sec ?? 0;
+    liveWatchedRef.current = initialWatched;
+    setLiveWatched(initialWatched);
     maxWatchedRef.current = initialMax;
-    setMaxWatched(initialMax);
+    lastTimeRef.current = initialMax;
 
     getStreamUrl(activeLectureId)
       .then((res) => {
@@ -132,166 +134,150 @@ export default function WatchPage({
     };
   }, [activeLectureId]);
 
-  // 3) Heartbeat: every 10s push progress, also bump max watched.
+  // 3) Plyr 초기화/해제
+  useEffect(() => {
+    if (!streamUrl || activeLectureId == null) return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    const player = new Plyr(video, {
+      speed: { selected: 1, options: [0.5, 1, 1.25, 1.5, 2] },
+      controls: [
+        "play",
+        "progress",
+        "current-time",
+        "mute",
+        "volume",
+        "speed",
+        "fullscreen",
+      ],
+    });
+    playerRef.current = player;
+
+    let isProgrammaticSeek = false;
+
+    function onLoadedMetadata() {
+      const saved = savedProgressRef.current.find(
+        (p) => p.lecture_id === activeLectureId,
+      );
+      if (
+        saved &&
+        saved.last_position_sec > 0 &&
+        saved.last_position_sec < player.duration
+      ) {
+        isProgrammaticSeek = true;
+        player.currentTime = saved.last_position_sec;
+        lastTimeRef.current = saved.last_position_sec;
+      }
+    }
+
+    function onTimeUpdate() {
+      const t = player.currentTime;
+      const delta = t - lastTimeRef.current;
+      // 자연 재생인 경우만 누적 (시크 점프/되감기 무시)
+      if (
+        delta > 0 &&
+        delta < MAX_TIMEUPDATE_DELTA_SEC &&
+        player.playing &&
+        !player.seeking
+      ) {
+        liveWatchedRef.current += delta;
+        setLiveWatched(liveWatchedRef.current);
+        if (t > maxWatchedRef.current) maxWatchedRef.current = t;
+      }
+      lastTimeRef.current = t;
+    }
+
+    function onSeeking() {
+      if (isProgrammaticSeek) {
+        isProgrammaticSeek = false;
+        return;
+      }
+      if (player.currentTime > maxWatchedRef.current + SEEK_TOLERANCE_SEC) {
+        console.log(
+          `[건너뛰기 방지] requested=${player.currentTime.toFixed(1)}s → snap=${maxWatchedRef.current.toFixed(1)}s`,
+        );
+        isProgrammaticSeek = true;
+        player.currentTime = maxWatchedRef.current;
+      }
+    }
+
+    async function onEnded() {
+      if (activeLectureId == null) return;
+      maxWatchedRef.current = player.duration;
+      try {
+        const next = await updateLectureProgress(activeLectureId, {
+          watched_seconds: Math.floor(liveWatchedRef.current),
+          last_position_sec: Math.floor(player.duration),
+          is_completed: true,
+        });
+        setStatus(next);
+        savedProgressRef.current = next.lecture_progresses;
+        console.log(`[진도] overall=${next.overall_progress_pct}% (강의 완료)`);
+      } catch (err) {
+        console.warn("[진도] 완료 PATCH 실패", err);
+      }
+    }
+
+    player.on("loadedmetadata", onLoadedMetadata);
+    player.on("timeupdate", onTimeUpdate);
+    player.on("seeking", onSeeking);
+    player.on("ended", onEnded);
+
+    return () => {
+      player.destroy();
+      playerRef.current = null;
+    };
+  }, [streamUrl, activeLectureId]);
+
+  // 4) 10초 인터벌 진도 PATCH
   useEffect(() => {
     if (activeLectureId == null) return;
     const lectureId = activeLectureId;
 
     const interval = setInterval(async () => {
-      const video = videoRef.current;
-      if (!video || video.paused || video.ended) return;
-      watchedSecondsRef.current += PROGRESS_INTERVAL_MS / 1000;
-      const lastPos = Math.floor(video.currentTime);
-      if (lastPos > maxWatchedRef.current) {
-        maxWatchedRef.current = lastPos;
-        setMaxWatched(lastPos);
-      }
-
-      console.log(
-        `[진도 업데이트] lecture=${lectureId} watched_seconds=${watchedSecondsRef.current}s last_position=${lastPos}s max=${maxWatchedRef.current}s`,
-      );
+      const player = playerRef.current;
+      if (!player || !player.playing) return;
       try {
         const next = await updateLectureProgress(lectureId, {
-          watched_seconds: watchedSecondsRef.current,
-          last_position_sec: lastPos,
+          watched_seconds: Math.floor(liveWatchedRef.current),
+          last_position_sec: Math.floor(player.currentTime),
           is_completed: false,
         });
         setStatus(next);
         savedProgressRef.current = next.lecture_progresses;
+        console.log(
+          `[진도] overall=${next.overall_progress_pct}% watched=${Math.floor(liveWatchedRef.current)}s`,
+        );
       } catch (err) {
-        console.warn("[진도 업데이트] 실패", err);
+        console.warn("[진도] 인터벌 PATCH 실패", err);
       }
     }, PROGRESS_INTERVAL_MS);
 
     return () => clearInterval(interval);
   }, [activeLectureId]);
 
-  // 4) On video metadata load, restore last saved position.
-  function handleLoadedMetadata() {
-    const video = videoRef.current;
-    if (!video || activeLectureId == null) return;
-    setDuration(video.duration);
-    video.playbackRate = playbackRate;
-    setIsMuted(video.muted);
-    const saved = savedProgressRef.current.find((p) => p.lecture_id === activeLectureId);
-    if (saved && saved.last_position_sec > 0 && saved.last_position_sec < video.duration) {
-      programmaticSeekRef.current = true;
-      video.currentTime = saved.last_position_sec;
-      setCurrentTime(saved.last_position_sec);
-    }
-  }
-
-  // 5) 자연 재생 중 max watched 트래킹. seek 동작 중엔 갱신 안 함.
-  function handleTimeUpdate() {
-    const video = videoRef.current;
-    if (!video) return;
-    setCurrentTime(video.currentTime);
-    if (userSeekingRef.current || video.seeking) return;
-    if (video.currentTime > maxWatchedRef.current) {
-      maxWatchedRef.current = video.currentTime;
-      setMaxWatched(video.currentTime);
-    }
-  }
-
-  function handleSeeking() {
-    userSeekingRef.current = true;
-  }
-
-  // 6) 사용자가 max 너머로 seek 하면 max 위치로 강제 복귀.
-  function handleSeeked() {
-    const video = videoRef.current;
-    userSeekingRef.current = false;
-    if (!video) return;
-    if (programmaticSeekRef.current) {
-      programmaticSeekRef.current = false;
-      return;
-    }
-    if (video.currentTime > maxWatchedRef.current + SEEK_TOLERANCE_SEC) {
-      console.log(
-        `[건너뛰기 방지] requested=${video.currentTime.toFixed(1)}s → snap=${maxWatchedRef.current.toFixed(1)}s`,
-      );
-      programmaticSeekRef.current = true;
-      video.currentTime = maxWatchedRef.current;
-    }
-  }
-
-  async function handleEnded() {
-    if (activeLectureId == null) return;
-    const video = videoRef.current;
-    if (video && video.duration) {
-      maxWatchedRef.current = video.duration;
-      setMaxWatched(video.duration);
-    }
-    setIsPlaying(false);
+  // 5) 새로고침: 서버 진도 재조회
+  const handleRefresh = useCallback(async () => {
+    if (refreshing || activeLectureId == null) return;
+    setRefreshing(true);
     try {
-      const next = await updateLectureProgress(activeLectureId, {
-        watched_seconds: watchedSecondsRef.current,
-        last_position_sec: video ? Math.floor(video.currentTime) : 0,
-        is_completed: true,
-      });
+      const next = await getCourseProgress(courseId);
       setStatus(next);
       savedProgressRef.current = next.lecture_progresses;
-    } catch {
-      /* swallow */
+      const saved = next.lecture_progresses.find((p) => p.lecture_id === activeLectureId);
+      if (saved) {
+        // 실시간 누적값과 서버값 중 큰 쪽 채택
+        const merged = Math.max(saved.watched_seconds, liveWatchedRef.current);
+        liveWatchedRef.current = merged;
+        setLiveWatched(merged);
+      }
+    } catch (err) {
+      console.warn("[진도] 새로고침 실패", err);
+    } finally {
+      setRefreshing(false);
     }
-  }
-
-  function handleRateChange(rate: PlaybackRate) {
-    setPlaybackRate(rate);
-    if (videoRef.current) videoRef.current.playbackRate = rate;
-  }
-
-  function togglePlay() {
-    const v = videoRef.current;
-    if (!v) return;
-    if (v.paused) v.play().catch(() => undefined);
-    else v.pause();
-  }
-
-  function toggleMute() {
-    const v = videoRef.current;
-    if (!v) return;
-    v.muted = !v.muted;
-    setIsMuted(v.muted);
-  }
-
-  function toggleFullscreen() {
-    const el = containerRef.current;
-    if (!el) return;
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => undefined);
-    } else {
-      el.requestFullscreen().catch(() => undefined);
-    }
-  }
-
-  // 프로그레스 바 클릭 → 시청 완료 구간만 이동 가능.
-  function pointerToTime(e: React.MouseEvent<HTMLDivElement>): number | null {
-    const bar = progressBarRef.current;
-    if (!bar || duration <= 0) return null;
-    const rect = bar.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const ratio = Math.max(0, Math.min(1, x / rect.width));
-    return ratio * duration;
-  }
-
-  function handleProgressClick(e: React.MouseEvent<HTMLDivElement>) {
-    const v = videoRef.current;
-    const target = pointerToTime(e);
-    if (!v || target == null) return;
-    if (target > maxWatchedRef.current + SEEK_TOLERANCE_SEC) return;
-    programmaticSeekRef.current = true;
-    v.currentTime = target;
-    setCurrentTime(target);
-  }
-
-  function handleProgressMouseMove(e: React.MouseEvent<HTMLDivElement>) {
-    const target = pointerToTime(e);
-    const bar = progressBarRef.current;
-    if (!bar || target == null) return;
-    bar.style.cursor =
-      target > maxWatchedRef.current + SEEK_TOLERANCE_SEC ? "not-allowed" : "pointer";
-  }
+  }, [courseId, activeLectureId, refreshing]);
 
   const completedIds = useMemo(
     () =>
@@ -301,14 +287,23 @@ export default function WatchPage({
     [status],
   );
 
-  const progressByLecture = useMemo(() => {
-    const m = new Map<number, LectureProgressItem>();
-    for (const p of status?.lecture_progresses ?? []) m.set(p.lecture_id, p);
-    return m;
-  }, [status]);
-
   const allLecturesDone =
-    course != null && course.lectures.length > 0 && course.lectures.every((l) => completedIds.has(l.id));
+    course != null &&
+    course.lectures.length > 0 &&
+    course.lectures.every((l) => completedIds.has(l.id));
+
+  const totalLectures = course?.lectures.length ?? 0;
+  const completedCount = course
+    ? course.lectures.filter((l) => completedIds.has(l.id)).length
+    : 0;
+  const sidebarOverallPct = totalLectures > 0 ? (completedCount / totalLectures) * 100 : 0;
+
+  const activeLecture = course?.lectures.find((l) => l.id === activeLectureId);
+  const activeIsCompleted =
+    activeLectureId != null && completedIds.has(activeLectureId);
+  const lectureDuration = activeLecture?.duration_seconds ?? 0;
+  const currentPct =
+    lectureDuration > 0 ? Math.min(100, (liveWatched / lectureDuration) * 100) : 0;
 
   if (error) {
     return <p className="py-20 text-center text-sm text-red-600">{error}</p>;
@@ -316,9 +311,6 @@ export default function WatchPage({
   if (!course || !status) {
     return <p className="py-20 text-center text-sm text-zinc-500">불러오는 중...</p>;
   }
-
-  const watchedPct = duration > 0 ? Math.min(100, (maxWatched / duration) * 100) : 0;
-  const playheadPct = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -332,8 +324,8 @@ export default function WatchPage({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
           <div
-            ref={containerRef}
-            className="relative aspect-video w-full overflow-hidden rounded-lg bg-black [&:fullscreen]:aspect-auto [&:fullscreen]:rounded-none"
+            className="aspect-video w-full overflow-hidden rounded-lg bg-black"
+            style={PLAYER_THEME}
           >
             {streamUrl ? (
               <video
@@ -341,14 +333,7 @@ export default function WatchPage({
                 ref={videoRef}
                 src={streamUrl}
                 className="h-full w-full"
-                onLoadedMetadata={handleLoadedMetadata}
-                onTimeUpdate={handleTimeUpdate}
-                onSeeking={handleSeeking}
-                onSeeked={handleSeeked}
-                onEnded={handleEnded}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-                onClick={togglePlay}
+                playsInline
               >
                 동영상을 재생할 수 없습니다.
               </video>
@@ -357,106 +342,57 @@ export default function WatchPage({
                 재생 URL 발급 중...
               </div>
             )}
-
-            {streamUrl ? (
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-3 pb-2 pt-10 sm:px-4">
-                {/* 커스텀 프로그레스 바 */}
-                <div
-                  ref={progressBarRef}
-                  onClick={handleProgressClick}
-                  onMouseMove={handleProgressMouseMove}
-                  className="pointer-events-auto group relative mb-2 h-1.5 w-full rounded-full bg-zinc-600/70 transition-[height] hover:h-2"
-                >
-                  <div
-                    className="absolute inset-y-0 left-0 rounded-full bg-[var(--color-primary)] transition-[width]"
-                    style={{ width: `${watchedPct}%` }}
-                  />
-                  <div
-                    className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-md ring-1 ring-black/20"
-                    style={{ left: `${playheadPct}%` }}
-                  />
-                </div>
-
-                {/* 컨트롤 버튼 행 */}
-                <div className="pointer-events-auto flex items-center gap-2 text-white sm:gap-3">
-                  <button
-                    type="button"
-                    onClick={togglePlay}
-                    aria-label={isPlaying ? "일시정지" : "재생"}
-                    className="rounded p-1 hover:bg-white/10"
-                  >
-                    {isPlaying ? (
-                      <Pause className="h-5 w-5" fill="currentColor" />
-                    ) : (
-                      <Play className="h-5 w-5" fill="currentColor" />
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={toggleMute}
-                    aria-label={isMuted ? "음소거 해제" : "음소거"}
-                    className="rounded p-1 hover:bg-white/10"
-                  >
-                    {isMuted ? (
-                      <VolumeX className="h-5 w-5" />
-                    ) : (
-                      <Volume2 className="h-5 w-5" />
-                    )}
-                  </button>
-
-                  <span className="text-xs tabular-nums text-white/90">
-                    {formatClock(currentTime)} / {formatClock(duration)}
-                  </span>
-
-                  <div className="ml-auto flex items-center gap-1">
-                    {PLAYBACK_RATES.map((r) => (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => handleRateChange(r)}
-                        className={`rounded px-1.5 py-0.5 text-[11px] font-semibold transition-colors ${
-                          playbackRate === r
-                            ? "bg-white text-[var(--color-primary)]"
-                            : "text-white/80 hover:bg-white/10"
-                        }`}
-                      >
-                        {r}x
-                      </button>
-                    ))}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={toggleFullscreen}
-                    aria-label="전체화면"
-                    className="rounded p-1 hover:bg-white/10"
-                  >
-                    <Maximize className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
-            ) : null}
           </div>
 
           <p className="text-xs text-zinc-500">
-            ⓘ 시청하지 않은 구간(회색)으로는 앞당겨 이동할 수 없습니다.
+            ⓘ 시청하지 않은 구간으로는 앞당겨 이동할 수 없습니다.
           </p>
 
+          {/* 현재 강의 진행률 */}
           <div className="rounded-lg border border-[var(--color-border)] bg-white p-4">
-            <div className="mb-2 flex items-baseline justify-between">
+            <div className="mb-3 flex items-baseline justify-between">
               <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">
-                전체 진도율
+                현재 강의 진행률
               </h2>
-              <span className="text-sm font-semibold text-[var(--color-primary)]">
-                {status.overall_progress_pct}%
-              </span>
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-zinc-500 hover:text-[var(--color-primary)] disabled:opacity-50"
+                aria-label="진도 새로고침"
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+                />
+                새로고침
+              </button>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200">
-              <div
-                className="h-full bg-[var(--color-accent)] transition-[width]"
-                style={{ width: `${status.overall_progress_pct}%` }}
-              />
+
+            <div className="space-y-2">
+              {activeIsCompleted ? (
+                <p className="text-sm font-semibold text-emerald-600">✓ 완료</p>
+              ) : (
+                <p className="text-sm text-slate-700">
+                  <span className="font-semibold text-[var(--color-primary)]">
+                    {formatDuration(liveWatched)}
+                  </span>
+                  {" ("}
+                  <span className="font-semibold">{currentPct.toFixed(1)}%</span>
+                  {") 진행 중"}
+                </p>
+              )}
+              <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200">
+                <div
+                  className={`h-full transition-[width] ${
+                    activeIsCompleted
+                      ? "bg-emerald-500"
+                      : "bg-[var(--color-accent)]"
+                  }`}
+                  style={{
+                    width: `${activeIsCompleted ? 100 : currentPct}%`,
+                  }}
+                />
+              </div>
             </div>
             <p className="mt-2 text-xs text-zinc-500">
               {course.min_progress_pct}% 이상 + 퀴즈 합격 시 수료 처리됩니다.
@@ -476,9 +412,23 @@ export default function WatchPage({
         </div>
 
         <aside className="rounded-lg border border-[var(--color-border)] bg-white">
-          <h3 className="border-b border-[var(--color-border)] px-4 py-3 font-sans text-base font-bold text-[var(--color-primary)]">
-            커리큘럼
-          </h3>
+          <div className="border-b border-[var(--color-border)] px-4 py-3">
+            <div className="mb-2 flex items-baseline justify-between">
+              <h3 className="font-sans text-sm font-bold text-[var(--color-primary)]">
+                커리큘럼 진도
+              </h3>
+              <span className="text-xs font-semibold text-[var(--color-primary)]">
+                {completedCount} / {totalLectures} 완료
+              </span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
+              <div
+                className="h-full bg-[var(--color-accent)] transition-[width]"
+                style={{ width: `${sidebarOverallPct}%` }}
+              />
+            </div>
+          </div>
+
           <ol className="divide-y divide-[var(--color-border)]">
             {course.lectures.map((lec, idx) => (
               <CurriculumRow
@@ -487,7 +437,6 @@ export default function WatchPage({
                 lecture={lec}
                 active={activeLectureId === lec.id}
                 completed={completedIds.has(lec.id)}
-                progress={progressByLecture.get(lec.id)}
                 onClick={() => setActiveLectureId(lec.id)}
               />
             ))}
@@ -503,14 +452,12 @@ function CurriculumRow({
   lecture,
   active,
   completed,
-  progress,
   onClick,
 }: {
   index: number;
   lecture: LectureItem;
   active: boolean;
   completed: boolean;
-  progress: LectureProgressItem | undefined;
   onClick: () => void;
 }) {
   return (
@@ -525,53 +472,27 @@ function CurriculumRow({
         <span
           className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
             completed
-              ? "bg-[var(--color-accent)] text-white"
+              ? "bg-emerald-500 text-white"
               : active
                 ? "bg-[var(--color-primary)] text-white"
                 : "bg-zinc-200 text-zinc-600"
           }`}
         >
-          {completed ? "✓" : index}
+          {completed ? "✓" : active ? "▶" : index}
         </span>
-        <span className="flex-1 space-y-0.5">
-          <span
-            className={`block text-sm ${
-              active ? "font-semibold text-[var(--color-primary)]" : "text-zinc-800"
-            }`}
-          >
-            {lecture.title}
-          </span>
-          <LectureProgressLine lecture={lecture} progress={progress} completed={completed} />
+        <span
+          className={`flex-1 text-sm ${
+            completed
+              ? "font-medium text-emerald-700"
+              : active
+                ? "font-semibold text-[var(--color-primary)]"
+                : "text-zinc-800"
+          }`}
+        >
+          {lecture.title}
         </span>
       </button>
     </li>
-  );
-}
-
-function LectureProgressLine({
-  lecture,
-  progress,
-  completed,
-}: {
-  lecture: LectureItem;
-  progress: LectureProgressItem | undefined;
-  completed: boolean;
-}) {
-  if (!progress || progress.watched_seconds <= 0) return null;
-  if (completed) {
-    return (
-      <span className="block text-[11px] font-semibold text-emerald-600">완료 ✓</span>
-    );
-  }
-  if (lecture.duration_seconds <= 0) return null;
-  const pct = Math.min(
-    100,
-    Math.round((progress.watched_seconds * 1000) / lecture.duration_seconds) / 10,
-  );
-  return (
-    <span className="block text-[11px] text-blue-600">
-      {formatDuration(progress.watched_seconds)} ({pct.toFixed(1)}%) 진행 중
-    </span>
   );
 }
 
@@ -581,12 +502,4 @@ function formatDuration(seconds: number): string {
   const s = total % 60;
   if (m === 0) return `${s}초`;
   return `${m}분 ${s.toString().padStart(2, "0")}초`;
-}
-
-function formatClock(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
-  const t = Math.floor(seconds);
-  const m = Math.floor(t / 60);
-  const s = t % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
 }
