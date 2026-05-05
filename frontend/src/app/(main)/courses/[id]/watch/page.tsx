@@ -76,6 +76,16 @@ export default function WatchPage({
   const liveWatchedRef = useRef(0);
   const maxWatchedRef = useRef(0);
   const lastTimeRef = useRef(0);
+  // Plyr 프로그레스 바 위에 얹는 "시청 완료 구간" 오버레이 (네이비 반투명)
+  const watchedOverlayRef = useRef<HTMLDivElement | null>(null);
+
+  function updateOverlayWidth() {
+    const el = watchedOverlayRef.current;
+    const player = playerRef.current;
+    if (!el || !player || !player.duration) return;
+    const pct = Math.min(100, (maxWatchedRef.current / player.duration) * 100);
+    el.style.width = `${pct}%`;
+  }
 
   useEffect(() => {
     courseRef.current = course;
@@ -179,6 +189,29 @@ export default function WatchPage({
       player = instance;
       playerRef.current = instance;
 
+      // .plyr__progress 컨테이너에 시청 완료 구간 오버레이 삽입
+      const wrapper = video.closest(".plyr");
+      const progressEl = wrapper?.querySelector<HTMLElement>(".plyr__progress");
+      if (progressEl) {
+        const overlay = document.createElement("div");
+        overlay.className = "kcpec-watched-overlay";
+        overlay.style.cssText = [
+          "position:absolute",
+          "left:0",
+          "top:50%",
+          "transform:translateY(-50%)",
+          "height:var(--plyr-range-track-height,5px)",
+          "width:0%",
+          "background:rgba(28,52,97,0.4)",
+          "border-radius:100px",
+          "pointer-events:none",
+          "z-index:1",
+          "transition:width 0.1s linear",
+        ].join(";");
+        progressEl.appendChild(overlay);
+        watchedOverlayRef.current = overlay;
+      }
+
       function onLoadedMetadata() {
         if (!instance) return;
         const saved = savedProgressRef.current.find((p) => p.lecture_id === lectureId);
@@ -191,6 +224,8 @@ export default function WatchPage({
           instance.currentTime = saved.last_position_sec;
           lastTimeRef.current = saved.last_position_sec;
         }
+        // duration 이 확정된 시점에 오버레이 초기 width 반영
+        updateOverlayWidth();
 
         // duration_seconds 가 비어 있으면 자동 감지값으로 백필 (어드민만 성공, 일반 사용자는 403 무시)
         const lecture = courseRef.current?.lectures.find((l) => l.id === lectureId);
@@ -234,7 +269,10 @@ export default function WatchPage({
         ) {
           liveWatchedRef.current += delta;
           setLiveWatched(liveWatchedRef.current);
-          if (t > maxWatchedRef.current) maxWatchedRef.current = t;
+          if (t > maxWatchedRef.current) {
+            maxWatchedRef.current = t;
+            updateOverlayWidth();
+          }
         }
         lastTimeRef.current = t;
       }
@@ -255,6 +293,7 @@ export default function WatchPage({
 
       async function onEnded() {
         maxWatchedRef.current = instance.duration;
+        updateOverlayWidth();
         try {
           const next = await updateLectureProgress(lectureId, {
             watched_seconds: Math.floor(liveWatchedRef.current),
@@ -279,6 +318,8 @@ export default function WatchPage({
       cancelled = true;
       player?.destroy();
       playerRef.current = null;
+      // Plyr.destroy() 가 wrapper 째 제거하므로 overlay 도 함께 사라짐
+      watchedOverlayRef.current = null;
     };
   }, [streamUrl, activeLectureId]);
 
