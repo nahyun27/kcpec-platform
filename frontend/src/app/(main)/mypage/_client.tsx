@@ -346,14 +346,23 @@ function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
             >
               수료증 결제
             </Link>
-          ) : (
-            <Link
-              href={`/courses/${enrollment.course_id}/quiz`}
-              className="flex items-center gap-1.5 rounded-full border border-[var(--color-accent)] bg-teal-50 px-4 py-2 text-sm font-bold text-[var(--color-accent)] transition-colors hover:bg-[var(--color-accent)] hover:text-white"
-            >
-              퀴즈 응시
-            </Link>
-          )}
+          ) : enrollment.has_quiz ? (
+            progressPct >= 100 ? (
+              <Link
+                href={`/courses/${enrollment.course_id}/quiz`}
+                className="flex items-center gap-1.5 rounded-full border border-[var(--color-accent)] bg-teal-50 px-4 py-2 text-sm font-bold text-[var(--color-accent)] transition-colors hover:bg-[var(--color-accent)] hover:text-white"
+              >
+                퀴즈 응시
+              </Link>
+            ) : (
+              <span
+                title="모든 강의를 완료해야 응시 가능합니다"
+                className="flex cursor-not-allowed items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-bold text-zinc-400"
+              >
+                퀴즈 응시
+              </span>
+            )
+          ) : null}
         </div>
       </div>
 

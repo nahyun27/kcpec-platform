@@ -28,6 +28,7 @@ class CourseDetail(CourseListItem):
     min_progress_pct: int
     quiz_pass_score: int
     lectures: list[LectureItem]
+    has_quiz: bool = False
 
 
 class StreamUrlResponse(BaseModel):

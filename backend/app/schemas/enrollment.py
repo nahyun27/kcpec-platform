@@ -35,3 +35,4 @@ class EnrollmentWithProgress(BaseModel):
     category: CourseCategory
     is_completed: bool
     overall_progress_pct: int
+    has_quiz: bool = False

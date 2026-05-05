@@ -35,6 +35,7 @@ export type CourseDetail = CourseListItem & {
   min_progress_pct: number;
   quiz_pass_score: number;
   lectures: LectureItem[];
+  has_quiz: boolean;
 };
 
 export type LectureProgressItem = {

@@ -33,6 +33,7 @@ export type EnrollmentWithProgress = {
   category: string;
   is_completed: boolean;
   overall_progress_pct: number;
+  has_quiz: boolean;
 };
 
 // 전문가 심리상담 독립 구매

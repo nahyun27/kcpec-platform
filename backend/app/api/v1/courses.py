@@ -130,6 +130,9 @@ def list_my_enrollments(
             .options(selectinload(Course.lectures))
         ).all()
     }
+    quiz_course_ids = set(
+        db.scalars(select(Quiz.course_id).where(Quiz.course_id.in_(course_ids))).all()
+    )
 
     out: list[EnrollmentWithProgress] = []
     for e in enrollments:
@@ -143,6 +146,7 @@ def list_my_enrollments(
                 category=course.category,
                 is_completed=e.is_completed,
                 overall_progress_pct=_calc_overall_progress(course, e.progresses),
+                has_quiz=course.id in quiz_course_ids,
             )
         )
     return out
@@ -151,6 +155,9 @@ def list_my_enrollments(
 @router.get("/courses/{course_id}", response_model=CourseDetail)
 def get_course(course_id: int, db: Session = Depends(get_db)) -> CourseDetail:
     course = _get_active_course(db, course_id)
+    has_quiz = (
+        db.scalar(select(func.count(Quiz.id)).where(Quiz.course_id == course_id)) or 0
+    ) > 0
     return CourseDetail(
         id=course.id,
         title=course.title,
@@ -164,6 +171,7 @@ def get_course(course_id: int, db: Session = Depends(get_db)) -> CourseDetail:
         lectures=[
             LectureItem.model_validate(lec) for lec in course.lectures if lec.is_active
         ],
+        has_quiz=has_quiz,
     )
 
 
