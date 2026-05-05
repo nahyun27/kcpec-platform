@@ -1,6 +1,7 @@
 import Link from "next/link";
 import ApplyButton from "./ApplyButton";
 import type { CounselingType } from "@/types/counseling";
+import { CheckCircle2 } from "lucide-react";
 
 export const metadata = {
   title: "전문가 심리상담 | KCPEC",
@@ -88,19 +89,18 @@ export default function CounselingPage() {
       </section>
 
       {/* 2) Intro */}
-      <section className="relative overflow-hidden bg-slate-50 py-24 sm:py-32">
-        <div className="relative z-10 mx-auto max-w-4xl px-6">
-          <div className="rounded-[2rem] border border-zinc-100 bg-white p-10 text-center shadow-2xl shadow-slate-200/50 sm:p-16">
-            <div className="mx-auto mb-10 h-1.5 w-16 rounded-full bg-[var(--color-accent)]"></div>
-            <div className="space-y-8 text-base leading-relaxed text-slate-700 sm:text-lg md:text-xl md:leading-loose">
+      <section className="relative overflow-hidden bg-slate-50 py-16 sm:py-24">
+        <div className="relative z-10 mx-auto max-w-3xl px-6">
+          <div className="rounded-[2rem] border border-zinc-100 bg-white p-8 text-center shadow-lg shadow-slate-200/50 sm:p-12">
+            <div className="mx-auto mb-8 h-1 w-12 rounded-full bg-[var(--color-accent)]"></div>
+            <div className="space-y-6 text-[15px] leading-relaxed text-slate-700 sm:text-base sm:leading-loose">
               <p>
                 심리상담은 내담자의 개인적인 경험을 토대로 <br className="hidden sm:inline" />
                 <strong className="font-bold text-slate-900">전문심리상담사가 내담자의 심리적 원인을 진단하고 치유</strong>하는 것을 목표로 합니다.
               </p>
               <p>
-                저희 센터의 상담 전문가들은 내담자와의 면담을 통해 내담자들이 범죄를
-                저지르게 된 심리적인 원인을 진단합니다.<br className="hidden md:inline" /> 그리고 이러한 심리적 원인을
-                치유함으로써 내담자들이 <strong className="font-bold text-[var(--color-primary)]">추후 재범을 하지 않도록 도움</strong>을 줍니다.
+                저희 센터의 상담 전문가들은 면담을 통해 내담자들이 범죄를 저지르게 된 심리적인 원인을 진단하고, <br className="hidden md:inline" />
+                이를 치유함으로써 <strong className="font-bold text-[var(--color-primary)]">추후 재범을 예방하도록</strong> 적극적으로 돕습니다.
               </p>
             </div>
           </div>
@@ -163,49 +163,62 @@ export default function CounselingPage() {
             {PROGRAMS.map((p) => (
               <article
                 key={p.name}
-                className={`flex flex-col overflow-hidden rounded-3xl bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
+                className={`group relative flex flex-col overflow-hidden rounded-3xl bg-white p-8 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl ${
                   p.highlight
-                    ? "ring-2 ring-[var(--color-primary)] shadow-[var(--color-primary)]/10"
-                    : "border border-zinc-100"
+                    ? "ring-2 ring-[var(--color-primary)] shadow-lg shadow-[var(--color-primary)]/10"
+                    : "border border-zinc-200 shadow-md hover:border-[var(--color-primary)]/30"
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <h3 className="font-sans text-xl font-bold text-[var(--color-primary)]">
+                {/* Subtle gradient background for highlight */}
+                {p.highlight && (
+                  <div className="absolute inset-0 bg-gradient-to-b from-teal-50/50 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                )}
+                
+                <div className="relative z-10 flex items-center justify-between">
+                  <h3 className="font-sans text-xl font-bold text-slate-900 group-hover:text-[var(--color-primary)] transition-colors">
                     {p.name}
                   </h3>
                   {p.highlight ? (
-                    <span className="rounded-full bg-[var(--color-accent)]/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-accent)]">
+                    <span className="inline-flex items-center rounded-full bg-[var(--color-accent)] px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-white shadow-sm">
                       추천
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-1 text-xs text-slate-500">구성</p>
-                <p className="text-sm font-semibold text-slate-800">
-                  {p.composition}
-                </p>
+                
+                <div className="relative z-10 mt-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-accent)]">구성</p>
+                  <p className="mt-1 text-[15px] font-medium text-slate-700">
+                    {p.composition}
+                  </p>
+                </div>
 
-                <div className="mt-6 space-y-2">
-                  <p className="text-xs text-slate-500">목적</p>
-                  <ul className="space-y-1.5 text-sm leading-relaxed text-slate-700">
+                <div className="relative z-10 mt-8 space-y-3 flex-1">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">목적</p>
+                  <ul className="space-y-2.5 text-[14px] leading-relaxed text-slate-600">
                     {p.goals.map((g) => (
-                      <li key={g} className="flex gap-2">
-                        <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[var(--color-accent)]" />
+                      <li key={g} className="flex items-start gap-2.5">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-accent)]" />
                         <span>{g}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
 
-                <div className="mt-6 border-t border-zinc-100 pt-4">
-                  <p className="text-xs text-slate-500">세션 및 진행방법</p>
-                  <ul className="mt-2 space-y-1 text-sm font-medium text-slate-800">
+                <div className="relative z-10 mt-8 rounded-2xl bg-slate-50 p-4">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">세션 및 진행방법</p>
+                  <ul className="mt-2 space-y-1.5 text-[13px] font-medium text-slate-700">
                     {p.session.map((s) => (
-                      <li key={s}>· {s}</li>
+                      <li key={s} className="flex items-center gap-1.5">
+                        <span className="h-1 w-1 rounded-full bg-slate-300" />
+                        {s}
+                      </li>
                     ))}
                   </ul>
                 </div>
 
-                <ApplyButton counselingType={p.type} price={p.price} />
+                <div className="relative z-10 mt-6">
+                  <ApplyButton counselingType={p.type} price={p.price} />
+                </div>
               </article>
             ))}
           </div>

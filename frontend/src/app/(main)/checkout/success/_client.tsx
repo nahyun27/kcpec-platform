@@ -70,21 +70,32 @@ export default function CheckoutSuccessPage() {
               주문번호 #{order.id} · {order.amount.toLocaleString()}원
             </p>
             <p className="mt-1 text-xs text-zinc-500">
-              이제 이수증을 발급받으실 수 있습니다.
+              {order.order_type === "counseling"
+                ? "설문을 작성하시면 전문가가 검토 후 의견서를 발송해드립니다."
+                : "이제 이수증을 발급받으실 수 있습니다."}
             </p>
 
             <div className="mt-8 flex flex-col gap-2">
+              {order.order_type === "counseling" ? (
+                <Link
+                  href={`/survey?counseling_order_id=${order.id}`}
+                  className="rounded bg-[var(--color-accent)] py-3 font-semibold text-white hover:bg-[var(--color-accent-hover)]"
+                >
+                  설문 작성하기
+                </Link>
+              ) : (
+                <Link
+                  href={`/issue?order_id=${order.id}`}
+                  className="rounded bg-[var(--color-accent)] py-3 font-semibold text-white hover:bg-[var(--color-accent-hover)]"
+                >
+                  이수증 발급하기
+                </Link>
+              )}
               <Link
-                href={`/issue?order_id=${order.id}`}
-                className="rounded bg-[var(--color-accent)] py-3 font-semibold text-white hover:bg-[var(--color-accent-hover)]"
-              >
-                이수증 발급하기
-              </Link>
-              <Link
-                href="/courses"
+                href={order.order_type === "counseling" ? "/mypage" : "/courses"}
                 className="rounded border border-[var(--color-border)] py-3 text-sm text-zinc-700 hover:border-[var(--color-primary)]"
               >
-                강의 목록으로
+                {order.order_type === "counseling" ? "마이페이지로" : "강의 목록으로"}
               </Link>
             </div>
           </>
