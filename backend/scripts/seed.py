@@ -52,8 +52,8 @@ PACKAGES: list[tuple[str, PackageTier, str, list[DocumentType]]] = [
     (
         "Standard",
         PackageTier.STANDARD,
-        "이수증 + 양형자료 가이드",
-        [DocumentType.CERTIFICATE, DocumentType.GUIDE],
+        "이수증 + 양형자료 가이드 + 심리상담 의견서",
+        [DocumentType.CERTIFICATE, DocumentType.GUIDE, DocumentType.COUNSELING],
     ),
     (
         "Premium",
@@ -323,15 +323,28 @@ def seed_courses() -> int:
 
 
 def seed_packages() -> int:
+    """Insert missing packages, and reconcile document_types if PACKAGES list changed."""
     inserted = 0
     with SessionLocal() as db:
         for name, tier, description, doc_types in PACKAGES:
-            if db.scalar(select(Package).where(Package.tier == tier)) is not None:
+            existing = db.scalar(select(Package).where(Package.tier == tier))
+            if existing is None:
+                pkg = Package(name=name, tier=tier, price=None, description=description)
+                pkg.documents = [PackageDocument(document_type=dt) for dt in doc_types]
+                db.add(pkg)
+                inserted += 1
                 continue
-            pkg = Package(name=name, tier=tier, price=None, description=description)
-            pkg.documents = [PackageDocument(document_type=dt) for dt in doc_types]
-            db.add(pkg)
-            inserted += 1
+            # 기존 패키지 — document_type set 이 PACKAGES 와 다르면 동기화.
+            current = {d.document_type for d in existing.documents}
+            desired = set(doc_types)
+            if current != desired:
+                for d in list(existing.documents):
+                    if d.document_type not in desired:
+                        db.delete(d)
+                for dt in desired - current:
+                    db.add(PackageDocument(package_id=existing.id, document_type=dt))
+                # 설명 문구도 함께 갱신.
+                existing.description = description
         db.commit()
     return inserted
 

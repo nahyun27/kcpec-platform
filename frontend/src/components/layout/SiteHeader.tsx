@@ -8,6 +8,7 @@ import { logout, tokenStorage } from "@/lib/api";
 
 const NAV = [
   { href: "/courses", label: "강의 목록" },
+  { href: "/counseling", label: "전문가 심리상담" },
   { href: "/community", label: "커뮤니티" },
   { href: "/guide", label: "이용 안내" },
   { href: "/faq", label: "자주 묻는 질문" },

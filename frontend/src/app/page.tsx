@@ -59,8 +59,8 @@ const PACKAGES = [
   },
   {
     tier: "Standard",
-    description: "이수증 + 양형자료 가이드",
-    items: ["이수증", "양형자료 가이드"],
+    description: "이수증 + 양형자료 가이드 + 심리상담 의견서",
+    items: ["이수증", "양형자료 가이드", "심리상담 의견서"],
     highlight: true,
   },
   {
@@ -92,6 +92,7 @@ export default function HomePage() {
       <CoursesSection courses={courses} />
       <StepsSection />
       <PackagesSection />
+      <SamplesSection />
       <FaqSection />
       <Footer />
     </div>
@@ -331,6 +332,49 @@ function PackagesSection() {
             </div>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------- 서류 예시 ------------------------------------------------------
+
+const SAMPLES = [
+  { src: "/images/sample-certificate.png", caption: "수료증 예시" },
+  { src: "/images/sample-counseling.png", caption: "심리상담 의견서 예시" },
+  { src: "/images/sample-pledge.png", caption: "서약서 예시" },
+];
+
+function SamplesSection() {
+  return (
+    <section id="samples" className="bg-[#F8F9FA] py-24">
+      <div className="mx-auto max-w-6xl px-6 text-center">
+        <h2 className="font-sans text-2xl font-extrabold leading-snug tracking-tight text-[var(--color-primary)] sm:text-3xl">
+          교육과 상담을 통해 변화된 자신을 발견하고
+          <br />
+          건전한 사회구성원으로 복귀할 수 있습니다.
+        </h2>
+        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
+          {SAMPLES.map((s) => (
+            <figure
+              key={s.src}
+              className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-transform hover:-translate-y-1"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={s.src}
+                alt={s.caption}
+                className="aspect-[3/4] w-full object-cover"
+              />
+              <figcaption className="border-t border-zinc-100 py-4 text-sm font-semibold text-slate-700">
+                {s.caption}
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+        <p className="mt-6 text-xs text-slate-500">
+          ※ 위 이미지는 샘플로, 실제 발급 양식과 다를 수 있습니다.
+        </p>
       </div>
     </section>
   );
