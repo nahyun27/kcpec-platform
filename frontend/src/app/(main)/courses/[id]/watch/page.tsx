@@ -362,9 +362,14 @@ export default function WatchPage({
 
     return () => {
       cancelled = true;
-      player?.destroy();
+      // Plyr.destroy() 는 video 가 React 에 의해 이미 unmount 된 상태에서 호출되면
+      // removeChild 충돌이 일어남. try/catch 로 묶어 안전하게 처리.
+      try {
+        player?.destroy();
+      } catch {
+        /* DOM 이 이미 제거된 케이스 — 무시 */
+      }
       playerRef.current = null;
-      // Plyr.destroy() 가 wrapper 째 제거하므로 overlay 도 함께 사라짐
       watchedOverlayRef.current = null;
     };
   }, [streamUrl, activeLectureId]);
@@ -426,6 +431,24 @@ export default function WatchPage({
     }
   }, [courseId, activeLectureId, refreshing]);
 
+  // 강의 전환 직전 호출 — 현재 lecture 의 누적 진도를 한 번 더 PATCH 해 저장 보장.
+  // 실패해도 전환은 계속 진행 (heartbeat 로 곧 재시도되거나, 다음 페이지에서 새로 로드됨).
+  const flushProgressNow = useCallback(async () => {
+    const player = playerRef.current;
+    if (player == null || activeLectureId == null) return;
+    const payload = {
+      watched_seconds: Math.floor(liveWatchedRef.current),
+      last_position_sec: Math.floor(player.currentTime),
+      is_completed: false,
+    };
+    try {
+      await updateLectureProgress(activeLectureId, payload);
+      console.log(`[PATCH 강의 전환] lecture=${activeLectureId}`, payload);
+    } catch (err) {
+      console.warn("[PATCH 강의 전환] 실패", err);
+    }
+  }, [activeLectureId]);
+
   const completedIds = useMemo(
     () =>
       new Set(
@@ -478,7 +501,7 @@ export default function WatchPage({
           >
             {streamUrl ? (
               <video
-                key={streamUrl}
+                key={activeLectureId ?? -1}
                 ref={videoRef}
                 src={streamUrl}
                 className="h-full w-full"
@@ -590,11 +613,14 @@ export default function WatchPage({
                   active={activeLectureId === lec.id}
                   completed={completedIds.has(lec.id)}
                   unlocked={unlocked}
-                  onClick={() => {
+                  onClick={async () => {
                     if (!unlocked) {
                       alert("이전 강의를 먼저 완료해주세요.");
                       return;
                     }
+                    if (lec.id === activeLectureId) return;
+                    // 전환 직전에 현재 강의 진도 한 번 더 저장
+                    await flushProgressNow();
                     setActiveLectureId(lec.id);
                   }}
                 />
