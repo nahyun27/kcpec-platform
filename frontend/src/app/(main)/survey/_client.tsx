@@ -56,8 +56,11 @@ const QUESTIONS: Question[] = [
 export default function SurveyClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const orderIdParam = searchParams.get("order_id");
+  // 패키지 주문(order_id) 또는 심리상담 독립 주문(counseling_order_id) 둘 다 허용.
+  const orderIdParam =
+    searchParams.get("order_id") ?? searchParams.get("counseling_order_id");
   const orderId = orderIdParam ? Number(orderIdParam) : NaN;
+  const isCounseling = searchParams.get("counseling_order_id") != null;
 
   const [answers, setAnswers] = useState<string[]>(() => QUESTIONS.map(() => ""));
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -71,7 +74,10 @@ export default function SurveyClient() {
       return;
     }
     if (!tokenStorage.getAccess()) {
-      router.replace(`/login?next=/survey?order_id=${orderId}`);
+      const next = isCounseling
+        ? `/survey?counseling_order_id=${orderId}`
+        : `/survey?order_id=${orderId}`;
+      router.replace(`/login?next=${encodeURIComponent(next)}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);

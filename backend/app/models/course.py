@@ -19,6 +19,8 @@ class CourseCategory(str, enum.Enum):
     PROPERTY_CRIME = "재산범죄"
     STALKING = "스토킹"
     SCHOOL_VIOLENCE = "학교폭력"
+    # 전문가 심리상담 프로그램(독립 구매) 도 Course 행으로 등록되며 이 카테고리를 사용.
+    COUNSELING = "심리상담"
 
 
 class Course(Base):
@@ -33,7 +35,8 @@ class Course(Base):
         index=True,
     )
     thumbnail_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    price: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # 심리상담 "별도 문의" 프로그램의 경우 None.
+    price: Mapped[int | None] = mapped_column(Integer, nullable=True, default=0)
     min_progress_pct: Mapped[int] = mapped_column(Integer, nullable=False, default=90)
     quiz_pass_score: Mapped[int] = mapped_column(Integer, nullable=False, default=70)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

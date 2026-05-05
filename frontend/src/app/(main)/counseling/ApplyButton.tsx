@@ -1,0 +1,81 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { isAxiosError } from "axios";
+import { purchaseCounseling, tokenStorage } from "@/lib/api";
+import type { CounselingType } from "@/types/counseling";
+
+export default function ApplyButton({
+  counselingType,
+  price,
+}: {
+  counselingType: CounselingType;
+  price: number | null;
+}) {
+  const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+
+  // basic 외 프로그램은 별도 문의 — tel 링크 버튼.
+  if (counselingType !== "basic" || price == null || price <= 0) {
+    return (
+      <a
+        href="tel:01063773325"
+        className="mt-6 inline-flex w-full items-center justify-center rounded-full border border-[var(--color-primary)] bg-white px-5 py-2.5 text-sm font-bold text-[var(--color-primary)] transition-colors hover:bg-[var(--color-primary)] hover:text-white"
+      >
+        상담 문의하기 (010-6377-3325)
+      </a>
+    );
+  }
+
+  async function handleApply() {
+    if (!tokenStorage.getAccess()) {
+      router.push("/login?next=/counseling");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const order = await purchaseCounseling("basic");
+      const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
+
+      if (!tossClientKey) {
+        // 시뮬레이션 모드 — 결제창 없이 바로 success 로 이동
+        router.push(
+          `/checkout/success?order_id=${order.order_id}&simulated=1&amount=${order.amount}&next=/mypage?tab=counseling`,
+        );
+        return;
+      }
+
+      // 실제 토스 결제창 (체크아웃 페이지와 동일 패턴)
+      const { loadTossPayments } = await import("@tosspayments/tosspayments-sdk");
+      const toss = await loadTossPayments(tossClientKey);
+      const widget = toss.payment({ customerKey: `user-counseling-${order.order_id}` });
+      await widget.requestPayment({
+        method: "CARD",
+        amount: { currency: "KRW", value: order.amount },
+        orderId: String(order.order_id),
+        orderName: "전문가 심리상담 - 기본 프로그램",
+        successUrl: `${window.location.origin}/checkout/success?next=/mypage?tab=counseling`,
+        failUrl: `${window.location.origin}/counseling`,
+        // 위 unknown 캐스트는 토스 SDK 의 discriminated union 회피용 (체크아웃 페이지와 동일)
+      } as never);
+    } catch (err) {
+      const detail = isAxiosError(err)
+        ? (err.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      alert(detail ?? "신청에 실패했습니다.");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleApply}
+      disabled={submitting}
+      className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+    >
+      {submitting ? "신청 처리 중..." : `${price.toLocaleString()}원 신청하기`}
+    </button>
+  );
+}

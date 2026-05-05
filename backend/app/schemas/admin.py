@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from app.models.counseling import CounselingStatus
 from app.models.course import CourseCategory
-from app.models.order import OrderStatus, PaymentMethod
+from app.models.order import OrderStatus, OrderType, PaymentMethod
 
 
 class AdminUser(BaseModel):
@@ -95,6 +95,7 @@ class AdminUsersResponse(BaseModel):
 class AdminSurveyRow(BaseModel):
     id: int
     order_id: int
+    order_type: OrderType
     username: str
     course_title: str
     status: CounselingStatus

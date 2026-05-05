@@ -34,3 +34,35 @@ export type EnrollmentWithProgress = {
   is_completed: boolean;
   overall_progress_pct: number;
 };
+
+// 전문가 심리상담 독립 구매
+export type CounselingType = "basic" | "phone" | "inperson";
+
+export const COUNSELING_PROGRAM_LABEL: Record<CounselingType, string> = {
+  basic: "기본 프로그램",
+  phone: "전화 심화상담",
+  inperson: "대면 심화상담",
+};
+
+export type CounselingPurchaseResponse = {
+  order_id: number;
+  course_id: number;
+  amount: number;
+  status: "pending" | "paid" | "cancelled" | "refunded";
+  payment_method: "card" | "kakaopay" | "naverpay" | "bank_transfer";
+  requires_payment: boolean;
+  counseling_type: CounselingType;
+};
+
+export type CounselingOrderItem = {
+  order_id: number;
+  counseling_type: CounselingType;
+  program_title: string;
+  amount: number;
+  status: "pending" | "paid" | "cancelled" | "refunded";
+  payment_method: "card" | "kakaopay" | "naverpay" | "bank_transfer";
+  created_at: string;
+  paid_at: string | null;
+  survey_status: CounselingStatus | null;
+  final_pdf_url: string | null;
+};

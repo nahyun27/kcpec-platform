@@ -48,6 +48,14 @@ COURSES: list[tuple[str, CourseCategory, int]] = [
     ("학교폭력 예방", CourseCategory.SCHOOL_VIOLENCE, 110_000),
 ]
 
+# 전문가 심리상담 — 강의가 아닌 상담 상품. /counseling 페이지에서 독립 구매.
+# price=None 은 "별도문의" 의미 (Course.price 가 nullable).
+COUNSELING_PROGRAMS: list[tuple[str, int | None]] = [
+    ("기본 프로그램", 143_000),
+    ("전화 심화상담", None),
+    ("대면 심화상담", None),
+]
+
 PACKAGES: list[tuple[str, PackageTier, str, list[DocumentType]]] = [
     (
         "Basic",
@@ -597,6 +605,35 @@ def create_test_flow() -> None:
         )
 
 
+def seed_counseling_programs() -> int:
+    """전문가 심리상담 프로그램 3종을 Course 테이블에 등록 (멱등)."""
+    inserted = 0
+    with SessionLocal() as db:
+        for title, price in COUNSELING_PROGRAMS:
+            existing = db.scalar(
+                select(Course).where(
+                    Course.category == CourseCategory.COUNSELING, Course.title == title
+                )
+            )
+            if existing is not None:
+                # 가격 변동에 대비해 동기화
+                if existing.price != price:
+                    existing.price = price
+                continue
+            db.add(
+                Course(
+                    title=title,
+                    description=f"{title} — 전문가 심리상담 프로그램",
+                    category=CourseCategory.COUNSELING,
+                    price=price,
+                    is_active=True,
+                )
+            )
+            inserted += 1
+        db.commit()
+    return inserted
+
+
 def main() -> None:
     import argparse
 
@@ -610,6 +647,7 @@ def main() -> None:
 
     print(f"강의 추가: {seed_courses()}개")
     print(f"패키지 추가: {seed_packages()}개")
+    print(f"심리상담 프로그램 추가: {seed_counseling_programs()}개")
     print(f"공지/자료실 추가: {seed_notices()}개")
     print(f"Q&A 추가: {seed_qna()}개")
     print(f"전문가 칼럼 추가: {seed_columns()}개")

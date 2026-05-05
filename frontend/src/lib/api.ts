@@ -20,6 +20,9 @@ import type {
   PaymentMethod,
 } from "@/types/order";
 import type {
+  CounselingOrderItem,
+  CounselingPurchaseResponse,
+  CounselingType,
   EnrollmentWithProgress,
   SurveyResponse,
   SurveyStatusResponse,
@@ -346,6 +349,23 @@ export async function submitSurvey(
 
 export async function getSurveyStatus(orderId: number): Promise<SurveyStatusResponse> {
   const { data } = await api.get<SurveyStatusResponse>(`/orders/${orderId}/survey`);
+  return data;
+}
+
+// ---------- counseling 독립 구매 ----------------------------------------------
+
+export async function purchaseCounseling(
+  counseling_type: CounselingType,
+): Promise<CounselingPurchaseResponse> {
+  const { data } = await api.post<CounselingPurchaseResponse>(
+    "/counseling/purchase",
+    { counseling_type },
+  );
+  return data;
+}
+
+export async function getMyCounselingOrders(): Promise<CounselingOrderItem[]> {
+  const { data } = await api.get<CounselingOrderItem[]>("/counseling/my-orders");
   return data;
 }
 

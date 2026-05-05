@@ -1,6 +1,6 @@
 import type { CourseCategory } from "@/types/course";
 import type { CounselingStatus } from "@/types/counseling";
-import type { OrderStatus, PaymentMethod } from "@/types/order";
+import type { OrderStatus, OrderType, PaymentMethod } from "@/types/order";
 
 export type AdminUser = {
   id: number;
@@ -76,6 +76,7 @@ export type PostPatch = {
 export type AdminSurveyRow = {
   id: number;
   order_id: number;
+  order_type: OrderType;
   username: string;
   course_title: string;
   status: CounselingStatus;

@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.order import OrderStatus, PaymentMethod
+from app.models.order import OrderStatus, OrderType, PaymentMethod
 
 
 class OrderCreate(BaseModel):
@@ -15,7 +15,8 @@ class OrderCreate(BaseModel):
 class OrderResponse(BaseModel):
     id: int
     course_id: int
-    package_id: int
+    package_id: int | None
+    order_type: OrderType
     status: OrderStatus
     amount: int
     payment_method: PaymentMethod

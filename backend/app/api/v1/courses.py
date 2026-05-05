@@ -99,6 +99,9 @@ def list_courses(
     stmt = select(Course).where(Course.is_active.is_(True)).order_by(Course.id.desc())
     if category is not None:
         stmt = stmt.where(Course.category == category)
+    else:
+        # 심리상담 프로그램은 강의가 아니라 상담 상품이므로 공개 강의 목록에서 제외.
+        stmt = stmt.where(Course.category != CourseCategory.COUNSELING)
     return list(db.scalars(stmt).all())
 
 

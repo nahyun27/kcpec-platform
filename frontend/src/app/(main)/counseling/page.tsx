@@ -1,4 +1,6 @@
 import Link from "next/link";
+import ApplyButton from "./ApplyButton";
+import type { CounselingType } from "@/types/counseling";
 
 export const metadata = {
   title: "전문가 심리상담 | KCPEC",
@@ -14,6 +16,8 @@ const CERTIFICATES = [
 
 const PROGRAMS: {
   name: string;
+  type: CounselingType;
+  price: number | null;
   composition: string;
   goals: string[];
   session: string[];
@@ -21,6 +25,8 @@ const PROGRAMS: {
 }[] = [
   {
     name: "기본 프로그램",
+    type: "basic",
+    price: 143_000,
     composition: "범죄심리상담",
     goals: [
       "내담자 개인 경험 분석을 통한 범죄심리 분석",
@@ -30,6 +36,8 @@ const PROGRAMS: {
   },
   {
     name: "전화 심화상담",
+    type: "phone",
+    price: null,
     composition: "범죄심리상담 + 정신분석상담",
     goals: [
       "'무의식의 의식화'를 통한 내담자의 완전한 자기객관화",
@@ -40,6 +48,8 @@ const PROGRAMS: {
   },
   {
     name: "대면 심화상담",
+    type: "inperson",
+    price: null,
     composition: "범죄심리상담 + 정신분석상담 + 합리적 정서행동치료",
     goals: [
       "내담자의 긍정적 변화를 위한 내면적 동기와 잠재력의 확인",
@@ -78,29 +88,27 @@ export default function CounselingPage() {
       </section>
 
       {/* 2) Intro */}
-      <section className="py-20">
-        <div className="mx-auto grid max-w-6xl gap-10 px-6 lg:grid-cols-[1fr_2fr] lg:gap-16">
-          <h2 className="font-sans text-3xl font-extrabold leading-tight text-[var(--color-primary)] sm:text-4xl">
-            전문가
-            <br />
-            심리상담
-          </h2>
-          <div className="space-y-5 text-base leading-relaxed text-slate-700 sm:text-lg">
-            <p>
-              심리상담은 내담자의 개인적인 경험을 토대로 전문심리상담사가 내담자의 심리적
-              원인을 진단하고 치유하는 것을 목표로 합니다.
-            </p>
-            <p>
-              저희 센터의 상담 전문가들은 내담자와의 면담을 통해 내담자들이 범죄를
-              저지르게 된 심리적인 원인을 진단합니다. 그리고 이러한 심리적 원인을
-              치유함으로써 내담자들이 추후 재범을 하지 않도록 도움을 줍니다.
-            </p>
+      <section className="relative overflow-hidden bg-slate-50 py-24 sm:py-32">
+        <div className="relative z-10 mx-auto max-w-4xl px-6">
+          <div className="rounded-[2rem] border border-zinc-100 bg-white p-10 text-center shadow-2xl shadow-slate-200/50 sm:p-16">
+            <div className="mx-auto mb-10 h-1.5 w-16 rounded-full bg-[var(--color-accent)]"></div>
+            <div className="space-y-8 text-base leading-relaxed text-slate-700 sm:text-lg md:text-xl md:leading-loose">
+              <p>
+                심리상담은 내담자의 개인적인 경험을 토대로 <br className="hidden sm:inline" />
+                <strong className="font-bold text-slate-900">전문심리상담사가 내담자의 심리적 원인을 진단하고 치유</strong>하는 것을 목표로 합니다.
+              </p>
+              <p>
+                저희 센터의 상담 전문가들은 내담자와의 면담을 통해 내담자들이 범죄를
+                저지르게 된 심리적인 원인을 진단합니다.<br className="hidden md:inline" /> 그리고 이러한 심리적 원인을
+                치유함으로써 내담자들이 <strong className="font-bold text-[var(--color-primary)]">추후 재범을 하지 않도록 도움</strong>을 줍니다.
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
       {/* 3) Certificates */}
-      <section className="bg-[#F8F9FA] py-20">
+      <section className="bg-white py-24 sm:py-32">
         <div className="mx-auto max-w-6xl px-6">
           <header className="mb-10 text-center">
             <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-accent)]">
@@ -140,7 +148,7 @@ export default function CounselingPage() {
       </section>
 
       {/* 4) Programs */}
-      <section className="py-20">
+      <section className="bg-slate-50 py-24 sm:py-32">
         <div className="mx-auto max-w-6xl px-6">
           <header className="mb-10 text-center">
             <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-accent)]">
@@ -155,10 +163,10 @@ export default function CounselingPage() {
             {PROGRAMS.map((p) => (
               <article
                 key={p.name}
-                className={`flex flex-col overflow-hidden rounded-2xl border-2 bg-white p-6 shadow-sm ${
+                className={`flex flex-col overflow-hidden rounded-3xl bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
                   p.highlight
-                    ? "border-[var(--color-primary)] shadow-md"
-                    : "border-zinc-200"
+                    ? "ring-2 ring-[var(--color-primary)] shadow-[var(--color-primary)]/10"
+                    : "border border-zinc-100"
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -196,6 +204,8 @@ export default function CounselingPage() {
                     ))}
                   </ul>
                 </div>
+
+                <ApplyButton counselingType={p.type} price={p.price} />
               </article>
             ))}
           </div>

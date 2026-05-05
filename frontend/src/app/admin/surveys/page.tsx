@@ -69,8 +69,9 @@ export default function AdminSurveysPage() {
             <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
               <tr>
                 <th className="px-4 py-3">설문</th>
+                <th className="px-4 py-3">유형</th>
                 <th className="px-4 py-3">사용자</th>
-                <th className="px-4 py-3">강의</th>
+                <th className="px-4 py-3">강의/프로그램</th>
                 <th className="px-4 py-3">제출일</th>
                 <th className="px-4 py-3">상태</th>
                 <th className="px-4 py-3">액션</th>
@@ -84,6 +85,17 @@ export default function AdminSurveysPage() {
                   className="cursor-pointer transition-colors hover:bg-slate-50"
                 >
                   <td className="px-4 py-3 text-xs text-zinc-500">#{r.id}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        r.order_type === "counseling"
+                          ? "bg-purple-100 text-purple-700"
+                          : "bg-blue-100 text-blue-700"
+                      }`}
+                    >
+                      {r.order_type === "counseling" ? "독립 구매" : "패키지 포함"}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">{r.username}</td>
                   <td className="px-4 py-3">{r.course_title}</td>
                   <td className="px-4 py-3 text-xs text-zinc-500">

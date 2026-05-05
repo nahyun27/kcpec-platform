@@ -107,7 +107,7 @@ export default function HomePage() {
 
 function Hero() {
   return (
-    <section className="relative flex items-center justify-center overflow-hidden bg-[var(--color-primary)] pb-24 pt-16 text-white sm:pb-32 sm:pt-20">
+    <section className="relative flex items-center justify-center overflow-hidden bg-[var(--color-primary)] pb-28 pt-20 text-white sm:pb-36 sm:pt-24">
       {/* Noise Texture Overlay */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.03]"
@@ -120,17 +120,17 @@ function Hero() {
       <div className="pointer-events-none absolute -right-[10%] bottom-0 h-[600px] w-[600px] rounded-full bg-blue-600 opacity-10 blur-[150px]"></div>
 
       <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center px-6 text-center">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-medium text-[var(--color-accent)] backdrop-blur-md">
+        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-medium text-[var(--color-accent)] backdrop-blur-md">
           <Star className="h-4 w-4" />
           <span>법원 및 수사기관 제출용 신뢰할 수 있는 교육</span>
         </div>
-        <h1 className="mb-4 font-sans text-5xl font-extrabold leading-[1.15] tracking-tight sm:text-6xl md:text-7xl">
+        <h1 className="mb-6 font-sans text-5xl font-extrabold leading-[1.15] tracking-tight sm:text-6xl md:text-7xl">
           재판 준비, <br className="md:hidden" />
           <span className="bg-gradient-to-r from-teal-200 via-white to-teal-100 bg-clip-text text-transparent">
             전문 교육으로 시작하세요
           </span>
         </h1>
-        <p className="mb-8 max-w-2xl text-lg leading-relaxed text-slate-300 sm:text-xl">
+        <p className="mb-10 max-w-2xl text-lg leading-relaxed text-slate-300 sm:text-xl">
           가장 확실한 양형 자료를 준비하세요. 법원이 인정하는 심리·준법 교육 수료증을
           무료로 수강하고 즉시 발급받을 수 있습니다.
         </p>
@@ -245,6 +245,8 @@ function CoursesSection({ courses }: { courses: CourseListItem[] }) {
 // ---------- 4-step guide ---------------------------------------------------
 
 function StepsSection() {
+  const stepIcons = [Search, PlayCircle, CreditCard, FileDown];
+
   return (
     <section id="guide" className="bg-white py-24">
       <div className="mx-auto max-w-7xl px-6">
@@ -257,51 +259,39 @@ function StepsSection() {
           </p>
         </div>
 
-        <div className="mb-24 grid grid-cols-1 gap-6 md:grid-cols-3">
-          <div className="flex flex-col items-start rounded-2xl bg-slate-900 p-8 text-white shadow-xl">
-            <div className="mb-6 inline-flex items-center rounded-full bg-white px-3.5 py-1 text-sm font-extrabold text-slate-900">
-              1단계
-            </div>
-            <UserPlus className="mb-4 h-8 w-8 text-[var(--color-accent)]" />
-            <h3 className="font-sans text-xl font-bold">회원가입 후 교육신청</h3>
-            <p className="mt-3 text-sm leading-relaxed text-slate-400">사건에 맞는 과정을 선택하고 교육 신청을 진행합니다.</p>
-          </div>
-          <div className="flex flex-col items-start rounded-2xl bg-slate-900 p-8 text-white shadow-xl">
-            <div className="mb-6 inline-flex items-center rounded-full bg-white px-3.5 py-1 text-sm font-extrabold text-slate-900">
-              2단계
-            </div>
-            <PlayCircle className="mb-4 h-8 w-8 text-[var(--color-accent)]" />
-            <h3 className="font-sans text-xl font-bold">수강 및 상담하기</h3>
-            <p className="mt-3 text-sm leading-relaxed text-slate-400">PC 또는 모바일에서 전 과정을 무료로 수강하실 수 있습니다.</p>
-          </div>
-          <div className="flex flex-col items-start rounded-2xl bg-slate-900 p-8 text-white shadow-xl">
-            <div className="mb-6 inline-flex items-center rounded-full bg-white px-3.5 py-1 text-sm font-extrabold text-slate-900">
-              3단계
-            </div>
-            <FileCheck className="mb-4 h-8 w-8 text-[var(--color-accent)]" />
-            <h3 className="font-sans text-xl font-bold">수료증 등 수령</h3>
-            <p className="mt-3 text-sm leading-relaxed text-slate-400">발급 패키지를 선택하면 즉시 수료증을 다운로드할 수 있습니다.</p>
-          </div>
-        </div>
-
         <div className="relative">
-          {/* Connecting Line */}
-          <div className="absolute left-[2.5rem] top-12 bottom-12 hidden w-0.5 bg-slate-100 lg:block"></div>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-4 md:gap-8">
+            {STEPS.map((s, idx) => {
+              const Icon = stepIcons[idx];
+              return (
+                <div key={s.n} className="group relative flex flex-col items-center rounded-2xl border border-zinc-100 bg-white p-8 text-center shadow-md transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/5">
+                  {/* 단계 번호 뱃지 */}
+                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-teal-50 text-lg font-bold text-[var(--color-accent)] ring-4 ring-white transition-colors group-hover:bg-teal-100">
+                    {s.n}
+                  </div>
+                  
+                  {/* 아이콘 */}
+                  <Icon className="mb-5 h-10 w-10 text-slate-300 transition-colors group-hover:text-[var(--color-accent)]" />
+                  
+                  {/* 제목 */}
+                  <h3 className="mb-3 font-sans text-xl font-bold text-slate-900 group-hover:text-[var(--color-primary)]">
+                    {s.title}
+                  </h3>
+                  
+                  {/* 설명 */}
+                  <p className="text-sm leading-relaxed text-slate-600">
+                    {s.desc}
+                  </p>
 
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-4 lg:gap-12">
-            {STEPS.map((s, idx) => (
-              <div key={s.n} className="relative flex flex-col items-start lg:items-center lg:text-center">
-                <div className="z-10 mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-slate-50 text-2xl font-extrabold text-[var(--color-accent)] shadow-inner ring-4 ring-white lg:h-24 lg:w-24 lg:text-3xl">
-                  {s.n}
+                  {/* 화살표 (마지막 카드 제외, 데스크톱에서만 보임) */}
+                  {idx < STEPS.length - 1 && (
+                    <div className="absolute -right-6 top-1/2 z-10 hidden -translate-y-1/2 md:block lg:-right-7">
+                      <ChevronRight className="h-10 w-10 text-slate-200" />
+                    </div>
+                  )}
                 </div>
-                <h3 className="mb-3 font-sans text-xl font-bold text-slate-900">
-                  {s.title}
-                </h3>
-                <p className="text-base text-slate-600 leading-relaxed max-w-[250px]">
-                  {s.desc}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

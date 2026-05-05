@@ -301,7 +301,7 @@ def confirm_bank_order(order_id: int, db: Session = Depends(get_db)) -> Order:
 @router.get("/surveys", response_model=list[AdminSurveyRow])
 def list_surveys(db: Session = Depends(get_db)) -> list[AdminSurveyRow]:
     rows = db.execute(
-        select(CounselingSurvey, User, Course)
+        select(CounselingSurvey, User, Course, Order.order_type)
         .join(Order, Order.id == CounselingSurvey.order_id)
         .join(User, User.id == CounselingSurvey.user_id)
         .join(Course, Course.id == Order.course_id)
@@ -312,6 +312,7 @@ def list_surveys(db: Session = Depends(get_db)) -> list[AdminSurveyRow]:
         AdminSurveyRow(
             id=s.id,
             order_id=s.order_id,
+            order_type=ot,
             username=u.username,
             course_title=c.title,
             status=s.status,
@@ -321,7 +322,7 @@ def list_surveys(db: Session = Depends(get_db)) -> list[AdminSurveyRow]:
             ai_draft_url=s.ai_draft_url,
             final_pdf_url=s.final_pdf_url,
         )
-        for (s, u, c) in rows
+        for (s, u, c, ot) in rows
     ]
 
 
@@ -333,9 +334,11 @@ def get_survey_detail(survey_id: int, db: Session = Depends(get_db)) -> AdminSur
     order = db.get(Order, survey.order_id)
     user = db.get(User, survey.user_id) if survey.user_id else None
     course = db.get(Course, order.course_id) if order else None
+    from app.models.order import OrderType as _OT
     return AdminSurveyDetail(
         id=survey.id,
         order_id=survey.order_id,
+        order_type=order.order_type if order else _OT.COURSE,
         username=user.username if user else "-",
         user_email=user.email if user else None,
         course_title=course.title if course else "-",
@@ -408,9 +411,11 @@ async def upload_final(
         )
 
     course = db.get(Course, order.course_id) if order else None
+    from app.models.order import OrderType as _OT
     return AdminSurveyRow(
         id=survey.id,
         order_id=survey.order_id,
+        order_type=order.order_type if order else _OT.COURSE,
         username=user.username if user else "-",
         course_title=course.title if course else "-",
         status=survey.status,

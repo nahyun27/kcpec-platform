@@ -34,11 +34,13 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
 };
 
 export type OrderStatus = "pending" | "paid" | "cancelled" | "refunded";
+export type OrderType = "course" | "counseling";
 
 export type OrderResponse = {
   id: number;
   course_id: number;
-  package_id: number;
+  package_id: number | null;
+  order_type: OrderType;
   status: OrderStatus;
   amount: number;
   payment_method: PaymentMethod;

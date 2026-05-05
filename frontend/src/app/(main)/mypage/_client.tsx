@@ -7,6 +7,7 @@ import { isAxiosError } from "axios";
 import {
   deleteMe,
   getMe,
+  getMyCounselingOrders,
   getMyEnrollments,
   getMyOrders,
   getOrderDocuments,
@@ -16,11 +17,13 @@ import {
   type UserResponse,
 } from "@/lib/api";
 import type {
+  CounselingOrderItem,
   CounselingStatus,
   EnrollmentWithProgress,
   SurveyStatusResponse,
 } from "@/types/counseling";
 import {
+  COUNSELING_PROGRAM_LABEL,
   COUNSELING_STATUS_LABEL,
 } from "@/types/counseling";
 import {
@@ -41,6 +44,7 @@ export default function MyPageClient() {
   const [me, setMe] = useState<UserResponse | null>(null);
   const [enrollments, setEnrollments] = useState<EnrollmentWithProgress[]>([]);
   const [orders, setOrders] = useState<OrderWithExtras[]>([]);
+  const [counselingOrders, setCounselingOrders] = useState<CounselingOrderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -60,19 +64,28 @@ export default function MyPageClient() {
     let cancelled = false;
     async function load() {
       try {
-        const [u, e, o] = await Promise.all([getMe(), getMyEnrollments(), getMyOrders()]);
+        const [u, e, o, co] = await Promise.all([
+          getMe(),
+          getMyEnrollments(),
+          getMyOrders(),
+          getMyCounselingOrders().catch(() => [] as CounselingOrderItem[]),
+        ]);
         if (cancelled) return;
         setMe(u);
         setEnrollments(e);
+        setCounselingOrders(co);
 
+        // 패키지 주문(course) 만 documents/survey enrich. 심리상담 독립 주문은 별도 섹션.
         const enriched = await Promise.all(
-          o.map(async (order) => {
-            const [docs, survey] = await Promise.all([
-              getOrderDocuments(order.id).catch(() => [] as DocumentResponse[]),
-              getSurveyStatus(order.id).catch(() => null),
-            ]);
-            return { ...order, documents: docs, survey };
-          }),
+          o
+            .filter((order) => order.order_type !== "counseling")
+            .map(async (order) => {
+              const [docs, survey] = await Promise.all([
+                getOrderDocuments(order.id).catch(() => [] as DocumentResponse[]),
+                getSurveyStatus(order.id).catch(() => null),
+              ]);
+              return { ...order, documents: docs, survey };
+            }),
         );
         if (!cancelled) setOrders(enriched);
       } catch (err) {
@@ -148,6 +161,24 @@ export default function MyPageClient() {
               <ul className="space-y-4">
                 {orders.map((o) => (
                   <OrderRow key={o.id} order={o} />
+                ))}
+              </ul>
+            )}
+          </Section>
+
+          <Section
+            icon={<FileText className="h-6 w-6 text-[var(--color-accent)]" />}
+            title="심리상담 내역"
+          >
+            {counselingOrders.length === 0 ? (
+              <EmptyState
+                text="심리상담 신청 내역이 없습니다."
+                cta={{ href: "/counseling", label: "심리상담 알아보기" }}
+              />
+            ) : (
+              <ul className="space-y-4">
+                {counselingOrders.map((co) => (
+                  <CounselingOrderCard key={co.order_id} order={co} />
                 ))}
               </ul>
             )}
@@ -467,6 +498,76 @@ function OrderStatusBadge({ status }: { status: OrderResponse["status"] }) {
     <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${className}`}>
       {label}
     </span>
+  );
+}
+
+function CounselingOrderCard({ order }: { order: CounselingOrderItem }) {
+  const programLabel = COUNSELING_PROGRAM_LABEL[order.counseling_type];
+  const isPaid = order.status === "paid";
+  const isCompleted = order.survey_status === "completed";
+  const surveySubmitted = order.survey_status != null;
+
+  return (
+    <li className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <p className="text-xs text-slate-500">상담 #{order.order_id}</p>
+          <p className="font-sans text-base font-semibold text-slate-900">
+            {programLabel}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            {new Date(order.created_at).toLocaleString("ko-KR")} ·{" "}
+            {order.amount > 0 ? `${order.amount.toLocaleString()}원` : "별도문의"}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+              isPaid
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-amber-100 text-amber-700"
+            }`}
+          >
+            {isPaid ? "결제완료" : "대기중"}
+          </span>
+          {surveySubmitted ? (
+            <span className="text-xs text-slate-500">
+              설문: {COUNSELING_STATUS_LABEL[order.survey_status as CounselingStatus]}
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {!surveySubmitted ? (
+          isPaid ? (
+            <Link
+              href={`/survey?counseling_order_id=${order.order_id}`}
+              className="rounded bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)]"
+            >
+              설문 작성하기
+            </Link>
+          ) : (
+            <span className="text-xs text-slate-500">
+              결제 완료 후 설문 작성이 가능합니다.
+            </span>
+          )
+        ) : isCompleted && order.final_pdf_url ? (
+          <a
+            href={order.final_pdf_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-accent-hover)]"
+          >
+            의견서 다운로드
+          </a>
+        ) : (
+          <span className="rounded bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
+            검토 중
+          </span>
+        )}
+      </div>
+    </li>
   );
 }
 
