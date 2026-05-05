@@ -446,20 +446,6 @@ export default function WatchPage({
                 />
               </div>
             </div>
-            <p className="mt-2 text-xs text-zinc-500">
-              {course.min_progress_pct}% 이상 + 퀴즈 합격 시 수료 처리됩니다.
-            </p>
-
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={() => router.push(`/courses/${courseId}/quiz`)}
-                disabled={!allLecturesDone}
-                className="rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {allLecturesDone ? "퀴즈 풀기" : "모든 강의 시청 후 응시 가능"}
-              </button>
-            </div>
           </div>
         </div>
 
@@ -479,6 +465,17 @@ export default function WatchPage({
                 style={{ width: `${sidebarOverallPct}%` }}
               />
             </div>
+            <p className="mt-2 text-[11px] text-zinc-500">
+              {course.min_progress_pct}% 이상 + 퀴즈 합격 시 수료 처리됩니다.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push(`/courses/${courseId}/quiz`)}
+              disabled={!allLecturesDone}
+              className="mt-3 w-full rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {allLecturesDone ? "퀴즈 풀기" : "모든 강의 시청 후 응시 가능"}
+            </button>
           </div>
 
           <ol className="divide-y divide-[var(--color-border)]">
