@@ -19,6 +19,7 @@ import {
   getCourseDetail,
   getCourseProgress,
   getStreamUrl,
+  patchAdminLecture,
   updateLectureProgress,
 } from "@/lib/api";
 import type {
@@ -71,9 +72,14 @@ export default function WatchPage({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playerRef = useRef<PlyrLike | null>(null);
   const savedProgressRef = useRef<EnrollmentStatus["lecture_progresses"]>([]);
+  const courseRef = useRef<CourseDetail | null>(null);
   const liveWatchedRef = useRef(0);
   const maxWatchedRef = useRef(0);
   const lastTimeRef = useRef(0);
+
+  useEffect(() => {
+    courseRef.current = course;
+  }, [course]);
 
   // 1) 강의 + 수강 상태 초기 로드
   useEffect(() => {
@@ -184,6 +190,36 @@ export default function WatchPage({
           isProgrammaticSeek = true;
           instance.currentTime = saved.last_position_sec;
           lastTimeRef.current = saved.last_position_sec;
+        }
+
+        // duration_seconds 가 비어 있으면 자동 감지값으로 백필 (어드민만 성공, 일반 사용자는 403 무시)
+        const lecture = courseRef.current?.lectures.find((l) => l.id === lectureId);
+        const detected = Math.round(instance.duration);
+        if (
+          lecture != null &&
+          (!lecture.duration_seconds || lecture.duration_seconds <= 0) &&
+          Number.isFinite(instance.duration) &&
+          detected > 0
+        ) {
+          patchAdminLecture(lectureId, { duration_seconds: detected })
+            .then(() => {
+              setCourse((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      lectures: prev.lectures.map((l) =>
+                        l.id === lectureId ? { ...l, duration_seconds: detected } : l,
+                      ),
+                    }
+                  : prev,
+              );
+              console.log(
+                `[duration] lecture=${lectureId} 자동 백필 → ${detected}s`,
+              );
+            })
+            .catch(() => {
+              /* 비어드민 사용자: 403 무시 */
+            });
         }
       }
 

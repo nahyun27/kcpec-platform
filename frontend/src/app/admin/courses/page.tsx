@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { isAxiosError } from "axios";
 import {
   addLecture,
@@ -513,6 +514,95 @@ function FormActions({
   );
 }
 
+// ---------- video duration auto-detect ------------------------------------
+
+type DetectionStatus = "idle" | "detecting" | "ok" | "fail";
+
+function useVideoDuration(initialDuration: number) {
+  const [status, setStatus] = useState<DetectionStatus>(
+    initialDuration > 0 ? "ok" : "idle",
+  );
+  const [duration, setDuration] = useState<number>(initialDuration);
+
+  function detect(rawUrl: string) {
+    const url = rawUrl.trim();
+    if (!url) {
+      setStatus("idle");
+      setDuration(0);
+      return;
+    }
+    setStatus("detecting");
+    const probe = document.createElement("video");
+    probe.preload = "metadata";
+    const cleanup = () => {
+      probe.onloadedmetadata = null;
+      probe.onerror = null;
+      probe.removeAttribute("src");
+      probe.load();
+    };
+    probe.onloadedmetadata = () => {
+      const d = probe.duration;
+      if (Number.isFinite(d) && d > 0) {
+        setDuration(Math.round(d));
+        setStatus("ok");
+      } else {
+        setStatus("fail");
+      }
+      cleanup();
+    };
+    probe.onerror = () => {
+      setStatus("fail");
+      cleanup();
+    };
+    probe.src = url;
+  }
+
+  function reset(newInitial: number) {
+    setStatus(newInitial > 0 ? "ok" : "idle");
+    setDuration(newInitial);
+  }
+
+  return { status, duration, detect, reset };
+}
+
+function DurationStatusLine({
+  status,
+  duration,
+}: {
+  status: DetectionStatus;
+  duration: number;
+}) {
+  if (status === "idle") {
+    return (
+      <p className="text-xs text-zinc-500">
+        URL 입력 후 다른 곳을 클릭하면 영상 길이를 자동 감지합니다.
+      </p>
+    );
+  }
+  if (status === "detecting") {
+    return (
+      <p className="inline-flex items-center gap-1 text-xs text-zinc-500">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        영상 길이 감지 중...
+      </p>
+    );
+  }
+  if (status === "ok") {
+    return (
+      <p className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        영상 길이: {formatDuration(duration)} 자동 감지됨
+      </p>
+    );
+  }
+  return (
+    <p className="inline-flex items-center gap-1 text-xs font-semibold text-red-600">
+      <AlertCircle className="h-3.5 w-3.5" />
+      영상 길이 감지 실패 (URL 확인 필요)
+    </p>
+  );
+}
+
 function NewCourseModal({
   onClose,
   onCreated,
@@ -702,13 +792,17 @@ function NewLectureModal({
   const [videoUrl, setVideoUrl] = useState(
     "http://localhost:8000/static/videos/sample_lecture.mp4",
   );
-  const [duration, setDuration] = useState(60);
+  const { status, duration, detect } = useVideoDuration(0);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setErr(null);
+    if (duration <= 0) {
+      setErr("영상 길이를 자동 감지하지 못했습니다. URL을 확인해 주세요.");
+      return;
+    }
     setSubmitting(true);
     try {
       await addLecture(course.id, {
@@ -745,32 +839,27 @@ function NewLectureModal({
           <input
             value={videoUrl}
             onChange={(e) => setVideoUrl(e.target.value)}
+            onBlur={(e) => detect(e.target.value)}
             placeholder="http://..."
             className={`${inputCls} font-mono text-xs`}
           />
+          <DurationStatusLine status={status} duration={duration} />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="순서">
-            <input
-              type="number"
-              min={0}
-              value={orderIndex}
-              onChange={(e) => setOrderIndex(Number(e.target.value))}
-              className={inputCls}
-            />
-          </Field>
-          <Field label="재생시간(초)">
-            <input
-              type="number"
-              min={0}
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-              className={inputCls}
-            />
-          </Field>
-        </div>
+        <Field label="순서">
+          <input
+            type="number"
+            min={0}
+            value={orderIndex}
+            onChange={(e) => setOrderIndex(Number(e.target.value))}
+            className={inputCls}
+          />
+        </Field>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
-        <FormActions onClose={onClose} submitting={submitting} submitLabel="추가" />
+        <FormActions
+          onClose={onClose}
+          submitting={submitting || status === "detecting"}
+          submitLabel="추가"
+        />
       </form>
     </ModalShell>
   );
@@ -788,7 +877,7 @@ function EditLectureModal({
   const [title, setTitle] = useState(lecture.title);
   const [orderIndex, setOrderIndex] = useState(lecture.order_index);
   const [videoUrl, setVideoUrl] = useState(lecture.video_url ?? "");
-  const [duration, setDuration] = useState(lecture.duration_seconds);
+  const { status, duration, detect } = useVideoDuration(lecture.duration_seconds);
   const [isActive, setIsActive] = useState(lecture.is_active);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -796,6 +885,10 @@ function EditLectureModal({
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setErr(null);
+    if (duration <= 0) {
+      setErr("영상 길이를 자동 감지하지 못했습니다. URL을 확인해 주세요.");
+      return;
+    }
     setSubmitting(true);
     try {
       await patchAdminLecture(lecture.id, {
@@ -833,29 +926,20 @@ function EditLectureModal({
           <input
             value={videoUrl}
             onChange={(e) => setVideoUrl(e.target.value)}
+            onBlur={(e) => detect(e.target.value)}
             className={`${inputCls} font-mono text-xs`}
           />
+          <DurationStatusLine status={status} duration={duration} />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="순서">
-            <input
-              type="number"
-              min={0}
-              value={orderIndex}
-              onChange={(e) => setOrderIndex(Number(e.target.value))}
-              className={inputCls}
-            />
-          </Field>
-          <Field label="재생시간(초)">
-            <input
-              type="number"
-              min={0}
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-              className={inputCls}
-            />
-          </Field>
-        </div>
+        <Field label="순서">
+          <input
+            type="number"
+            min={0}
+            value={orderIndex}
+            onChange={(e) => setOrderIndex(Number(e.target.value))}
+            className={inputCls}
+          />
+        </Field>
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -866,7 +950,10 @@ function EditLectureModal({
           영상 활성화
         </label>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
-        <FormActions onClose={onClose} submitting={submitting} />
+        <FormActions
+          onClose={onClose}
+          submitting={submitting || status === "detecting"}
+        />
       </form>
     </ModalShell>
   );
