@@ -67,6 +67,9 @@ export default function WatchPage({
 
   // 실시간 누적 시청 시간 (초). 서버 watched_seconds 로 초기화 후 timeupdate 마다 증가.
   const [liveWatched, setLiveWatched] = useState(0);
+  // Plyr 가 실제 영상에서 감지한 duration. DB 의 lecture.duration_seconds 가 0일 때
+  // 일반 사용자에게도 진행률 % 가 정상 표시되도록 분모로 사용.
+  const [playerDuration, setPlayerDuration] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -146,6 +149,7 @@ export default function WatchPage({
     setLiveWatched(initialWatched);
     maxWatchedRef.current = initialMax;
     lastTimeRef.current = initialMax;
+    setPlayerDuration(0);
 
     getStreamUrl(activeLectureId)
       .then((res) => {
@@ -214,6 +218,10 @@ export default function WatchPage({
 
       function onLoadedMetadata() {
         if (!instance) return;
+        // 실제 감지된 duration 을 UI 분모로 사용하기 위해 state 에 반영
+        if (Number.isFinite(instance.duration) && instance.duration > 0) {
+          setPlayerDuration(instance.duration);
+        }
         const saved = savedProgressRef.current.find((p) => p.lecture_id === lectureId);
         if (
           saved &&
@@ -288,17 +296,25 @@ export default function WatchPage({
       async function onEnded() {
         maxWatchedRef.current = instance.duration;
         updateOverlayWidth();
+        const payload = {
+          watched_seconds: Math.floor(liveWatchedRef.current),
+          last_position_sec: Math.floor(instance.duration),
+          is_completed: true,
+        };
+        console.log(`[PATCH 요청 / 완료] lecture=${lectureId}`, payload);
         try {
-          const next = await updateLectureProgress(lectureId, {
-            watched_seconds: Math.floor(liveWatchedRef.current),
-            last_position_sec: Math.floor(instance.duration),
-            is_completed: true,
-          });
+          const next = await updateLectureProgress(lectureId, payload);
           setStatus(next);
           savedProgressRef.current = next.lecture_progresses;
-          console.log(`[진도] overall=${next.overall_progress_pct}% (강의 완료)`);
+          console.log(
+            `[PATCH 성공 / 완료] lecture=${lectureId} overall=${next.overall_progress_pct}%`,
+          );
         } catch (err) {
-          console.warn("[진도] 완료 PATCH 실패", err);
+          const ax = isAxiosError(err) ? err : null;
+          console.error(
+            `[PATCH 실패 / 완료] lecture=${lectureId} status=${ax?.response?.status}`,
+            ax?.response?.data ?? err,
+          );
         }
       }
 
@@ -318,26 +334,34 @@ export default function WatchPage({
   }, [streamUrl, activeLectureId]);
 
   // 4) 10초 인터벌 진도 PATCH
+  //    - playerRef 만 있으면 무조건 PATCH (서버는 watched_seconds = max() 로 멱등 처리)
+  //    - 일시정지 상태에서도 같은 값을 보낼 수 있지만 사이드 이펙트 없음
   useEffect(() => {
     if (activeLectureId == null) return;
     const lectureId = activeLectureId;
 
     const interval = setInterval(async () => {
       const player = playerRef.current;
-      if (!player || !player.playing) return;
+      if (!player) return;
+      const payload = {
+        watched_seconds: Math.floor(liveWatchedRef.current),
+        last_position_sec: Math.floor(player.currentTime),
+        is_completed: false,
+      };
+      console.log(`[PATCH 요청] lecture=${lectureId}`, payload);
       try {
-        const next = await updateLectureProgress(lectureId, {
-          watched_seconds: Math.floor(liveWatchedRef.current),
-          last_position_sec: Math.floor(player.currentTime),
-          is_completed: false,
-        });
+        const next = await updateLectureProgress(lectureId, payload);
         setStatus(next);
         savedProgressRef.current = next.lecture_progresses;
         console.log(
-          `[진도] overall=${next.overall_progress_pct}% watched=${Math.floor(liveWatchedRef.current)}s`,
+          `[PATCH 성공] lecture=${lectureId} overall=${next.overall_progress_pct}%`,
         );
       } catch (err) {
-        console.warn("[진도] 인터벌 PATCH 실패", err);
+        const ax = isAxiosError(err) ? err : null;
+        console.error(
+          `[PATCH 실패] lecture=${lectureId} status=${ax?.response?.status}`,
+          ax?.response?.data ?? err,
+        );
       }
     }, PROGRESS_INTERVAL_MS);
 
@@ -388,9 +412,11 @@ export default function WatchPage({
   const activeLecture = course?.lectures.find((l) => l.id === activeLectureId);
   const activeIsCompleted =
     activeLectureId != null && completedIds.has(activeLectureId);
-  const lectureDuration = activeLecture?.duration_seconds ?? 0;
+  // Plyr 가 감지한 duration 우선, 없으면 DB 값(레거시 강의)
+  const effectiveDuration =
+    playerDuration > 0 ? playerDuration : activeLecture?.duration_seconds ?? 0;
   const currentPct =
-    lectureDuration > 0 ? Math.min(100, (liveWatched / lectureDuration) * 100) : 0;
+    effectiveDuration > 0 ? Math.min(100, (liveWatched / effectiveDuration) * 100) : 0;
 
   if (error) {
     return <p className="py-20 text-center text-sm text-red-600">{error}</p>;
