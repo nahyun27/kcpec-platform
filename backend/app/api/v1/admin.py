@@ -40,6 +40,8 @@ from app.schemas.admin import (
     CourseEnrollmentCount,
     CoursePatch,
     LectureCreate,
+    LectureFull,
+    LecturePatch,
     NoticePatch,
     OkResponse,
     PostPatch,
@@ -287,6 +289,57 @@ def add_lecture(
     db.commit()
     db.refresh(lecture)
     return lecture
+
+
+@router.get("/courses/{course_id}/lectures", response_model=list[LectureFull])
+def list_course_lectures(course_id: int, db: Session = Depends(get_db)) -> list[Lecture]:
+    course = db.get(Course, course_id)
+    if course is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="강의를 찾을 수 없습니다.")
+    return list(
+        db.scalars(
+            select(Lecture)
+            .where(Lecture.course_id == course_id)
+            .order_by(Lecture.order_index, Lecture.id)
+        ).all()
+    )
+
+
+@router.patch("/lectures/{lecture_id}", response_model=LectureFull)
+def patch_lecture(
+    lecture_id: int, payload: LecturePatch, db: Session = Depends(get_db)
+) -> Lecture:
+    lecture = db.get(Lecture, lecture_id)
+    if lecture is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="영상을 찾을 수 없습니다.")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(lecture, field, value)
+    db.commit()
+    db.refresh(lecture)
+    return lecture
+
+
+@router.delete("/lectures/{lecture_id}", response_model=OkResponse)
+def delete_lecture(lecture_id: int, db: Session = Depends(get_db)) -> OkResponse:
+    lecture = db.get(Lecture, lecture_id)
+    if lecture is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="영상을 찾을 수 없습니다.")
+    db.delete(lecture)
+    db.commit()
+    return OkResponse()
+
+
+@router.get("/courses", response_model=list[CourseListItem])
+def admin_list_courses(db: Session = Depends(get_db)) -> list[Course]:
+    """어드민 전용: 비활성 강의도 포함, 심리상담 카테고리는 제외."""
+    from app.models.course import CourseCategory as _CC
+    return list(
+        db.scalars(
+            select(Course)
+            .where(Course.category != _CC.COUNSELING)
+            .order_by(Course.id)
+        ).all()
+    )
 
 
 @router.post("/courses/{course_id}/quiz", response_model=OkResponse)

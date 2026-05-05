@@ -118,6 +118,34 @@ export type AdminLectureCreate = {
   duration_seconds: number;
 };
 
+export type AdminLectureFull = {
+  id: number;
+  title: string;
+  order_index: number;
+  video_url: string | null;
+  duration_seconds: number;
+  is_active: boolean;
+};
+
+export type AdminLecturePatch = {
+  title?: string;
+  order_index?: number;
+  video_url?: string | null;
+  duration_seconds?: number;
+  is_active?: boolean;
+};
+
+export type AdminCoursePatch = {
+  title?: string;
+  description?: string;
+  category?: string;
+  price?: number;
+  thumbnail_url?: string;
+  min_progress_pct?: number;
+  quiz_pass_score?: number;
+  is_active?: boolean;
+};
+
 export type AdminQuizQuestion = {
   question_text: string;
   options: { option_text: string; is_correct: boolean }[];

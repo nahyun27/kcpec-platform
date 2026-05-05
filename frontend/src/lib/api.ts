@@ -29,7 +29,10 @@ import type {
 } from "@/types/counseling";
 import type {
   AdminCourseCreate,
+  AdminCoursePatch,
   AdminLectureCreate,
+  AdminLectureFull,
+  AdminLecturePatch,
   AdminOrdersResponse,
   AdminQuizQuestion,
   AdminStats,
@@ -463,6 +466,48 @@ export async function getAdminUserEnrollments(
     `/admin/users/${userId}/enrollments`,
   );
   return data;
+}
+
+// ---------- 어드민 강의/영상 관리 -----------------------------------------------
+
+export async function getAdminCourses(): Promise<CourseListItem[]> {
+  const { data } = await api.get<CourseListItem[]>("/admin/courses");
+  return data;
+}
+
+export async function patchCourse(
+  courseId: number,
+  payload: AdminCoursePatch,
+): Promise<CourseListItem> {
+  const { data } = await api.patch<CourseListItem>(
+    `/admin/courses/${courseId}`,
+    payload,
+  );
+  return data;
+}
+
+export async function getAdminCourseLectures(
+  courseId: number,
+): Promise<AdminLectureFull[]> {
+  const { data } = await api.get<AdminLectureFull[]>(
+    `/admin/courses/${courseId}/lectures`,
+  );
+  return data;
+}
+
+export async function patchAdminLecture(
+  lectureId: number,
+  payload: AdminLecturePatch,
+): Promise<AdminLectureFull> {
+  const { data } = await api.patch<AdminLectureFull>(
+    `/admin/lectures/${lectureId}`,
+    payload,
+  );
+  return data;
+}
+
+export async function deleteAdminLecture(lectureId: number): Promise<void> {
+  await api.delete(`/admin/lectures/${lectureId}`);
 }
 
 export async function getAdminOrderDocuments(orderId: number): Promise<DocumentResponse[]> {

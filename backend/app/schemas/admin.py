@@ -51,6 +51,25 @@ class LectureCreate(BaseModel):
     duration_seconds: int = Field(ge=0, default=0)
 
 
+class LecturePatch(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    order_index: int | None = Field(default=None, ge=0)
+    video_url: str | None = None
+    duration_seconds: int | None = Field(default=None, ge=0)
+    is_active: bool | None = None
+
+
+class LectureFull(BaseModel):
+    id: int
+    title: str
+    order_index: int
+    video_url: str | None
+    duration_seconds: int
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class QuizOptionInput(BaseModel):
     option_text: str = Field(min_length=1, max_length=500)
     is_correct: bool = False
