@@ -204,6 +204,11 @@ export async function getMe(): Promise<UserResponse> {
   return data;
 }
 
+export async function deleteMe(password?: string): Promise<void> {
+  await api.delete("/auth/me", { data: { password: password ?? null } });
+  tokenStorage.clear();
+}
+
 export function logout(): void {
   tokenStorage.clear();
 }

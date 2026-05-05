@@ -25,6 +25,11 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class DeleteMeRequest(BaseModel):
+    # 일반 로그인 사용자만 비밀번호 재확인 필요. 소셜 로그인은 None 으로 보냄.
+    password: str | None = None
+
+
 class UserResponse(BaseModel):
     id: int
     username: str

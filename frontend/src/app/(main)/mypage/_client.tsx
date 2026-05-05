@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
 import {
+  deleteMe,
   getMe,
   getMyEnrollments,
   getMyOrders,
@@ -157,7 +158,11 @@ export default function MyPageClient() {
                     </div>
                     <div>
                       <p className="font-bold text-slate-900">{me.username}</p>
-                      <p className="text-xs text-slate-500">일반 회원</p>
+                      <p className="text-xs text-slate-500">
+                        {me.social_provider
+                          ? `${me.social_provider === "kakao" ? "카카오" : me.social_provider === "naver" ? "네이버" : me.social_provider} 회원`
+                          : "일반 회원"}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -168,6 +173,7 @@ export default function MyPageClient() {
                     value={new Date(me.created_at).toLocaleDateString("ko-KR")}
                   />
                 </dl>
+                <DeactivateRow isSocial={me.social_provider !== null} />
               </div>
             ) : null}
           </Section>
@@ -436,5 +442,103 @@ function Field({ label, value }: { label: string; value: string }) {
       <dt className="font-medium text-slate-500">{label}</dt>
       <dd className="font-semibold text-slate-900">{value}</dd>
     </div>
+  );
+}
+
+function DeactivateRow({ isSocial }: { isSocial: boolean }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleConfirm() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      await deleteMe(isSocial ? undefined : password);
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      const detail = isAxiosError(err)
+        ? (err.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      setError(detail ?? "탈퇴에 실패했습니다.");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="border-t border-zinc-100 px-6 py-3 text-right">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="text-xs font-medium text-red-600 underline-offset-4 hover:underline"
+        >
+          회원탈퇴
+        </button>
+      </div>
+      {open ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => !submitting && setOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="font-sans text-lg font-bold text-slate-900">
+              정말 탈퇴하시겠습니까?
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              탈퇴 시 수강 내역 및 발급 문서에 접근할 수 없습니다.
+              <br />
+              계정은 비활성화 처리되며, 동일 아이디로 재가입할 수 없습니다.
+            </p>
+
+            {!isSocial ? (
+              <div className="mt-5 space-y-1.5">
+                <label className="block text-sm font-medium text-slate-800">
+                  비밀번호 확인
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoFocus
+                  className="w-full rounded border border-zinc-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+                />
+              </div>
+            ) : null}
+
+            {error ? (
+              <p className="mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {error}
+              </p>
+            ) : null}
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                disabled={submitting}
+                className="rounded border border-zinc-300 px-4 py-2 text-sm text-slate-700 hover:bg-zinc-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={submitting || (!isSocial && !password)}
+                className="rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {submitting ? "처리 중..." : "탈퇴하기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
