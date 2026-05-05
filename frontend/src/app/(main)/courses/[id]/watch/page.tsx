@@ -81,6 +81,16 @@ export default function WatchPage({
   const lastTimeRef = useRef(0);
   // Plyr 프로그레스 바 위에 얹는 "시청 완료 구간" 오버레이 (네이비 반투명)
   const watchedOverlayRef = useRef<HTMLDivElement | null>(null);
+  // 이미 완료 PATCH 를 보낸 강의 ID 집합 (중복 PATCH 방지).
+  // 서버 status 가 갱신될 때마다 sync 해서 항상 최신 상태 유지.
+  const completedRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (!status) return;
+    for (const p of status.lecture_progresses) {
+      if (p.is_completed) completedRef.current.add(p.lecture_id);
+    }
+  }, [status]);
 
   function updateOverlayWidth() {
     const el = watchedOverlayRef.current;
@@ -260,6 +270,44 @@ export default function WatchPage({
         }
       }
 
+      // 95% 이상 또는 ended 시 호출되는 완료 처리. completedRef 로 1회만 실행.
+      async function markCompleted() {
+        if (completedRef.current.has(lectureId)) return;
+        completedRef.current.add(lectureId);
+
+        const dur = Math.floor(instance.duration);
+        maxWatchedRef.current = instance.duration;
+        // 완료 시점에 watched_seconds = duration 으로 끌어올려 UI % 가 100% 표시되도록.
+        if (liveWatchedRef.current < dur) {
+          liveWatchedRef.current = dur;
+          setLiveWatched(dur);
+        }
+        updateOverlayWidth();
+
+        const payload = {
+          watched_seconds: dur,
+          last_position_sec: dur,
+          is_completed: true,
+        };
+        console.log(`[PATCH 요청 / 완료] lecture=${lectureId}`, payload);
+        try {
+          const next = await updateLectureProgress(lectureId, payload);
+          setStatus(next);
+          savedProgressRef.current = next.lecture_progresses;
+          console.log(
+            `[PATCH 성공 / 완료] lecture=${lectureId} overall=${next.overall_progress_pct}%`,
+          );
+        } catch (err) {
+          // 실패 시 dedup 해제 — 다음 트리거에서 재시도 가능
+          completedRef.current.delete(lectureId);
+          const ax = isAxiosError(err) ? err : null;
+          console.error(
+            `[PATCH 실패 / 완료] lecture=${lectureId} status=${ax?.response?.status}`,
+            ax?.response?.data ?? err,
+          );
+        }
+      }
+
       function onTimeUpdate() {
         const t = instance.currentTime;
         const delta = t - lastTimeRef.current;
@@ -277,6 +325,15 @@ export default function WatchPage({
           }
         }
         lastTimeRef.current = t;
+
+        // 95% 이상이면 자동 완료 처리 (마지막까지 안 가도 인정)
+        if (
+          instance.duration > 0 &&
+          t / instance.duration >= 0.95 &&
+          !completedRef.current.has(lectureId)
+        ) {
+          void markCompleted();
+        }
       }
 
       function onSeeking() {
@@ -293,29 +350,8 @@ export default function WatchPage({
         }
       }
 
-      async function onEnded() {
-        maxWatchedRef.current = instance.duration;
-        updateOverlayWidth();
-        const payload = {
-          watched_seconds: Math.floor(liveWatchedRef.current),
-          last_position_sec: Math.floor(instance.duration),
-          is_completed: true,
-        };
-        console.log(`[PATCH 요청 / 완료] lecture=${lectureId}`, payload);
-        try {
-          const next = await updateLectureProgress(lectureId, payload);
-          setStatus(next);
-          savedProgressRef.current = next.lecture_progresses;
-          console.log(
-            `[PATCH 성공 / 완료] lecture=${lectureId} overall=${next.overall_progress_pct}%`,
-          );
-        } catch (err) {
-          const ax = isAxiosError(err) ? err : null;
-          console.error(
-            `[PATCH 실패 / 완료] lecture=${lectureId} status=${ax?.response?.status}`,
-            ax?.response?.data ?? err,
-          );
-        }
+      function onEnded() {
+        void markCompleted();
       }
 
       instance.on("loadedmetadata", onLoadedMetadata);
