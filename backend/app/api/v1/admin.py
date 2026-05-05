@@ -36,6 +36,7 @@ from app.schemas.admin import (
     AdminUser,
     AdminUserEnrollmentRow,
     AdminUsersResponse,
+    LectureProgressDetail,
     CourseCreate,
     CourseEnrollmentCount,
     CoursePatch,
@@ -193,13 +194,42 @@ def admin_user_enrollments(
         if course is None:
             continue
         # 진도율 재계산 (course.lectures + e.progresses)
-        active_lectures = [lec for lec in course.lectures if lec.is_active]
+        active_lectures = sorted(
+            [lec for lec in course.lectures if lec.is_active],
+            key=lambda lec: (lec.order_index, lec.id),
+        )
+        progress_by_lecture = {p.lecture_id: p for p in e.progresses}
         if not active_lectures:
             pct = 0
         else:
-            completed_ids = {p.lecture_id for p in e.progresses if p.is_completed}
-            completed = sum(1 for lec in active_lectures if lec.id in completed_ids)
+            completed = sum(
+                1
+                for lec in active_lectures
+                if (p := progress_by_lecture.get(lec.id)) is not None and p.is_completed
+            )
             pct = int(round(completed * 100 / len(active_lectures)))
+
+        lecture_rows: list[LectureProgressDetail] = []
+        for lec in active_lectures:
+            p = progress_by_lecture.get(lec.id)
+            watched = p.watched_seconds if p is not None else 0
+            duration = lec.duration_seconds or 0
+            if duration > 0:
+                lec_pct = min(100, int(round(watched * 100 / duration)))
+            else:
+                lec_pct = 100 if (p is not None and p.is_completed) else 0
+            lecture_rows.append(
+                LectureProgressDetail(
+                    lecture_id=lec.id,
+                    lecture_title=lec.title,
+                    order_index=lec.order_index,
+                    watched_seconds=watched,
+                    duration_seconds=duration,
+                    progress_pct=lec_pct,
+                    is_completed=bool(p is not None and p.is_completed),
+                )
+            )
+
         # 퀴즈가 없으면 quiz_passed=True 로 취급 (수료 조건에 영향 없음)
         quiz_passed = (
             True if not has_quiz_map.get(e.id, False) else (e.id in passed_set)
@@ -212,6 +242,7 @@ def admin_user_enrollments(
                 overall_progress_pct=pct,
                 is_completed=e.is_completed,
                 quiz_passed=quiz_passed,
+                lectures=lecture_rows,
             )
         )
     return out

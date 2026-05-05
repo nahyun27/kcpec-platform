@@ -61,6 +61,16 @@ export type CourseEnrollmentCount = {
   enrollment_count: number;
 };
 
+export type AdminLectureProgressDetail = {
+  lecture_id: number;
+  lecture_title: string;
+  order_index: number;
+  watched_seconds: number;
+  duration_seconds: number;
+  progress_pct: number;
+  is_completed: boolean;
+};
+
 export type AdminUserEnrollmentRow = {
   course_id: number;
   course_title: string;
@@ -68,6 +78,7 @@ export type AdminUserEnrollmentRow = {
   overall_progress_pct: number;
   is_completed: boolean;
   quiz_passed: boolean;
+  lectures: AdminLectureProgressDetail[];
 };
 
 export type NoticePatch = {

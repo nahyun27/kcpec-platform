@@ -7,6 +7,7 @@ import {
   getCourseEnrollmentCounts,
 } from "@/lib/api";
 import type {
+  AdminLectureProgressDetail,
   AdminUser,
   AdminUserEnrollmentRow,
   AdminUsersResponse,
@@ -161,6 +162,7 @@ function UserEnrollmentsModal({
 }) {
   const [rows, setRows] = useState<AdminUserEnrollmentRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [expandedCourseId, setExpandedCourseId] = useState<number | null>(null);
 
   useEffect(() => {
     getAdminUserEnrollments(user.id)
@@ -174,7 +176,7 @@ function UserEnrollmentsModal({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+        className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-baseline justify-between border-b border-zinc-200 px-6 py-4">
@@ -204,67 +206,124 @@ function UserEnrollmentsModal({
           ) : rows.length === 0 ? (
             <p className="text-sm text-zinc-500">수강 등록한 강의가 없습니다.</p>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-zinc-200">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase text-zinc-500">
-                  <tr>
-                    <th className="px-3 py-2.5">강의</th>
-                    <th className="px-3 py-2.5 w-48">진도율</th>
-                    <th className="px-3 py-2.5 text-center w-20">수료</th>
-                    <th className="px-3 py-2.5 text-center w-20">퀴즈</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100">
-                  {rows.map((r) => (
-                    <tr key={r.course_id}>
-                      <td className="px-3 py-3">
+            <div className="space-y-3">
+              {rows.map((r) => {
+                const isExpanded = expandedCourseId === r.course_id;
+                return (
+                  <div
+                    key={r.course_id}
+                    className="overflow-hidden rounded-lg border border-zinc-200"
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedCourseId(isExpanded ? null : r.course_id)
+                      }
+                      className="grid w-full grid-cols-[1fr_180px_60px_60px_24px] items-center gap-3 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                    >
+                      <div>
                         <p className="text-xs font-medium text-[var(--color-accent)]">
                           {r.category}
                         </p>
                         <p className="text-sm font-semibold text-slate-900">
                           {r.course_title}
                         </p>
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200">
-                            <div
-                              className="h-full bg-[var(--color-accent)] transition-[width]"
-                              style={{ width: `${r.overall_progress_pct}%` }}
-                            />
-                          </div>
-                          <span className="w-10 text-right text-xs font-semibold text-[var(--color-primary)]">
-                            {r.overall_progress_pct}%
-                          </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200">
+                          <div
+                            className="h-full bg-[var(--color-accent)] transition-[width]"
+                            style={{ width: `${r.overall_progress_pct}%` }}
+                          />
                         </div>
-                      </td>
-                      <td className="px-3 py-3 text-center">
+                        <span className="w-10 text-right text-xs font-semibold text-[var(--color-primary)]">
+                          {r.overall_progress_pct}%
+                        </span>
+                      </div>
+                      <div className="text-center">
                         {r.is_completed ? (
                           <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
-                            ✓
+                            수료 ✓
                           </span>
                         ) : (
                           <span className="text-xs text-zinc-400">—</span>
                         )}
-                      </td>
-                      <td className="px-3 py-3 text-center">
+                      </div>
+                      <div className="text-center">
                         {r.quiz_passed ? (
                           <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
-                            ✓
+                            퀴즈 ✓
                           </span>
                         ) : (
                           <span className="text-xs text-zinc-400">—</span>
                         )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                      <span className="text-xs text-zinc-400">
+                        {isExpanded ? "▾" : "▸"}
+                      </span>
+                    </button>
+                    {isExpanded ? (
+                      <div className="border-t border-zinc-200 bg-slate-50 px-4 py-3">
+                        {r.lectures.length === 0 ? (
+                          <p className="py-2 text-xs text-zinc-500">
+                            등록된 차시가 없습니다.
+                          </p>
+                        ) : (
+                          <ul className="space-y-2">
+                            {r.lectures.map((lec) => (
+                              <LectureProgressItem key={lec.lecture_id} lec={lec} />
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+function LectureProgressItem({ lec }: { lec: AdminLectureProgressDetail }) {
+  const watchedMin = Math.floor(lec.watched_seconds / 60);
+  const watchedSec = lec.watched_seconds % 60;
+  const totalMin = Math.floor(lec.duration_seconds / 60);
+  const totalSec = lec.duration_seconds % 60;
+
+  return (
+    <li className="grid grid-cols-[24px_1fr_220px_70px] items-center gap-3 rounded bg-white px-3 py-2 text-xs">
+      <span className="text-zinc-400">{lec.order_index + 1}.</span>
+      <p className="truncate font-medium text-slate-700">{lec.lecture_title}</p>
+      <div className="flex items-center gap-2">
+        <div className="h-1 flex-1 overflow-hidden rounded-full bg-zinc-200">
+          <div
+            className={`h-full ${
+              lec.is_completed
+                ? "bg-emerald-500"
+                : "bg-[var(--color-accent)]"
+            }`}
+            style={{ width: `${lec.progress_pct}%` }}
+          />
+        </div>
+        <span className="w-9 text-right font-semibold text-[var(--color-primary)]">
+          {lec.progress_pct}%
+        </span>
+      </div>
+      <div className="text-right">
+        {lec.is_completed ? (
+          <span className="font-semibold text-emerald-600">완료 ✓</span>
+        ) : (
+          <span className="text-zinc-500">
+            {watchedMin}:{String(watchedSec).padStart(2, "0")} /{" "}
+            {totalMin}:{String(totalSec).padStart(2, "0")}
+          </span>
+        )}
+      </div>
+    </li>
   );
 }
 

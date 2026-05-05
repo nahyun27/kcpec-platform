@@ -149,6 +149,16 @@ class CourseEnrollmentCount(BaseModel):
     enrollment_count: int
 
 
+class LectureProgressDetail(BaseModel):
+    lecture_id: int
+    lecture_title: str
+    order_index: int
+    watched_seconds: int
+    duration_seconds: int
+    progress_pct: int
+    is_completed: bool
+
+
 class AdminUserEnrollmentRow(BaseModel):
     course_id: int
     course_title: str
@@ -156,6 +166,7 @@ class AdminUserEnrollmentRow(BaseModel):
     overall_progress_pct: int
     is_completed: bool
     quiz_passed: bool
+    lectures: list[LectureProgressDetail] = []
 
 
 class NoticePatch(BaseModel):
