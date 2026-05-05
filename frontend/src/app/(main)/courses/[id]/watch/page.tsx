@@ -116,16 +116,23 @@ export default function WatchPage({
       const video = videoRef.current;
       if (!video || video.paused || video.ended) return;
       watchedSecondsRef.current += PROGRESS_INTERVAL_MS / 1000;
+      const lastPos = Math.floor(video.currentTime);
+      console.log(
+        `[진도 업데이트] lecture=${lectureId} watched_seconds=${watchedSecondsRef.current}s last_position=${lastPos}s`,
+      );
       try {
         const next = await updateLectureProgress(lectureId, {
           watched_seconds: watchedSecondsRef.current,
-          last_position_sec: Math.floor(video.currentTime),
+          last_position_sec: lastPos,
           is_completed: false,
         });
         setStatus(next);
         savedProgressRef.current = next.lecture_progresses;
-      } catch {
-        /* swallow — best-effort heartbeat */
+        console.log(
+          `[진도 업데이트] ✓ overall=${next.overall_progress_pct}% completed=${next.is_completed}`,
+        );
+      } catch (err) {
+        console.warn("[진도 업데이트] 실패", err);
       }
     }, PROGRESS_INTERVAL_MS);
 

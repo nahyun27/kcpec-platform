@@ -16,6 +16,7 @@ backend/static/pdfs/
 backend/static/drafts/
 backend/static/finals/
 backend/static/fonts/*.ttf
+backend/static/videos/*.mp4
 
 # 공통
 .DS_Store

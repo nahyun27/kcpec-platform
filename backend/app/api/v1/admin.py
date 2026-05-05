@@ -34,6 +34,7 @@ from app.schemas.admin import (
     AdminSurveyDetail,
     AdminSurveyRow,
     AdminUser,
+    AdminUserEnrollmentRow,
     AdminUsersResponse,
     CourseCreate,
     CourseEnrollmentCount,
@@ -132,6 +133,86 @@ def list_users(
             )
         )
     return AdminUsersResponse(items=out, total=total, page=page, size=size)
+
+
+@router.get("/users/{user_id}/enrollments", response_model=list[AdminUserEnrollmentRow])
+def admin_user_enrollments(
+    user_id: int, db: Session = Depends(get_db)
+) -> list[AdminUserEnrollmentRow]:
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="사용자를 찾을 수 없습니다.")
+
+    enrollments = list(
+        db.scalars(
+            select(Enrollment)
+            .where(Enrollment.user_id == user_id)
+            .options(selectinload(Enrollment.progresses))
+            .order_by(Enrollment.enrolled_at.desc())
+        ).all()
+    )
+    if not enrollments:
+        return []
+
+    course_ids = [e.course_id for e in enrollments]
+    courses_map = {
+        c.id: c
+        for c in db.scalars(
+            select(Course)
+            .where(Course.id.in_(course_ids))
+            .options(selectinload(Course.lectures))
+        ).all()
+    }
+
+    # 각 enrollment 별 퀴즈 합격 여부
+    quiz_pass_rows = db.execute(
+        select(Enrollment.id, func.count(Quiz.id))
+        .join(Course, Course.id == Enrollment.course_id)
+        .join(Quiz, Quiz.course_id == Course.id, isouter=True)
+        .where(Enrollment.user_id == user_id)
+        .group_by(Enrollment.id)
+    ).all()
+    has_quiz_map = {eid: cnt > 0 for (eid, cnt) in quiz_pass_rows}
+
+    from app.models.quiz import QuizAttempt as _QA  # 지역 import 로 위 import 충돌 회피
+    pass_rows = db.execute(
+        select(_QA.enrollment_id)
+        .where(
+            _QA.enrollment_id.in_([e.id for e in enrollments]),
+            _QA.is_passed.is_(True),
+        )
+        .distinct()
+    ).all()
+    passed_set = {eid for (eid,) in pass_rows}
+
+    out: list[AdminUserEnrollmentRow] = []
+    for e in enrollments:
+        course = courses_map.get(e.course_id)
+        if course is None:
+            continue
+        # 진도율 재계산 (course.lectures + e.progresses)
+        active_lectures = [lec for lec in course.lectures if lec.is_active]
+        if not active_lectures:
+            pct = 0
+        else:
+            completed_ids = {p.lecture_id for p in e.progresses if p.is_completed}
+            completed = sum(1 for lec in active_lectures if lec.id in completed_ids)
+            pct = int(round(completed * 100 / len(active_lectures)))
+        # 퀴즈가 없으면 quiz_passed=True 로 취급 (수료 조건에 영향 없음)
+        quiz_passed = (
+            True if not has_quiz_map.get(e.id, False) else (e.id in passed_set)
+        )
+        out.append(
+            AdminUserEnrollmentRow(
+                course_id=course.id,
+                course_title=course.title,
+                category=course.category,
+                overall_progress_pct=pct,
+                is_completed=e.is_completed,
+                quiz_passed=quiz_passed,
+            )
+        )
+    return out
 
 
 # ---------- courses -----------------------------------------------------------

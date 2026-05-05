@@ -1,8 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getAdminUsers, getCourseEnrollmentCounts } from "@/lib/api";
-import type { AdminUsersResponse, CourseEnrollmentCount } from "@/types/admin";
+import {
+  getAdminUserEnrollments,
+  getAdminUsers,
+  getCourseEnrollmentCounts,
+} from "@/lib/api";
+import type {
+  AdminUser,
+  AdminUserEnrollmentRow,
+  AdminUsersResponse,
+  CourseEnrollmentCount,
+} from "@/types/admin";
 
 export default function AdminUsersPage() {
   const [page, setPage] = useState(1);
@@ -10,6 +19,7 @@ export default function AdminUsersPage() {
   const [data, setData] = useState<AdminUsersResponse | null>(null);
   const [courseCounts, setCourseCounts] = useState<CourseEnrollmentCount[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [openUser, setOpenUser] = useState<AdminUser | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,7 +88,11 @@ export default function AdminUsersPage() {
             </thead>
             <tbody className="divide-y divide-zinc-200">
               {data.items.map((u) => (
-                <tr key={u.id}>
+                <tr
+                  key={u.id}
+                  onClick={() => setOpenUser(u)}
+                  className="cursor-pointer transition-colors hover:bg-slate-50"
+                >
                   <td className="px-3 py-3 font-medium">
                     {u.username}
                     {u.is_admin ? (
@@ -107,6 +121,10 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
+      {openUser ? (
+        <UserEnrollmentsModal user={openUser} onClose={() => setOpenUser(null)} />
+      ) : null}
+
       {totalPages > 1 ? (
         <div className="flex items-center justify-end gap-2 text-sm">
           <button
@@ -130,6 +148,122 @@ export default function AdminUsersPage() {
           </button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function UserEnrollmentsModal({
+  user,
+  onClose,
+}: {
+  user: AdminUser;
+  onClose: () => void;
+}) {
+  const [rows, setRows] = useState<AdminUserEnrollmentRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getAdminUserEnrollments(user.id)
+      .then(setRows)
+      .catch(() => setError("수강 목록을 불러오지 못했습니다."));
+  }, [user.id]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex items-baseline justify-between border-b border-zinc-200 px-6 py-4">
+          <div>
+            <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">
+              {user.username} 님의 수강 현황
+            </h2>
+            <p className="mt-1 text-xs text-zinc-500">
+              {user.email} · 등록 {user.enrollment_count}건 · 결제{" "}
+              {user.payment_count}건 · 누적 {user.total_payment.toLocaleString()}원
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm text-zinc-500 hover:text-zinc-900"
+          >
+            닫기
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-6">
+          {error ? (
+            <p className="text-sm text-red-600">{error}</p>
+          ) : rows == null ? (
+            <p className="text-sm text-zinc-500">불러오는 중...</p>
+          ) : rows.length === 0 ? (
+            <p className="text-sm text-zinc-500">수강 등록한 강의가 없습니다.</p>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-zinc-200">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase text-zinc-500">
+                  <tr>
+                    <th className="px-3 py-2.5">강의</th>
+                    <th className="px-3 py-2.5 w-48">진도율</th>
+                    <th className="px-3 py-2.5 text-center w-20">수료</th>
+                    <th className="px-3 py-2.5 text-center w-20">퀴즈</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {rows.map((r) => (
+                    <tr key={r.course_id}>
+                      <td className="px-3 py-3">
+                        <p className="text-xs font-medium text-[var(--color-accent)]">
+                          {r.category}
+                        </p>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {r.course_title}
+                        </p>
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200">
+                            <div
+                              className="h-full bg-[var(--color-accent)] transition-[width]"
+                              style={{ width: `${r.overall_progress_pct}%` }}
+                            />
+                          </div>
+                          <span className="w-10 text-right text-xs font-semibold text-[var(--color-primary)]">
+                            {r.overall_progress_pct}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        {r.is_completed ? (
+                          <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                            ✓
+                          </span>
+                        ) : (
+                          <span className="text-xs text-zinc-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        {r.quiz_passed ? (
+                          <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                            ✓
+                          </span>
+                        ) : (
+                          <span className="text-xs text-zinc-400">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

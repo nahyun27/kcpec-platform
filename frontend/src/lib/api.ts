@@ -35,6 +35,7 @@ import type {
   AdminStats,
   AdminSurveyDetail,
   AdminSurveyRow,
+  AdminUserEnrollmentRow,
   AdminUsersResponse,
   CourseEnrollmentCount,
   NoticePatch,
@@ -451,6 +452,15 @@ export async function uploadFinalPdf(
 export async function getCourseEnrollmentCounts(): Promise<CourseEnrollmentCount[]> {
   const { data } = await api.get<CourseEnrollmentCount[]>(
     "/admin/courses/enrollment-counts",
+  );
+  return data;
+}
+
+export async function getAdminUserEnrollments(
+  userId: number,
+): Promise<AdminUserEnrollmentRow[]> {
+  const { data } = await api.get<AdminUserEnrollmentRow[]>(
+    `/admin/users/${userId}/enrollments`,
   );
   return data;
 }

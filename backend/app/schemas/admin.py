@@ -130,6 +130,15 @@ class CourseEnrollmentCount(BaseModel):
     enrollment_count: int
 
 
+class AdminUserEnrollmentRow(BaseModel):
+    course_id: int
+    course_title: str
+    category: CourseCategory
+    overall_progress_pct: int
+    is_completed: bool
+    quiz_passed: bool
+
+
 class NoticePatch(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     content: str | None = Field(default=None, min_length=1)
