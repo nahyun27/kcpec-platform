@@ -165,21 +165,19 @@ IP주소, 쿠키, MAC주소, 서비스 이용기록, 방문기록, 불량 이용
   },
 ];
 
+import { ShieldCheck } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
+
 export default function PrivacyPage() {
   return (
     <div className="bg-white">
       <article className="mx-auto max-w-[800px] px-6 py-16">
-        <header className="mb-10 border-b border-zinc-200 pb-8">
-          <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-accent)]">
-            Privacy Policy
-          </p>
-          <h1 className="mt-3 font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
-            개인정보처리방침
-          </h1>
-          <p className="mt-3 text-sm text-slate-500">
-            주식회사 한국범죄예방교육센터 (이하 &lsquo;회사&rsquo;)
-          </p>
-        </header>
+        <PageHeader
+          title="개인정보처리방침"
+          subtitle="Privacy Policy"
+          icon={<ShieldCheck className="h-3.5 w-3.5" />}
+          description="주식회사 한국범죄예방교육센터 (이하 '회사')"
+        />
 
         <p className="mb-12 leading-[1.85] text-[15px] text-slate-700">
           회사는 개인정보 보호법 제30조에 따라 정보 주체의 개인정보를 보호하고 이와

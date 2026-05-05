@@ -18,14 +18,20 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sqlalchemy import select  # noqa: E402
 
 from app.core.database import SessionLocal  # noqa: E402
+from app.core.security import hash_password  # noqa: E402
 from app.models.community import Notice, NoticeCategory, Post, PostCategory  # noqa: E402
 from app.models.course import Course, CourseCategory  # noqa: E402
+from app.models.enrollment import Enrollment, LectureProgress  # noqa: E402
+from app.models.lecture import Lecture  # noqa: E402
+from app.models.order import Order, OrderStatus, PaymentMethod  # noqa: E402
 from app.models.package import (  # noqa: E402
     DocumentType,
     Package,
     PackageDocument,
     PackageTier,
 )
+from app.models.quiz import Quiz, QuizAttempt  # noqa: E402
+from app.models.user import User  # noqa: E402
 
 
 COURSES: list[tuple[str, CourseCategory, int]] = [
@@ -431,13 +437,187 @@ def seed_reviews() -> int:
     return inserted
 
 
+TEST_USERNAME = "test_user"
+TEST_PASSWORD = "test1234"
+TEST_EMAIL = "test_user@kcpec.co.kr"
+TEST_COURSE_TITLE = "음주운전 예방"
+TEST_PACKAGE_TIER = PackageTier.STANDARD
+TEST_PACKAGE_AMOUNT = 220_000
+
+
+def create_test_flow() -> None:
+    """결제까지 끝난 상태의 테스트 사용자 1명을 만든다 (멱등).
+
+    1) test_user / test1234 계정 (없으면 생성, 있으면 비번/활성 갱신)
+    2) '음주운전 예방' 강의 enrollment + 모든 LectureProgress 완료
+    3) 퀴즈 합격 QuizAttempt
+    4) Standard 패키지 PAID 주문
+    이렇게 하면 곧장 /mypage 에서 이수증 발급/심리상담 설문 흐름을 테스트 가능.
+    """
+    now = datetime.now(timezone.utc)
+    with SessionLocal() as db:
+        # 1) user
+        user = db.scalar(select(User).where(User.username == TEST_USERNAME))
+        if user is None:
+            user = User(
+                username=TEST_USERNAME,
+                password_hash=hash_password(TEST_PASSWORD),
+                email=TEST_EMAIL,
+                birth_date=None,
+                is_active=True,
+                is_admin=False,
+            )
+            db.add(user)
+            db.flush()
+            print(f"  ✓ 신규 계정 생성: {TEST_USERNAME} / {TEST_PASSWORD}")
+        else:
+            user.password_hash = hash_password(TEST_PASSWORD)
+            user.is_active = True
+            print(f"  ✓ 기존 계정 사용 (비밀번호 갱신): id={user.id}")
+
+        # 2) course + enrollment
+        course = db.scalar(select(Course).where(Course.title == TEST_COURSE_TITLE))
+        if course is None:
+            print(f"  ✗ '{TEST_COURSE_TITLE}' 강의가 없습니다. seed 먼저 실행해 주세요.")
+            return
+        # 강의에 lecture 가 비어 있으면 placeholder 1개 추가 (수료 처리에 1개라도 필요)
+        lectures = list(db.scalars(select(Lecture).where(Lecture.course_id == course.id)).all())
+        if not lectures:
+            db.add(
+                Lecture(
+                    course_id=course.id,
+                    title="01강. 도입",
+                    order_index=0,
+                    duration_seconds=600,
+                    is_active=True,
+                )
+            )
+            db.flush()
+            lectures = list(db.scalars(select(Lecture).where(Lecture.course_id == course.id)).all())
+            print(f"  ✓ 빈 강의에 placeholder lecture 1개 추가")
+
+        enrollment = db.scalar(
+            select(Enrollment).where(
+                Enrollment.user_id == user.id, Enrollment.course_id == course.id
+            )
+        )
+        if enrollment is None:
+            enrollment = Enrollment(
+                user_id=user.id,
+                course_id=course.id,
+                is_completed=True,
+                completed_at=now,
+            )
+            db.add(enrollment)
+            db.flush()
+
+        # 모든 lecture 진도 100% 완료
+        for lec in lectures:
+            existing = db.scalar(
+                select(LectureProgress).where(
+                    LectureProgress.enrollment_id == enrollment.id,
+                    LectureProgress.lecture_id == lec.id,
+                )
+            )
+            if existing is None:
+                db.add(
+                    LectureProgress(
+                        enrollment_id=enrollment.id,
+                        lecture_id=lec.id,
+                        watched_seconds=lec.duration_seconds,
+                        last_position_sec=lec.duration_seconds,
+                        is_completed=True,
+                    )
+                )
+            else:
+                existing.is_completed = True
+                existing.watched_seconds = lec.duration_seconds
+                existing.last_position_sec = lec.duration_seconds
+        enrollment.is_completed = True
+        enrollment.completed_at = enrollment.completed_at or now
+
+        # 3) quiz attempt (퀴즈가 있으면 합격 처리. 없어도 OK — 수료 조건은 enrollment.is_completed)
+        quiz = db.scalar(select(Quiz).where(Quiz.course_id == course.id))
+        if quiz is not None:
+            already_passed = db.scalar(
+                select(QuizAttempt).where(
+                    QuizAttempt.enrollment_id == enrollment.id,
+                    QuizAttempt.is_passed.is_(True),
+                )
+            )
+            if already_passed is None:
+                db.add(
+                    QuizAttempt(
+                        enrollment_id=enrollment.id,
+                        score=100,
+                        is_passed=True,
+                    )
+                )
+
+        # 4) Standard package paid order
+        pkg = db.scalar(select(Package).where(Package.tier == TEST_PACKAGE_TIER))
+        if pkg is None:
+            print(f"  ✗ Standard 패키지가 없습니다. seed 먼저 실행해 주세요.")
+            db.commit()
+            return
+
+        order = db.scalar(
+            select(Order).where(
+                Order.user_id == user.id,
+                Order.course_id == course.id,
+                Order.package_id == pkg.id,
+            )
+        )
+        if order is None:
+            order = Order(
+                user_id=user.id,
+                course_id=course.id,
+                package_id=pkg.id,
+                payment_method=PaymentMethod.CARD,
+                amount=TEST_PACKAGE_AMOUNT,
+                status=OrderStatus.PAID,
+                paid_at=now,
+                toss_payment_key="SEED_TEST_FLOW",
+            )
+            db.add(order)
+            print(f"  ✓ Standard 결제 주문 생성 (amount={TEST_PACKAGE_AMOUNT})")
+        else:
+            order.status = OrderStatus.PAID
+            order.paid_at = order.paid_at or now
+            print(f"  ✓ 기존 주문 PAID 로 정렬: id={order.id}")
+
+        db.commit()
+        db.refresh(order)
+        print(
+            f"\n=== 테스트 플로우 준비 완료 ===\n"
+            f"  로그인 : {TEST_USERNAME} / {TEST_PASSWORD}\n"
+            f"  강의   : {course.title}\n"
+            f"  주문   : #{order.id} (Standard, paid)\n"
+            f"\n→ /login 으로 들어가서 /mypage 에서 발급 흐름 테스트 가능."
+        )
+
+
 def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="KCPEC 시드")
+    parser.add_argument(
+        "--test-flow",
+        action="store_true",
+        help="결제까지 완료된 테스트 계정 1개 추가로 생성 (test_user/test1234)",
+    )
+    args = parser.parse_args()
+
     print(f"강의 추가: {seed_courses()}개")
     print(f"패키지 추가: {seed_packages()}개")
     print(f"공지/자료실 추가: {seed_notices()}개")
     print(f"Q&A 추가: {seed_qna()}개")
     print(f"전문가 칼럼 추가: {seed_columns()}개")
     print(f"수강 후기 추가: {seed_reviews()}개")
+
+    if args.test_flow:
+        print("\n[--test-flow] 결제 완료 테스트 사용자 준비")
+        create_test_flow()
 
 
 if __name__ == "__main__":

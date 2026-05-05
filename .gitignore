@@ -11,8 +11,10 @@ backend/**/__pycache__/
 backend/*.pyc
 backend/**/*.pyc
 
-# 생성된 PDF / 다운로드 폰트는 추적하지 않음
+# 생성된 PDF / Claude 초안 / 최종본 / 다운로드 폰트는 추적하지 않음
 backend/static/pdfs/
+backend/static/drafts/
+backend/static/finals/
 backend/static/fonts/*.ttf
 
 # 공통

@@ -86,6 +86,11 @@ export type AdminSurveyRow = {
   final_pdf_url: string | null;
 };
 
+export type AdminSurveyDetail = AdminSurveyRow & {
+  responses: Record<string, string>;
+  user_email: string | null;
+};
+
 export type AdminCourseCreate = {
   title: string;
   description?: string;

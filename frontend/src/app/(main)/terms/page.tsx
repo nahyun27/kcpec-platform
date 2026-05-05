@@ -141,21 +141,19 @@ const ARTICLES: { num: string; title: string; body: string }[] = [
   },
 ];
 
+import { ShieldCheck } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
+
 export default function TermsPage() {
   return (
     <div className="bg-white">
       <article className="mx-auto max-w-[800px] px-6 py-16">
-        <header className="mb-12 border-b border-zinc-200 pb-8">
-          <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-accent)]">
-            Terms of Service
-          </p>
-          <h1 className="mt-3 font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
-            이용약관
-          </h1>
-          <p className="mt-3 text-sm text-slate-500">
-            주식회사 한국범죄예방교육센터 · 사이트명: 한국범죄예방교육센터
-          </p>
-        </header>
+        <PageHeader
+          title="이용약관"
+          subtitle="Terms of Service"
+          icon={<ShieldCheck className="h-3.5 w-3.5" />}
+          description="주식회사 한국범죄예방교육센터 · 사이트명: 한국범죄예방교육센터"
+        />
 
         <div className="space-y-10">
           {ARTICLES.map((a) => (

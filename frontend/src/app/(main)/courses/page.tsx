@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getCourses } from "@/lib/api";
 import { COURSE_CATEGORIES, type CourseCategory, type CourseListItem } from "@/types/course";
-import { PlayCircle, GraduationCap } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { PlayCircle, GraduationCap, BookOpen } from "lucide-react";
 
 export default function CoursesListPage() {
   const [category, setCategory] = useState<CourseCategory | null>(null);
@@ -36,15 +37,12 @@ export default function CoursesListPage() {
       {/* Page Header */}
       <div className="bg-gradient-to-b from-white to-[var(--color-muted)] pb-8 pt-12">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="mb-10 max-w-2xl">
-            <h1 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl md:text-5xl">
-              교육 강의
-            </h1>
-            <p className="mt-4 text-lg text-slate-600">
-              전문가들이 감수한 심리·준법교육 과정을 전액 무료로 수강하실 수 있습니다. 
-              원하시는 과정을 선택하고 바로 학습을 시작하세요.
-            </p>
-          </div>
+          <PageHeader
+            title="교육 강의"
+            subtitle="Courses"
+            icon={<BookOpen className="h-3.5 w-3.5" />}
+            description="전문가들이 감수한 심리·준법교육 과정을 전액 무료로 수강하실 수 있습니다. 원하시는 과정을 선택하고 바로 학습을 시작하세요."
+          />
 
           <div className="flex flex-wrap gap-2.5">
             <CategoryTab active={category === null} onClick={() => setCategory(null)}>

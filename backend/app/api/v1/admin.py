@@ -31,6 +31,7 @@ from app.schemas.admin import (
     AdminOrderRow,
     AdminOrdersResponse,
     AdminStats,
+    AdminSurveyDetail,
     AdminSurveyRow,
     AdminUser,
     AdminUsersResponse,
@@ -322,6 +323,30 @@ def list_surveys(db: Session = Depends(get_db)) -> list[AdminSurveyRow]:
         )
         for (s, u, c) in rows
     ]
+
+
+@router.get("/surveys/{survey_id}", response_model=AdminSurveyDetail)
+def get_survey_detail(survey_id: int, db: Session = Depends(get_db)) -> AdminSurveyDetail:
+    survey = db.get(CounselingSurvey, survey_id)
+    if survey is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="설문을 찾을 수 없습니다.")
+    order = db.get(Order, survey.order_id)
+    user = db.get(User, survey.user_id) if survey.user_id else None
+    course = db.get(Course, order.course_id) if order else None
+    return AdminSurveyDetail(
+        id=survey.id,
+        order_id=survey.order_id,
+        username=user.username if user else "-",
+        user_email=user.email if user else None,
+        course_title=course.title if course else "-",
+        status=survey.status,
+        submitted_at=survey.submitted_at,
+        draft_sent_at=survey.draft_sent_at,
+        completed_at=survey.completed_at,
+        ai_draft_url=survey.ai_draft_url,
+        final_pdf_url=survey.final_pdf_url,
+        responses=survey.responses or {},
+    )
 
 
 @router.post("/surveys/{survey_id}/upload-final", response_model=AdminSurveyRow)

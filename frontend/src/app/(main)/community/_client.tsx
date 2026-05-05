@@ -27,6 +27,7 @@ import {
   Download,
   Star
 } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 type TabKey = "notice" | "qna" | "column" | "review";
 
@@ -55,18 +56,12 @@ export default function CommunityClient() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-12 pb-24 min-h-[80vh]">
-      <header className="mb-10 text-center sm:text-left">
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[var(--color-accent)] ring-1 ring-teal-500/20 mb-4">
-          <MessageSquare className="h-3.5 w-3.5" />
-          Community
-        </div>
-        <h1 className="font-sans text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
-          커뮤니티
-        </h1>
-        <p className="mt-4 text-base text-slate-500 sm:text-lg">
-          공지사항, Q&A, 전문가 칼럼, 수강 후기를 한 곳에서 편리하게 확인하세요.
-        </p>
-      </header>
+      <PageHeader
+        title="커뮤니티"
+        subtitle="Community"
+        icon={<MessageSquare className="h-3.5 w-3.5" />}
+        description="공지사항, Q&A, 전문가 칼럼, 수강 후기를 한 곳에서 편리하게 확인하세요."
+      />
 
       {/* Modern Pill Tabs */}
       <div className="mb-8 overflow-x-auto pb-2 hide-scrollbar">

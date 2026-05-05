@@ -19,6 +19,7 @@ import {
   type PaymentMethod,
 } from "@/types/order";
 import { CheckCircle2, ChevronLeft, CreditCard, Award, ChevronRight, ShieldCheck, Loader2 } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 // 패키지 가격 (백엔드 packages.price 가 null 인 정책이라 프론트에서 결정)
 // 운영 시에는 어드민 페이지에서 수정 가능하도록 옮길 예정.
@@ -174,19 +175,12 @@ export default function CheckoutPage() {
           강의로 돌아가기
         </Link>
 
-        <header className="mb-10 flex flex-col gap-4 border-b border-zinc-200 pb-8 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent)]/10 px-3 py-1 text-xs font-bold text-[var(--color-accent)] ring-1 ring-[var(--color-accent)]/20">
-              <Award className="h-3.5 w-3.5" /> 수료 완료
-            </div>
-            <h1 className="font-sans text-3xl font-extrabold text-slate-900">
-              수료증 및 양형자료 발급
-            </h1>
-            <p className="mt-2 text-slate-500">
-              <span className="font-semibold text-slate-700">{course.title}</span> 과정을 수료하셨습니다. 필요한 패키지를 선택해 주세요.
-            </p>
-          </div>
-        </header>
+        <PageHeader
+          title="수료증 및 양형자료 발급"
+          subtitle="수료 완료"
+          icon={<Award className="h-3.5 w-3.5" />}
+          description={<><span className="font-semibold text-slate-700">{course.title}</span> 과정을 수료하셨습니다. 필요한 패키지를 선택해 주세요.</>}
+        />
 
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
           {/* Main Form (Left) */}

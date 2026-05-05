@@ -2,8 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
-import { getAdminSurveys, uploadFinalPdf } from "@/lib/api";
-import type { AdminSurveyRow } from "@/types/admin";
+import {
+  getAdminSurveyDetail,
+  getAdminSurveys,
+  uploadFinalPdf,
+} from "@/lib/api";
+import type { AdminSurveyDetail, AdminSurveyRow } from "@/types/admin";
 import type { CounselingStatus } from "@/types/counseling";
 
 export default function AdminSurveysPage() {
@@ -11,6 +15,7 @@ export default function AdminSurveysPage() {
   const [error, setError] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
   const fileInputs = useRef<Record<number, HTMLInputElement | null>>({});
+  const [openId, setOpenId] = useState<number | null>(null);
 
   async function load() {
     setError(null);
@@ -49,7 +54,8 @@ export default function AdminSurveysPage() {
           의견서 관리
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Claude 초안을 검토 후 최종 PDF 를 업로드하면 사용자에게 자동 발송됩니다.
+          행을 클릭하여 응답 상세를 확인하고, Claude 초안 검토 후 최종 PDF 를
+          업로드하면 사용자에게 자동 발송됩니다.
         </p>
       </header>
 
@@ -67,13 +73,16 @@ export default function AdminSurveysPage() {
                 <th className="px-4 py-3">강의</th>
                 <th className="px-4 py-3">제출일</th>
                 <th className="px-4 py-3">상태</th>
-                <th className="px-4 py-3">초안</th>
-                <th className="px-4 py-3">최종본 업로드</th>
+                <th className="px-4 py-3">액션</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200">
               {rows.map((r) => (
-                <tr key={r.id}>
+                <tr
+                  key={r.id}
+                  onClick={() => setOpenId(r.id)}
+                  className="cursor-pointer transition-colors hover:bg-slate-50"
+                >
                   <td className="px-4 py-3 text-xs text-zinc-500">#{r.id}</td>
                   <td className="px-4 py-3">{r.username}</td>
                   <td className="px-4 py-3">{r.course_title}</td>
@@ -83,55 +92,60 @@ export default function AdminSurveysPage() {
                   <td className="px-4 py-3">
                     <SurveyStatusBadge status={r.status} />
                   </td>
-                  <td className="px-4 py-3">
-                    {r.ai_draft_url ? (
-                      <a
-                        href={r.ai_draft_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-[var(--color-primary)] underline"
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setOpenId(r.id)}
+                        className="rounded border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 hover:border-[var(--color-primary)]"
                       >
-                        초안 보기
-                      </a>
-                    ) : (
-                      <span className="text-xs text-zinc-400">생성 중</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {r.status === "completed" && r.final_pdf_url ? (
-                      <a
-                        href={r.final_pdf_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-[var(--color-accent)] underline"
-                      >
-                        최종본 보기
-                      </a>
-                    ) : (
-                      <>
-                        <input
-                          ref={(el) => {
-                            fileInputs.current[r.id] = el;
-                          }}
-                          type="file"
-                          accept="application/pdf"
-                          className="hidden"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) void handleUpload(r.id, f);
-                            e.target.value = "";
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => fileInputs.current[r.id]?.click()}
-                          disabled={uploadingId === r.id}
-                          className="rounded bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+                        응답 보기
+                      </button>
+                      {r.ai_draft_url ? (
+                        <a
+                          href={r.ai_draft_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 hover:border-[var(--color-primary)]"
                         >
-                          {uploadingId === r.id ? "업로드 중..." : "PDF 업로드"}
-                        </button>
-                      </>
-                    )}
+                          초안 보기
+                        </a>
+                      ) : null}
+                      {r.status === "completed" && r.final_pdf_url ? (
+                        <a
+                          href={r.final_pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded bg-[var(--color-accent)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--color-accent-hover)]"
+                        >
+                          최종본 PDF
+                        </a>
+                      ) : (
+                        <>
+                          <input
+                            ref={(el) => {
+                              fileInputs.current[r.id] = el;
+                            }}
+                            type="file"
+                            accept="application/pdf"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) void handleUpload(r.id, f);
+                              e.target.value = "";
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => fileInputs.current[r.id]?.click()}
+                            disabled={uploadingId === r.id}
+                            className="rounded bg-[var(--color-primary)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+                          >
+                            {uploadingId === r.id ? "업로드 중..." : "최종본 업로드"}
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -139,6 +153,172 @@ export default function AdminSurveysPage() {
           </table>
         </div>
       )}
+
+      {openId != null ? (
+        <SurveyDetailModal
+          surveyId={openId}
+          onClose={() => setOpenId(null)}
+          onUpload={(file) => handleUpload(openId, file)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+// ---------- modal --------------------------------------------------------
+
+const QUESTION_LABELS: Record<string, string> = {
+  인적사항: "인적사항",
+  사건내용: "이 사건의 내용",
+  후회되는점: "이 사건에서 가장 후회되는 점",
+  걱정되는점: "이 사건으로 인해 가장 걱정되는 점",
+  재범방지노력: "추후 재범하지 않기 위해 스스로 노력해야 하는 점",
+  하고싶은말: "더 하고 싶은 말 (선택사항)",
+};
+
+const ORDERED_KEYS = [
+  "인적사항",
+  "사건내용",
+  "후회되는점",
+  "걱정되는점",
+  "재범방지노력",
+  "하고싶은말",
+];
+
+function SurveyDetailModal({
+  surveyId,
+  onClose,
+  onUpload,
+}: {
+  surveyId: number;
+  onClose: () => void;
+  onUpload: (file: File) => Promise<void> | void;
+}) {
+  const [detail, setDetail] = useState<AdminSurveyDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    getAdminSurveyDetail(surveyId)
+      .then(setDetail)
+      .catch(() => setError("상세 정보를 불러오지 못했습니다."));
+  }, [surveyId]);
+
+  function renderResponses(responses: Record<string, string>) {
+    // 알려진 키부터 정해진 순서로, 그 외 키는 뒤에 이어서.
+    const known = ORDERED_KEYS.filter((k) => k in responses);
+    const unknown = Object.keys(responses).filter((k) => !ORDERED_KEYS.includes(k));
+    const all = [...known, ...unknown];
+    if (all.length === 0) return <p className="text-sm text-zinc-500">응답이 없습니다.</p>;
+    return (
+      <dl className="space-y-5">
+        {all.map((k) => (
+          <div key={k}>
+            <dt className="text-xs font-bold uppercase tracking-wider text-[var(--color-accent)]">
+              {QUESTION_LABELS[k] ?? k}
+            </dt>
+            <dd className="mt-1.5 whitespace-pre-wrap rounded-lg border border-zinc-200 bg-slate-50/50 px-4 py-3 text-sm leading-relaxed text-slate-800">
+              {responses[k] || <span className="text-zinc-400">(빈 응답)</span>}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex items-baseline justify-between border-b border-zinc-200 px-6 py-4">
+          <div>
+            <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">
+              심리상담 설문 응답 #{surveyId}
+            </h2>
+            {detail ? (
+              <p className="mt-1 text-xs text-zinc-500">
+                {detail.username}
+                {detail.user_email ? ` · ${detail.user_email}` : ""} ·{" "}
+                {detail.course_title} ·{" "}
+                {new Date(detail.submitted_at).toLocaleString("ko-KR")}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm text-zinc-500 hover:text-zinc-900"
+          >
+            닫기
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {error ? (
+            <p className="text-sm text-red-600">{error}</p>
+          ) : !detail ? (
+            <p className="text-sm text-zinc-500">불러오는 중...</p>
+          ) : (
+            renderResponses(detail.responses)
+          )}
+        </div>
+
+        {detail ? (
+          <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 bg-slate-50/50 px-6 py-4">
+            <div className="flex flex-wrap gap-2">
+              {detail.ai_draft_url ? (
+                <a
+                  href={detail.ai_draft_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded border border-zinc-300 px-3 py-1.5 text-xs text-zinc-700 hover:border-[var(--color-primary)]"
+                >
+                  Claude 초안 보기
+                </a>
+              ) : (
+                <span className="text-xs text-zinc-400">초안 생성 중...</span>
+              )}
+              {detail.status === "completed" && detail.final_pdf_url ? (
+                <a
+                  href={detail.final_pdf_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-accent-hover)]"
+                >
+                  최종본 PDF
+                </a>
+              ) : null}
+            </div>
+            {detail.status !== "completed" ? (
+              <>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void onUpload(f);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="rounded bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)]"
+                >
+                  최종본 업로드
+                </button>
+              </>
+            ) : null}
+          </footer>
+        ) : null}
+      </div>
     </div>
   );
 }

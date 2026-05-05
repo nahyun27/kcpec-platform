@@ -105,6 +105,11 @@ class AdminSurveyRow(BaseModel):
     final_pdf_url: str | None
 
 
+class AdminSurveyDetail(AdminSurveyRow):
+    responses: dict[str, str]
+    user_email: EmailStr | None = None
+
+
 class AdminStats(BaseModel):
     total_users: int
     total_enrollments: int

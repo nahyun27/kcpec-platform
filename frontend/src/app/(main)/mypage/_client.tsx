@@ -29,6 +29,7 @@ import {
   type OrderResponse,
 } from "@/types/order";
 import { BookOpen, CreditCard, Download, FileText, User, ChevronRight, PlayCircle, Loader2 } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 type OrderWithExtras = OrderResponse & {
   documents: DocumentResponse[];
@@ -115,14 +116,12 @@ export default function MyPageClient() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-12 px-6 py-12 pb-24">
-      <header className="border-b border-zinc-200 pb-6">
-        <h1 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)]">
-          마이페이지
-        </h1>
-        <p className="mt-2 text-base text-slate-500">
-          수강 중인 강의와 결제·발급 내역, 계정 정보를 관리하세요.
-        </p>
-      </header>
+      <PageHeader
+        title="마이페이지"
+        subtitle="My Page"
+        icon={<User className="h-3.5 w-3.5" />}
+        description="수강 중인 강의와 결제·발급 내역, 계정 정보를 관리하세요."
+      />
 
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
         {/* Left Column (Main Content) */}

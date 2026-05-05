@@ -30,6 +30,7 @@ import type {
   AdminOrdersResponse,
   AdminQuizQuestion,
   AdminStats,
+  AdminSurveyDetail,
   AdminSurveyRow,
   AdminUsersResponse,
   CourseEnrollmentCount,
@@ -405,6 +406,11 @@ export async function confirmBankOrder(orderId: number): Promise<OrderResponse> 
 
 export async function getAdminSurveys(): Promise<AdminSurveyRow[]> {
   const { data } = await api.get<AdminSurveyRow[]>("/admin/surveys");
+  return data;
+}
+
+export async function getAdminSurveyDetail(id: number): Promise<AdminSurveyDetail> {
+  const { data } = await api.get<AdminSurveyDetail>(`/admin/surveys/${id}`);
   return data;
 }
 

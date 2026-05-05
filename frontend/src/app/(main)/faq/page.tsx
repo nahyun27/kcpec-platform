@@ -61,6 +61,9 @@ const TABS: { key: Category; label: string }[] = [
   { key: "etc", label: "기타" },
 ];
 
+import { HelpCircle } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
+
 export default function FaqPage() {
   const [tab, setTab] = useState<Category>("all");
   const [openIdx, setOpenIdx] = useState<number | null>(0);
@@ -72,14 +75,11 @@ export default function FaqPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-12 pb-24">
-      <header>
-        <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-accent)]">
-          FAQ
-        </p>
-        <h1 className="mt-3 font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
-          자주 묻는 질문
-        </h1>
-      </header>
+      <PageHeader
+        title="자주 묻는 질문"
+        subtitle="FAQ"
+        icon={<HelpCircle className="h-3.5 w-3.5" />}
+      />
 
       <div className="mt-8 flex flex-wrap gap-2">
         {TABS.map((t) => (

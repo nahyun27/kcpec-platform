@@ -9,8 +9,12 @@ import {
   ArrowRight,
   CheckCircle2,
   ChevronDown,
+  ChevronRight,
+  CreditCard,
+  FileDown,
   FileText,
   PlayCircle,
+  Search,
   ShieldCheck,
   Star,
   Users,
@@ -103,7 +107,7 @@ export default function HomePage() {
 
 function Hero() {
   return (
-    <section className="relative flex min-h-[85vh] items-center justify-center overflow-hidden bg-[var(--color-primary)] py-20 text-white">
+    <section className="relative flex items-center justify-center overflow-hidden bg-[var(--color-primary)] pb-24 pt-16 text-white sm:pb-32 sm:pt-20">
       {/* Noise Texture Overlay */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.03]"
@@ -116,17 +120,17 @@ function Hero() {
       <div className="pointer-events-none absolute -right-[10%] bottom-0 h-[600px] w-[600px] rounded-full bg-blue-600 opacity-10 blur-[150px]"></div>
 
       <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center px-6 text-center">
-        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-medium text-[var(--color-accent)] backdrop-blur-md">
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-medium text-[var(--color-accent)] backdrop-blur-md">
           <Star className="h-4 w-4" />
           <span>법원 및 수사기관 제출용 신뢰할 수 있는 교육</span>
         </div>
-        <h1 className="mb-6 font-sans text-5xl font-extrabold leading-[1.15] tracking-tight sm:text-6xl md:text-7xl">
+        <h1 className="mb-4 font-sans text-5xl font-extrabold leading-[1.15] tracking-tight sm:text-6xl md:text-7xl">
           재판 준비, <br className="md:hidden" />
           <span className="bg-gradient-to-r from-teal-200 via-white to-teal-100 bg-clip-text text-transparent">
             전문 교육으로 시작하세요
           </span>
         </h1>
-        <p className="mb-10 max-w-2xl text-lg leading-relaxed text-slate-300 sm:text-xl">
+        <p className="mb-8 max-w-2xl text-lg leading-relaxed text-slate-300 sm:text-xl">
           가장 확실한 양형 자료를 준비하세요. 법원이 인정하는 심리·준법 교육 수료증을
           무료로 수강하고 즉시 발급받을 수 있습니다.
         </p>
@@ -251,6 +255,33 @@ function StepsSection() {
           <p className="mt-4 text-lg text-slate-600">
             복잡한 과정 없이 꼭 필요한 서류만 빠르게 준비하세요.
           </p>
+        </div>
+
+        <div className="mb-24 grid grid-cols-1 gap-6 md:grid-cols-3">
+          <div className="flex flex-col items-start rounded-2xl bg-slate-900 p-8 text-white shadow-xl">
+            <div className="mb-6 inline-flex items-center rounded-full bg-white px-3.5 py-1 text-sm font-extrabold text-slate-900">
+              1단계
+            </div>
+            <UserPlus className="mb-4 h-8 w-8 text-[var(--color-accent)]" />
+            <h3 className="font-sans text-xl font-bold">회원가입 후 교육신청</h3>
+            <p className="mt-3 text-sm leading-relaxed text-slate-400">사건에 맞는 과정을 선택하고 교육 신청을 진행합니다.</p>
+          </div>
+          <div className="flex flex-col items-start rounded-2xl bg-slate-900 p-8 text-white shadow-xl">
+            <div className="mb-6 inline-flex items-center rounded-full bg-white px-3.5 py-1 text-sm font-extrabold text-slate-900">
+              2단계
+            </div>
+            <PlayCircle className="mb-4 h-8 w-8 text-[var(--color-accent)]" />
+            <h3 className="font-sans text-xl font-bold">수강 및 상담하기</h3>
+            <p className="mt-3 text-sm leading-relaxed text-slate-400">PC 또는 모바일에서 전 과정을 무료로 수강하실 수 있습니다.</p>
+          </div>
+          <div className="flex flex-col items-start rounded-2xl bg-slate-900 p-8 text-white shadow-xl">
+            <div className="mb-6 inline-flex items-center rounded-full bg-white px-3.5 py-1 text-sm font-extrabold text-slate-900">
+              3단계
+            </div>
+            <FileCheck className="mb-4 h-8 w-8 text-[var(--color-accent)]" />
+            <h3 className="font-sans text-xl font-bold">수료증 등 수령</h3>
+            <p className="mt-3 text-sm leading-relaxed text-slate-400">발급 패키지를 선택하면 즉시 수료증을 다운로드할 수 있습니다.</p>
+          </div>
         </div>
 
         <div className="relative">

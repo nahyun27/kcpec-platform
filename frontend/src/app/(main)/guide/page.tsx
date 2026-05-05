@@ -68,20 +68,18 @@ const TIERS: {
   },
 ];
 
+import { BookText } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
+
 export default function GuidePage() {
   return (
     <div className="mx-auto max-w-4xl space-y-12 px-6 py-12 pb-24">
-      <header>
-        <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-accent)]">
-          KCPEC 이용 안내
-        </p>
-        <h1 className="mt-3 font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
-          서비스 이용 안내
-        </h1>
-        <p className="mt-3 text-base text-slate-600">
-          무료 수강 후 필요한 자료만 결제하는 단순한 모델입니다.
-        </p>
-      </header>
+      <PageHeader
+        title="서비스 이용 안내"
+        subtitle="KCPEC 이용 안내"
+        icon={<BookText className="h-3.5 w-3.5" />}
+        description="무료 수강 후 필요한 자료만 결제하는 단순한 모델입니다."
+      />
 
       <Section title="서비스 소개">
         <p>

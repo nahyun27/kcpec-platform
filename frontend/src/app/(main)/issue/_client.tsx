@@ -6,6 +6,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { isAxiosError } from "axios";
 import { issueDocument, tokenStorage } from "@/lib/api";
 import type { DocumentResponse } from "@/types/order";
+import { Award } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 export default function IssuePage() {
   const router = useRouter();
@@ -85,16 +87,16 @@ export default function IssuePage() {
   }
 
   return (
-    <div className="mx-auto max-w-md px-4 py-16">
-      <div className="rounded-lg border border-[var(--color-border)] bg-white p-8 shadow-sm">
-        <h1 className="font-sans text-2xl font-bold text-[var(--color-primary)]">
-          이수증 발급
-        </h1>
-        <p className="mt-2 text-sm text-zinc-600">
-          이수증에 표기될 정보를 정확히 입력해 주세요.
-        </p>
-
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+    <div className="mx-auto max-w-xl space-y-8 px-4 py-16">
+      <PageHeader
+        title="이수증 발급"
+        subtitle="Issue Document"
+        icon={<Award className="h-3.5 w-3.5" />}
+        description="이수증에 표기될 정보를 정확히 입력해 주세요."
+        centered
+      />
+      <div className="rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
+        <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1.5">
             <label htmlFor="name" className="block text-sm font-medium text-zinc-800">
               성명
