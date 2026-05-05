@@ -16,6 +16,7 @@ from app.models.user import User
 from app.schemas.auth import (
     DeleteMeRequest,
     LoginRequest,
+    ProfileUpdateRequest,
     RefreshRequest,
     SignupRequest,
     TokenResponse,
@@ -95,6 +96,53 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)) -> TokenResp
 
 @router.get("/me", response_model=UserResponse)
 def me(current_user: User = Depends(get_current_user)) -> User:
+    return current_user
+
+
+@router.patch("/me", response_model=UserResponse)
+def patch_me(
+    payload: ProfileUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """이메일 / 비밀번호 변경. 소셜 로그인 사용자는 비밀번호 변경 불가."""
+    is_social = current_user.social_provider is not None
+
+    # 1) 이메일 변경
+    if payload.email and payload.email != current_user.email:
+        dup = db.scalar(
+            select(User).where(User.email == payload.email, User.id != current_user.id)
+        )
+        if dup is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="이미 사용 중인 이메일입니다.",
+            )
+        current_user.email = payload.email
+
+    # 2) 비밀번호 변경
+    if payload.new_password is not None:
+        if is_social:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="소셜 로그인 계정은 비밀번호를 변경할 수 없습니다.",
+            )
+        if not payload.current_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="현재 비밀번호를 입력해 주세요.",
+            )
+        if current_user.password_hash is None or not verify_password(
+            payload.current_password, current_user.password_hash
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="현재 비밀번호가 올바르지 않습니다.",
+            )
+        current_user.password_hash = hash_password(payload.new_password)
+
+    db.commit()
+    db.refresh(current_user)
     return current_user
 
 

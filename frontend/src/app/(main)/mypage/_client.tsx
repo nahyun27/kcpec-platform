@@ -12,6 +12,7 @@ import {
   getOrderDocuments,
   getSurveyStatus,
   tokenStorage,
+  updateMe,
   type UserResponse,
 } from "@/lib/api";
 import type {
@@ -41,6 +42,14 @@ export default function MyPageClient() {
   const [orders, setOrders] = useState<OrderWithExtras[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (toast == null) return;
+    const t = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   useEffect(() => {
     if (!tokenStorage.getAccess()) {
@@ -173,6 +182,15 @@ export default function MyPageClient() {
                     value={new Date(me.created_at).toLocaleDateString("ko-KR")}
                   />
                 </dl>
+                <div className="border-t border-zinc-100 px-6 py-3 text-right">
+                  <button
+                    type="button"
+                    onClick={() => setEditOpen(true)}
+                    className="text-xs font-semibold text-[var(--color-primary)] underline-offset-4 hover:underline"
+                  >
+                    이메일 / 비밀번호 수정
+                  </button>
+                </div>
                 <DeactivateRow isSocial={me.social_provider !== null} />
               </div>
             ) : null}
@@ -192,6 +210,23 @@ export default function MyPageClient() {
           </div>
         </div>
       </div>
+
+      {editOpen && me ? (
+        <EditProfileModal
+          me={me}
+          onClose={() => setEditOpen(false)}
+          onSaved={(updated) => {
+            setMe(updated);
+            setEditOpen(false);
+            setToast("정보가 수정되었습니다");
+          }}
+        />
+      ) : null}
+      {toast ? (
+        <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-medium text-white shadow-lg">
+          {toast}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -441,6 +476,179 @@ function Field({ label, value }: { label: string; value: string }) {
     <div className="py-3 flex justify-between items-center text-sm">
       <dt className="font-medium text-slate-500">{label}</dt>
       <dd className="font-semibold text-slate-900">{value}</dd>
+    </div>
+  );
+}
+
+function EditProfileModal({
+  me,
+  onClose,
+  onSaved,
+}: {
+  me: UserResponse;
+  onClose: () => void;
+  onSaved: (updated: UserResponse) => void;
+}) {
+  const isSocial = me.social_provider !== null;
+  const [email, setEmail] = useState(me.email);
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    setError(null);
+
+    const wantsPwChange = newPw.length > 0 || confirmPw.length > 0;
+    if (wantsPwChange) {
+      if (isSocial) {
+        setError("소셜 로그인 계정은 비밀번호를 변경할 수 없습니다.");
+        return;
+      }
+      if (newPw.length < 8) {
+        setError("새 비밀번호는 8자 이상이어야 합니다.");
+        return;
+      }
+      if (newPw !== confirmPw) {
+        setError("새 비밀번호가 일치하지 않습니다.");
+        return;
+      }
+      if (!currentPw) {
+        setError("현재 비밀번호를 입력해 주세요.");
+        return;
+      }
+    }
+
+    const payload: {
+      email?: string;
+      current_password?: string;
+      new_password?: string;
+    } = {};
+    if (email !== me.email) payload.email = email;
+    if (wantsPwChange) {
+      payload.current_password = currentPw;
+      payload.new_password = newPw;
+    }
+    if (Object.keys(payload).length === 0) {
+      onClose();
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const updated = await updateMe(payload);
+      onSaved(updated);
+    } catch (err) {
+      const detail = isAxiosError(err)
+        ? (err.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      setError(detail ?? "수정에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const inputCls =
+    "w-full rounded border border-zinc-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={() => !submitting && onClose()}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="font-sans text-lg font-bold text-slate-900">계정 정보 수정</h2>
+
+        <div className="mt-5 space-y-4">
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-slate-800">이메일</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+
+          {!isSocial ? (
+            <div className="space-y-3 border-t border-zinc-200 pt-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                비밀번호 변경 (선택)
+              </p>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-slate-800">
+                  현재 비밀번호
+                </label>
+                <input
+                  type="password"
+                  value={currentPw}
+                  onChange={(e) => setCurrentPw(e.target.value)}
+                  autoComplete="current-password"
+                  className={inputCls}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-slate-800">
+                  새 비밀번호
+                </label>
+                <input
+                  type="password"
+                  value={newPw}
+                  onChange={(e) => setNewPw(e.target.value)}
+                  autoComplete="new-password"
+                  placeholder="8자 이상"
+                  className={inputCls}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-slate-800">
+                  새 비밀번호 확인
+                </label>
+                <input
+                  type="password"
+                  value={confirmPw}
+                  onChange={(e) => setConfirmPw(e.target.value)}
+                  autoComplete="new-password"
+                  className={inputCls}
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="rounded border border-zinc-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              소셜 로그인 계정은 비밀번호를 변경할 수 없습니다.
+            </p>
+          )}
+
+          {error ? (
+            <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="rounded border border-zinc-300 px-4 py-2 text-sm text-slate-700 hover:bg-zinc-50"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+          >
+            {submitting ? "저장 중..." : "저장"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

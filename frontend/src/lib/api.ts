@@ -209,6 +209,17 @@ export async function deleteMe(password?: string): Promise<void> {
   tokenStorage.clear();
 }
 
+export type ProfileUpdatePayload = {
+  email?: string;
+  current_password?: string;
+  new_password?: string;
+};
+
+export async function updateMe(payload: ProfileUpdatePayload): Promise<UserResponse> {
+  const { data } = await api.patch<UserResponse>("/auth/me", payload);
+  return data;
+}
+
 export function logout(): void {
   tokenStorage.clear();
 }

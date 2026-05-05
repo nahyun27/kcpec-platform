@@ -30,6 +30,12 @@ class DeleteMeRequest(BaseModel):
     password: str | None = None
 
 
+class ProfileUpdateRequest(BaseModel):
+    email: EmailStr | None = None
+    current_password: str | None = None
+    new_password: str | None = Field(default=None, min_length=8, max_length=128)
+
+
 class UserResponse(BaseModel):
     id: int
     username: str
