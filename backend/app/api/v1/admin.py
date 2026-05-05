@@ -46,6 +46,7 @@ from app.schemas.admin import (
     NoticePatch,
     OkResponse,
     PostPatch,
+    QuizRead,
     QuizSet,
 )
 from app.schemas.community import NoticeDetail, PostDetail
@@ -371,6 +372,22 @@ def admin_list_courses(db: Session = Depends(get_db)) -> list[Course]:
             .order_by(Course.id)
         ).all()
     )
+
+
+@router.get("/courses/{course_id}/quiz", response_model=QuizRead)
+def get_quiz(course_id: int, db: Session = Depends(get_db)) -> QuizRead:
+    course = db.get(Course, course_id)
+    if course is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="강의를 찾을 수 없습니다.")
+
+    quiz = db.scalar(
+        select(Quiz)
+        .where(Quiz.course_id == course_id)
+        .options(selectinload(Quiz.questions).selectinload(QuizQuestion.options))
+    )
+    if quiz is None:
+        return QuizRead(exists=False, questions=[])
+    return QuizRead(exists=True, questions=quiz.questions)
 
 
 @router.post("/courses/{course_id}/quiz", response_model=OkResponse)

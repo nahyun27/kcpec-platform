@@ -84,6 +84,28 @@ class QuizSet(BaseModel):
     questions: list[QuizQuestionInput] = Field(min_length=1)
 
 
+class QuizOptionRead(BaseModel):
+    id: int
+    option_text: str
+    is_correct: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class QuizQuestionRead(BaseModel):
+    id: int
+    question_text: str
+    order_index: int
+    options: list[QuizOptionRead]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class QuizRead(BaseModel):
+    exists: bool
+    questions: list[QuizQuestionRead] = []
+
+
 class AdminOrderRow(BaseModel):
     id: int
     user_id: int

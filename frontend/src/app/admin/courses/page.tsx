@@ -7,6 +7,7 @@ import {
   createCourse,
   deleteAdminLecture,
   getAdminCourseLectures,
+  getAdminCourseQuiz,
   getAdminCourses,
   patchAdminLecture,
   patchCourse,
@@ -20,6 +21,7 @@ import {
 import type {
   AdminLectureFull,
   AdminQuizQuestion,
+  AdminQuizRead,
 } from "@/types/admin";
 
 type Modal =
@@ -38,6 +40,7 @@ export default function AdminCoursesPage() {
   const [lecturesByCourse, setLecturesByCourse] = useState<
     Record<number, AdminLectureFull[]>
   >({});
+  const [quizByCourse, setQuizByCourse] = useState<Record<number, AdminQuizRead>>({});
 
   async function load() {
     setError(null);
@@ -57,6 +60,18 @@ export default function AdminCoursesPage() {
     }
   }
 
+  async function loadQuiz(courseId: number) {
+    try {
+      const quiz = await getAdminCourseQuiz(courseId);
+      setQuizByCourse((prev) => ({ ...prev, [courseId]: quiz }));
+    } catch {
+      setQuizByCourse((prev) => ({
+        ...prev,
+        [courseId]: { exists: false, questions: [] },
+      }));
+    }
+  }
+
   useEffect(() => {
     load();
   }, []);
@@ -68,12 +83,16 @@ export default function AdminCoursesPage() {
     }
     setOpenId(courseId);
     if (lecturesByCourse[courseId] === undefined) void loadLectures(courseId);
+    if (quizByCourse[courseId] === undefined) void loadQuiz(courseId);
   }
 
   async function afterMutation(courseId?: number) {
     setModal(null);
     await load();
-    if (courseId != null) await loadLectures(courseId);
+    if (courseId != null) {
+      await loadLectures(courseId);
+      await loadQuiz(courseId);
+    }
   }
 
   return (
@@ -168,13 +187,10 @@ export default function AdminCoursesPage() {
                         >
                           영상 추가
                         </button>
-                        <button
-                          type="button"
+                        <QuizButton
+                          quiz={quizByCourse[c.id]}
                           onClick={() => setModal({ kind: "quiz", course: c })}
-                          className="rounded border border-zinc-300 px-2.5 py-1 text-xs hover:border-[var(--color-primary)]"
-                        >
-                          퀴즈 등록
-                        </button>
+                        />
                         <button
                           type="button"
                           onClick={() => setModal({ kind: "edit-course", course: c })}
@@ -249,11 +265,54 @@ export default function AdminCoursesPage() {
       {modal?.kind === "quiz" ? (
         <QuizModal
           course={modal.course}
+          existing={quizByCourse[modal.course.id]}
           onClose={() => setModal(null)}
-          onSaved={() => void afterMutation()}
+          onSaved={() => void afterMutation(modal.course.id)}
         />
       ) : null}
     </div>
+  );
+}
+
+// ---------- quiz button ----------------------------------------------------
+
+function QuizButton({
+  quiz,
+  onClick,
+}: {
+  quiz: AdminQuizRead | undefined;
+  onClick: () => void;
+}) {
+  if (quiz === undefined) {
+    return (
+      <button
+        type="button"
+        disabled
+        className="rounded border border-zinc-200 px-2.5 py-1 text-xs text-zinc-400"
+      >
+        퀴즈 …
+      </button>
+    );
+  }
+  if (!quiz.exists) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="rounded border border-zinc-300 px-2.5 py-1 text-xs hover:border-[var(--color-primary)]"
+      >
+        퀴즈 등록
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded bg-[var(--color-primary)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)]"
+    >
+      퀴즈 수정 ({quiz.questions.length}문항)
+    </button>
   );
 }
 
@@ -820,42 +879,53 @@ type QuestionDraft = {
   options: { option_text: string; correct: boolean }[];
 };
 
+function blankQuestion(): QuestionDraft {
+  return {
+    question_text: "",
+    options: [
+      { option_text: "", correct: true },
+      { option_text: "", correct: false },
+      { option_text: "", correct: false },
+      { option_text: "", correct: false },
+    ],
+  };
+}
+
 function QuizModal({
   course,
+  existing,
   onClose,
   onSaved,
 }: {
   course: CourseListItem;
+  existing: AdminQuizRead | undefined;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [questions, setQuestions] = useState<QuestionDraft[]>([
-    {
-      question_text: "",
-      options: [
-        { option_text: "", correct: true },
-        { option_text: "", correct: false },
-        { option_text: "", correct: false },
-        { option_text: "", correct: false },
-      ],
-    },
-  ]);
+  const isEdit = !!existing?.exists;
+  const [questions, setQuestions] = useState<QuestionDraft[]>(() => {
+    if (existing?.exists && existing.questions.length > 0) {
+      return existing.questions.map((q) => ({
+        question_text: q.question_text,
+        options: q.options.map((o) => ({
+          option_text: o.option_text,
+          correct: o.is_correct,
+        })),
+      }));
+    }
+    return [blankQuestion()];
+  });
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   function addQuestion() {
-    setQuestions((prev) => [
-      ...prev,
-      {
-        question_text: "",
-        options: [
-          { option_text: "", correct: true },
-          { option_text: "", correct: false },
-          { option_text: "", correct: false },
-          { option_text: "", correct: false },
-        ],
-      },
-    ]);
+    setQuestions((prev) => [...prev, blankQuestion()]);
+  }
+
+  function removeQuestion(qi: number) {
+    setQuestions((prev) =>
+      prev.length <= 1 ? prev : prev.filter((_, i) => i !== qi),
+    );
   }
 
   function updateQuestion(qi: number, text: string) {
@@ -916,14 +986,30 @@ function QuizModal({
   }
 
   return (
-    <ModalShell title={`퀴즈 등록 — ${course.title}`} onClose={onClose} maxWidth="max-w-2xl">
+    <ModalShell
+      title={`${isEdit ? "퀴즈 수정" : "퀴즈 등록"} — ${course.title}`}
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+    >
       <form onSubmit={handleSubmit} className="space-y-5">
         <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
           ⚠️ 저장 시 기존 퀴즈는 전체 교체됩니다.
+          {isEdit ? " 기존 응시 기록은 그대로 보존됩니다." : ""}
         </p>
         {questions.map((q, qi) => (
           <div key={qi} className="space-y-2 rounded-lg border border-zinc-200 p-4">
-            <p className="text-xs font-semibold text-zinc-500">문제 {qi + 1}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-zinc-500">문제 {qi + 1}</p>
+              {questions.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => removeQuestion(qi)}
+                  className="text-[11px] text-red-500 hover:underline"
+                >
+                  삭제
+                </button>
+              ) : null}
+            </div>
             <input
               required
               value={q.question_text}
@@ -964,7 +1050,11 @@ function QuizModal({
           + 문제 추가
         </button>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
-        <FormActions onClose={onClose} submitting={submitting} />
+        <FormActions
+          onClose={onClose}
+          submitting={submitting}
+          submitLabel={isEdit ? "수정 저장" : "등록"}
+        />
       </form>
     </ModalShell>
   );

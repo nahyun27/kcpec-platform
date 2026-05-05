@@ -35,6 +35,7 @@ import type {
   AdminLecturePatch,
   AdminOrdersResponse,
   AdminQuizQuestion,
+  AdminQuizRead,
   AdminStats,
   AdminSurveyDetail,
   AdminSurveyRow,
@@ -418,6 +419,11 @@ export async function setQuiz(
     `/admin/courses/${courseId}/quiz`,
     { questions },
   );
+  return data;
+}
+
+export async function getAdminCourseQuiz(courseId: number): Promise<AdminQuizRead> {
+  const { data } = await api.get<AdminQuizRead>(`/admin/courses/${courseId}/quiz`);
   return data;
 }
 

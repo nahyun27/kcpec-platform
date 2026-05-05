@@ -161,3 +161,21 @@ export type AdminQuizQuestion = {
   question_text: string;
   options: { option_text: string; is_correct: boolean }[];
 };
+
+export type AdminQuizOptionRead = {
+  id: number;
+  option_text: string;
+  is_correct: boolean;
+};
+
+export type AdminQuizQuestionRead = {
+  id: number;
+  question_text: string;
+  order_index: number;
+  options: AdminQuizOptionRead[];
+};
+
+export type AdminQuizRead = {
+  exists: boolean;
+  questions: AdminQuizQuestionRead[];
+};
