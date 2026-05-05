@@ -9,7 +9,9 @@ class NoticeListItem(BaseModel):
     id: int
     title: str
     category: NoticeCategory
+    author_name: str
     is_pinned: bool
+    view_count: int
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -18,7 +20,6 @@ class NoticeListItem(BaseModel):
 class NoticeDetail(NoticeListItem):
     content: str
     file_url: str | None
-    view_count: int
     updated_at: datetime
 
 
@@ -26,6 +27,7 @@ class NoticeCreate(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     content: str = Field(min_length=1)
     category: NoticeCategory
+    author_name: str = Field(default="한국범죄예방교육센터", max_length=50)
     file_url: str | None = None
     is_pinned: bool = False
 
@@ -35,6 +37,7 @@ class PostListItem(BaseModel):
     title: str
     category: PostCategory
     author_name: str
+    course_category: str | None
     view_count: int
     created_at: datetime
 
@@ -50,6 +53,7 @@ class PostCreate(BaseModel):
     content: str = Field(min_length=1)
     category: PostCategory
     author_name: str = Field(default="익명", max_length=50)
+    course_category: str | None = Field(default=None, max_length=50)
 
 
 class PaginatedNotices(BaseModel):

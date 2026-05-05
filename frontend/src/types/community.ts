@@ -26,13 +26,14 @@ export type NoticeListItem = {
   id: number;
   title: string;
   category: NoticeCategory;
+  author_name: string;
   is_pinned: boolean;
+  view_count: number;
   created_at: string;
 };
 export type NoticeDetail = NoticeListItem & {
   content: string;
   file_url: string | null;
-  view_count: number;
   updated_at: string;
 };
 
@@ -41,6 +42,7 @@ export type PostListItem = {
   title: string;
   category: PostCategory;
   author_name: string;
+  course_category: string | null;
   view_count: number;
   created_at: string;
 };
@@ -65,6 +67,7 @@ export type NoticeCreate = {
   title: string;
   content: string;
   category: NoticeCategory;
+  author_name?: string;
   file_url?: string;
   is_pinned?: boolean;
 };
@@ -73,4 +76,5 @@ export type PostCreate = {
   content: string;
   category: PostCategory;
   author_name?: string;
+  course_category?: string;
 };

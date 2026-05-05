@@ -33,6 +33,9 @@ class Notice(Base):
         nullable=False,
         index=True,
     )
+    author_name: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="한국범죄예방교육센터"
+    )
     file_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -63,6 +66,7 @@ class Post(Base):
         index=True,
     )
     author_name: Mapped[str] = mapped_column(String(50), nullable=False, default="익명")
+    course_category: Mapped[str | None] = mapped_column(String(50), nullable=True)
     view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
