@@ -16,6 +16,9 @@ class AdminUser(BaseModel):
     is_active: bool
     is_admin: bool
     created_at: datetime
+    enrollment_count: int = 0
+    payment_count: int = 0
+    total_payment: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -64,7 +67,9 @@ class QuizSet(BaseModel):
 
 class AdminOrderRow(BaseModel):
     id: int
+    user_id: int
     username: str
+    email: EmailStr | None = None
     course_title: str
     package_name: str
     amount: int
@@ -107,7 +112,28 @@ class AdminStats(BaseModel):
     total_revenue: int
     today_signups: int
     today_paid_orders: int
+    today_revenue: int
+    month_revenue: int
     recent_orders: list[AdminOrderRow]
+
+
+class CourseEnrollmentCount(BaseModel):
+    course_id: int
+    course_title: str
+    category: CourseCategory
+    enrollment_count: int
+
+
+class NoticePatch(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    content: str | None = Field(default=None, min_length=1)
+    file_url: str | None = None
+    is_pinned: bool | None = None
+
+
+class PostPatch(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    content: str | None = Field(default=None, min_length=1)
 
 
 # 단순 OK 응답

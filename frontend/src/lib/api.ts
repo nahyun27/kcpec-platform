@@ -32,6 +32,9 @@ import type {
   AdminStats,
   AdminSurveyRow,
   AdminUsersResponse,
+  CourseEnrollmentCount,
+  NoticePatch,
+  PostPatch,
 } from "@/types/admin";
 import type {
   NoticeCategory,
@@ -401,6 +404,47 @@ export async function uploadFinalPdf(
     { headers: { "Content-Type": "multipart/form-data" } },
   );
   return data;
+}
+
+export async function getCourseEnrollmentCounts(): Promise<CourseEnrollmentCount[]> {
+  const { data } = await api.get<CourseEnrollmentCount[]>(
+    "/admin/courses/enrollment-counts",
+  );
+  return data;
+}
+
+export async function getAdminOrderDocuments(orderId: number): Promise<DocumentResponse[]> {
+  const { data } = await api.get<DocumentResponse[]>(
+    `/admin/orders/${orderId}/documents`,
+  );
+  return data;
+}
+
+export async function patchAdminNotice(
+  noticeId: number,
+  payload: NoticePatch,
+): Promise<NoticeDetail> {
+  const { data } = await api.patch<NoticeDetail>(
+    `/admin/notices/${noticeId}`,
+    payload,
+  );
+  return data;
+}
+
+export async function deleteAdminNotice(noticeId: number): Promise<void> {
+  await api.delete(`/admin/notices/${noticeId}`);
+}
+
+export async function patchAdminPost(
+  postId: number,
+  payload: PostPatch,
+): Promise<PostDetail> {
+  const { data } = await api.patch<PostDetail>(`/admin/posts/${postId}`, payload);
+  return data;
+}
+
+export async function deleteAdminPost(postId: number): Promise<void> {
+  await api.delete(`/admin/posts/${postId}`);
 }
 
 // ---------- community ------------------------------------------------------

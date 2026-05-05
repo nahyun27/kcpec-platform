@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.admin import require_admin
 from app.core.database import get_db
 from app.core.email import send_final_to_user
+from app.models.community import Notice, Post
 from app.models.counseling import CounselingStatus, CounselingSurvey
 from app.models.course import Course
 from app.models.document import IssuedDocument, IssuedDocumentStatus, IssuedDocumentType
@@ -34,12 +35,17 @@ from app.schemas.admin import (
     AdminUser,
     AdminUsersResponse,
     CourseCreate,
+    CourseEnrollmentCount,
     CoursePatch,
     LectureCreate,
+    NoticePatch,
     OkResponse,
+    PostPatch,
     QuizSet,
 )
+from app.schemas.community import NoticeDetail, PostDetail
 from app.schemas.course import CourseDetail, CourseListItem, LectureItem
+from app.schemas.document import DocumentResponse
 from app.schemas.order import OrderResponse
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
@@ -54,7 +60,9 @@ def _now() -> datetime:
 def _row_from_order(o: Order, user: User, course: Course, package: Package) -> AdminOrderRow:
     return AdminOrderRow(
         id=o.id,
+        user_id=user.id,
         username=user.username,
+        email=user.email,
         course_title=course.title,
         package_name=package.name,
         amount=o.amount,
@@ -82,12 +90,47 @@ def list_users(
             .limit(size)
         ).all()
     )
-    return AdminUsersResponse(
-        items=[AdminUser.model_validate(u) for u in items],
-        total=total,
-        page=page,
-        size=size,
+    if not items:
+        return AdminUsersResponse(items=[], total=total, page=page, size=size)
+
+    user_ids = [u.id for u in items]
+
+    enroll_counts: dict[int, int] = dict(
+        db.execute(
+            select(Enrollment.user_id, func.count(Enrollment.id))
+            .where(Enrollment.user_id.in_(user_ids))
+            .group_by(Enrollment.user_id)
+        ).all()
     )
+    pay_rows = db.execute(
+        select(
+            Order.user_id,
+            func.count(Order.id),
+            func.coalesce(func.sum(Order.amount), 0),
+        )
+        .where(Order.user_id.in_(user_ids), Order.status == OrderStatus.PAID)
+        .group_by(Order.user_id)
+    ).all()
+    pay_counts: dict[int, int] = {uid: cnt for uid, cnt, _ in pay_rows}
+    pay_amounts: dict[int, int] = {uid: amt for uid, _, amt in pay_rows}
+
+    out: list[AdminUser] = []
+    for u in items:
+        out.append(
+            AdminUser(
+                id=u.id,
+                username=u.username,
+                email=u.email,
+                birth_date=u.birth_date,
+                is_active=u.is_active,
+                is_admin=u.is_admin,
+                created_at=u.created_at,
+                enrollment_count=enroll_counts.get(u.id, 0),
+                payment_count=pay_counts.get(u.id, 0),
+                total_payment=pay_amounts.get(u.id, 0),
+            )
+        )
+    return AdminUsersResponse(items=out, total=total, page=page, size=size)
 
 
 # ---------- courses -----------------------------------------------------------
@@ -386,6 +429,27 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
         )
         or 0
     )
+    today_revenue = (
+        db.scalar(
+            select(func.coalesce(func.sum(Order.amount), 0)).where(
+                Order.status == OrderStatus.PAID,
+                Order.paid_at >= today_start,
+            )
+        )
+        or 0
+    )
+    month_start = datetime.combine(
+        _now().date().replace(day=1), time.min, tzinfo=timezone.utc
+    )
+    month_revenue = (
+        db.scalar(
+            select(func.coalesce(func.sum(Order.amount), 0)).where(
+                Order.status == OrderStatus.PAID,
+                Order.paid_at >= month_start,
+            )
+        )
+        or 0
+    )
 
     recent_rows = db.execute(
         _order_query_for_admin(db, status_filter=None)
@@ -401,5 +465,85 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
         total_revenue=total_revenue,
         today_signups=today_signups,
         today_paid_orders=today_paid_orders,
+        today_revenue=today_revenue,
+        month_revenue=month_revenue,
         recent_orders=recent,
     )
+
+
+# ---------- new admin endpoints ----------------------------------------------
+
+
+@router.get("/courses/enrollment-counts", response_model=list[CourseEnrollmentCount])
+def courses_enrollment_counts(db: Session = Depends(get_db)) -> list[CourseEnrollmentCount]:
+    rows = db.execute(
+        select(Course.id, Course.title, Course.category, func.count(Enrollment.id))
+        .outerjoin(Enrollment, Enrollment.course_id == Course.id)
+        .group_by(Course.id)
+        .order_by(Course.id)
+    ).all()
+    return [
+        CourseEnrollmentCount(
+            course_id=cid, course_title=title, category=cat, enrollment_count=cnt
+        )
+        for (cid, title, cat, cnt) in rows
+    ]
+
+
+@router.get("/orders/{order_id}/documents", response_model=list[DocumentResponse])
+def admin_order_documents(order_id: int, db: Session = Depends(get_db)) -> list[DocumentResponse]:
+    order = db.get(Order, order_id)
+    if order is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="주문을 찾을 수 없습니다.")
+    docs = list(
+        db.scalars(
+            select(IssuedDocument)
+            .where(IssuedDocument.order_id == order_id)
+            .order_by(IssuedDocument.id.desc())
+        ).all()
+    )
+    return [DocumentResponse.model_validate(d) for d in docs]
+
+
+@router.patch("/notices/{notice_id}", response_model=NoticeDetail)
+def patch_notice(notice_id: int, payload: NoticePatch, db: Session = Depends(get_db)) -> NoticeDetail:
+    notice = db.get(Notice, notice_id)
+    if notice is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="공지를 찾을 수 없습니다.")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(notice, field, value)
+    db.commit()
+    db.refresh(notice)
+    return NoticeDetail.model_validate(notice)
+
+
+@router.delete("/notices/{notice_id}", response_model=OkResponse)
+def delete_notice(notice_id: int, db: Session = Depends(get_db)) -> OkResponse:
+    notice = db.get(Notice, notice_id)
+    if notice is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="공지를 찾을 수 없습니다.")
+    db.delete(notice)
+    db.commit()
+    return OkResponse()
+
+
+@router.patch("/posts/{post_id}", response_model=PostDetail)
+def patch_post(post_id: int, payload: PostPatch, db: Session = Depends(get_db)) -> PostDetail:
+    post = db.get(Post, post_id)
+    if post is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="게시글을 찾을 수 없습니다.")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(post, field, value)
+    db.commit()
+    db.refresh(post)
+    return PostDetail.model_validate(post)
+
+
+@router.delete("/posts/{post_id}", response_model=OkResponse)
+def delete_post(post_id: int, db: Session = Depends(get_db)) -> OkResponse:
+    post = db.get(Post, post_id)
+    if post is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="게시글을 찾을 수 없습니다.")
+    db.delete(post)
+    db.commit()
+    return OkResponse()

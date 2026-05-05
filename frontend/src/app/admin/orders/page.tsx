@@ -2,14 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
-import { confirmBankOrder, getAdminOrders } from "@/lib/api";
+import {
+  confirmBankOrder,
+  getAdminOrderDocuments,
+  getAdminOrders,
+} from "@/lib/api";
 import type { AdminOrderRow, AdminOrdersResponse } from "@/types/admin";
-import { PAYMENT_METHOD_LABEL, type OrderStatus } from "@/types/order";
+import { PAYMENT_METHOD_LABEL, type DocumentResponse, type OrderStatus } from "@/types/order";
 
 const FILTERS: { value: OrderStatus | "all"; label: string }[] = [
   { value: "all", label: "전체" },
-  { value: "paid", label: "결제 완료" },
-  { value: "pending", label: "결제 대기" },
+  { value: "paid", label: "결제완료" },
+  { value: "pending", label: "입금대기" },
   { value: "cancelled", label: "취소" },
 ];
 
@@ -18,6 +22,7 @@ export default function AdminOrdersPage() {
   const [data, setData] = useState<AdminOrdersResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
+  const [docsOrder, setDocsOrder] = useState<AdminOrderRow | null>(null);
 
   async function load() {
     setError(null);
@@ -25,7 +30,7 @@ export default function AdminOrdersPage() {
       const d = await getAdminOrders({
         status: filter === "all" ? undefined : filter,
         page: 1,
-        size: 50,
+        size: 100,
       });
       setData(d);
     } catch {
@@ -58,7 +63,7 @@ export default function AdminOrdersPage() {
       <header>
         <h1 className="font-sans text-2xl font-bold text-[var(--color-primary)]">주문</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          전체 주문 내역 / 무통장 입금 확인 처리
+          전체 주문 내역 / 무통장 입금 확인 / 발급 문서 조회
         </p>
       </header>
 
@@ -90,63 +95,179 @@ export default function AdminOrdersPage() {
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
               <tr>
-                <th className="px-4 py-3">주문</th>
-                <th className="px-4 py-3">사용자</th>
-                <th className="px-4 py-3">강의</th>
-                <th className="px-4 py-3">패키지</th>
-                <th className="px-4 py-3">결제수단</th>
-                <th className="px-4 py-3 text-right">금액</th>
-                <th className="px-4 py-3">상태</th>
-                <th className="px-4 py-3">처리</th>
+                <th className="px-3 py-3">주문일시</th>
+                <th className="px-3 py-3">고객명</th>
+                <th className="px-3 py-3">이메일</th>
+                <th className="px-3 py-3">강의명</th>
+                <th className="px-3 py-3">패키지</th>
+                <th className="px-3 py-3">결제수단</th>
+                <th className="px-3 py-3 text-right">금액</th>
+                <th className="px-3 py-3">상태</th>
+                <th className="px-3 py-3">액션</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200">
-              {data.items.map((r) => (
-                <tr key={r.id}>
-                  <td className="px-4 py-3 text-xs text-zinc-500">#{r.id}</td>
-                  <td className="px-4 py-3">{r.username}</td>
-                  <td className="px-4 py-3">{r.course_title}</td>
-                  <td className="px-4 py-3">{r.package_name}</td>
-                  <td className="px-4 py-3 text-xs">
-                    {PAYMENT_METHOD_LABEL[r.payment_method]}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {r.amount.toLocaleString()}원
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={r.status} />
-                  </td>
-                  <td className="px-4 py-3">
-                    {r.status === "pending" && r.payment_method === "bank_transfer" ? (
-                      <button
-                        type="button"
-                        onClick={() => handleConfirm(r)}
-                        disabled={confirmingId === r.id}
-                        className="rounded bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
-                      >
-                        {confirmingId === r.id ? "처리 중..." : "입금 확인"}
-                      </button>
-                    ) : (
-                      <span className="text-xs text-zinc-400">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {data.items.map((r) => {
+                const isPendingBank =
+                  r.status === "pending" && r.payment_method === "bank_transfer";
+                return (
+                  <tr key={r.id} className={isPendingBank ? "bg-red-50/40" : ""}>
+                    <td className="px-3 py-3 text-xs text-zinc-500">
+                      {new Date(r.created_at).toLocaleString("ko-KR")}
+                    </td>
+                    <td className="px-3 py-3 font-medium">{r.username}</td>
+                    <td className="px-3 py-3 text-xs text-zinc-600">
+                      {r.email ?? "-"}
+                    </td>
+                    <td className="px-3 py-3">{r.course_title}</td>
+                    <td className="px-3 py-3">{r.package_name}</td>
+                    <td className="px-3 py-3 text-xs">
+                      {PAYMENT_METHOD_LABEL[r.payment_method]}
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      {r.amount.toLocaleString()}원
+                    </td>
+                    <td className="px-3 py-3">
+                      <StatusBadge status={r.status} pendingBank={isPendingBank} />
+                    </td>
+                    <td className="px-3 py-3">
+                      {isPendingBank ? (
+                        <button
+                          type="button"
+                          onClick={() => handleConfirm(r)}
+                          disabled={confirmingId === r.id}
+                          className="rounded bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+                        >
+                          {confirmingId === r.id ? "처리 중..." : "입금 확인"}
+                        </button>
+                      ) : r.status === "paid" ? (
+                        <button
+                          type="button"
+                          onClick={() => setDocsOrder(r)}
+                          className="rounded border border-zinc-300 px-3 py-1.5 text-xs text-zinc-700 hover:border-[var(--color-primary)]"
+                        >
+                          발급 현황
+                        </button>
+                      ) : (
+                        <span className="text-xs text-zinc-400">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
+
+      {docsOrder ? (
+        <DocumentsModal order={docsOrder} onClose={() => setDocsOrder(null)} />
+      ) : null}
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: OrderStatus }) {
+function StatusBadge({
+  status,
+  pendingBank,
+}: {
+  status: OrderStatus;
+  pendingBank: boolean;
+}) {
+  if (pendingBank) {
+    return (
+      <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
+        입금 대기
+      </span>
+    );
+  }
   const map: Record<OrderStatus, { label: string; cls: string }> = {
-    paid: { label: "결제 완료", cls: "bg-emerald-100 text-emerald-700" },
-    pending: { label: "결제 대기", cls: "bg-amber-100 text-amber-700" },
+    paid: { label: "결제완료", cls: "bg-emerald-100 text-emerald-700" },
+    pending: { label: "결제대기", cls: "bg-amber-100 text-amber-700" },
     cancelled: { label: "취소", cls: "bg-zinc-200 text-zinc-700" },
     refunded: { label: "환불", cls: "bg-zinc-200 text-zinc-700" },
   };
   const { label, cls } = map[status];
   return <span className={`rounded px-2 py-0.5 text-xs font-semibold ${cls}`}>{label}</span>;
+}
+
+function DocumentsModal({
+  order,
+  onClose,
+}: {
+  order: AdminOrderRow;
+  onClose: () => void;
+}) {
+  const [docs, setDocs] = useState<DocumentResponse[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getAdminOrderDocuments(order.id)
+      .then(setDocs)
+      .catch(() => setError("문서 목록을 불러오지 못했습니다."));
+  }, [order.id]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-baseline justify-between">
+          <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">
+            발급 문서
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm text-zinc-500 hover:text-zinc-900"
+          >
+            닫기
+          </button>
+        </div>
+        <p className="mt-1 text-xs text-zinc-500">
+          주문 #{order.id} · {order.username} · {order.course_title}
+        </p>
+
+        <div className="mt-4">
+          {error ? (
+            <p className="text-sm text-red-600">{error}</p>
+          ) : docs == null ? (
+            <p className="text-sm text-zinc-500">불러오는 중...</p>
+          ) : docs.length === 0 ? (
+            <p className="text-sm text-zinc-500">발급된 문서가 없습니다.</p>
+          ) : (
+            <ul className="space-y-2">
+              {docs.map((d) => (
+                <li
+                  key={d.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded border border-zinc-200 px-3 py-2 text-sm"
+                >
+                  <div>
+                    <p className="font-medium">{d.issue_number}</p>
+                    <p className="text-xs text-zinc-500">
+                      {d.document_type} · {d.status}
+                    </p>
+                  </div>
+                  {d.pdf_url ? (
+                    <a
+                      href={d.pdf_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded bg-[var(--color-accent)] px-3 py-1 text-xs font-semibold text-white hover:bg-[var(--color-accent-hover)]"
+                    >
+                      PDF
+                    </a>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }

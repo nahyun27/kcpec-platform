@@ -10,6 +10,9 @@ export type AdminUser = {
   is_active: boolean;
   is_admin: boolean;
   created_at: string;
+  enrollment_count: number;
+  payment_count: number;
+  total_payment: number;
 };
 
 export type AdminUsersResponse = {
@@ -21,7 +24,9 @@ export type AdminUsersResponse = {
 
 export type AdminOrderRow = {
   id: number;
+  user_id: number;
   username: string;
+  email: string | null;
   course_title: string;
   package_name: string;
   amount: number;
@@ -44,7 +49,28 @@ export type AdminStats = {
   total_revenue: number;
   today_signups: number;
   today_paid_orders: number;
+  today_revenue: number;
+  month_revenue: number;
   recent_orders: AdminOrderRow[];
+};
+
+export type CourseEnrollmentCount = {
+  course_id: number;
+  course_title: string;
+  category: CourseCategory;
+  enrollment_count: number;
+};
+
+export type NoticePatch = {
+  title?: string;
+  content?: string;
+  file_url?: string | null;
+  is_pinned?: boolean;
+};
+
+export type PostPatch = {
+  title?: string;
+  content?: string;
 };
 
 export type AdminSurveyRow = {
