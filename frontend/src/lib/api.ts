@@ -50,24 +50,51 @@ export const API_BASE_URL =
 const ACCESS_TOKEN_KEY = "kcpec_access_token";
 const REFRESH_TOKEN_KEY = "kcpec_refresh_token";
 
+// 과거 dev 빌드에서 사용했던 키들 — 발견되면 캐노니컬 키로 옮긴 뒤 제거한다.
+// (이 마이그레이션이 없으면, 옛 키로 저장된 토큰이 새 키로 읽히지 않아
+//  로그인 직후에도 AdminShell 등이 "토큰 없음"으로 판정해 잘못 리다이렉트한다.)
+const LEGACY_ACCESS_KEYS = ["access_token", "token"];
+const LEGACY_REFRESH_KEYS = ["refresh_token"];
+
+function migrateLegacy(canonical: string, legacyKeys: string[]): string | null {
+  if (typeof window === "undefined") return null;
+  const current = window.localStorage.getItem(canonical);
+  if (current) return current;
+  for (const k of legacyKeys) {
+    const v = window.localStorage.getItem(k);
+    if (v) {
+      window.localStorage.setItem(canonical, v);
+      window.localStorage.removeItem(k);
+      return v;
+    }
+  }
+  return null;
+}
+
 export const tokenStorage = {
   getAccess(): string | null {
-    if (typeof window === "undefined") return null;
-    return window.localStorage.getItem(ACCESS_TOKEN_KEY);
+    return migrateLegacy(ACCESS_TOKEN_KEY, LEGACY_ACCESS_KEYS);
   },
   getRefresh(): string | null {
-    if (typeof window === "undefined") return null;
-    return window.localStorage.getItem(REFRESH_TOKEN_KEY);
+    return migrateLegacy(REFRESH_TOKEN_KEY, LEGACY_REFRESH_KEYS);
   },
   set(tokens: { access_token: string; refresh_token: string }) {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access_token);
     window.localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
+    // 캐노니컬 키로 새로 발급된 직후엔 레거시 키도 깨끗이 정리.
+    if (typeof window === "undefined") return;
+    for (const k of [...LEGACY_ACCESS_KEYS, ...LEGACY_REFRESH_KEYS]) {
+      window.localStorage.removeItem(k);
+    }
   },
   clear() {
     if (typeof window === "undefined") return;
     window.localStorage.removeItem(ACCESS_TOKEN_KEY);
     window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+    for (const k of [...LEGACY_ACCESS_KEYS, ...LEGACY_REFRESH_KEYS]) {
+      window.localStorage.removeItem(k);
+    }
   },
 };
 
