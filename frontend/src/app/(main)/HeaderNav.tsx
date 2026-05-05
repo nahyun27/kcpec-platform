@@ -27,12 +27,25 @@ export default function HeaderNav() {
     router.refresh();
   }
 
+  const navLink = (href: string, label: string) => (
+    <Link
+      key={href}
+      href={href}
+      className="relative group hover:text-[var(--color-primary)] transition-colors"
+    >
+      <span>{label}</span>
+      <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-[var(--color-accent)] transition-all group-hover:w-full"></span>
+    </Link>
+  );
+
   return (
     <nav className="flex items-center gap-6 text-sm font-medium text-zinc-700">
-      <Link href="/courses" className="relative group hover:text-[var(--color-primary)] transition-colors">
-        <span>강의 목록</span>
-        <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-[var(--color-accent)] transition-all group-hover:w-full"></span>
-      </Link>
+      <div className="hidden items-center gap-6 md:flex">
+        {navLink("/courses", "강의 목록")}
+        {navLink("/community", "커뮤니티")}
+        {navLink("/guide", "이용 안내")}
+        {navLink("/faq", "자주 묻는 질문")}
+      </div>
       {authed ? (
         <div className="flex items-center gap-3">
           <Link href="/mypage" className="relative group hover:text-[var(--color-primary)] transition-colors">

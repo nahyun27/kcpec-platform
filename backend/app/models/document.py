@@ -11,6 +11,7 @@ class IssuedDocumentType(str, enum.Enum):
     CERTIFICATE = "certificate"
     GUIDE = "guide"
     CBT = "cbt"
+    COUNSELING = "counseling"
 
 
 class IssuedDocumentStatus(str, enum.Enum):

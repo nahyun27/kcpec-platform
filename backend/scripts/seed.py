@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sqlalchemy import select  # noqa: E402
 
 from app.core.database import SessionLocal  # noqa: E402
+from app.models.community import Notice, NoticeCategory  # noqa: E402
 from app.models.course import Course, CourseCategory  # noqa: E402
 from app.models.package import (  # noqa: E402
     DocumentType,
@@ -102,11 +103,58 @@ def seed_packages() -> int:
     return inserted
 
 
+NOTICES: list[tuple[str, NoticeCategory, str, bool]] = [
+    (
+        "센터 공식 오픈 안내",
+        NoticeCategory.NOTICE,
+        "한국범죄예방교육센터 온라인 플랫폼이 정식 오픈했습니다. "
+        "모든 교육 과정은 무료로 수강하실 수 있으며, 수료 후 양형 자료를 패키지로 발급해 드립니다.",
+        True,
+    ),
+    (
+        "추석 연휴 운영 안내",
+        NoticeCategory.NOTICE,
+        "추석 연휴 기간 중에도 강의 수강은 정상 가능합니다. "
+        "심리상담 의견서 발급은 연휴 종료 후 순차 처리되니 양해 부탁드립니다.",
+        False,
+    ),
+    (
+        "양형자료 작성 가이드 (PDF)",
+        NoticeCategory.RESOURCE,
+        "양형자료 제출 시 참고하실 수 있는 가이드입니다. "
+        "첨부 파일을 다운로드 받아 활용해 주세요.",
+        False,
+    ),
+]
+
+
+def seed_notices() -> int:
+    inserted = 0
+    with SessionLocal() as db:
+        for title, category, content, pinned in NOTICES:
+            exists = db.scalar(select(Notice).where(Notice.title == title))
+            if exists is not None:
+                continue
+            db.add(
+                Notice(
+                    title=title,
+                    category=category,
+                    content=content,
+                    is_pinned=pinned,
+                )
+            )
+            inserted += 1
+        db.commit()
+    return inserted
+
+
 def main() -> None:
     courses_added = seed_courses()
     packages_added = seed_packages()
+    notices_added = seed_notices()
     print(f"강의 추가: {courses_added}개")
     print(f"패키지 추가: {packages_added}개")
+    print(f"공지/자료실 추가: {notices_added}개")
 
 
 if __name__ == "__main__":

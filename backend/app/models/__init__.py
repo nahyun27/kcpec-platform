@@ -1,3 +1,4 @@
+from app.models.community import Notice, NoticeCategory, Post, PostCategory
 from app.models.counseling import CounselingStatus, CounselingSurvey
 from app.models.course import Course, CourseCategory
 from app.models.document import IssuedDocument, IssuedDocumentStatus, IssuedDocumentType
@@ -11,6 +12,10 @@ from app.models.user import User
 __all__ = [
     "CounselingStatus",
     "CounselingSurvey",
+    "Notice",
+    "NoticeCategory",
+    "Post",
+    "PostCategory",
     "Course",
     "CourseCategory",
     "DocumentType",

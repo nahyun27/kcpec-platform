@@ -12,6 +12,7 @@ const NAV = [
   { href: "/admin/courses", label: "강의 관리" },
   { href: "/admin/orders", label: "주문" },
   { href: "/admin/surveys", label: "의견서" },
+  { href: "/admin/community", label: "커뮤니티" },
 ];
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {

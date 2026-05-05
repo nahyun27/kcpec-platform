@@ -315,12 +315,10 @@ async def upload_final(
     order = db.get(Order, survey.order_id)
     user = db.get(User, survey.user_id) if survey.user_id else None
     if order is not None and user is not None:
-        # IssuedDocumentType 에 counseling 이 없으므로 가장 가까운 GUIDE 로 분류 + 발급번호로 구분.
-        # (스키마 변경 없이 호환되게)
         doc = IssuedDocument(
             order_id=order.id,
             user_id=user.id,
-            document_type=IssuedDocumentType.GUIDE,
+            document_type=IssuedDocumentType.COUNSELING,
             recipient_name=user.username,
             recipient_birth=user.birth_date or datetime(2000, 1, 1).date(),
             pdf_url=pdf_url,

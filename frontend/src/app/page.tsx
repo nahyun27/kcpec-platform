@@ -117,11 +117,15 @@ function Nav({ authed, onLogout }: { authed: boolean; onLogout: () => void }) {
             <span>강의 목록</span>
             <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-[var(--color-accent)] transition-all group-hover:w-full"></span>
           </Link>
-          <Link href="#guide" className="relative group hover:text-[var(--color-primary)] transition-colors">
+          <Link href="/community" className="relative group hover:text-[var(--color-primary)] transition-colors">
+            <span>커뮤니티</span>
+            <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-[var(--color-accent)] transition-all group-hover:w-full"></span>
+          </Link>
+          <Link href="/guide" className="relative group hover:text-[var(--color-primary)] transition-colors">
             <span>이용 안내</span>
             <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-[var(--color-accent)] transition-all group-hover:w-full"></span>
           </Link>
-          <Link href="#faq" className="relative group hover:text-[var(--color-primary)] transition-colors">
+          <Link href="/faq" className="relative group hover:text-[var(--color-primary)] transition-colors">
             <span>자주 묻는 질문</span>
             <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-[var(--color-accent)] transition-all group-hover:w-full"></span>
           </Link>

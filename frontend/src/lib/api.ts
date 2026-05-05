@@ -33,6 +33,16 @@ import type {
   AdminSurveyRow,
   AdminUsersResponse,
 } from "@/types/admin";
+import type {
+  NoticeCategory,
+  NoticeCreate,
+  NoticeDetail,
+  PaginatedNotices,
+  PaginatedPosts,
+  PostCategory,
+  PostCreate,
+  PostDetail,
+} from "@/types/community";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
@@ -363,5 +373,49 @@ export async function uploadFinalPdf(
     fd,
     { headers: { "Content-Type": "multipart/form-data" } },
   );
+  return data;
+}
+
+// ---------- community ------------------------------------------------------
+
+export async function getNotices(
+  category?: NoticeCategory,
+  page = 1,
+  size = 20,
+): Promise<PaginatedNotices> {
+  const { data } = await api.get<PaginatedNotices>("/notices", {
+    params: { category, page, size },
+  });
+  return data;
+}
+
+export async function getNotice(id: number): Promise<NoticeDetail> {
+  const { data } = await api.get<NoticeDetail>(`/notices/${id}`);
+  return data;
+}
+
+export async function createNotice(payload: NoticeCreate): Promise<NoticeDetail> {
+  const { data } = await api.post<NoticeDetail>("/notices", payload);
+  return data;
+}
+
+export async function getPosts(
+  category?: PostCategory,
+  page = 1,
+  size = 20,
+): Promise<PaginatedPosts> {
+  const { data } = await api.get<PaginatedPosts>("/posts", {
+    params: { category, page, size },
+  });
+  return data;
+}
+
+export async function getPost(id: number): Promise<PostDetail> {
+  const { data } = await api.get<PostDetail>(`/posts/${id}`);
+  return data;
+}
+
+export async function createPost(payload: PostCreate): Promise<PostDetail> {
+  const { data } = await api.post<PostDetail>("/posts", payload);
   return data;
 }
