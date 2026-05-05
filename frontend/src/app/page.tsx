@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getCourses, logout, tokenStorage } from "@/lib/api";
+import { getCourses } from "@/lib/api";
 import type { CourseListItem } from "@/types/course";
+import SiteHeader from "@/components/layout/SiteHeader";
 import {
   ArrowRight,
   CheckCircle2,
@@ -77,17 +78,15 @@ const STEPS = [
 ];
 
 export default function HomePage() {
-  const [authed, setAuthed] = useState(false);
   const [courses, setCourses] = useState<CourseListItem[]>([]);
 
   useEffect(() => {
-    setAuthed(Boolean(tokenStorage.getAccess()));
     getCourses().then(setCourses).catch(() => setCourses([]));
   }, []);
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-[var(--color-muted)]">
-      <Nav authed={authed} onLogout={() => { logout(); setAuthed(false); }} />
+      <SiteHeader />
       <Hero />
       <TrustSection />
       <CoursesSection courses={courses} />
@@ -96,76 +95,6 @@ export default function HomePage() {
       <FaqSection />
       <Footer />
     </div>
-  );
-}
-
-// ---------- nav ------------------------------------------------------------
-
-function Nav({ authed, onLogout }: { authed: boolean; onLogout: () => void }) {
-  return (
-    <header className="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/80 backdrop-blur-md transition-all">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-        <Link
-          href="/"
-          className="flex items-center gap-2 font-sans text-xl font-extrabold tracking-tight text-[var(--color-primary)]"
-        >
-          <ShieldCheck className="h-6 w-6 text-[var(--color-accent)]" />
-          <span>KCPEC</span>
-        </Link>
-        <nav className="hidden items-center gap-8 text-sm font-medium text-zinc-700 md:flex">
-          <Link href="/courses" className="relative group hover:text-[var(--color-primary)] transition-colors">
-            <span>강의 목록</span>
-            <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-[var(--color-accent)] transition-all group-hover:w-full"></span>
-          </Link>
-          <Link href="/community" className="relative group hover:text-[var(--color-primary)] transition-colors">
-            <span>커뮤니티</span>
-            <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-[var(--color-accent)] transition-all group-hover:w-full"></span>
-          </Link>
-          <Link href="/guide" className="relative group hover:text-[var(--color-primary)] transition-colors">
-            <span>이용 안내</span>
-            <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-[var(--color-accent)] transition-all group-hover:w-full"></span>
-          </Link>
-          <Link href="/faq" className="relative group hover:text-[var(--color-primary)] transition-colors">
-            <span>자주 묻는 질문</span>
-            <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-[var(--color-accent)] transition-all group-hover:w-full"></span>
-          </Link>
-        </nav>
-        <div className="flex items-center gap-3 text-sm font-medium">
-          {authed ? (
-            <>
-              <Link
-                href="/mypage"
-                className="px-2 py-1.5 text-zinc-600 transition-colors hover:text-zinc-900"
-              >
-                마이페이지
-              </Link>
-              <button
-                type="button"
-                onClick={onLogout}
-                className="rounded-full border border-zinc-200 bg-white px-4 py-1.5 text-zinc-600 shadow-sm transition-all hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900"
-              >
-                로그아웃
-              </button>
-            </>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className="px-2 py-1.5 text-zinc-600 transition-colors hover:text-zinc-900"
-              >
-                로그인
-              </Link>
-              <Link
-                href="/signup"
-                className="rounded-full bg-[var(--color-primary)] px-5 py-2 text-white shadow-md shadow-slate-900/10 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-lg"
-              >
-                회원가입
-              </Link>
-            </>
-          )}
-        </div>
-      </div>
-    </header>
   );
 }
 
