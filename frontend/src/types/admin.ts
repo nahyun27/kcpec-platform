@@ -126,7 +126,7 @@ export type AdminLectureCreate = {
   title: string;
   order_index: number;
   video_url?: string;
-  duration_seconds: number;
+  duration_seconds?: number;
 };
 
 export type AdminLectureFull = {

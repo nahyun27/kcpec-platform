@@ -227,30 +227,24 @@ export default function WatchPage({
         // duration 이 확정된 시점에 오버레이 초기 width 반영
         updateOverlayWidth();
 
-        // duration_seconds 가 비어 있으면 자동 감지값으로 백필 (어드민만 성공, 일반 사용자는 403 무시)
-        const lecture = courseRef.current?.lectures.find((l) => l.id === lectureId);
-        const detected = Math.round(instance.duration);
-        if (
-          lecture != null &&
-          (!lecture.duration_seconds || lecture.duration_seconds <= 0) &&
-          Number.isFinite(instance.duration) &&
-          detected > 0
-        ) {
-          patchAdminLecture(lectureId, { duration_seconds: detected })
+        // 항상 실제 영상 길이로 갱신 (어드민만 성공, 일반 사용자는 403 무시)
+        const actualDuration = Math.round(instance.duration);
+        if (Number.isFinite(instance.duration) && actualDuration > 0) {
+          patchAdminLecture(lectureId, { duration_seconds: actualDuration })
             .then(() => {
               setCourse((prev) =>
                 prev
                   ? {
                       ...prev,
                       lectures: prev.lectures.map((l) =>
-                        l.id === lectureId ? { ...l, duration_seconds: detected } : l,
+                        l.id === lectureId
+                          ? { ...l, duration_seconds: actualDuration }
+                          : l,
                       ),
                     }
                   : prev,
               );
-              console.log(
-                `[duration] lecture=${lectureId} 자동 백필 → ${detected}s`,
-              );
+              console.log(`[duration] lecture=${lectureId} → ${actualDuration}s`);
             })
             .catch(() => {
               /* 비어드민 사용자: 403 무시 */
