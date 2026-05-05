@@ -89,11 +89,11 @@ export default function CounselingPage() {
       </section>
 
       {/* 2) Intro */}
-      <section className="relative overflow-hidden bg-slate-50 py-16 sm:py-24">
-        <div className="relative z-10 mx-auto max-w-3xl px-6">
-          <div className="rounded-[2rem] border border-zinc-100 bg-white p-8 text-center shadow-lg shadow-slate-200/50 sm:p-12">
-            <div className="mx-auto mb-8 h-1 w-12 rounded-full bg-[var(--color-accent)]"></div>
-            <div className="space-y-6 text-[15px] leading-relaxed text-slate-700 sm:text-base sm:leading-loose">
+      <section className="relative overflow-hidden bg-slate-50 py-12 sm:py-24">
+        <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6">
+          <div className="rounded-[1.5rem] border border-zinc-100 bg-white p-6 text-center shadow-lg shadow-slate-200/50 sm:rounded-[2rem] sm:p-12">
+            <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-[var(--color-accent)] sm:mb-8 sm:w-12"></div>
+            <div className="space-y-4 text-[14px] leading-relaxed text-slate-700 sm:space-y-6 sm:text-[15px] sm:leading-loose">
               <p>
                 심리상담은 내담자의 개인적인 경험을 토대로 <br className="hidden sm:inline" />
                 <strong className="font-bold text-slate-900">전문심리상담사가 내담자의 심리적 원인을 진단하고 치유</strong>하는 것을 목표로 합니다.
@@ -148,22 +148,22 @@ export default function CounselingPage() {
       </section>
 
       {/* 4) Programs */}
-      <section className="bg-slate-50 py-24 sm:py-32">
-        <div className="mx-auto max-w-6xl px-6">
-          <header className="mb-10 text-center">
-            <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-accent)]">
+      <section className="bg-slate-50 py-16 sm:py-32">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <header className="mb-8 text-center sm:mb-10">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-accent)] sm:text-xs">
               Programs
             </p>
-            <h2 className="mt-3 font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)]">
+            <h2 className="mt-2 font-sans text-2xl font-extrabold tracking-tight text-[var(--color-primary)] sm:mt-3 sm:text-3xl">
               전문가 심리상담 프로그램
             </h2>
           </header>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 sm:gap-6">
             {PROGRAMS.map((p) => (
               <article
                 key={p.name}
-                className={`group relative flex flex-col overflow-hidden rounded-3xl bg-white p-8 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl ${
+                className={`group relative flex flex-col overflow-hidden rounded-[1.5rem] bg-white p-6 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl sm:rounded-3xl sm:p-8 ${
                   p.highlight
                     ? "ring-2 ring-[var(--color-primary)] shadow-lg shadow-[var(--color-primary)]/10"
                     : "border border-zinc-200 shadow-md hover:border-[var(--color-primary)]/30"
@@ -175,38 +175,38 @@ export default function CounselingPage() {
                 )}
                 
                 <div className="relative z-10 flex items-center justify-between">
-                  <h3 className="font-sans text-xl font-bold text-slate-900 group-hover:text-[var(--color-primary)] transition-colors">
+                  <h3 className="font-sans text-lg font-bold text-slate-900 transition-colors group-hover:text-[var(--color-primary)] sm:text-xl">
                     {p.name}
                   </h3>
                   {p.highlight ? (
-                    <span className="inline-flex items-center rounded-full bg-[var(--color-accent)] px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-white shadow-sm">
+                    <span className="inline-flex items-center rounded-full bg-[var(--color-accent)] px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white shadow-sm sm:px-3 sm:py-1 sm:text-[11px]">
                       추천
                     </span>
                   ) : null}
                 </div>
                 
                 <div className="relative z-10 mt-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-accent)]">구성</p>
-                  <p className="mt-1 text-[15px] font-medium text-slate-700">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-accent)] sm:text-xs">구성</p>
+                  <p className="mt-0.5 text-[14px] font-medium text-slate-700 sm:mt-1 sm:text-[15px]">
                     {p.composition}
                   </p>
                 </div>
 
-                <div className="relative z-10 mt-8 space-y-3 flex-1">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">목적</p>
-                  <ul className="space-y-2.5 text-[14px] leading-relaxed text-slate-600">
+                <div className="relative z-10 mt-6 flex-1 space-y-3 sm:mt-8">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:text-xs">목적</p>
+                  <ul className="space-y-2 text-[13px] leading-relaxed text-slate-600 sm:space-y-2.5 sm:text-[14px]">
                     {p.goals.map((g) => (
-                      <li key={g} className="flex items-start gap-2.5">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-accent)]" />
+                      <li key={g} className="flex items-start gap-2 sm:gap-2.5">
+                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-accent)] sm:h-4 sm:w-4" />
                         <span>{g}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
 
-                <div className="relative z-10 mt-8 rounded-2xl bg-slate-50 p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">세션 및 진행방법</p>
-                  <ul className="mt-2 space-y-1.5 text-[13px] font-medium text-slate-700">
+                <div className="relative z-10 mt-6 rounded-2xl bg-slate-50 p-3 sm:mt-8 sm:p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:text-[11px]">세션 및 진행방법</p>
+                  <ul className="mt-1.5 space-y-1 text-[12px] font-medium text-slate-700 sm:mt-2 sm:space-y-1.5 sm:text-[13px]">
                     {p.session.map((s) => (
                       <li key={s} className="flex items-center gap-1.5">
                         <span className="h-1 w-1 rounded-full bg-slate-300" />
@@ -216,7 +216,7 @@ export default function CounselingPage() {
                   </ul>
                 </div>
 
-                <div className="relative z-10 mt-6">
+                <div className="relative z-10 mt-5 sm:mt-6">
                   <ApplyButton counselingType={p.type} price={p.price} />
                 </div>
               </article>
