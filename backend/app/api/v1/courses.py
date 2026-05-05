@@ -239,8 +239,14 @@ def update_lecture_progress(
         db.add(progress)
         enrollment.progresses.append(progress)
 
-    progress.watched_seconds = max(progress.watched_seconds, payload.watched_seconds)
-    progress.last_position_sec = payload.last_position_sec
+    # 새로 생성된 LectureProgress 는 flush 전까지 column default(0)가 적용되지 않아
+    # 속성이 None 인 채로 max() 에 들어가 TypeError → 500 이 발생하던 케이스를 방어.
+    progress.watched_seconds = max(
+        progress.watched_seconds or 0, payload.watched_seconds or 0
+    )
+    progress.last_position_sec = max(
+        progress.last_position_sec or 0, payload.last_position_sec or 0
+    )
     if payload.is_completed:
         progress.is_completed = True
 
