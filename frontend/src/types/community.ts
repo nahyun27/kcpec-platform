@@ -43,10 +43,13 @@ export type PostListItem = {
   category: PostCategory;
   author_name: string;
   course_category: string | null;
+  rating: number;
   view_count: number;
   created_at: string;
+  // review 카테고리 응답에만 포함됨 (별점 + 본문 한번에 노출용)
+  content: string | null;
 };
-export type PostDetail = PostListItem & {
+export type PostDetail = Omit<PostListItem, "content"> & {
   content: string;
 };
 
@@ -77,4 +80,5 @@ export type PostCreate = {
   category: PostCategory;
   author_name?: string;
   course_category?: string;
+  rating?: number;
 };

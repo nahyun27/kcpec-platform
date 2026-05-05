@@ -38,14 +38,17 @@ class PostListItem(BaseModel):
     category: PostCategory
     author_name: str
     course_category: str | None
+    rating: int = 5
     view_count: int
     created_at: datetime
+    # review 카테고리 응답에만 채워서 내려준다 (다른 카테고리는 None).
+    content: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class PostDetail(PostListItem):
-    content: str
+    content: str  # type: ignore[assignment]
 
 
 class PostCreate(BaseModel):
@@ -54,6 +57,7 @@ class PostCreate(BaseModel):
     category: PostCategory
     author_name: str = Field(default="익명", max_length=50)
     course_category: str | None = Field(default=None, max_length=50)
+    rating: int = Field(default=5, ge=1, le=5)
 
 
 class PaginatedNotices(BaseModel):

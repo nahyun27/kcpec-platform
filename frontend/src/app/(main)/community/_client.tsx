@@ -475,16 +475,47 @@ function matchesCategory(courseCategory: string | null, label: string): boolean 
   return norm(courseCategory).includes(norm(label));
 }
 
+// 강의 카테고리별 칩 색상 (badge 배경)
+const CATEGORY_BADGE: Record<string, string> = {
+  준법: "bg-slate-100 text-slate-700",
+  음주운전: "bg-rose-100 text-rose-700",
+  성범죄: "bg-purple-100 text-purple-700",
+  성매매: "bg-violet-100 text-violet-700",
+  디지털성범죄: "bg-indigo-100 text-indigo-700",
+  마약: "bg-red-100 text-red-700",
+  도박: "bg-amber-100 text-amber-700",
+  피싱: "bg-sky-100 text-sky-700",
+  재산범죄: "bg-stone-100 text-stone-700",
+  스토킹: "bg-fuchsia-100 text-fuchsia-700",
+  학교폭력: "bg-emerald-100 text-emerald-700",
+};
+
+function badgeClassFor(courseCategory: string | null): string {
+  if (!courseCategory) return "bg-zinc-100 text-zinc-700";
+  for (const [label, cls] of Object.entries(CATEGORY_BADGE)) {
+    if (matchesCategory(courseCategory, label)) return cls;
+  }
+  return "bg-zinc-100 text-zinc-700";
+}
+
 function ReviewTab() {
+  const router = useRouter();
   const [items, setItems] = useState<PostListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string | null>(null); // null = 전체
-  const [openId, setOpenId] = useState<number | null>(null);
+  const [filter, setFilter] = useState<string | null>(null);
+  const [writing, setWriting] = useState(false);
+
+  async function reload() {
+    const r = await getPosts("review", 1, 100);
+    setItems(r.items);
+  }
 
   useEffect(() => {
     let cancelled = false;
-    getPosts("review", 1, 100)
-      .then((r) => !cancelled && setItems(r.items))
+    reload()
+      .catch(() => {
+        /* ignore */
+      })
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -496,58 +527,57 @@ function ReviewTab() {
     [items, filter],
   );
 
+  function handleWriteToggle() {
+    if (!tokenStorage.getAccess()) {
+      router.push("/login?next=/community?tab=review");
+      return;
+    }
+    setWriting((w) => !w);
+  }
+
   if (loading) return <Loading />;
 
   return (
     <div className="space-y-5">
-      {/* 카테고리 칩 필터 */}
-      <div className="flex flex-wrap gap-2 text-sm">
-        <CategoryChip
-          active={filter === null}
-          onClick={() => {
-            setFilter(null);
-            setOpenId(null);
-          }}
-        >
-          전체
-        </CategoryChip>
-        {REVIEW_CATEGORIES.map((c) => (
-          <CategoryChip
-            key={c}
-            active={filter === c}
-            onClick={() => {
-              setFilter(c);
-              setOpenId(null);
-            }}
-          >
-            {c}
+      {/* 카테고리 칩 필터 + 작성 버튼 */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2 text-sm">
+          <CategoryChip active={filter === null} onClick={() => setFilter(null)}>
+            전체
           </CategoryChip>
-        ))}
+          {REVIEW_CATEGORIES.map((c) => (
+            <CategoryChip key={c} active={filter === c} onClick={() => setFilter(c)}>
+              {c}
+            </CategoryChip>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={handleWriteToggle}
+          className="rounded-full bg-[var(--color-primary)] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)]"
+        >
+          {writing ? "취소" : "후기 작성"}
+        </button>
       </div>
+
+      {writing ? (
+        <ReviewWriteForm
+          onCancel={() => setWriting(false)}
+          onCreated={async () => {
+            setWriting(false);
+            await reload();
+          }}
+        />
+      ) : null}
 
       {visible.length === 0 ? (
         <EmptyMessage text="해당 조건의 후기가 아직 없습니다." />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-          {/* 데스크톱 헤더 — 모바일에서는 행 자체가 카드 형태로 표시됨 */}
-          <div className="hidden bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 md:grid md:grid-cols-[60px_140px_1fr_100px_100px] md:gap-3">
-            <span className="text-center">번호</span>
-            <span>강의</span>
-            <span>후기</span>
-            <span className="text-right">작성자</span>
-            <span className="text-right">날짜</span>
-          </div>
-          <ul>
-            {visible.map((p) => (
-              <ReviewAccordion
-                key={p.id}
-                post={p}
-                open={openId === p.id}
-                onToggle={() => setOpenId(openId === p.id ? null : p.id)}
-              />
-            ))}
-          </ul>
-        </div>
+        <ul className="divide-y divide-zinc-200 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          {visible.map((p) => (
+            <ReviewListItem key={p.id} post={p} />
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -577,76 +607,169 @@ function CategoryChip({
   );
 }
 
-function ReviewAccordion({
-  post,
-  open,
-  onToggle,
+function StarRow({ rating, size = "sm" }: { rating: number; size?: "sm" | "lg" }) {
+  const cls = size === "lg" ? "text-2xl" : "text-base";
+  return (
+    <div className={`inline-flex gap-0.5 leading-none ${cls}`} aria-label={`${rating}점`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <span key={n} className={n <= rating ? "text-[var(--color-accent)]" : "text-zinc-300"}>
+          ★
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ReviewListItem({ post }: { post: PostListItem }) {
+  // list 응답에 content 가 채워져 있지만, 혹시 비어 있으면 title 을 fallback.
+  const body = post.content ?? post.title;
+  return (
+    <li className="px-5 py-5 sm:px-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <StarRow rating={post.rating} />
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${badgeClassFor(
+            post.course_category,
+          )}`}
+        >
+          {post.course_category ?? "기타"}
+        </span>
+      </div>
+      <p className="mt-3 whitespace-pre-wrap text-[15px] leading-relaxed text-slate-800">
+        {body}
+      </p>
+      <div className="mt-4 flex items-center gap-3 text-xs text-slate-500">
+        <span>{post.author_name}</span>
+        <span>·</span>
+        <span>{new Date(post.created_at).toLocaleDateString("ko-KR")}</span>
+      </div>
+    </li>
+  );
+}
+
+function ReviewWriteForm({
+  onCancel,
+  onCreated,
 }: {
-  post: PostListItem;
-  open: boolean;
-  onToggle: () => void;
+  onCancel: () => void;
+  onCreated: () => void | Promise<void>;
 }) {
-  const [content, setContent] = useState<string | null>(null);
+  const [rating, setRating] = useState(5);
+  const [course, setCourse] = useState<string>(REVIEW_CATEGORIES[0]);
+  const [content, setContent] = useState("");
+  const [author, setAuthor] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!open || content !== null) return;
-    let cancelled = false;
-    import("@/lib/api").then(({ getPost }) =>
-      getPost(post.id)
-        .then((d) => {
-          if (!cancelled) setContent(d.content);
-        })
-        .catch(() => {
-          /* ignore */
-        }),
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [open, post.id, content]);
-
-  // PostListItem 에는 content 가 없어 50자 미리보기엔 title(=본문 첫 80자) 을 자른다.
-  const preview = post.title.length > 50 ? `${post.title.slice(0, 50)}…` : post.title;
+  async function handleSubmit() {
+    if (!content.trim()) {
+      setError("후기 본문을 입력해 주세요.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await createPost({
+        category: "review",
+        title: content.trim().slice(0, 80),
+        content: content.trim(),
+        author_name: author.trim() || "익명",
+        course_category: course,
+        rating,
+      });
+      await onCreated();
+    } catch (err) {
+      const detail = isAxiosError(err)
+        ? (err.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      setError(detail ?? "후기 등록에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
-    <AccordionRow
-      open={open}
-      onToggle={onToggle}
-      header={
-        <div className="grid w-full grid-cols-1 items-baseline gap-1 md:grid-cols-[60px_140px_1fr_100px_100px] md:gap-3">
-          <span className="hidden text-center text-xs text-slate-500 md:inline">
-            {post.id}
-          </span>
-          <span className="inline-flex w-fit items-center rounded-full bg-[var(--color-accent)]/10 px-2 py-0.5 text-xs font-semibold text-[var(--color-accent)] md:w-auto md:max-w-full md:truncate">
-            {post.course_category ?? "기타"}
-          </span>
-          <span className="truncate text-sm text-slate-800">{preview}</span>
-          <span className="text-xs text-slate-500 md:text-right">
-            {post.author_name}
-          </span>
-          <span className="text-xs text-slate-500 md:text-right">
-            {new Date(post.created_at).toLocaleDateString("ko-KR")}
-          </span>
-        </div>
-      }
-    >
-      <div className="border-t border-zinc-100 bg-slate-50/40 px-5 py-5 text-sm">
-        <div className="mb-3 flex flex-wrap gap-3 text-xs text-slate-500">
-          <span>강의: {post.course_category ?? "-"}</span>
-          <span>·</span>
-          <span>작성자: {post.author_name}</span>
-          <span>·</span>
-          <span>{new Date(post.created_at).toLocaleString("ko-KR")}</span>
-        </div>
-        {content === null ? (
-          <p className="text-xs text-slate-400">불러오는 중...</p>
-        ) : (
-          <div className="whitespace-pre-wrap leading-relaxed text-slate-700">
-            {content}
+    <div className="space-y-4 rounded-2xl border border-[var(--color-primary)]/30 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-slate-600">별점</p>
+          <div className="flex items-center gap-1 text-2xl leading-none">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setRating(n)}
+                className={`transition-colors ${
+                  n <= rating
+                    ? "text-[var(--color-accent)]"
+                    : "text-zinc-300 hover:text-[var(--color-accent)]/60"
+                }`}
+                aria-label={`${n}점`}
+              >
+                ★
+              </button>
+            ))}
           </div>
-        )}
+        </div>
+        <div className="flex-1 space-y-1">
+          <p className="text-xs font-medium text-slate-600">강의</p>
+          <select
+            value={course}
+            onChange={(e) => setCourse(e.target.value)}
+            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+          >
+            {REVIEW_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex-1 space-y-1">
+          <p className="text-xs font-medium text-slate-600">작성자 (비워두면 익명)</p>
+          <input
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
+            maxLength={50}
+            placeholder="익명"
+            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+          />
+        </div>
       </div>
-    </AccordionRow>
+      <div className="space-y-1">
+        <p className="text-xs font-medium text-slate-600">후기</p>
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          rows={5}
+          maxLength={2000}
+          placeholder="강의를 들으신 소감을 자유롭게 적어주세요."
+          className="w-full resize-y rounded border border-zinc-300 px-3 py-2 text-sm leading-relaxed focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+        />
+      </div>
+      {error ? (
+        <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </p>
+      ) : null}
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded border border-zinc-300 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
+        >
+          취소
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="rounded bg-[var(--color-primary)] px-5 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+        >
+          {submitting ? "등록 중..." : "등록"}
+        </button>
+      </div>
+    </div>
   );
 }
 

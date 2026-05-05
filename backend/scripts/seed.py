@@ -410,6 +410,7 @@ def seed_reviews() -> int:
                     category=PostCategory.REVIEW,
                     author_name="익명",
                     course_category=course_name,
+                    rating=5,
                 )
             )
             inserted += 1

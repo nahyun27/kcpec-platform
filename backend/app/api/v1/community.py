@@ -100,8 +100,16 @@ def list_posts(
             .limit(size)
         ).all()
     )
+    # review 카테고리 응답에만 본문을 포함 (별점 + 본문 한번에 노출용).
+    # 다른 카테고리는 list 응답 크기를 줄이기 위해 content=None 으로 마스킹.
+    def to_dto(p: Post) -> PostListItem:
+        dto = PostListItem.model_validate(p)
+        if p.category != PostCategory.REVIEW:
+            dto.content = None
+        return dto
+
     return PaginatedPosts(
-        items=[PostListItem.model_validate(p) for p in items],
+        items=[to_dto(p) for p in items],
         total=total,
         page=page,
         size=size,
@@ -139,6 +147,8 @@ def create_post(
         content=payload.content,
         category=payload.category,
         author_name=payload.author_name or current_user.username,
+        course_category=payload.course_category,
+        rating=payload.rating,
     )
     db.add(post)
     db.commit()
