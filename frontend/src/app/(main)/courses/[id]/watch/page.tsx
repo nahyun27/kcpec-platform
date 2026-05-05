@@ -12,8 +12,7 @@ import {
   type CSSProperties,
 } from "react";
 import { isAxiosError } from "axios";
-import { RefreshCw } from "lucide-react";
-import Plyr from "plyr";
+import { Lock, RefreshCw } from "lucide-react";
 import "plyr/dist/plyr.css";
 import {
   enrollCourse,
@@ -39,6 +38,17 @@ const PLAYER_THEME: CSSProperties = {
   ["--plyr-color-main" as string]: "#1C3461",
 };
 
+// Plyr 은 SSR 시 document 를 참조해 죽기 때문에 dynamic import 로만 들여온다.
+// 우리가 실제로 사용하는 메서드만 노출하는 최소 인터페이스.
+interface PlyrLike {
+  currentTime: number;
+  readonly duration: number;
+  readonly playing: boolean;
+  readonly seeking: boolean;
+  on(event: string, callback: () => void): void;
+  destroy(): void;
+}
+
 export default function WatchPage({
   params,
 }: {
@@ -59,7 +69,7 @@ export default function WatchPage({
   const [refreshing, setRefreshing] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const playerRef = useRef<Plyr | null>(null);
+  const playerRef = useRef<PlyrLike | null>(null);
   const savedProgressRef = useRef<EnrollmentStatus["lecture_progresses"]>([]);
   const liveWatchedRef = useRef(0);
   const maxWatchedRef = useRef(0);
@@ -134,98 +144,104 @@ export default function WatchPage({
     };
   }, [activeLectureId]);
 
-  // 3) Plyr 초기화/해제
+  // 3) Plyr 초기화/해제 (dynamic import 로 SSR 회피)
   useEffect(() => {
     if (!streamUrl || activeLectureId == null) return;
     const video = videoRef.current;
     if (!video) return;
 
-    const player = new Plyr(video, {
-      speed: { selected: 1, options: [0.5, 1, 1.25, 1.5, 2] },
-      controls: [
-        "play",
-        "progress",
-        "current-time",
-        "mute",
-        "volume",
-        "speed",
-        "fullscreen",
-      ],
-    });
-    playerRef.current = player;
-
+    let cancelled = false;
+    let player: PlyrLike | null = null;
     let isProgrammaticSeek = false;
+    const lectureId = activeLectureId;
 
-    function onLoadedMetadata() {
-      const saved = savedProgressRef.current.find(
-        (p) => p.lecture_id === activeLectureId,
-      );
-      if (
-        saved &&
-        saved.last_position_sec > 0 &&
-        saved.last_position_sec < player.duration
-      ) {
-        isProgrammaticSeek = true;
-        player.currentTime = saved.last_position_sec;
-        lastTimeRef.current = saved.last_position_sec;
-      }
-    }
+    import("plyr").then((mod) => {
+      if (cancelled || !videoRef.current) return;
+      const PlyrCtor = mod.default;
+      const instance = new PlyrCtor(video, {
+        speed: { selected: 1, options: [0.5, 1, 1.25, 1.5, 2] },
+        controls: [
+          "play",
+          "progress",
+          "current-time",
+          "mute",
+          "volume",
+          "speed",
+          "fullscreen",
+        ],
+      }) as unknown as PlyrLike;
+      player = instance;
+      playerRef.current = instance;
 
-    function onTimeUpdate() {
-      const t = player.currentTime;
-      const delta = t - lastTimeRef.current;
-      // 자연 재생인 경우만 누적 (시크 점프/되감기 무시)
-      if (
-        delta > 0 &&
-        delta < MAX_TIMEUPDATE_DELTA_SEC &&
-        player.playing &&
-        !player.seeking
-      ) {
-        liveWatchedRef.current += delta;
-        setLiveWatched(liveWatchedRef.current);
-        if (t > maxWatchedRef.current) maxWatchedRef.current = t;
+      function onLoadedMetadata() {
+        if (!instance) return;
+        const saved = savedProgressRef.current.find((p) => p.lecture_id === lectureId);
+        if (
+          saved &&
+          saved.last_position_sec > 0 &&
+          saved.last_position_sec < instance.duration
+        ) {
+          isProgrammaticSeek = true;
+          instance.currentTime = saved.last_position_sec;
+          lastTimeRef.current = saved.last_position_sec;
+        }
       }
-      lastTimeRef.current = t;
-    }
 
-    function onSeeking() {
-      if (isProgrammaticSeek) {
-        isProgrammaticSeek = false;
-        return;
+      function onTimeUpdate() {
+        const t = instance.currentTime;
+        const delta = t - lastTimeRef.current;
+        if (
+          delta > 0 &&
+          delta < MAX_TIMEUPDATE_DELTA_SEC &&
+          instance.playing &&
+          !instance.seeking
+        ) {
+          liveWatchedRef.current += delta;
+          setLiveWatched(liveWatchedRef.current);
+          if (t > maxWatchedRef.current) maxWatchedRef.current = t;
+        }
+        lastTimeRef.current = t;
       }
-      if (player.currentTime > maxWatchedRef.current + SEEK_TOLERANCE_SEC) {
-        console.log(
-          `[건너뛰기 방지] requested=${player.currentTime.toFixed(1)}s → snap=${maxWatchedRef.current.toFixed(1)}s`,
-        );
-        isProgrammaticSeek = true;
-        player.currentTime = maxWatchedRef.current;
-      }
-    }
 
-    async function onEnded() {
-      if (activeLectureId == null) return;
-      maxWatchedRef.current = player.duration;
-      try {
-        const next = await updateLectureProgress(activeLectureId, {
-          watched_seconds: Math.floor(liveWatchedRef.current),
-          last_position_sec: Math.floor(player.duration),
-          is_completed: true,
-        });
-        setStatus(next);
-        savedProgressRef.current = next.lecture_progresses;
-        console.log(`[진도] overall=${next.overall_progress_pct}% (강의 완료)`);
-      } catch (err) {
-        console.warn("[진도] 완료 PATCH 실패", err);
+      function onSeeking() {
+        if (isProgrammaticSeek) {
+          isProgrammaticSeek = false;
+          return;
+        }
+        if (instance.currentTime > maxWatchedRef.current + SEEK_TOLERANCE_SEC) {
+          console.log(
+            `[건너뛰기 방지] requested=${instance.currentTime.toFixed(1)}s → snap=${maxWatchedRef.current.toFixed(1)}s`,
+          );
+          isProgrammaticSeek = true;
+          instance.currentTime = maxWatchedRef.current;
+        }
       }
-    }
 
-    player.on("loadedmetadata", onLoadedMetadata);
-    player.on("timeupdate", onTimeUpdate);
-    player.on("seeking", onSeeking);
-    player.on("ended", onEnded);
+      async function onEnded() {
+        maxWatchedRef.current = instance.duration;
+        try {
+          const next = await updateLectureProgress(lectureId, {
+            watched_seconds: Math.floor(liveWatchedRef.current),
+            last_position_sec: Math.floor(instance.duration),
+            is_completed: true,
+          });
+          setStatus(next);
+          savedProgressRef.current = next.lecture_progresses;
+          console.log(`[진도] overall=${next.overall_progress_pct}% (강의 완료)`);
+        } catch (err) {
+          console.warn("[진도] 완료 PATCH 실패", err);
+        }
+      }
+
+      instance.on("loadedmetadata", onLoadedMetadata);
+      instance.on("timeupdate", onTimeUpdate);
+      instance.on("seeking", onSeeking);
+      instance.on("ended", onEnded);
+    });
 
     return () => {
-      player.destroy();
+      cancelled = true;
+      player?.destroy();
       playerRef.current = null;
     };
   }, [streamUrl, activeLectureId]);
@@ -430,16 +446,27 @@ export default function WatchPage({
           </div>
 
           <ol className="divide-y divide-[var(--color-border)]">
-            {course.lectures.map((lec, idx) => (
-              <CurriculumRow
-                key={lec.id}
-                index={idx + 1}
-                lecture={lec}
-                active={activeLectureId === lec.id}
-                completed={completedIds.has(lec.id)}
-                onClick={() => setActiveLectureId(lec.id)}
-              />
-            ))}
+            {course.lectures.map((lec, idx) => {
+              const prev = idx === 0 ? null : course.lectures[idx - 1];
+              const unlocked = prev == null || completedIds.has(prev.id);
+              return (
+                <CurriculumRow
+                  key={lec.id}
+                  index={idx + 1}
+                  lecture={lec}
+                  active={activeLectureId === lec.id}
+                  completed={completedIds.has(lec.id)}
+                  unlocked={unlocked}
+                  onClick={() => {
+                    if (!unlocked) {
+                      alert("이전 강의를 먼저 완료해주세요.");
+                      return;
+                    }
+                    setActiveLectureId(lec.id);
+                  }}
+                />
+              );
+            })}
           </ol>
         </aside>
       </div>
@@ -452,12 +479,14 @@ function CurriculumRow({
   lecture,
   active,
   completed,
+  unlocked,
   onClick,
 }: {
   index: number;
   lecture: LectureItem;
   active: boolean;
   completed: boolean;
+  unlocked: boolean;
   onClick: () => void;
 }) {
   return (
@@ -465,28 +494,45 @@ function CurriculumRow({
       <button
         type="button"
         onClick={onClick}
+        aria-disabled={!unlocked}
         className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors ${
-          active ? "bg-[var(--color-primary)]/5" : "hover:bg-zinc-50"
+          !unlocked
+            ? "cursor-not-allowed bg-zinc-50/60"
+            : active
+              ? "bg-[var(--color-primary)]/5"
+              : "hover:bg-zinc-50"
         }`}
       >
         <span
           className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-            completed
-              ? "bg-emerald-500 text-white"
-              : active
-                ? "bg-[var(--color-primary)] text-white"
-                : "bg-zinc-200 text-zinc-600"
+            !unlocked
+              ? "bg-zinc-200 text-zinc-400"
+              : completed
+                ? "bg-emerald-500 text-white"
+                : active
+                  ? "bg-[var(--color-primary)] text-white"
+                  : "bg-zinc-200 text-zinc-600"
           }`}
         >
-          {completed ? "✓" : active ? "▶" : index}
+          {!unlocked ? (
+            <Lock className="h-3 w-3" />
+          ) : completed ? (
+            "✓"
+          ) : active ? (
+            "▶"
+          ) : (
+            index
+          )}
         </span>
         <span
           className={`flex-1 text-sm ${
-            completed
-              ? "font-medium text-emerald-700"
-              : active
-                ? "font-semibold text-[var(--color-primary)]"
-                : "text-zinc-800"
+            !unlocked
+              ? "text-zinc-400"
+              : completed
+                ? "font-medium text-emerald-700"
+                : active
+                  ? "font-semibold text-[var(--color-primary)]"
+                  : "text-zinc-800"
           }`}
         >
           {lecture.title}
