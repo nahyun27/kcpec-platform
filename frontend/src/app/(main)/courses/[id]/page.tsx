@@ -111,7 +111,7 @@ export default function CourseDetailPage({
           <div className="lg:col-span-2 space-y-10">
             {/* Header Section */}
             <div className="space-y-4">
-              <span className="inline-flex items-center rounded-full bg-teal-50 px-3 py-1 text-xs font-bold tracking-wide text-[var(--color-accent)] ring-1 ring-teal-500/20">
+              <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-bold tracking-wide text-[var(--color-accent)] ring-1 ring-blue-500/20">
                 {course.category}
               </span>
               <h1 className="font-sans text-3xl font-extrabold leading-tight text-slate-900 sm:text-4xl">
@@ -160,7 +160,7 @@ export default function CourseDetailPage({
                 {course.lectures.map((lec, idx) => (
                   <li key={lec.id} className="group flex items-center justify-between gap-4 border-b border-slate-100 px-6 py-5 last:border-none transition-colors hover:bg-slate-50">
                     <div className="flex items-center gap-5">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 font-sans text-sm font-bold text-slate-400 group-hover:bg-teal-50 group-hover:text-[var(--color-accent)] transition-colors">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 font-sans text-sm font-bold text-slate-400 group-hover:bg-blue-50 group-hover:text-[var(--color-accent)] transition-colors">
                         {String(idx + 1).padStart(2, "0")}
                       </div>
                       <span className="text-base font-semibold text-slate-800 group-hover:text-slate-900">{lec.title}</span>

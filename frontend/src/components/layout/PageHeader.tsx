@@ -21,7 +21,7 @@ export function PageHeader({
     <header className={`mb-10 flex flex-col gap-4 border-b border-zinc-200 pb-8 sm:flex-row ${rightContent ? "sm:items-end sm:justify-between" : ""} ${centered ? "text-center sm:text-center" : "text-center sm:text-left"}`}>
       <div className={centered ? "mx-auto" : ""}>
         {subtitle && (
-          <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[var(--color-accent)] ring-1 ring-teal-500/20">
+          <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[var(--color-accent)] ring-1 ring-blue-500/20">
             {icon}
             {subtitle}
           </div>

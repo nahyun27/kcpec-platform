@@ -193,7 +193,7 @@ export default function GuidePage() {
         </p>
       </Section>
 
-      <div className="rounded-2xl border border-[var(--color-accent)]/30 bg-teal-50/50 p-6 text-center shadow-sm">
+      <div className="rounded-2xl border border-[var(--color-accent)]/30 bg-blue-50/50 p-6 text-center shadow-sm">
         <p className="text-sm text-slate-700">
           더 궁금한 점이 있으신가요? 자주 묻는 질문에서 답을 찾아보세요.
         </p>

@@ -171,7 +171,7 @@ export default function CounselingPage() {
               >
                 {/* Subtle gradient background for highlight */}
                 {p.highlight && (
-                  <div className="absolute inset-0 bg-gradient-to-b from-teal-50/50 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-blue-50/50 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                 )}
                 
                 <div className="relative z-10 flex items-center justify-between">

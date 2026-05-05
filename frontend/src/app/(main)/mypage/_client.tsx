@@ -227,7 +227,7 @@ export default function MyPageClient() {
           </Section>
 
           {/* Quick Help Card */}
-          <div className="rounded-2xl border border-[var(--color-accent)]/30 bg-teal-50/50 p-6 shadow-sm">
+          <div className="rounded-2xl border border-[var(--color-accent)]/30 bg-blue-50/50 p-6 shadow-sm">
             <h3 className="font-bold text-[var(--color-primary)] mb-2 flex items-center gap-2">
               <FileText className="h-4 w-4" /> 문서 발급 안내
             </h3>
@@ -314,7 +314,7 @@ function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2 mb-2">
-            <span className="inline-flex rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold tracking-wide text-[var(--color-accent)] ring-1 ring-teal-500/20">
+            <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold tracking-wide text-[var(--color-accent)] ring-1 ring-blue-500/20">
               {enrollment.category}
             </span>
             {isComplete ? (
@@ -350,7 +350,7 @@ function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
             progressPct >= 100 ? (
               <Link
                 href={`/courses/${enrollment.course_id}/quiz`}
-                className="flex items-center gap-1.5 rounded-full border border-[var(--color-accent)] bg-teal-50 px-4 py-2 text-sm font-bold text-[var(--color-accent)] transition-colors hover:bg-[var(--color-accent)] hover:text-white"
+                className="flex items-center gap-1.5 rounded-full border border-[var(--color-accent)] bg-blue-50 px-4 py-2 text-sm font-bold text-[var(--color-accent)] transition-colors hover:bg-[var(--color-accent)] hover:text-white"
               >
                 퀴즈 응시
               </Link>
@@ -375,7 +375,7 @@ function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
         </div>
         <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200/80 shadow-inner">
           <div
-            className={`h-full rounded-full transition-all duration-1000 ease-out ${isComplete ? 'bg-emerald-500' : 'bg-gradient-to-r from-teal-400 to-[var(--color-accent)]'}`}
+            className={`h-full rounded-full transition-all duration-1000 ease-out ${isComplete ? 'bg-emerald-500' : 'bg-gradient-to-r from-blue-400 to-[var(--color-accent)]'}`}
             style={{ width: `${progressPct}%` }}
           />
         </div>
@@ -429,7 +429,7 @@ function OrderRow({ order }: { order: OrderWithExtras }) {
                         href={d.pdf_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white border border-zinc-200 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:border-teal-200 hover:text-[var(--color-accent)] transition-colors"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white border border-zinc-200 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:border-blue-200 hover:text-[var(--color-accent)] transition-colors"
                       >
                         <Download className="h-3.5 w-3.5" /> PDF 다운로드
                       </a>
@@ -476,7 +476,7 @@ function CounselingRow({ order }: { order: OrderWithExtras }) {
     );
   }
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-teal-100 bg-teal-50/30 p-3">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/30 p-3">
       <span className="text-sm font-medium text-slate-700">
         심리상담 의견서 <span className="mx-2 text-slate-300">|</span> 
         <strong className="text-[var(--color-accent)]">{COUNSELING_STATUS_LABEL[survey.status as CounselingStatus]}</strong>

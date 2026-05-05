@@ -120,13 +120,12 @@ function Hero() {
       <div className="pointer-events-none absolute -right-[10%] bottom-0 h-[600px] w-[600px] rounded-full bg-blue-600 opacity-10 blur-[150px]"></div>
 
       <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center px-6 text-center">
-        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-medium text-[var(--color-accent)] backdrop-blur-md">
-          <Star className="h-4 w-4" />
+        <div className="mb-6 inline-flex items-center rounded-full border border-white bg-white/5 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-md">
           <span>법원 및 수사기관 제출용 신뢰할 수 있는 교육</span>
         </div>
         <h1 className="mb-6 font-sans text-5xl font-extrabold leading-[1.15] tracking-tight sm:text-6xl md:text-7xl">
           재판 준비, <br className="md:hidden" />
-          <span className="bg-gradient-to-r from-teal-200 via-white to-teal-100 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-blue-200 via-white to-blue-100 bg-clip-text text-transparent">
             전문 교육으로 시작하세요
           </span>
         </h1>
@@ -138,7 +137,7 @@ function Hero() {
         <div className="flex flex-col gap-4 sm:flex-row">
           <Link
             href="/courses"
-            className="group flex items-center justify-center gap-2 rounded-full bg-[var(--color-accent)] px-8 py-4 text-base font-bold text-white shadow-lg shadow-teal-900/50 transition-all hover:-translate-y-1 hover:bg-[var(--color-accent-hover)] hover:shadow-xl hover:shadow-teal-900/50"
+            className="group flex items-center justify-center gap-2 rounded-full bg-white px-8 py-4 text-base font-bold text-slate-900 shadow-lg transition-all hover:-translate-y-1 hover:bg-slate-50 hover:shadow-xl"
           >
             <span>무료 수강 시작하기</span>
             <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
@@ -219,7 +218,7 @@ function CoursesSection({ courses }: { courses: CourseListItem[] }) {
                 href={`/courses/${c.id}`}
                 className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/5"
               >
-                <div className="mb-4 inline-flex w-fit items-center rounded-full bg-teal-50 px-3 py-1 text-xs font-bold text-[var(--color-accent)]">
+                <div className="mb-4 inline-flex w-fit items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-[var(--color-accent)]">
                   {c.category}
                 </div>
                 <h3 className="mb-4 font-sans text-xl font-bold leading-snug text-slate-900 group-hover:text-[var(--color-primary)]">
@@ -266,7 +265,7 @@ function StepsSection() {
               return (
                 <div key={s.n} className="group relative flex flex-col items-center rounded-2xl border border-zinc-100 bg-white p-8 text-center shadow-md transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/5">
                   {/* 단계 번호 뱃지 */}
-                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-teal-50 text-lg font-bold text-[var(--color-accent)] ring-4 ring-white transition-colors group-hover:bg-teal-100">
+                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-lg font-bold text-[var(--color-accent)] ring-4 ring-white transition-colors group-hover:bg-blue-100">
                     {s.n}
                   </div>
                   
@@ -320,7 +319,7 @@ function PackagesSection() {
               key={p.tier}
               className={`relative flex flex-col rounded-3xl bg-white p-8 transition-all duration-300 hover:-translate-y-2 ${
                 p.highlight
-                  ? "border-2 border-[var(--color-accent)] shadow-2xl shadow-teal-900/10 scale-105 z-10"
+                  ? "border-2 border-[var(--color-accent)] shadow-2xl shadow-blue-900/10 scale-105 z-10"
                   : "border border-zinc-200 shadow-lg mt-4 mb-4"
               }`}
             >
@@ -421,7 +420,7 @@ function FaqSection() {
             return (
               <div
                 key={idx}
-                className={`overflow-hidden rounded-2xl border transition-colors duration-300 ${isOpen ? 'border-[var(--color-accent)] bg-teal-50/30' : 'border-zinc-200 bg-white hover:border-zinc-300'}`}
+                className={`overflow-hidden rounded-2xl border transition-colors duration-300 ${isOpen ? 'border-[var(--color-accent)] bg-blue-50/30' : 'border-zinc-200 bg-white hover:border-zinc-300'}`}
               >
                 <button
                   type="button"
@@ -465,12 +464,27 @@ function Footer() {
     <footer className="border-t border-slate-200 bg-[var(--color-primary)] pt-16 text-white">
       <div className="mx-auto grid max-w-7xl gap-12 px-6 pb-12 md:grid-cols-12">
         <div className="space-y-6 md:col-span-5 lg:col-span-4">
-          <Link
-            href="/"
-            className="flex items-center gap-2 font-sans text-2xl font-extrabold tracking-tight text-white"
-          >
-            <ShieldCheck className="h-7 w-7 text-[var(--color-accent)]" />
-            <span>KCPEC</span>
+          <Link href="/" className="flex items-center gap-2">
+            {/* Logo Mark */}
+            <div className="flex h-[36px] w-[56px] flex-col justify-between pt-0.5">
+              <div className="h-[9px] w-full rounded-tl-[10px] rounded-tr-[1px] rounded-bl-[1px] rounded-br-[1px] bg-white"></div>
+              <div className="flex flex-1 items-center justify-center">
+                <span className="font-sans text-[15px] font-black leading-none tracking-wider text-white">
+                  KCPEC
+                </span>
+              </div>
+              <div className="h-[9px] w-full rounded-br-[10px] rounded-bl-[1px] rounded-tl-[1px] rounded-tr-[1px] bg-white"></div>
+            </div>
+
+            {/* Text Mark */}
+            <div className="flex flex-col justify-center gap-0.5">
+              <span className="font-sans text-[19px] font-black leading-none tracking-[-0.04em] text-white">
+                한국범죄예방교육센터
+              </span>
+              <span className="font-sans text-[8px] font-bold leading-none tracking-[0.03em] text-slate-400">
+                KOREA CRIME PREVENTION EDUCATION CENTER
+              </span>
+            </div>
           </Link>
           <p className="text-sm leading-relaxed text-slate-400">
             법원이 인정하는 재범방지 교육 및 심리상담 전문 기관. 

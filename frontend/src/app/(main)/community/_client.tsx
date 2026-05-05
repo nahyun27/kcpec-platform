@@ -231,7 +231,7 @@ function NoticeAccordion({
               className={`inline-flex items-center justify-center rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide ${
                 notice.category === "notice"
                   ? "bg-slate-100 text-slate-600"
-                  : "bg-teal-50 text-[var(--color-accent)] ring-1 ring-teal-500/20"
+                  : "bg-blue-50 text-[var(--color-accent)] ring-1 ring-blue-500/20"
               }`}
             >
               {notice.category === "notice" ? "공지" : "자료"}
@@ -715,7 +715,7 @@ function ReviewWriteForm({
   }
 
   return (
-    <div className="space-y-6 rounded-3xl border border-teal-100 bg-white p-6 sm:p-8 shadow-xl shadow-slate-200/50 relative overflow-hidden">
+    <div className="space-y-6 rounded-3xl border border-blue-100 bg-white p-6 sm:p-8 shadow-xl shadow-slate-200/50 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-accent)]" />
       
       <div className="flex items-center gap-2 mb-2">

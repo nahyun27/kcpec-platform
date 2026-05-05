@@ -49,12 +49,27 @@ export default function SiteHeader() {
       <div className="mx-auto flex h-16 max-w-7xl items-center px-6">
         {/* 좌: 로고 */}
         <div className="flex flex-1 items-center justify-start">
-          <Link
-            href="/"
-            className="flex items-center gap-2 font-sans text-xl font-extrabold tracking-tight text-[var(--color-primary)]"
-          >
-            <Shield className="h-6 w-6 text-[var(--color-accent)]" />
-            <span>KCPEC</span>
+          <Link href="/" className="flex items-center gap-2">
+            {/* Logo Mark */}
+            <div className="flex h-[36px] w-[56px] flex-col justify-between pt-0.5">
+              <div className="h-[9px] w-full rounded-tl-[10px] rounded-tr-[1px] rounded-bl-[1px] rounded-br-[1px] bg-[#173874]"></div>
+              <div className="flex flex-1 items-center justify-center">
+                <span className="font-sans text-[15px] font-black leading-none tracking-wider text-[#173874]">
+                  KCPEC
+                </span>
+              </div>
+              <div className="h-[9px] w-full rounded-br-[10px] rounded-bl-[1px] rounded-tl-[1px] rounded-tr-[1px] bg-[#173874]"></div>
+            </div>
+
+            {/* Text Mark */}
+            <div className="flex flex-col justify-center gap-0.5">
+              <span className="font-sans text-[19px] font-black leading-none tracking-[-0.04em] text-slate-900">
+                한국범죄예방교육센터
+              </span>
+              <span className="font-sans text-[8px] font-bold leading-none tracking-[0.03em] text-slate-400">
+                KOREA CRIME PREVENTION EDUCATION CENTER
+              </span>
+            </div>
           </Link>
         </div>
 
