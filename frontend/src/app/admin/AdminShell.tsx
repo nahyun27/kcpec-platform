@@ -23,12 +23,18 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (!tokenStorage.getAccess()) {
-      router.replace("/");
+      console.warn("[AdminShell] no access token in localStorage — redirecting to /login");
+      router.replace("/login?next=/admin");
       return;
     }
     getMe()
       .then((u) => {
         if (!u.is_admin) {
+          console.warn(
+            `[AdminShell] user '${u.username}' is_admin=false — redirecting to /. ` +
+              "관리자로 승격하려면: backend/scripts/create_admin.py 또는 " +
+              "DB 에서 UPDATE users SET is_admin=true WHERE username='...';",
+          );
           router.replace("/");
           return;
         }
@@ -37,8 +43,12 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       })
       .catch((err) => {
         if (isAxiosError(err) && err.response?.status === 401) {
+          console.warn("[AdminShell] /auth/me 401 — token expired/invalid. clearing token.");
           tokenStorage.clear();
+          router.replace("/login?next=/admin");
+          return;
         }
+        console.error("[AdminShell] /auth/me failed:", err);
         router.replace("/");
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
