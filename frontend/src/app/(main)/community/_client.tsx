@@ -450,26 +450,36 @@ function PostAccordion({
   );
 }
 
-// ---------- 후기 (그리드) -----------------------------------------------------
+// ---------- 후기 (게시판 + 카테고리 필터) -------------------------------------
 
-const COURSE_GRADIENT: Record<string, string> = {
-  "음주운전 예방": "from-rose-500 to-orange-500",
-  "성범죄 예방": "from-purple-500 to-pink-500",
-  "디지털 성범죄 예방": "from-indigo-600 to-blue-500",
-  "준법의식 강화": "from-emerald-600 to-teal-500",
-  "마약 예방": "from-red-600 to-rose-500",
-  "도박 및 도박개장 예방": "from-amber-600 to-yellow-500",
-  "피싱범죄 예방": "from-sky-600 to-cyan-500",
-  "사기횡령배임 등 재산범죄 예방": "from-stone-600 to-zinc-500",
-  "스토킹범죄 예방": "from-fuchsia-600 to-purple-500",
-  "학교폭력 예방": "from-lime-600 to-emerald-500",
-  "성매매 예방": "from-violet-600 to-purple-500",
-};
+// 칩 라벨은 카테고리 enum 약어. 강의 풀네임(course_category)을 substring 매칭한다.
+// (예: 라벨 "음주운전" → course_category "음주운전 예방" 포함 여부)
+const REVIEW_CATEGORIES: string[] = [
+  "준법",
+  "음주운전",
+  "성범죄",
+  "성매매",
+  "디지털성범죄",
+  "마약",
+  "도박",
+  "피싱",
+  "재산범죄",
+  "스토킹",
+  "학교폭력",
+];
+
+function matchesCategory(courseCategory: string | null, label: string): boolean {
+  if (!courseCategory) return false;
+  // 공백/특수문자 무시한 단순 includes 비교 ("디지털 성범죄" ↔ "디지털성범죄")
+  const norm = (s: string) => s.replace(/\s+/g, "");
+  return norm(courseCategory).includes(norm(label));
+}
 
 function ReviewTab() {
   const [items, setItems] = useState<PostListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [photoOnly, setPhotoOnly] = useState(false); // 추후 photo_url 도입 시 사용
+  const [filter, setFilter] = useState<string | null>(null); // null = 전체
+  const [openId, setOpenId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -481,80 +491,164 @@ function ReviewTab() {
     };
   }, []);
 
-  // 현재는 photo 필드가 없으므로 photoOnly 필터는 빈 결과 안내 용도.
   const visible = useMemo(
-    () => (photoOnly ? items.filter(() => false) : items),
-    [items, photoOnly],
+    () => (filter == null ? items : items.filter((p) => matchesCategory(p.course_category, filter))),
+    [items, filter],
   );
 
   if (loading) return <Loading />;
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-end gap-2 text-sm">
-        <button
-          type="button"
-          onClick={() => setPhotoOnly(false)}
-          className={`rounded-full px-4 py-1.5 font-semibold transition-colors ${
-            !photoOnly
-              ? "bg-[var(--color-primary)] text-white"
-              : "border border-zinc-200 text-slate-600 hover:border-[var(--color-primary)]"
-          }`}
+      {/* 카테고리 칩 필터 */}
+      <div className="flex flex-wrap gap-2 text-sm">
+        <CategoryChip
+          active={filter === null}
+          onClick={() => {
+            setFilter(null);
+            setOpenId(null);
+          }}
         >
           전체
-        </button>
-        <button
-          type="button"
-          onClick={() => setPhotoOnly(true)}
-          className={`rounded-full px-4 py-1.5 font-semibold transition-colors ${
-            photoOnly
-              ? "bg-[var(--color-primary)] text-white"
-              : "border border-zinc-200 text-slate-600 hover:border-[var(--color-primary)]"
-          }`}
-        >
-          포토 후기만 보기
-        </button>
+        </CategoryChip>
+        {REVIEW_CATEGORIES.map((c) => (
+          <CategoryChip
+            key={c}
+            active={filter === c}
+            onClick={() => {
+              setFilter(c);
+              setOpenId(null);
+            }}
+          >
+            {c}
+          </CategoryChip>
+        ))}
       </div>
 
       {visible.length === 0 ? (
         <EmptyMessage text="해당 조건의 후기가 아직 없습니다." />
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {visible.map((p) => (
-            <ReviewCard key={p.id} post={p} />
-          ))}
+        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          {/* 데스크톱 헤더 — 모바일에서는 행 자체가 카드 형태로 표시됨 */}
+          <div className="hidden bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 md:grid md:grid-cols-[60px_140px_1fr_100px_100px] md:gap-3">
+            <span className="text-center">번호</span>
+            <span>강의</span>
+            <span>후기</span>
+            <span className="text-right">작성자</span>
+            <span className="text-right">날짜</span>
+          </div>
+          <ul>
+            {visible.map((p) => (
+              <ReviewAccordion
+                key={p.id}
+                post={p}
+                open={openId === p.id}
+                onToggle={() => setOpenId(openId === p.id ? null : p.id)}
+              />
+            ))}
+          </ul>
         </div>
       )}
     </div>
   );
 }
 
-function ReviewCard({ post }: { post: PostListItem }) {
-  const gradient =
-    (post.course_category && COURSE_GRADIENT[post.course_category]) ||
-    "from-slate-600 to-slate-400";
+function CategoryChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
-      <div
-        className={`flex aspect-[4/3] items-center justify-center bg-gradient-to-br ${gradient} p-4 text-center text-xs font-bold tracking-widest text-white/90`}
-      >
-        {post.course_category ?? "KCPEC"}
-      </div>
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        {/* PostListItem 응답에 본문이 없으므로 title(첫 80자) 을 카드 미리보기로 사용. */}
-        <p className="line-clamp-4 text-sm leading-relaxed text-slate-700">{post.title}</p>
-        <div className="mt-auto flex items-center justify-between border-t border-zinc-100 pt-3 text-xs text-slate-500">
-          <span>{post.author_name}</span>
-          <span>{new Date(post.created_at).toLocaleDateString("ko-KR")}</span>
-        </div>
-      </div>
-    </article>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-4 py-1.5 font-semibold transition-colors ${
+        active
+          ? "bg-[var(--color-primary)] text-white"
+          : "border border-zinc-200 bg-white text-slate-600 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
-// PostListItem 은 content 필드를 노출하지 않으므로, 카드용으로 미리 받아야 한다.
-// 백엔드 /posts 응답에 content 가 없으니 후기는 첫 진입 시 detail 을 한번씩 받는다.
-// 단순화를 위해 ReviewCard 는 title (= content 첫 80자) 을 사용한다.
+function ReviewAccordion({
+  post,
+  open,
+  onToggle,
+}: {
+  post: PostListItem;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const [content, setContent] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || content !== null) return;
+    let cancelled = false;
+    import("@/lib/api").then(({ getPost }) =>
+      getPost(post.id)
+        .then((d) => {
+          if (!cancelled) setContent(d.content);
+        })
+        .catch(() => {
+          /* ignore */
+        }),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [open, post.id, content]);
+
+  // PostListItem 에는 content 가 없어 50자 미리보기엔 title(=본문 첫 80자) 을 자른다.
+  const preview = post.title.length > 50 ? `${post.title.slice(0, 50)}…` : post.title;
+
+  return (
+    <AccordionRow
+      open={open}
+      onToggle={onToggle}
+      header={
+        <div className="grid w-full grid-cols-1 items-baseline gap-1 md:grid-cols-[60px_140px_1fr_100px_100px] md:gap-3">
+          <span className="hidden text-center text-xs text-slate-500 md:inline">
+            {post.id}
+          </span>
+          <span className="inline-flex w-fit items-center rounded-full bg-[var(--color-accent)]/10 px-2 py-0.5 text-xs font-semibold text-[var(--color-accent)] md:w-auto md:max-w-full md:truncate">
+            {post.course_category ?? "기타"}
+          </span>
+          <span className="truncate text-sm text-slate-800">{preview}</span>
+          <span className="text-xs text-slate-500 md:text-right">
+            {post.author_name}
+          </span>
+          <span className="text-xs text-slate-500 md:text-right">
+            {new Date(post.created_at).toLocaleDateString("ko-KR")}
+          </span>
+        </div>
+      }
+    >
+      <div className="border-t border-zinc-100 bg-slate-50/40 px-5 py-5 text-sm">
+        <div className="mb-3 flex flex-wrap gap-3 text-xs text-slate-500">
+          <span>강의: {post.course_category ?? "-"}</span>
+          <span>·</span>
+          <span>작성자: {post.author_name}</span>
+          <span>·</span>
+          <span>{new Date(post.created_at).toLocaleString("ko-KR")}</span>
+        </div>
+        {content === null ? (
+          <p className="text-xs text-slate-400">불러오는 중...</p>
+        ) : (
+          <div className="whitespace-pre-wrap leading-relaxed text-slate-700">
+            {content}
+          </div>
+        )}
+      </div>
+    </AccordionRow>
+  );
+}
 
 // ---------- inline write form ------------------------------------------------
 
