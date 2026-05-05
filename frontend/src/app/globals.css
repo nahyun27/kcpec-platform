@@ -3,13 +3,13 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #0f1729;
-  --color-primary: #1c3461;
-  --color-primary-hover: #16284c;
-  --color-accent: #c8973a;
-  --color-accent-hover: #a87b29;
-  --color-muted: #f4f5f8;
-  --color-border: #d8dde5;
+  --foreground: #0f172a; /* slate-900 */
+  --color-primary: #0f172a; /* slate-900 */
+  --color-primary-hover: #1e293b; /* slate-800 */
+  --color-accent: #0d9488; /* teal-600 */
+  --color-accent-hover: #0f766e; /* teal-700 */
+  --color-muted: #f8fafc; /* slate-50 */
+  --color-border: #e2e8f0; /* slate-200 */
 
   --font-sans-stack: "Pretendard Variable", Pretendard, -apple-system,
     BlinkMacSystemFont, system-ui, "Segoe UI", "Apple SD Gothic Neo",

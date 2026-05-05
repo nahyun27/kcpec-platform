@@ -4,6 +4,16 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getCourses, logout, tokenStorage } from "@/lib/api";
 import type { CourseListItem } from "@/types/course";
+import {
+  ArrowRight,
+  CheckCircle2,
+  ChevronDown,
+  FileText,
+  PlayCircle,
+  ShieldCheck,
+  Star,
+  Users,
+} from "lucide-react";
 
 const FAQ_ITEMS: { q: string; a: string }[] = [
   {
@@ -76,10 +86,10 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
+    <div className="flex min-h-full flex-1 flex-col bg-[var(--color-muted)]">
       <Nav authed={authed} onLogout={() => { logout(); setAuthed(false); }} />
       <Hero />
-      <TrustBar />
+      <TrustSection />
       <CoursesSection courses={courses} />
       <StepsSection />
       <PackagesSection />
@@ -93,38 +103,42 @@ export default function HomePage() {
 
 function Nav({ authed, onLogout }: { authed: boolean; onLogout: () => void }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-[var(--color-border)] bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+    <header className="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/80 backdrop-blur-md transition-all">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         <Link
           href="/"
-          className="font-sans text-xl font-bold tracking-tight text-[var(--color-primary)]"
+          className="flex items-center gap-2 font-sans text-xl font-extrabold tracking-tight text-[var(--color-primary)]"
         >
-          KCPEC
+          <ShieldCheck className="h-6 w-6 text-[var(--color-accent)]" />
+          <span>KCPEC</span>
         </Link>
-        <nav className="hidden items-center gap-6 text-sm font-medium text-zinc-700 md:flex">
-          <Link href="/courses" className="hover:text-[var(--color-primary)]">
-            강의 목록
+        <nav className="hidden items-center gap-8 text-sm font-medium text-zinc-700 md:flex">
+          <Link href="/courses" className="relative group hover:text-[var(--color-primary)] transition-colors">
+            <span>강의 목록</span>
+            <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-[var(--color-accent)] transition-all group-hover:w-full"></span>
           </Link>
-          <Link href="#guide" className="hover:text-[var(--color-primary)]">
-            이용 안내
+          <Link href="#guide" className="relative group hover:text-[var(--color-primary)] transition-colors">
+            <span>이용 안내</span>
+            <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-[var(--color-accent)] transition-all group-hover:w-full"></span>
           </Link>
-          <Link href="#faq" className="hover:text-[var(--color-primary)]">
-            자주 묻는 질문
+          <Link href="#faq" className="relative group hover:text-[var(--color-primary)] transition-colors">
+            <span>자주 묻는 질문</span>
+            <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-[var(--color-accent)] transition-all group-hover:w-full"></span>
           </Link>
         </nav>
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-3 text-sm font-medium">
           {authed ? (
             <>
               <Link
                 href="/mypage"
-                className="rounded px-3 py-1.5 font-medium text-zinc-700 hover:text-[var(--color-primary)]"
+                className="px-2 py-1.5 text-zinc-600 transition-colors hover:text-zinc-900"
               >
                 마이페이지
               </Link>
               <button
                 type="button"
                 onClick={onLogout}
-                className="rounded border border-[var(--color-border)] px-3 py-1.5 hover:border-[var(--color-primary)]"
+                className="rounded-full border border-zinc-200 bg-white px-4 py-1.5 text-zinc-600 shadow-sm transition-all hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900"
               >
                 로그아웃
               </button>
@@ -133,13 +147,13 @@ function Nav({ authed, onLogout }: { authed: boolean; onLogout: () => void }) {
             <>
               <Link
                 href="/login"
-                className="rounded px-3 py-1.5 font-medium text-zinc-700 hover:text-[var(--color-primary)]"
+                className="px-2 py-1.5 text-zinc-600 transition-colors hover:text-zinc-900"
               >
                 로그인
               </Link>
               <Link
                 href="/signup"
-                className="rounded bg-[var(--color-primary)] px-4 py-1.5 font-medium text-white hover:bg-[var(--color-primary-hover)]"
+                className="rounded-full bg-[var(--color-primary)] px-5 py-2 text-white shadow-md shadow-slate-900/10 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-lg"
               >
                 회원가입
               </Link>
@@ -155,78 +169,78 @@ function Nav({ authed, onLogout }: { authed: boolean; onLogout: () => void }) {
 
 function Hero() {
   return (
-    <section
-      className="relative overflow-hidden text-white"
-      style={{
-        background:
-          "linear-gradient(135deg, #132448 0%, #1C3461 50%, #2A4B8D 100%)",
-      }}
-    >
-      <div className="mx-auto max-w-6xl px-4 py-20 sm:py-28">
-        <span className="inline-block rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs font-semibold text-[var(--color-accent)]">
-          신뢰할 수 있는 재범방지 교육 플랫폼
-        </span>
-        <h1 className="mt-5 font-sans text-3xl font-bold leading-tight sm:text-5xl">
-          재판 준비, 전문 교육으로 시작하세요
+    <section className="relative flex min-h-[85vh] items-center justify-center overflow-hidden bg-[var(--color-primary)] py-20 text-white">
+      {/* Noise Texture Overlay */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+        }}
+      ></div>
+      {/* Subtle Glows */}
+      <div className="pointer-events-none absolute -left-[10%] top-0 h-[500px] w-[500px] rounded-full bg-[var(--color-accent)] opacity-20 blur-[120px]"></div>
+      <div className="pointer-events-none absolute -right-[10%] bottom-0 h-[600px] w-[600px] rounded-full bg-blue-600 opacity-10 blur-[150px]"></div>
+
+      <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center px-6 text-center">
+        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-medium text-[var(--color-accent)] backdrop-blur-md">
+          <Star className="h-4 w-4" />
+          <span>법원 및 수사기관 제출용 신뢰할 수 있는 교육</span>
+        </div>
+        <h1 className="mb-6 font-sans text-5xl font-extrabold leading-[1.15] tracking-tight sm:text-6xl md:text-7xl">
+          재판 준비, <br className="md:hidden" />
+          <span className="bg-gradient-to-r from-teal-200 via-white to-teal-100 bg-clip-text text-transparent">
+            전문 교육으로 시작하세요
+          </span>
         </h1>
-        <p className="mt-4 max-w-2xl text-base leading-relaxed text-white/80 sm:text-lg">
-          법원이 인정하는 심리·준법 교육 수료증을 발급받고, 양형 자료로 활용하세요.
+        <p className="mb-10 max-w-2xl text-lg leading-relaxed text-slate-300 sm:text-xl">
+          가장 확실한 양형 자료를 준비하세요. 법원이 인정하는 심리·준법 교육 수료증을
+          무료로 수강하고 즉시 발급받을 수 있습니다.
         </p>
 
-        <div className="mt-8 flex flex-wrap gap-3">
+        <div className="flex flex-col gap-4 sm:flex-row">
           <Link
             href="/courses"
-            className="rounded bg-[var(--color-accent)] px-6 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-[var(--color-accent-hover)]"
+            className="group flex items-center justify-center gap-2 rounded-full bg-[var(--color-accent)] px-8 py-4 text-base font-bold text-white shadow-lg shadow-teal-900/50 transition-all hover:-translate-y-1 hover:bg-[var(--color-accent-hover)] hover:shadow-xl hover:shadow-teal-900/50"
           >
-            무료 수강 시작하기 →
+            <span>무료 수강 시작하기</span>
+            <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </Link>
           <Link
             href="#guide"
-            className="rounded border border-white/30 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10"
+            className="flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 px-8 py-4 text-base font-bold text-white backdrop-blur-sm transition-all hover:bg-white/10"
           >
             이용 안내 보기
           </Link>
         </div>
-
-        <dl className="mt-12 grid grid-cols-3 gap-6 border-t border-white/10 pt-8 text-sm">
-          <HeroStat label="누적 수강생" value="10,000+" />
-          <HeroStat label="교육 종류" value="11개 과정" />
-          <HeroStat label="이수증 발급" value="당일 가능" />
-        </dl>
       </div>
     </section>
   );
 }
 
-function HeroStat({ label, value }: { label: string; value: string }) {
+// ---------- trust section (Bento style) -----------------------------------
+
+function TrustSection() {
   return (
-    <div>
-      <dt className="text-xs uppercase tracking-widest text-white/60">{label}</dt>
-      <dd className="mt-1 font-sans text-xl font-bold sm:text-2xl">{value}</dd>
-    </div>
+    <section className="relative z-20 -mt-16 px-6">
+      <div className="mx-auto max-w-5xl rounded-2xl border border-white/20 bg-white/80 p-8 shadow-2xl backdrop-blur-xl sm:p-12">
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+          <TrustStat icon={<Users className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="누적 수강생" value="10,000+" />
+          <TrustStat icon={<PlayCircle className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="교육 종류" value="11개 과정" />
+          <TrustStat icon={<FileText className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="이수증 발급" value="당일 즉시" />
+          <TrustStat icon={<ShieldCheck className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="전문가 감수" value="100% 검증" />
+        </div>
+      </div>
+    </section>
   );
 }
 
-// ---------- trust bar ------------------------------------------------------
-
-function TrustBar() {
-  const items = [
-    "전문가 감수 콘텐츠",
-    "법원 양형 반영 사례",
-    "수강 후 즉시 이수증",
-    "개인정보 보호",
-  ];
+function TrustStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <section className="border-y border-[var(--color-border)] bg-[var(--color-muted)]">
-      <ul className="mx-auto grid max-w-6xl grid-cols-2 gap-3 px-4 py-5 text-center text-xs font-medium text-zinc-700 sm:grid-cols-4 sm:text-sm">
-        {items.map((t) => (
-          <li key={t} className="flex items-center justify-center gap-2">
-            <span className="text-[var(--color-accent)]">●</span>
-            {t}
-          </li>
-        ))}
-      </ul>
-    </section>
+    <div className="flex flex-col items-center text-center">
+      {icon}
+      <dd className="font-sans text-2xl font-extrabold text-[var(--color-primary)] sm:text-3xl">{value}</dd>
+      <dt className="mt-1 text-sm font-medium text-slate-500">{label}</dt>
+    </div>
   );
 }
 
@@ -234,45 +248,50 @@ function TrustBar() {
 
 function CoursesSection({ courses }: { courses: CourseListItem[] }) {
   return (
-    <section className="bg-white">
-      <div className="mx-auto max-w-6xl px-4 py-16">
-        <div className="mb-8 flex flex-wrap items-baseline justify-between gap-3">
+    <section className="py-24">
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="mb-12 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <div>
-            <h2 className="font-sans text-2xl font-bold text-[var(--color-primary)] sm:text-3xl">
-              교육 과정
+            <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
+              맞춤형 교육 과정
             </h2>
-            <p className="mt-1 text-sm text-zinc-600">
-              수강은 무료, 수료증·심리상담 의견서는 별도 결제로 발급됩니다.
+            <p className="mt-4 text-lg text-slate-600">
+              사건에 가장 적합한 교육을 선택하세요. 모든 수강은 무료입니다.
             </p>
           </div>
           <Link
             href="/courses"
-            className="rounded border border-[var(--color-border)] px-4 py-2 text-sm hover:border-[var(--color-primary)]"
+            className="group flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm transition-all hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
           >
-            전체 강의 보기 →
+            <span>전체 강의 보기</span>
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>
+
         {courses.length === 0 ? (
-          <p className="rounded border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-500">
-            강의 정보를 불러오는 중...
-          </p>
+          <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white/50 p-8 text-center text-zinc-500">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-200 border-t-[var(--color-accent)]"></div>
+            <p className="mt-4 font-medium">강의 정보를 불러오는 중입니다...</p>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {courses.slice(0, 6).map((c) => (
               <Link
                 key={c.id}
                 href={`/courses/${c.id}`}
-                className="group flex flex-col gap-3 rounded-lg border border-[var(--color-border)] bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+                className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/5"
               >
-                <span className="text-xs font-semibold text-[var(--color-accent)]">
+                <div className="mb-4 inline-flex w-fit items-center rounded-full bg-teal-50 px-3 py-1 text-xs font-bold text-[var(--color-accent)]">
                   {c.category}
-                </span>
-                <h3 className="font-sans text-lg font-semibold text-zinc-900 group-hover:text-[var(--color-primary)]">
+                </div>
+                <h3 className="mb-4 font-sans text-xl font-bold leading-snug text-slate-900 group-hover:text-[var(--color-primary)]">
                   {c.title}
                 </h3>
-                <div className="mt-auto flex items-center justify-between text-sm text-zinc-600">
-                  <span>강의 무료 수강</span>
-                  <span className="font-semibold text-[var(--color-primary)]">
+                <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4">
+                  <span className="flex items-center gap-1 text-sm font-medium text-slate-500">
+                    <PlayCircle className="h-4 w-4" /> 무료 수강
+                  </span>
+                  <span className="font-bold text-[var(--color-primary)]">
                     {c.price.toLocaleString()}원~
                   </span>
                 </div>
@@ -289,27 +308,37 @@ function CoursesSection({ courses }: { courses: CourseListItem[] }) {
 
 function StepsSection() {
   return (
-    <section id="guide" className="bg-[var(--color-muted)]">
-      <div className="mx-auto max-w-6xl px-4 py-16">
-        <h2 className="text-center font-sans text-2xl font-bold text-[var(--color-primary)] sm:text-3xl">
-          이용 절차
-        </h2>
-        <ol className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map((s) => (
-            <li
-              key={s.n}
-              className="rounded-lg border border-[var(--color-border)] bg-white p-6"
-            >
-              <span className="font-sans text-2xl font-bold text-[var(--color-accent)]">
-                {s.n}
-              </span>
-              <h3 className="mt-2 font-sans text-base font-semibold text-zinc-900">
-                {s.title}
-              </h3>
-              <p className="mt-1 text-sm text-zinc-600">{s.desc}</p>
-            </li>
-          ))}
-        </ol>
+    <section id="guide" className="bg-white py-24">
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="mb-16 text-center">
+          <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
+            쉽고 빠른 이용 절차
+          </h2>
+          <p className="mt-4 text-lg text-slate-600">
+            복잡한 과정 없이 꼭 필요한 서류만 빠르게 준비하세요.
+          </p>
+        </div>
+
+        <div className="relative">
+          {/* Connecting Line */}
+          <div className="absolute left-[2.5rem] top-12 bottom-12 hidden w-0.5 bg-slate-100 lg:block"></div>
+
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-4 lg:gap-12">
+            {STEPS.map((s, idx) => (
+              <div key={s.n} className="relative flex flex-col items-start lg:items-center lg:text-center">
+                <div className="z-10 mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-slate-50 text-2xl font-extrabold text-[var(--color-accent)] shadow-inner ring-4 ring-white lg:h-24 lg:w-24 lg:text-3xl">
+                  {s.n}
+                </div>
+                <h3 className="mb-3 font-sans text-xl font-bold text-slate-900">
+                  {s.title}
+                </h3>
+                <p className="text-base text-slate-600 leading-relaxed max-w-[250px]">
+                  {s.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -319,38 +348,52 @@ function StepsSection() {
 
 function PackagesSection() {
   return (
-    <section className="bg-white">
-      <div className="mx-auto max-w-6xl px-4 py-16">
-        <h2 className="text-center font-sans text-2xl font-bold text-[var(--color-primary)] sm:text-3xl">
-          패키지
-        </h2>
-        <p className="mt-2 text-center text-sm text-zinc-600">
-          필요한 자료에 맞춰 선택하세요. 정확한 가격은 결제 단계에서 확인하실 수 있습니다.
-        </p>
-        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
+    <section className="py-24">
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="mb-16 text-center">
+          <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
+            합리적인 패키지
+          </h2>
+          <p className="mt-4 text-lg text-slate-600">
+            자신의 상황에 맞는 맞춤형 자료 패키지를 선택하세요.
+          </p>
+        </div>
+
+        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-3">
           {PACKAGES.map((p) => (
             <div
               key={p.tier}
-              className={`flex flex-col rounded-lg border-2 bg-white p-6 shadow-sm ${
+              className={`relative flex flex-col rounded-3xl bg-white p-8 transition-all duration-300 hover:-translate-y-2 ${
                 p.highlight
-                  ? "border-[var(--color-primary)]"
-                  : "border-[var(--color-border)]"
+                  ? "border-2 border-[var(--color-accent)] shadow-2xl shadow-teal-900/10 scale-105 z-10"
+                  : "border border-zinc-200 shadow-lg mt-4 mb-4"
               }`}
             >
-              <h3 className="font-sans text-xl font-bold text-[var(--color-primary)]">
-                {p.tier}
-              </h3>
-              <p className="mt-1 text-sm text-zinc-600">{p.description}</p>
-              <ul className="mt-5 space-y-2 text-sm text-zinc-700">
+              {p.highlight && (
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-[var(--color-accent)] px-4 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-sm">
+                  Most Popular
+                </div>
+              )}
+              <div className="mb-6">
+                <h3 className="font-sans text-2xl font-bold text-[var(--color-primary)]">
+                  {p.tier}
+                </h3>
+                <p className="mt-2 text-sm text-slate-500">{p.description}</p>
+              </div>
+              
+              <ul className="mb-8 mt-2 flex-1 space-y-4 text-slate-700">
                 {p.items.map((it) => (
-                  <li key={it} className="flex items-center gap-2">
-                    <span className="text-[var(--color-accent)]">✓</span>
-                    {it}
+                  <li key={it} className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-accent)]" />
+                    <span className="font-medium">{it}</span>
                   </li>
                 ))}
               </ul>
-              <div className="mt-6 border-t border-[var(--color-border)] pt-4 text-center">
-                <span className="text-sm text-zinc-500">결제 시 가격 확인</span>
+              
+              <div className="mt-auto">
+                <div className={`w-full rounded-xl py-3 text-center text-sm font-bold transition-colors ${p.highlight ? 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)]' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                  결제 시 가격 확인
+                </div>
               </div>
             </div>
           ))}
@@ -364,45 +407,54 @@ function PackagesSection() {
 
 function FaqSection() {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
+  
   return (
-    <section id="faq" className="bg-[var(--color-muted)]">
-      <div className="mx-auto max-w-3xl px-4 py-16">
-        <h2 className="text-center font-sans text-2xl font-bold text-[var(--color-primary)] sm:text-3xl">
-          자주 묻는 질문
-        </h2>
-        <ul className="mt-8 space-y-2">
+    <section id="faq" className="bg-white py-24">
+      <div className="mx-auto max-w-4xl px-6">
+        <div className="mb-12 text-center">
+          <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
+            자주 묻는 질문
+          </h2>
+        </div>
+        
+        <div className="space-y-4">
           {FAQ_ITEMS.map((item, idx) => {
-            const open = openIdx === idx;
+            const isOpen = openIdx === idx;
             return (
-              <li
-                key={item.q}
-                className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-white"
+              <div
+                key={idx}
+                className={`overflow-hidden rounded-2xl border transition-colors duration-300 ${isOpen ? 'border-[var(--color-accent)] bg-teal-50/30' : 'border-zinc-200 bg-white hover:border-zinc-300'}`}
               >
                 <button
                   type="button"
-                  onClick={() => setOpenIdx(open ? null : idx)}
-                  className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+                  onClick={() => setOpenIdx(isOpen ? null : idx)}
+                  className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
                 >
-                  <span className="font-sans text-sm font-semibold text-zinc-900 sm:text-base">
+                  <span className={`font-sans text-base font-bold sm:text-lg ${isOpen ? 'text-[var(--color-primary)]' : 'text-slate-800'}`}>
                     Q. {item.q}
                   </span>
-                  <span
-                    className={`text-sm text-[var(--color-primary)] transition-transform ${
-                      open ? "rotate-180" : ""
+                  <ChevronDown
+                    className={`h-5 w-5 shrink-0 text-slate-400 transition-transform duration-300 ${
+                      isOpen ? "rotate-180 text-[var(--color-accent)]" : ""
                     }`}
-                  >
-                    ▼
-                  </span>
+                  />
                 </button>
-                {open ? (
-                  <div className="whitespace-pre-line border-t border-[var(--color-border)] bg-[var(--color-muted)]/50 px-5 py-4 text-sm leading-relaxed text-zinc-700">
-                    A. {item.a}
+                <div
+                  className={`grid transition-all duration-300 ease-in-out ${
+                    isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="whitespace-pre-line px-6 pb-6 pt-2 text-base leading-relaxed text-slate-600">
+                      <span className="font-bold text-[var(--color-accent)] mr-2">A.</span>
+                      {item.a}
+                    </div>
                   </div>
-                ) : null}
-              </li>
+                </div>
+              </div>
             );
           })}
-        </ul>
+        </div>
       </div>
     </section>
   );
@@ -412,46 +464,70 @@ function FaqSection() {
 
 function Footer() {
   return (
-    <footer className="bg-[var(--color-primary)] text-white/80">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 text-sm md:grid-cols-2">
-        <div className="space-y-1.5">
-          <p className="font-sans text-base font-bold text-white">
-            주식회사 한국범죄예방교육센터
+    <footer className="border-t border-slate-200 bg-[var(--color-primary)] pt-16 text-white">
+      <div className="mx-auto grid max-w-7xl gap-12 px-6 pb-12 md:grid-cols-12">
+        <div className="space-y-6 md:col-span-5 lg:col-span-4">
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-sans text-2xl font-extrabold tracking-tight text-white"
+          >
+            <ShieldCheck className="h-7 w-7 text-[var(--color-accent)]" />
+            <span>KCPEC</span>
+          </Link>
+          <p className="text-sm leading-relaxed text-slate-400">
+            법원이 인정하는 재범방지 교육 및 심리상담 전문 기관. 
+            가장 확실하고 신뢰할 수 있는 양형 자료를 제공합니다.
           </p>
-          <p className="text-xs text-white/70">대표자명: 윤승진</p>
-          <p className="text-xs text-white/70">
-            주소: 서울 강남구 언주로147길 42, 2층 2602호(논현동)
-          </p>
-          <p className="text-xs text-white/70">법인등록번호: 110111-8888525</p>
-          <p className="text-xs text-white/70">법인사업자등록번호: 495-86-03325</p>
-          <p className="text-xs text-white/70">
-            통신판매업 신고번호: 제2024-서울강남-02655호
-          </p>
-          <p className="text-xs text-white/70">개인정보관리책임자: 윤승진</p>
         </div>
-        <div className="space-y-1.5">
-          <p className="font-sans text-base font-bold text-white">고객지원</p>
-          <p className="text-xs text-white/70">
-            상담문의:{" "}
-            <a href="tel:01063773325" className="hover:text-white">
-              010-6377-3325
-            </a>
-          </p>
-          <p className="text-xs text-white/70">
-            이메일:{" "}
-            <a href="mailto:admin@kcpec.co.kr" className="hover:text-white">
-              admin@kcpec.co.kr
-            </a>
-          </p>
-          <p className="text-xs text-white/70">
-            무통장 계좌: 기업은행 232-160450-04-015 (예금주: 한국범죄예방교육센터)
-          </p>
+        
+        <div className="md:col-span-7 lg:col-span-8 grid grid-cols-1 gap-8 sm:grid-cols-2">
+          <div className="space-y-4">
+            <h4 className="font-sans text-lg font-bold text-white">고객지원</h4>
+            <ul className="space-y-3 text-sm text-slate-400">
+              <li>
+                <span className="block text-slate-500 mb-1">상담문의</span>
+                <a href="tel:01063773325" className="font-medium text-white hover:text-[var(--color-accent)] transition-colors">
+                  010-6377-3325
+                </a>
+              </li>
+              <li>
+                <span className="block text-slate-500 mb-1">이메일</span>
+                <a href="mailto:admin@kcpec.co.kr" className="font-medium text-white hover:text-[var(--color-accent)] transition-colors">
+                  admin@kcpec.co.kr
+                </a>
+              </li>
+              <li>
+                <span className="block text-slate-500 mb-1">무통장 입금 계좌</span>
+                <span className="text-white">기업은행 232-160450-04-015</span>
+                <br />
+                <span className="text-slate-500 text-xs">(예금주: 한국범죄예방교육센터)</span>
+              </li>
+            </ul>
+          </div>
+          
+          <div className="space-y-4">
+            <h4 className="font-sans text-lg font-bold text-white">회사 정보</h4>
+            <ul className="space-y-2 text-sm text-slate-400 leading-relaxed">
+              <li><strong className="text-slate-300">상호:</strong> 주식회사 한국범죄예방교육센터</li>
+              <li><strong className="text-slate-300">대표:</strong> 윤승진</li>
+              <li><strong className="text-slate-300">주소:</strong> 서울 강남구 언주로147길 42, 2층 2602호(논현동)</li>
+              <li><strong className="text-slate-300">사업자등록번호:</strong> 495-86-03325</li>
+              <li><strong className="text-slate-300">통신판매업신고:</strong> 제2024-서울강남-02655호</li>
+            </ul>
+          </div>
         </div>
       </div>
-      <div className="border-t border-white/10">
-        <p className="mx-auto max-w-6xl px-4 py-4 text-xs text-white/50">
-          ⓒ 2024 한국범죄예방교육센터. All rights reserved.
-        </p>
+      
+      <div className="border-t border-white/10 bg-black/20">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-6 sm:flex-row">
+          <p className="text-sm text-slate-500">
+            ⓒ {new Date().getFullYear()} 한국범죄예방교육센터. All rights reserved.
+          </p>
+          <div className="flex gap-4 text-sm text-slate-500">
+            <Link href="#" className="hover:text-white transition-colors">이용약관</Link>
+            <Link href="#" className="hover:text-white transition-colors font-medium">개인정보처리방침</Link>
+          </div>
+        </div>
       </div>
     </footer>
   );
