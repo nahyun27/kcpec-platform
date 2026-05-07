@@ -119,8 +119,9 @@ def toss_confirm(
     if order.status != OrderStatus.PENDING:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 처리된 주문입니다.")
 
-    if not settings.TOSS_SECRET_KEY:
+    if payload.is_simulated or not settings.TOSS_SECRET_KEY:
         # 시뮬레이션 모드 — 토스 연동 없이 즉시 paid 처리.
+        # 트리거: TOSS_SECRET_KEY 미설정 OR 프론트가 명시적으로 is_simulated=true.
         # 위젯 호출 자체가 없으므로 amount 변조 방어 의미 없음 → 검증 스킵.
         _mark_paid(order, payment_key=payload.payment_key or "SIMULATED")
         db.commit()

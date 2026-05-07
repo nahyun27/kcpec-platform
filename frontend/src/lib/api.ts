@@ -309,6 +309,7 @@ export async function confirmTossPayment(payload: {
   order_id: number;
   payment_key: string;
   amount: number;
+  is_simulated?: boolean;
 }): Promise<OrderResponse> {
   const { data } = await api.post<OrderResponse>("/orders/toss/confirm", payload);
   return data;

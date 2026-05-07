@@ -36,6 +36,7 @@ export default function CheckoutSuccessPage() {
       order_id: orderId,
       payment_key: paymentKey ?? (simulated ? "SIMULATED" : ""),
       amount: amountParam ? Number(amountParam) : 0,
+      is_simulated: simulated,
     })
       .then(setOrder)
       .catch((err) => {
