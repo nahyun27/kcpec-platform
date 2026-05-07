@@ -138,16 +138,16 @@ def submit_survey(
     return SurveyResponse.model_validate(survey)
 
 
-@router.get("/{order_id}/survey", response_model=SurveyStatusResponse)
+@router.get("/{order_id}/survey", response_model=SurveyStatusResponse | None)
 def get_survey_status(
     order_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> CounselingSurvey:
+) -> CounselingSurvey | None:
     order = db.get(Order, order_id)
     if order is None or order.user_id != current_user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="주문을 찾을 수 없습니다.")
-    survey = db.scalar(select(CounselingSurvey).where(CounselingSurvey.order_id == order_id))
-    if survey is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="설문 내역이 없습니다.")
-    return survey
+    # 설문이 아직 제출되지 않은 케이스는 정상 흐름이므로 200 OK + null 반환.
+    return db.scalar(
+        select(CounselingSurvey).where(CounselingSurvey.order_id == order_id)
+    )

@@ -14,7 +14,10 @@ export default function CheckoutSuccessPage() {
   const amountParam = searchParams.get("amount");
   const simulated = searchParams.get("simulated") === "1";
 
-  const orderId = orderIdParam ? Number(orderIdParam) : NaN;
+  // Toss 가 redirect 할 때 orderId 는 "KCPEC-{id}" 형식이므로 prefix 제거 후 숫자 변환.
+  const orderId = orderIdParam
+    ? Number(orderIdParam.replace(/^KCPEC-/, ""))
+    : NaN;
 
   const [order, setOrder] = useState<OrderResponse | null>(null);
   const [error, setError] = useState<string | null>(null);

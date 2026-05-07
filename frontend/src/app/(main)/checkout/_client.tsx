@@ -126,10 +126,12 @@ export default function CheckoutPage() {
             ? { provider: "NAVERPAY" as const }
             : undefined;
 
+      // Toss orderId 형식 요건: 영문/숫자/-/_, 최소 6자.
+      // DB id 만으로는 너무 짧을 수 있어 "KCPEC-{id}" prefix 사용.
       await widget.requestPayment({
         method: tossMethod,
         amount: { currency: "KRW", value: amount },
-        orderId: String(order.id),
+        orderId: `KCPEC-${order.id}`,
         orderName: `${course.title} (${selectedPackage.name})`,
         successUrl: `${window.location.origin}/checkout/success`,
         failUrl: `${window.location.origin}/checkout?course_id=${course.id}`,

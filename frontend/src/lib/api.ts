@@ -352,8 +352,13 @@ export async function submitSurvey(
   return data;
 }
 
-export async function getSurveyStatus(orderId: number): Promise<SurveyStatusResponse> {
-  const { data } = await api.get<SurveyStatusResponse>(`/orders/${orderId}/survey`);
+export async function getSurveyStatus(
+  orderId: number,
+): Promise<SurveyStatusResponse | null> {
+  // 백엔드는 설문 미제출 시 200 + null 반환 (404 아님).
+  const { data } = await api.get<SurveyStatusResponse | null>(
+    `/orders/${orderId}/survey`,
+  );
   return data;
 }
 

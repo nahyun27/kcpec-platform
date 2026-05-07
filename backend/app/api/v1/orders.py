@@ -135,7 +135,8 @@ def toss_confirm(
                 auth=(settings.TOSS_SECRET_KEY, ""),
                 json={
                     "paymentKey": payload.payment_key,
-                    "orderId": str(order.id),
+                    # 위젯 호출 시 사용한 형식과 동일해야 confirm 이 통과.
+                    "orderId": f"KCPEC-{order.id}",
                     "amount": payload.amount,
                 },
             )
