@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Logo } from "@/components/ui/Logo";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
@@ -80,7 +81,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     <div className="flex min-h-screen bg-zinc-100">
       <aside className="flex w-60 flex-col bg-[var(--color-primary)] text-white">
         <div className="border-b border-white/10 px-6 py-5">
-          <p className="text-xs uppercase tracking-widest text-white/60">KCPEC</p>
+          <Logo variant="white" kind="mark" className="mb-2" />
           <p className="font-sans text-lg font-bold">관리자 콘솔</p>
         </div>
         <nav className="flex-1 space-y-1 px-3 py-4 text-sm">
