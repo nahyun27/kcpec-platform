@@ -58,6 +58,8 @@ export type LectureProgressUpdate = {
   watched_seconds: number;
   last_position_sec: number;
   is_completed?: boolean;
+  // 클라이언트가 감지한 영상 길이. 백엔드가 더 큰 값일 때만 lecture.duration_seconds 갱신.
+  duration_seconds?: number;
 };
 
 export type StreamUrlResponse = {

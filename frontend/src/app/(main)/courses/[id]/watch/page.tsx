@@ -60,8 +60,14 @@ export default function WatchPage({
   const lastTimeRef = useRef(0);
   // 가장 최근 timeupdate 에서 받은 currentTime — heartbeat / flush 에 사용
   const lastCurrentTimeRef = useRef(0);
+  // playerDuration state 의 ref 미러 — 인터벌 클로저에서 stale 안 되도록.
+  const playerDurationRef = useRef(0);
   // 이미 완료 PATCH 를 보낸 강의 ID 집합 (중복 PATCH 방지)
   const completedRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    playerDurationRef.current = playerDuration;
+  }, [playerDuration]);
 
   useEffect(() => {
     if (!status) return;
@@ -146,10 +152,12 @@ export default function WatchPage({
     const lectureId = activeLectureId;
 
     const interval = setInterval(async () => {
+      const dur = playerDurationRef.current;
       const payload = {
         watched_seconds: Math.floor(liveWatchedRef.current),
         last_position_sec: Math.floor(lastCurrentTimeRef.current),
         is_completed: false,
+        ...(dur > 0 ? { duration_seconds: Math.round(dur) } : {}),
       };
       console.log(`[PATCH 요청] lecture=${lectureId}`, payload);
       try {
@@ -189,6 +197,7 @@ export default function WatchPage({
         watched_seconds: dur,
         last_position_sec: dur,
         is_completed: true,
+        ...(dur > 0 ? { duration_seconds: dur } : {}),
       };
       console.log(`[PATCH 요청 / 완료] lecture=${lectureId}`, payload);
       try {
@@ -213,12 +222,17 @@ export default function WatchPage({
 
   const handleLoadedMetadata = useCallback(
     (duration: number) => {
+      console.log(
+        `[loadedmetadata] lecture=${activeLectureId} player.duration=${duration}`,
+      );
       if (Number.isFinite(duration) && duration > 0) {
         setPlayerDuration(duration);
       }
       const lectureId = activeLectureId;
       if (lectureId == null) return;
-      // duration_seconds 자동 갱신 (어드민만 성공, 일반 사용자는 403 silent)
+      // 어드민 백필 — 어드민만 성공 (다른 강의 메타도 갱신).
+      // 일반 유저는 403 silent — 대신 진도 PATCH(/lectures/{id}/progress) 가
+      // duration_seconds 를 함께 전달하므로 본인 수강 강의는 그쪽에서 갱신됨.
       const actualDuration = Math.round(duration);
       if (actualDuration > 0) {
         patchAdminLecture(lectureId, { duration_seconds: actualDuration })
@@ -235,10 +249,12 @@ export default function WatchPage({
                   }
                 : prev,
             );
-            console.log(`[duration] lecture=${lectureId} → ${actualDuration}s`);
+            console.log(
+              `[duration] lecture=${lectureId} → ${actualDuration}s (admin backfill)`,
+            );
           })
           .catch(() => {
-            /* 비어드민 사용자 */
+            /* 비어드민 사용자 — 진도 PATCH 에서 갱신됨 */
           });
       }
     },
@@ -283,10 +299,12 @@ export default function WatchPage({
   // 강의 전환 직전 — 현재 진도 한 번 더 PATCH 해 저장 보장
   const flushProgressNow = useCallback(async () => {
     if (activeLectureId == null) return;
+    const dur = playerDurationRef.current;
     const payload = {
       watched_seconds: Math.floor(liveWatchedRef.current),
       last_position_sec: Math.floor(lastCurrentTimeRef.current),
       is_completed: false,
+      ...(dur > 0 ? { duration_seconds: Math.round(dur) } : {}),
     };
     try {
       await updateLectureProgress(activeLectureId, payload);

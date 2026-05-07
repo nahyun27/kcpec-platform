@@ -255,6 +255,11 @@ def update_lecture_progress(
     progress.last_position_sec = max(
         progress.last_position_sec or 0, payload.last_position_sec or 0
     )
+    # 클라이언트가 영상 메타데이터에서 감지한 duration 으로 lecture.duration_seconds
+    # 를 보정. 어드민 백필 endpoint 와 달리 일반 유저도 호출 가능.
+    if payload.duration_seconds is not None and payload.duration_seconds > 0:
+        if (lecture.duration_seconds or 0) < payload.duration_seconds:
+            lecture.duration_seconds = payload.duration_seconds
     if payload.is_completed:
         progress.is_completed = True
 
