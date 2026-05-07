@@ -1,4 +1,3 @@
-import secrets
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -7,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.core.pdf import render_certificate
+from app.core.pdf import generate_certificate_pdf
 from app.models.course import Course
 from app.models.document import (
     IssuedDocument,
@@ -19,12 +18,6 @@ from app.models.user import User
 from app.schemas.document import DocumentIssueRequest, DocumentResponse
 
 router = APIRouter(prefix="/orders", tags=["documents"])
-
-
-def _generate_issue_number() -> str:
-    today = datetime.now(timezone.utc).strftime("%Y%m%d")
-    suffix = secrets.token_hex(3).upper()  # 6 hex chars
-    return f"KCPEC-{today}-{suffix}"
 
 
 @router.post(
@@ -52,30 +45,34 @@ def issue_document(
     if course is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="강의 정보를 찾을 수 없습니다.")
 
-    issue_number = _generate_issue_number()
-    completed_date = (order.paid_at or datetime.now(timezone.utc)).date()
+    issued_date = (order.paid_at or datetime.now(timezone.utc)).date()
 
-    pdf_path = render_certificate(
-        issue_number=issue_number,
-        recipient_name=payload.recipient_name,
-        recipient_birth=payload.recipient_birth,
-        course_title=course.title,
-        completed_at=completed_date,
-    )
-    pdf_url = str(request.url_for("static", path=f"pdfs/{pdf_path.name}"))
-
+    # IssuedDocument 를 먼저 flush 해 doc.id 를 확보 — 증서번호와 PDF 파일명에 사용.
     doc = IssuedDocument(
         order_id=order.id,
         user_id=current_user.id,
         document_type=IssuedDocumentType.CERTIFICATE,
         recipient_name=payload.recipient_name,
         recipient_birth=payload.recipient_birth,
-        pdf_url=pdf_url,
-        issue_number=issue_number,
+        pdf_url="",  # PDF 생성 후 채움
+        issue_number="",  # 동일
         status=IssuedDocumentStatus.READY,
         issued_at=datetime.now(timezone.utc),
     )
     db.add(doc)
+    db.flush()
+
+    pdf_path, issue_number = generate_certificate_pdf(
+        course_id=course.id,
+        doc_id=doc.id,
+        recipient_name=payload.recipient_name,
+        birth_date=payload.recipient_birth,
+        issued_date=issued_date,
+    )
+
+    doc.pdf_url = str(request.url_for("static", path=f"pdfs/{pdf_path.name}"))
+    doc.issue_number = issue_number
+
     db.commit()
     db.refresh(doc)
     return DocumentResponse.model_validate(doc)
