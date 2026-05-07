@@ -118,15 +118,18 @@ def toss_confirm(
         return order
     if order.status != OrderStatus.PENDING:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 처리된 주문입니다.")
-    if order.amount != payload.amount:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제 금액이 일치하지 않습니다.")
 
     if not settings.TOSS_SECRET_KEY:
         # 시뮬레이션 모드 — 토스 연동 없이 즉시 paid 처리.
+        # 위젯 호출 자체가 없으므로 amount 변조 방어 의미 없음 → 검증 스킵.
         _mark_paid(order, payment_key=payload.payment_key or "SIMULATED")
         db.commit()
         db.refresh(order)
         return order
+
+    # 실 결제 모드 — Toss 위젯이 받은 amount 와 DB amount 가 일치하는지 확인
+    if order.amount != payload.amount:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제 금액이 일치하지 않습니다.")
 
     try:
         with httpx.Client(timeout=10.0) as client:

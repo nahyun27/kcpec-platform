@@ -111,7 +111,9 @@ export default function CheckoutPage() {
 
       const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
       if (!tossClientKey) {
-        router.push(`/checkout/success?order_id=${order.id}&simulated=1`);
+        router.push(
+          `/checkout/success?order_id=${order.id}&amount=${amount}&simulated=1`,
+        );
         return;
       }
 
