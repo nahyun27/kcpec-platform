@@ -422,7 +422,7 @@ function OrderRow({ order }: { order: OrderWithExtras }) {
                     className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-zinc-100 bg-slate-50 p-3"
                   >
                     <span className="text-sm font-medium text-slate-700">
-                      이수증 <span className="text-slate-400 font-normal ml-1">({d.issue_number})</span>
+                      수료증 <span className="text-slate-400 font-normal ml-1">({d.issue_number})</span>
                     </span>
                     {d.pdf_url && (
                       <a
@@ -439,12 +439,12 @@ function OrderRow({ order }: { order: OrderWithExtras }) {
               </ul>
             ) : (
               <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
-                <p className="text-xs text-slate-500 mb-3">아직 발급된 이수증이 없습니다.</p>
+                <p className="text-xs text-slate-500 mb-3">아직 발급된 수료증이 없습니다.</p>
                 <Link
                   href={`/issue?order_id=${order.id}`}
                   className="inline-flex items-center justify-center rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[var(--color-primary-hover)] transition-colors"
                 >
-                  이수증 즉시 발급하기
+                  수료증 즉시 발급하기
                 </Link>
               </div>
             )}

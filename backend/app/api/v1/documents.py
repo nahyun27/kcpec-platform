@@ -45,7 +45,7 @@ def issue_document(
     if order.status != OrderStatus.PAID:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            detail="결제 완료된 주문에 한해 이수증을 발급할 수 있습니다.",
+            detail="결제 완료된 주문에 한해 수료증을 발급할 수 있습니다.",
         )
 
     course = db.get(Course, order.course_id)

@@ -8,7 +8,7 @@ export type DocumentType =
   | "consultation";
 
 export const DOCUMENT_TYPE_LABEL: Record<DocumentType, string> = {
-  certificate: "이수증",
+  certificate: "수료증",
   guide: "양형자료 가이드",
   counseling: "심리상담 의견서",
   cbt: "CBT 자료",

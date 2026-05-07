@@ -46,7 +46,7 @@ export default function IssuePage() {
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
         : null;
-      setError(detail ?? "이수증 발급에 실패했습니다.");
+      setError(detail ?? "수료증 발급에 실패했습니다.");
     } finally {
       setSubmitting(false);
     }
@@ -57,7 +57,7 @@ export default function IssuePage() {
       <div className="mx-auto max-w-xl px-4 py-16">
         <div className="rounded-lg border border-[var(--color-border)] bg-white p-8 text-center shadow-sm">
           <p className="font-sans text-2xl font-bold text-[var(--color-primary)]">
-            이수증이 발급되었습니다
+            수료증이 발급되었습니다
           </p>
           <p className="mt-3 text-sm text-zinc-600">
             발급번호 <span className="font-mono">{document.issue_number}</span>
@@ -89,10 +89,10 @@ export default function IssuePage() {
   return (
     <div className="mx-auto max-w-xl space-y-8 px-4 py-16">
       <PageHeader
-        title="이수증 발급"
+        title="수료증 발급"
         subtitle="Issue Document"
         icon={<Award className="h-3.5 w-3.5" />}
-        description="이수증에 표기될 정보를 정확히 입력해 주세요."
+        description="수료증에 표기될 정보를 정확히 입력해 주세요."
         centered
       />
       <div className="rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">

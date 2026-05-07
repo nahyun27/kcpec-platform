@@ -60,19 +60,19 @@ PACKAGES: list[tuple[str, PackageTier, str, list[DocumentType]]] = [
     (
         "Basic",
         PackageTier.BASIC,
-        "이수증 단건 발급",
+        "수료증 단건 발급",
         [DocumentType.CERTIFICATE],
     ),
     (
         "Standard",
         PackageTier.STANDARD,
-        "이수증 + 양형자료 가이드 + 심리상담 의견서",
+        "수료증 + 양형자료 가이드 + 심리상담 의견서",
         [DocumentType.CERTIFICATE, DocumentType.GUIDE, DocumentType.COUNSELING],
     ),
     (
         "Premium",
         PackageTier.PREMIUM,
-        "이수증 + 가이드 + 심리상담 의견서 + CBT 자료 + 1:1 상담",
+        "수료증 + 가이드 + 심리상담 의견서 + CBT 자료 + 1:1 상담",
         [
             DocumentType.CERTIFICATE,
             DocumentType.GUIDE,
@@ -460,7 +460,7 @@ def create_test_flow() -> None:
     2) '음주운전 예방' 강의 enrollment + 모든 LectureProgress 완료
     3) 퀴즈 합격 QuizAttempt
     4) Standard 패키지 PAID 주문
-    이렇게 하면 곧장 /mypage 에서 이수증 발급/심리상담 설문 흐름을 테스트 가능.
+    이렇게 하면 곧장 /mypage 에서 수료증 발급/심리상담 설문 흐름을 테스트 가능.
     """
     now = datetime.now(timezone.utc)
     with SessionLocal() as db:

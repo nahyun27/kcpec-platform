@@ -76,7 +76,7 @@ export default function CheckoutSuccessPage() {
             <p className="mt-1 text-xs text-zinc-500">
               {order.order_type === "counseling"
                 ? "설문을 작성하시면 전문가가 검토 후 의견서를 발송해드립니다."
-                : "이제 이수증을 발급받으실 수 있습니다."}
+                : "이제 수료증을 발급받으실 수 있습니다."}
             </p>
 
             <div className="mt-8 flex flex-col gap-2">
@@ -92,7 +92,7 @@ export default function CheckoutSuccessPage() {
                   href={`/issue?order_id=${order.id}`}
                   className="rounded bg-[var(--color-accent)] py-3 font-semibold text-white hover:bg-[var(--color-accent-hover)]"
                 >
-                  이수증 발급하기
+                  수료증 발급하기
                 </Link>
               )}
               <Link

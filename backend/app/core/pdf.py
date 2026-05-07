@@ -1,4 +1,4 @@
-"""이수증 PDF 생성기 (reportlab).
+"""수료증 PDF 생성기 (reportlab).
 
 - 한글 출력을 위해 NanumGothic.ttf 를 사용한다. 폰트가 없으면 명확히 실패해서
   운영자가 `scripts/download_fonts.sh` 를 실행하도록 유도한다.
@@ -46,7 +46,7 @@ def render_certificate(
     course_title: str,
     completed_at: date,
 ) -> Path:
-    """이수증 한 장짜리 PDF 를 그리고 저장 경로를 돌려준다."""
+    """수료증 한 장짜리 PDF 를 그리고 저장 경로를 돌려준다."""
     _ensure_font()
     PDF_DIR.mkdir(parents=True, exist_ok=True)
 

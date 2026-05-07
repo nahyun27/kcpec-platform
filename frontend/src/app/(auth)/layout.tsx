@@ -44,7 +44,7 @@ export default function AuthLayout({
 
           <div className="space-y-4 pt-8">
             <FeatureItem text="전문가 감수 100% 신뢰성 검증 교육" />
-            <FeatureItem text="교육 수료 즉시 이수증 당일 발급" />
+            <FeatureItem text="교육 수료 즉시 수료증 당일 발급" />
             <FeatureItem text="철저한 개인정보 보호 시스템" />
           </div>
         </div>

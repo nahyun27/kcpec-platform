@@ -13,7 +13,7 @@ class PackageTier(str, enum.Enum):
 
 
 class DocumentType(str, enum.Enum):
-    CERTIFICATE = "certificate"     # 이수증
+    CERTIFICATE = "certificate"     # 수료증
     GUIDE = "guide"                 # 양형자료 가이드
     COUNSELING = "counseling"       # 심리상담 의견서
     CBT = "cbt"                     # 인지행동치료(CBT) 자료

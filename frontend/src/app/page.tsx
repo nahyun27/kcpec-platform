@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { Logo } from "@/components/ui/Logo";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { getCourses } from "@/lib/api";
 import type { CourseListItem } from "@/types/course";
@@ -58,19 +60,19 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
 const PACKAGES = [
   {
     tier: "Basic",
-    description: "이수증 단건 발급",
-    items: ["이수증 PDF 발급"],
+    description: "수료증 단건 발급",
+    items: ["수료증 PDF 발급"],
   },
   {
     tier: "Standard",
-    description: "이수증 + 양형자료 가이드 + 심리상담 의견서",
-    items: ["이수증", "양형자료 가이드", "심리상담 의견서"],
+    description: "수료증 + 양형자료 가이드 + 심리상담 의견서",
+    items: ["수료증", "양형자료 가이드", "심리상담 의견서"],
     highlight: true,
   },
   {
     tier: "Premium",
-    description: "이수증 + 모든 양형 자료 패키지",
-    items: ["이수증", "양형자료 가이드", "심리상담 의견서", "CBT 자료", "1:1 상담"],
+    description: "수료증 + 모든 양형 자료 패키지",
+    items: ["수료증", "양형자료 가이드", "심리상담 의견서", "CBT 자료", "1:1 상담"],
   },
 ];
 
@@ -78,7 +80,7 @@ const STEPS = [
   { n: "01", title: "강의 선택", desc: "내 사건과 관련된 교육 과정을 선택합니다." },
   { n: "02", title: "무료 수강", desc: "전 과정 무료. 진도와 퀴즈로 수료 처리." },
   { n: "03", title: "패키지 결제", desc: "필요한 발급 자료에 맞춰 패키지 선택." },
-  { n: "04", title: "자료 수령", desc: "이수증·의견서를 PDF 로 즉시/빠르게 수령." },
+  { n: "04", title: "자료 수령", desc: "수료증·의견서를 PDF 로 즉시/빠르게 수령." },
 ];
 
 export default function HomePage() {
@@ -163,7 +165,7 @@ function TrustSection() {
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
           <TrustStat icon={<Users className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="누적 수강생" value="10,000+" />
           <TrustStat icon={<PlayCircle className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="교육 종류" value="11개 과정" />
-          <TrustStat icon={<FileText className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="이수증 발급" value="당일 즉시" />
+          <TrustStat icon={<FileText className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="수료증 발급" value="당일 즉시" />
           <TrustStat icon={<ShieldCheck className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="전문가 감수" value="100% 검증" />
         </div>
       </div>
@@ -464,28 +466,7 @@ function Footer() {
     <footer className="border-t border-slate-200 bg-[var(--color-primary)] pt-16 text-white">
       <div className="mx-auto grid max-w-7xl gap-12 px-6 pb-12 md:grid-cols-12">
         <div className="space-y-6 md:col-span-5 lg:col-span-4">
-          <Link href="/" className="flex items-center gap-2">
-            {/* Logo Mark */}
-            <div className="flex h-[36px] w-[56px] flex-col justify-between pt-0.5">
-              <div className="h-[9px] w-full rounded-tl-[10px] rounded-tr-[1px] rounded-bl-[1px] rounded-br-[1px] bg-white"></div>
-              <div className="flex flex-1 items-center justify-center">
-                <span className="font-sans text-[15px] font-black leading-none tracking-wider text-white">
-                  KCPEC
-                </span>
-              </div>
-              <div className="h-[9px] w-full rounded-br-[10px] rounded-bl-[1px] rounded-tl-[1px] rounded-tr-[1px] bg-white"></div>
-            </div>
-
-            {/* Text Mark */}
-            <div className="flex flex-col justify-center gap-0.5">
-              <span className="font-sans text-[19px] font-black leading-none tracking-[-0.04em] text-white">
-                한국범죄예방교육센터
-              </span>
-              <span className="font-sans text-[8px] font-bold leading-none tracking-[0.03em] text-slate-400">
-                KOREA CRIME PREVENTION EDUCATION CENTER
-              </span>
-            </div>
-          </Link>
+          <Logo variant="white" />
           <p className="text-sm leading-relaxed text-slate-400">
             법원이 인정하는 재범방지 교육 및 심리상담 전문 기관. 
             가장 확실하고 신뢰할 수 있는 양형 자료를 제공합니다.
