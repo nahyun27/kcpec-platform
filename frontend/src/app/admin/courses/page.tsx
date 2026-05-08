@@ -52,7 +52,13 @@ export default function AdminCoursesPage() {
   async function load() {
     setError(null);
     try {
-      setCourses(await getAdminCourses());
+      const courseList = await getAdminCourses();
+      setCourses(courseList);
+      // 접힌 상태에서도 영상 수 + 퀴즈 상태 뱃지를 보여주기 위해 일괄 prefetch.
+      // 모든 강의에 대해 lectures + quiz 를 병렬로 받아온다 (대략 N×2 요청).
+      void Promise.all(
+        courseList.flatMap((c) => [loadLectures(c.id), loadQuiz(c.id)]),
+      );
     } catch {
       setError("강의 목록을 불러오지 못했습니다.");
     }
@@ -166,6 +172,10 @@ export default function AdminCoursesPage() {
                         ▶
                       </span>
                       {c.title}
+                      <CourseRowBadges
+                        lectures={lecturesByCourse[c.id]}
+                        quiz={quizByCourse[c.id]}
+                      />
                     </td>
                     <td className="px-3 py-3 text-xs">{c.category}</td>
                     <td className="px-3 py-3 text-right">
@@ -292,6 +302,40 @@ export default function AdminCoursesPage() {
         />
       ) : null}
     </div>
+  );
+}
+
+// ---------- collapsed-row badges -------------------------------------------
+
+function CourseRowBadges({
+  lectures,
+  quiz,
+}: {
+  lectures: AdminLectureFull[] | undefined;
+  quiz: AdminQuizRead | undefined;
+}) {
+  // 둘 다 prefetch 미완료 — 아무것도 안 보여줌 (깜빡임 방지)
+  if (lectures === undefined && quiz === undefined) return null;
+
+  return (
+    <span className="ml-2 inline-flex items-center gap-1.5 align-middle">
+      {lectures !== undefined ? (
+        lectures.length > 0 ? (
+          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+            🎬 {lectures.length}개
+          </span>
+        ) : (
+          <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
+            영상 없음
+          </span>
+        )
+      ) : null}
+      {quiz?.exists ? (
+        <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+          퀴즈 ✓
+        </span>
+      ) : null}
+    </span>
   );
 }
 
