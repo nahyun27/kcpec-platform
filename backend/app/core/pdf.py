@@ -1,76 +1,156 @@
-"""수료증 PDF 생성기 (reportlab platypus).
+"""수료증 PDF 생성기 — PPTX 템플릿 + LibreOffice headless.
 
-- PPTX 템플릿(/static/templates/certificates) 의 디자인을 reportlab 으로 재현.
-- NanumGothic / NanumGothicBold 폰트 사용. Bold 가 없으면 Regular 로 폴백.
-- 결과물은 backend/static/pdfs/cert_{doc_id}.pdf 에 저장하고 정적 URL 을 반환.
+흐름:
+1. course_id 로 CERT_TEMPLATE_MAP 조회 → PPTX 파일 경로 + 과정코드 + 강의명
+2. PPTX 사본을 임시 디렉터리에 만들고 python-pptx 로 셀 텍스트 치환
+   - Shape 90 : 증서번호 텍스트박스
+   - Shape 88 : 발급일자 텍스트박스
+   - Shape 92 : 메인 표 (이수과정/이수일자/성명/생년월일 셀)
+3. soffice --headless --convert-to pdf 로 PDF 변환
+4. backend/static/pdfs/cert_{doc_id}.pdf 로 복사
+5. (Path, issue_number) 반환
+
+run.text 만 교체하므로 폰트/크기/색상 등 기존 서식은 보존된다.
+교육내용(Row 2)·기관명·하단 본문 등 고정 텍스트는 건드리지 않는다.
 """
 
 from __future__ import annotations
 
+import shutil
+import subprocess
+import tempfile
 from datetime import date
 from pathlib import Path
 
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.units import mm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import (
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-    Table,
-    TableStyle,
-)
-from reportlab.platypus.flowables import HRFlowable
+from pptx import Presentation
 
-from app.core.cert_config import get_cert_config
+from app.core.cert_config import get_cert_template
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 STATIC_DIR = BACKEND_DIR / "static"
+TEMPLATES_DIR = STATIC_DIR / "templates" / "certificates"
 PDF_DIR = STATIC_DIR / "pdfs"
-FONT_PATH = STATIC_DIR / "fonts" / "NanumGothic.ttf"
-FONT_BOLD_PATH = STATIC_DIR / "fonts" / "NanumGothicBold.ttf"
 
-FONT_REGULAR = "NanumGothic"
-FONT_BOLD = "NanumGothicBold"
+# LibreOffice 변환 타임아웃 (단건 PPTX 변환은 보통 5초 내 완료)
+SOFFICE_TIMEOUT_SEC = 60
 
-_fonts_registered = False
-
-
-def _ensure_fonts() -> None:
-    global _fonts_registered
-    if _fonts_registered:
-        return
-    if not FONT_PATH.exists():
-        raise RuntimeError(
-            f"한글 폰트가 없습니다: {FONT_PATH} — "
-            "`bash backend/scripts/download_fonts.sh` 로 먼저 받아 주세요."
-        )
-    registered = pdfmetrics.getRegisteredFontNames()
-    if FONT_REGULAR not in registered:
-        pdfmetrics.registerFont(TTFont(FONT_REGULAR, str(FONT_PATH)))
-    bold_path = FONT_BOLD_PATH if FONT_BOLD_PATH.exists() else FONT_PATH
-    if FONT_BOLD not in registered:
-        pdfmetrics.registerFont(TTFont(FONT_BOLD, str(bold_path)))
-    _fonts_registered = True
+# soffice 실행 파일 후보 (PATH → macOS app bundle → 일반 Linux 경로)
+_SOFFICE_FALLBACKS = (
+    "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+    "/usr/bin/soffice",
+    "/usr/bin/libreoffice",
+)
 
 
-def _format_date_korean(d: date) -> str:
-    return f"{d.year}년 {d.month:>2}월 {d.day:>2}일"
-
-
-def _spaced_name(name: str) -> str:
-    """'홍길동' → '홍 길 동' (시각적 자간 효과)."""
-    return " ".join(list(name.strip()))
+def _find_soffice() -> str:
+    found = shutil.which("soffice") or shutil.which("libreoffice")
+    if found:
+        return found
+    for cand in _SOFFICE_FALLBACKS:
+        if Path(cand).exists():
+            return cand
+    raise RuntimeError(
+        "LibreOffice(soffice) 실행 파일을 찾을 수 없습니다. "
+        "macOS: brew install --cask libreoffice / "
+        "Ubuntu: apt-get install libreoffice",
+    )
 
 
 def build_issue_number(course_id: int, doc_id: int, issued: date) -> str:
     """{year}-kcpec-{과정코드}-{doc_id 5자리} 형식의 증서번호."""
-    cfg = get_cert_config(course_id)
-    return f"{issued.year}-kcpec-{cfg['code']}-{doc_id:05d}"
+    cfg = get_cert_template(course_id)
+    code = cfg["code"] if cfg else "00"
+    return f"{issued.year}-kcpec-{code}-{doc_id:05d}"
+
+
+def _format_korean_date(d: date) -> str:
+    return f"{d.year}년 {d.month}월 {d.day}일"
+
+
+def _spaced_name(name: str) -> str:
+    """'홍길동' → '홍 길 동'."""
+    return " ".join(list(name.strip()))
+
+
+def _replace_text_frame(text_frame, new_text: str) -> None:
+    """텍스트 프레임의 텍스트를 새 문자열로 교체.
+    첫 paragraph 의 첫 run 포맷(폰트/크기/색상)을 보존한다.
+    """
+    paragraphs = text_frame.paragraphs
+    if not paragraphs:
+        return
+    first_para = paragraphs[0]
+    if first_para.runs:
+        first_para.runs[0].text = new_text
+        for r in first_para.runs[1:]:
+            r.text = ""
+    else:
+        first_para.add_run().text = new_text
+    # 추가 paragraph 들 안의 run 도 모두 비움
+    for para in paragraphs[1:]:
+        for r in para.runs:
+            r.text = ""
+
+
+def _fill_template(
+    pptx_path: Path,
+    *,
+    cert_number: str,
+    course_title: str,
+    recipient_name: str,
+    birth_date: date,
+    issued_date: date,
+) -> None:
+    """PPTX 사본을 in-place 로 수정한다."""
+    prs = Presentation(str(pptx_path))
+    slide = prs.slides[0]
+
+    issued_str = _format_korean_date(issued_date)
+    birth_str = _format_korean_date(birth_date)
+    name_str = _spaced_name(recipient_name)
+
+    for shape in slide.shapes:
+        sid = shape.shape_id
+        # 증서번호 (좌상단)
+        if sid == 90 and shape.has_text_frame:
+            _replace_text_frame(shape.text_frame, f"증 {cert_number} 호")
+        # 발급일자 (하단 텍스트박스)
+        elif sid == 88 and shape.has_text_frame:
+            _replace_text_frame(shape.text_frame, f"발급일자 : {issued_str}")
+        # 메인 표 — 4셀만 갱신, 교육내용(Row 2) 은 템플릿 그대로
+        elif sid == 92 and shape.has_table:
+            table = shape.table
+            _replace_text_frame(table.cell(0, 1).text_frame, course_title)
+            _replace_text_frame(table.cell(0, 3).text_frame, issued_str)
+            _replace_text_frame(table.cell(1, 1).text_frame, name_str)
+            _replace_text_frame(table.cell(1, 3).text_frame, birth_str)
+
+    prs.save(str(pptx_path))
+
+
+def _convert_to_pdf(pptx_path: Path, out_dir: Path) -> Path:
+    """soffice headless 로 PPTX → PDF 변환. 성공 시 PDF 경로 반환."""
+    soffice = _find_soffice()
+    result = subprocess.run(
+        [
+            soffice,
+            "--headless",
+            "--convert-to",
+            "pdf",
+            "--outdir",
+            str(out_dir),
+            str(pptx_path),
+        ],
+        capture_output=True,
+        timeout=SOFFICE_TIMEOUT_SEC,
+    )
+    pdf_path = out_dir / f"{pptx_path.stem}.pdf"
+    if not pdf_path.exists():
+        raise RuntimeError(
+            f"PDF 변환 실패 (returncode={result.returncode}): "
+            f"{result.stderr.decode(errors='replace')}",
+        )
+    return pdf_path
 
 
 def generate_certificate_pdf(
@@ -82,158 +162,35 @@ def generate_certificate_pdf(
     issued_date: date,
 ) -> tuple[Path, str]:
     """수료증 PDF 를 생성하고 (저장 경로, 증서번호) 를 반환."""
-    _ensure_fonts()
-    cfg = get_cert_config(course_id)
+    cfg = get_cert_template(course_id)
+    if cfg is None:
+        raise ValueError(f"등록된 수료증 템플릿이 없습니다: course_id={course_id}")
+
+    src = TEMPLATES_DIR / cfg["file"]
+    if not src.exists():
+        raise RuntimeError(f"템플릿 파일 누락: {src}")
 
     cert_number = build_issue_number(course_id, doc_id, issued_date)
-    issue_date_str = _format_date_korean(issued_date)
-    birth_str = _format_date_korean(birth_date)
-    name_spaced = _spaced_name(recipient_name)
 
     PDF_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = PDF_DIR / f"cert_{doc_id}.pdf"
+    final_path = PDF_DIR / f"cert_{doc_id}.pdf"
 
-    doc = SimpleDocTemplate(
-        str(out_path),
-        pagesize=A4,
-        topMargin=15 * mm,
-        bottomMargin=15 * mm,
-        leftMargin=20 * mm,
-        rightMargin=20 * mm,
-    )
-    content_w = A4[0] - 40 * mm
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        # 1) 템플릿 사본 + 텍스트 치환
+        tmp_pptx = tmp / "cert.pptx"
+        shutil.copy(src, tmp_pptx)
+        _fill_template(
+            tmp_pptx,
+            cert_number=cert_number,
+            course_title=cfg["title"],
+            recipient_name=recipient_name,
+            birth_date=birth_date,
+            issued_date=issued_date,
+        )
+        # 2) LibreOffice 로 PDF 변환
+        tmp_pdf = _convert_to_pdf(tmp_pptx, tmp)
+        # 3) 최종 위치로 복사
+        shutil.copy(tmp_pdf, final_path)
 
-    styles = {
-        "cert_num": ParagraphStyle(
-            "cert_num",
-            fontName=FONT_REGULAR,
-            fontSize=9,
-            textColor=colors.black,
-        ),
-        "title": ParagraphStyle(
-            "title",
-            fontName=FONT_BOLD,
-            fontSize=32,
-            alignment=TA_CENTER,
-            spaceAfter=8 * mm,
-            textColor=colors.HexColor("#1C3461"),
-        ),
-        "body": ParagraphStyle(
-            "body",
-            fontName=FONT_REGULAR,
-            fontSize=11,
-            alignment=TA_CENTER,
-            leading=18,
-        ),
-        "issue": ParagraphStyle(
-            "issue",
-            fontName=FONT_REGULAR,
-            fontSize=11,
-            alignment=TA_CENTER,
-        ),
-        "org": ParagraphStyle(
-            "org",
-            fontName=FONT_BOLD,
-            fontSize=16,
-            alignment=TA_CENTER,
-        ),
-        "cell": ParagraphStyle(
-            "cell",
-            fontName=FONT_REGULAR,
-            fontSize=10,
-            alignment=TA_CENTER,
-        ),
-        "cell_bold": ParagraphStyle(
-            "cell_bold",
-            fontName=FONT_BOLD,
-            fontSize=10,
-            alignment=TA_CENTER,
-        ),
-        "cell_left": ParagraphStyle(
-            "cell_left",
-            fontName=FONT_REGULAR,
-            fontSize=9,
-            alignment=TA_LEFT,
-            leading=14,
-        ),
-    }
-
-    elements: list = []
-
-    # 증서번호 (좌상단 작은 글씨)
-    elements.append(Paragraph(f"증 {cert_number} 호", styles["cert_num"]))
-    elements.append(Spacer(1, 10 * mm))
-
-    # 제목 + 가로선
-    elements.append(Paragraph("수료증", styles["title"]))
-    elements.append(HRFlowable(width="100%", thickness=1, color=colors.black))
-    elements.append(Spacer(1, 5 * mm))
-
-    # 메인 표 (3행)
-    col_w = [content_w * 0.15, content_w * 0.35, content_w * 0.15, content_w * 0.35]
-    curriculum_html = cfg["curriculum"].replace("\n", "<br/>")
-    table_data = [
-        [
-            Paragraph("이수과정", styles["cell_bold"]),
-            Paragraph(cfg["title"], styles["cell"]),
-            Paragraph("이수일자", styles["cell_bold"]),
-            Paragraph(issue_date_str, styles["cell"]),
-        ],
-        [
-            Paragraph("성   명", styles["cell_bold"]),
-            Paragraph(name_spaced, styles["cell"]),
-            Paragraph("생년월일", styles["cell_bold"]),
-            Paragraph(birth_str, styles["cell"]),
-        ],
-        [
-            Paragraph("교육내용", styles["cell_bold"]),
-            Paragraph(curriculum_html, styles["cell_left"]),
-            "",
-            "",
-        ],
-    ]
-
-    t = Table(table_data, colWidths=col_w, rowHeights=[12 * mm, 12 * mm, None])
-    t.setStyle(
-        TableStyle(
-            [
-                ("FONTNAME", (0, 0), (-1, -1), FONT_REGULAR),
-                ("FONTSIZE", (0, 0), (-1, -1), 10),
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-                # 좌측 라벨 컬럼
-                ("BACKGROUND", (0, 0), (0, -1), colors.Color(0.85, 0.85, 0.85)),
-                # 3번째 컬럼(이수일자/생년월일 라벨) — Row 2 는 SPAN 으로 덮임
-                ("BACKGROUND", (2, 0), (2, 1), colors.Color(0.85, 0.85, 0.85)),
-                ("SPAN", (1, 2), (3, 2)),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ("LEFTPADDING", (0, 0), (-1, -1), 4),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-            ],
-        ),
-    )
-    elements.append(t)
-    elements.append(Spacer(1, 8 * mm))
-
-    # 본문
-    elements.append(
-        Paragraph(
-            "위 사람은 한국범죄예방교육센터에서 실시한<br/>"
-            "상기 교육과정을 성실히 이수하였으므로<br/>"
-            "본 증서를 수여합니다.",
-            styles["body"],
-        ),
-    )
-    elements.append(Spacer(1, 8 * mm))
-
-    # 발급일자
-    elements.append(Paragraph(f"발급일자 : {issue_date_str}", styles["issue"]))
-    elements.append(Spacer(1, 8 * mm))
-
-    # 기관명
-    elements.append(Paragraph("한국범죄예방교육센터", styles["org"]))
-
-    doc.build(elements)
-    return out_path, cert_number
+    return final_path, cert_number

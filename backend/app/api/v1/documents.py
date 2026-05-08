@@ -47,15 +47,15 @@ def issue_document(
 
     issued_date = (order.paid_at or datetime.now(timezone.utc)).date()
 
-    # IssuedDocument 를 먼저 flush 해 doc.id 를 확보 — 증서번호와 PDF 파일명에 사용.
+    # IssuedDocument 를 먼저 flush 해 doc.id 확보 — 증서번호 / PDF 파일명에 사용.
     doc = IssuedDocument(
         order_id=order.id,
         user_id=current_user.id,
         document_type=IssuedDocumentType.CERTIFICATE,
         recipient_name=payload.recipient_name,
         recipient_birth=payload.recipient_birth,
-        pdf_url="",  # PDF 생성 후 채움
-        issue_number="",  # 동일
+        pdf_url="",
+        issue_number="",
         status=IssuedDocumentStatus.READY,
         issued_at=datetime.now(timezone.utc),
     )
