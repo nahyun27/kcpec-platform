@@ -8,7 +8,9 @@ import {
   createPost,
   deleteAdminNotice,
   deleteAdminPost,
+  getNotice,
   getNotices,
+  getPost,
   getPosts,
   patchAdminNotice,
   patchAdminPost,
@@ -546,30 +548,59 @@ function EditModal({
   onSaved: () => void;
 }) {
   const [title, setTitle] = useState(row.title);
-  const [content, setContent] = useState(""); // 비어 있으면 변경 안 함
+  const [content, setContent] = useState("");
   const [pinned, setPinned] = useState(row.is_pinned ?? false);
+  const [loaded, setLoaded] = useState(false);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // 첫 진입 시 본문은 별도 상세 호출이 필요하지만 list 응답에 없어서
-  // 비워두고 placeholder 로 안내. 사용자가 본문을 입력해야만 변경됨.
+  // 마운트 시 상세를 받아와 TipTap 초기 콘텐츠로 채워준다.
+  // (목록 응답엔 본문이 빠져 있어 별도 GET 필요)
+  useEffect(() => {
+    let cancelled = false;
+    setLoaded(false);
+    setLoadErr(null);
+    const fetcher =
+      row.table === "notice"
+        ? getNotice(row.id).then((d) => d.content)
+        : getPost(row.id).then((d) => d.content);
+    fetcher
+      .then((c) => {
+        if (cancelled) return;
+        setContent(c ?? "");
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoadErr("기존 내용을 불러오지 못했습니다.");
+        setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [row.table, row.id]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setErr(null);
+    if (!content.trim()) {
+      setErr("본문이 비어 있습니다.");
+      return;
+    }
     setSubmitting(true);
     try {
       if (row.table === "notice") {
-        const payload: { title?: string; content?: string; is_pinned?: boolean } = {
+        await patchAdminNotice(row.id, {
           title: title.trim(),
+          content: content.trim(),
           is_pinned: pinned,
-        };
-        if (content.trim()) payload.content = content.trim();
-        await patchAdminNotice(row.id, payload);
+        });
       } else {
-        const payload: { title?: string; content?: string } = { title: title.trim() };
-        if (content.trim()) payload.content = content.trim();
-        await patchAdminPost(row.id, payload);
+        await patchAdminPost(row.id, {
+          title: title.trim(),
+          content: content.trim(),
+        });
       }
       onSaved();
       onClose();
@@ -594,12 +625,23 @@ function EditModal({
             className={inputCls}
           />
         </Field>
-        <Field label="본문 (변경 시에만 입력)">
-          <TiptapEditor
-            initialHtml=""
-            onChange={setContent}
-            placeholder="비워두면 본문은 변경되지 않습니다. 입력 시 굵게/제목/인용/목록 사용 가능."
-          />
+        <Field label="본문">
+          {loaded ? (
+            // key 로 강제 remount → 비동기 로드 후 초기 HTML 이 정확히 들어가도록
+            <TiptapEditor
+              key={`${row.table}-${row.id}`}
+              initialHtml={content}
+              onChange={setContent}
+              placeholder="굵게 / 기울임 / 제목 / 인용 / 목록 사용 가능."
+            />
+          ) : (
+            <div className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-3 text-sm text-zinc-500">
+              기존 내용을 불러오는 중...
+            </div>
+          )}
+          {loadErr ? (
+            <p className="mt-1 text-xs text-red-600">{loadErr}</p>
+          ) : null}
         </Field>
         {row.table === "notice" ? (
           <label className="flex items-center gap-2 text-sm">
