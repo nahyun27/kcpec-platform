@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type DragEvent as ReactDragEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type DragEvent as ReactDragEvent,
+} from "react";
 import { GripVertical } from "lucide-react";
 import { isAxiosError } from "axios";
 import {
@@ -235,6 +241,9 @@ export default function AdminCoursesPage() {
                             );
                             await loadLectures(c.id);
                           }}
+                          onDurationDetected={async () => {
+                            await loadLectures(c.id);
+                          }}
                           onAddClick={() => setModal({ kind: "new-lecture", course: c })}
                         />
                       </td>
@@ -335,22 +344,78 @@ function LectureList({
   onEdit,
   onDelete,
   onReorder,
+  onDurationDetected,
   onAddClick,
 }: {
   lectures: AdminLectureFull[] | undefined;
   onEdit: (lec: AdminLectureFull) => void;
   onDelete: (lec: AdminLectureFull) => void;
   onReorder: (orderedIds: number[]) => Promise<void>;
+  onDurationDetected: () => Promise<void>;
   onAddClick: () => void;
 }) {
   // 로컬 미러 — 드래그 동안 즉시 시각 반영. props 가 갱신되면 동기화.
   const [items, setItems] = useState<AdminLectureFull[]>(lectures ?? []);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
+  // duration 자동 감지 시도 완료된 lecture id 캐시 (재시도 방지)
+  const probedRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
     setItems(lectures ?? []);
   }, [lectures]);
+
+  // duration_seconds 가 0 인 영상에 대해 1회만 자동 감지 PATCH.
+  useEffect(() => {
+    if (!lectures) return;
+    const targets = lectures.filter(
+      (l) => (l.duration_seconds ?? 0) <= 0 && l.video_url && !probedRef.current.has(l.id),
+    );
+    if (targets.length === 0) return;
+
+    const cleanups: Array<() => void> = [];
+    let needsRefresh = false;
+
+    for (const lec of targets) {
+      probedRef.current.add(lec.id);
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      let cancelled = false;
+      const handleMeta = async () => {
+        if (cancelled) return;
+        const dur = Math.round(video.duration);
+        if (!Number.isFinite(dur) || dur <= 0) return;
+        try {
+          await patchAdminLecture(lec.id, { duration_seconds: dur });
+          needsRefresh = true;
+          // 마지막 항목이면 한 번에 부모 새로고침
+          if (lec === targets[targets.length - 1]) {
+            await onDurationDetected();
+            needsRefresh = false;
+          }
+        } catch {
+          /* 실패해도 dedup 유지 — 사용자가 수동 재시도 가능 */
+        }
+      };
+      video.onloadedmetadata = handleMeta;
+      video.onerror = () => {
+        /* URL 깨짐 등 — 그냥 무시 */
+      };
+      video.src = lec.video_url!;
+      cleanups.push(() => {
+        cancelled = true;
+        video.onloadedmetadata = null;
+        video.onerror = null;
+        video.removeAttribute("src");
+      });
+    }
+
+    return () => {
+      for (const fn of cleanups) fn();
+      // 비동기 결과가 도착했지만 마지막 항목 이전에 unmount 된 경우 — 다음 마운트에서 갱신됨
+      if (needsRefresh) void onDurationDetected();
+    };
+  }, [lectures, onDurationDetected]);
 
   if (lectures === undefined) {
     return <p className="px-2 text-xs text-slate-500">불러오는 중...</p>;
@@ -499,7 +564,7 @@ function formatDuration(seconds: number): string {
   if (seconds <= 0) return "—";
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
-  return m > 0 ? `${m}분${s ? ` ${s}초` : ""}` : `${s}초`;
+  return `${m}분 ${s}초`;
 }
 
 function abbreviate(s: string, maxLen: number): string {
