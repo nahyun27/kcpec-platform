@@ -46,6 +46,14 @@ function displayAuthor(category: CommunityCategory, author: string): string {
   return "관리자";
 }
 
+// 폼 모달 공용 — 변경사항이 있으면 닫기 전 확인.
+function confirmClose(isDirty: boolean, onClose: () => void) {
+  if (isDirty && !confirm("변경사항이 저장되지 않았습니다. 그래도 닫으시겠습니까?")) {
+    return;
+  }
+  onClose();
+}
+
 type Filter = "all" | CommunityCategory;
 
 const SIDEBAR: { key: Filter; label: string }[] = [
@@ -414,6 +422,10 @@ function CreateModal({
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // 입력이 한 글자라도 들어왔으면 dirty
+  const isDirty = Boolean(title.trim() || content.trim() || fileUrl.trim() || author.trim());
+  const safeClose = () => confirmClose(isDirty, onClose);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setErr(null);
@@ -455,7 +467,7 @@ function CreateModal({
   const isNotice = category === "notice" || category === "resource";
 
   return (
-    <ModalShell title="게시물 작성" onClose={onClose}>
+    <ModalShell title="게시물 작성" onClose={safeClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="카테고리">
           <select
@@ -520,7 +532,7 @@ function CreateModal({
         <div className="flex justify-end gap-2">
           <button
             type="button"
-            onClick={onClose}
+            onClick={safeClose}
             className="rounded border border-zinc-300 px-4 py-2 text-sm"
           >
             취소
@@ -549,11 +561,18 @@ function EditModal({
 }) {
   const [title, setTitle] = useState(row.title);
   const [content, setContent] = useState("");
+  const [originalContent, setOriginalContent] = useState("");
   const [pinned, setPinned] = useState(row.is_pinned ?? false);
   const [loaded, setLoaded] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const isDirty =
+    title !== row.title ||
+    content !== originalContent ||
+    pinned !== (row.is_pinned ?? false);
+  const safeClose = () => confirmClose(isDirty, onClose);
 
   // 마운트 시 상세를 받아와 TipTap 초기 콘텐츠로 채워준다.
   // (목록 응답엔 본문이 빠져 있어 별도 GET 필요)
@@ -569,6 +588,7 @@ function EditModal({
       .then((c) => {
         if (cancelled) return;
         setContent(c ?? "");
+        setOriginalContent(c ?? "");
         setLoaded(true);
       })
       .catch(() => {
@@ -615,7 +635,7 @@ function EditModal({
   }
 
   return (
-    <ModalShell title={`수정 — ${COMMUNITY_LABEL[row.category]}`} onClose={onClose}>
+    <ModalShell title={`수정 — ${COMMUNITY_LABEL[row.category]}`} onClose={safeClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="제목">
           <input
@@ -658,7 +678,7 @@ function EditModal({
         <div className="flex justify-end gap-2">
           <button
             type="button"
-            onClick={onClose}
+            onClick={safeClose}
             className="rounded border border-zinc-300 px-4 py-2 text-sm"
           >
             취소
@@ -687,6 +707,9 @@ function ReplyModal({
 }) {
   const [reply, setReply] = useState(row.admin_reply ?? "");
   const [submitting, setSubmitting] = useState(false);
+
+  const isDirty = reply !== (row.admin_reply ?? "");
+  const safeClose = () => confirmClose(isDirty, onClose);
   const [err, setErr] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
@@ -712,7 +735,7 @@ function ReplyModal({
   }
 
   return (
-    <ModalShell title={row.admin_reply ? "답변 수정" : "답변하기"} onClose={onClose}>
+    <ModalShell title={row.admin_reply ? "답변 수정" : "답변하기"} onClose={safeClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-zinc-800">질문</label>
@@ -742,7 +765,7 @@ function ReplyModal({
         <div className="flex justify-end gap-2">
           <button
             type="button"
-            onClick={onClose}
+            onClick={safeClose}
             className="rounded border border-zinc-300 px-4 py-2 text-sm"
           >
             취소

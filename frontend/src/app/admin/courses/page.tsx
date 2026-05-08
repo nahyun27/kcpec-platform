@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -621,6 +622,14 @@ function abbreviate(s: string, maxLen: number): string {
 const inputCls =
   "w-full rounded border border-zinc-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20";
 
+// 폼에 변경사항이 있으면 닫기 전 확인
+function confirmClose(isDirty: boolean, onClose: () => void) {
+  if (isDirty && !confirm("변경사항이 저장되지 않았습니다. 그래도 닫으시겠습니까?")) {
+    return;
+  }
+  onClose();
+}
+
 function ModalShell({
   title,
   onClose,
@@ -711,6 +720,9 @@ function NewCourseModal({
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const isDirty = Boolean(title.trim() || description.trim());
+  const safeClose = () => confirmClose(isDirty, onClose);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setErr(null);
@@ -736,7 +748,7 @@ function NewCourseModal({
   }
 
   return (
-    <ModalShell title="새 강의 등록" onClose={onClose}>
+    <ModalShell title="새 강의 등록" onClose={safeClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="제목">
           <input
@@ -777,7 +789,7 @@ function NewCourseModal({
           />
         </Field>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
-        <FormActions onClose={onClose} submitting={submitting} submitLabel="등록" />
+        <FormActions onClose={safeClose} submitting={submitting} submitLabel="등록" />
       </form>
     </ModalShell>
   );
@@ -798,6 +810,13 @@ function EditCourseModal({
   const [isActive, setIsActive] = useState(course.is_active);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const isDirty =
+    title !== course.title ||
+    category !== course.category ||
+    price !== (course.price ?? 0) ||
+    isActive !== course.is_active;
+  const safeClose = () => confirmClose(isDirty, onClose);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -824,7 +843,7 @@ function EditCourseModal({
   }
 
   return (
-    <ModalShell title={`강의 수정 — #${course.id}`} onClose={onClose}>
+    <ModalShell title={`강의 수정 — #${course.id}`} onClose={safeClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="제목">
           <input
@@ -866,7 +885,7 @@ function EditCourseModal({
           강의 활성화 (체크 해제 시 공개 목록에서 숨김)
         </label>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
-        <FormActions onClose={onClose} submitting={submitting} />
+        <FormActions onClose={safeClose} submitting={submitting} />
       </form>
     </ModalShell>
   );
@@ -881,10 +900,14 @@ function NewLectureModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const DEFAULT_URL = "http://localhost:8000/static/videos/";
   const [title, setTitle] = useState("");
-  const [videoUrl, setVideoUrl] = useState("http://localhost:8000/static/videos/");
+  const [videoUrl, setVideoUrl] = useState(DEFAULT_URL);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const isDirty = Boolean(title.trim()) || videoUrl !== DEFAULT_URL;
+  const safeClose = () => confirmClose(isDirty, onClose);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -910,7 +933,7 @@ function NewLectureModal({
   }
 
   return (
-    <ModalShell title={`영상 추가 — ${course.title}`} onClose={onClose}>
+    <ModalShell title={`영상 추가 — ${course.title}`} onClose={safeClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="영상 제목">
           <input
@@ -933,7 +956,7 @@ function NewLectureModal({
           </p>
         </Field>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
-        <FormActions onClose={onClose} submitting={submitting} submitLabel="추가" />
+        <FormActions onClose={safeClose} submitting={submitting} submitLabel="추가" />
       </form>
     </ModalShell>
   );
@@ -954,6 +977,13 @@ function EditLectureModal({
   const [isActive, setIsActive] = useState(lecture.is_active);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const isDirty =
+    title !== lecture.title ||
+    orderIndex !== lecture.order_index ||
+    videoUrl !== (lecture.video_url ?? "") ||
+    isActive !== lecture.is_active;
+  const safeClose = () => confirmClose(isDirty, onClose);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -980,7 +1010,7 @@ function EditLectureModal({
   }
 
   return (
-    <ModalShell title={`영상 수정 — #${lecture.id}`} onClose={onClose}>
+    <ModalShell title={`영상 수정 — #${lecture.id}`} onClose={safeClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="영상 제목">
           <input
@@ -1019,7 +1049,7 @@ function EditLectureModal({
           영상 활성화
         </label>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
-        <FormActions onClose={onClose} submitting={submitting} />
+        <FormActions onClose={safeClose} submitting={submitting} />
       </form>
     </ModalShell>
   );
@@ -1056,7 +1086,7 @@ function QuizModal({
   onSaved: () => void;
 }) {
   const isEdit = !!existing?.exists;
-  const [questions, setQuestions] = useState<QuestionDraft[]>(() => {
+  const initialQuestions = useMemo<QuestionDraft[]>(() => {
     if (existing?.exists && existing.questions.length > 0) {
       return existing.questions.map((q) => ({
         question_text: q.question_text,
@@ -1067,9 +1097,13 @@ function QuizModal({
       }));
     }
     return [blankQuestion()];
-  });
+  }, [existing]);
+  const [questions, setQuestions] = useState<QuestionDraft[]>(initialQuestions);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const isDirty = JSON.stringify(questions) !== JSON.stringify(initialQuestions);
+  const safeClose = () => confirmClose(isDirty, onClose);
 
   function addQuestion() {
     setQuestions((prev) => [...prev, blankQuestion()]);
@@ -1141,7 +1175,7 @@ function QuizModal({
   return (
     <ModalShell
       title={`${isEdit ? "퀴즈 수정" : "퀴즈 등록"} — ${course.title}`}
-      onClose={onClose}
+      onClose={safeClose}
       maxWidth="max-w-2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -1204,7 +1238,7 @@ function QuizModal({
         </button>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
         <FormActions
-          onClose={onClose}
+          onClose={safeClose}
           submitting={submitting}
           submitLabel={isEdit ? "수정 저장" : "등록"}
         />
