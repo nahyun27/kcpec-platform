@@ -633,13 +633,12 @@ function ModalShell({
   maxWidth?: string;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
+    // 의도적으로 backdrop 클릭으로 닫지 않음 — 입력 도중 실수로 모달이 닫혀
+    // 폼 내용이 사라지는 것을 방지. 닫으려면 우상단 "닫기" 버튼 또는 각 폼의
+    // "취소" 버튼 사용.
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div
         className={`w-full ${maxWidth} max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl`}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-baseline justify-between">
           <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">

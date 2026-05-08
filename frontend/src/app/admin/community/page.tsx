@@ -374,14 +374,10 @@ function ModalShell({
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    // 의도적으로 backdrop 클릭으로 닫지 않음 — 작성/수정/답변 폼 내용이
+    // 실수로 사라지는 것을 방지. 닫으려면 우상단 "닫기" 또는 각 폼의 "취소".
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-baseline justify-between">
           <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">
             {title}
