@@ -152,6 +152,35 @@ class AdminSurveyDetail(AdminSurveyRow):
     user_email: EmailStr | None = None
 
 
+class SalesStatsDaily(BaseModel):
+    date: str  # ISO YYYY-MM-DD
+    revenue: int
+    orders: int
+
+
+class SalesStatsByCourse(BaseModel):
+    course_title: str
+    package_name: str
+    count: int
+    revenue: int
+
+
+class SalesStatsByPayment(BaseModel):
+    method: PaymentMethod
+    count: int
+    revenue: int
+
+
+class SalesStats(BaseModel):
+    this_month_revenue: int
+    this_month_orders: int
+    last_month_revenue: int
+    avg_order_amount: int
+    daily_revenue: list[SalesStatsDaily]
+    by_course: list[SalesStatsByCourse]
+    by_payment: list[SalesStatsByPayment]
+
+
 class AdminStats(BaseModel):
     total_users: int
     total_enrollments: int

@@ -37,6 +37,7 @@ import type {
   AdminQuizQuestion,
   AdminQuizRead,
   AdminStats,
+  SalesStats,
   AdminSurveyDetail,
   AdminSurveyRow,
   AdminUserEnrollmentRow,
@@ -384,6 +385,11 @@ export async function getMyCounselingOrders(): Promise<CounselingOrderItem[]> {
 
 export async function getAdminStats(): Promise<AdminStats> {
   const { data } = await api.get<AdminStats>("/admin/stats");
+  return data;
+}
+
+export async function getAdminSalesStats(): Promise<SalesStats> {
+  const { data } = await api.get<SalesStats>("/admin/stats/sales");
   return data;
 }
 

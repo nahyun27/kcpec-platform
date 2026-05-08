@@ -163,6 +163,35 @@ export type AdminQuizQuestion = {
   options: { option_text: string; is_correct: boolean }[];
 };
 
+export type SalesStatsDaily = {
+  date: string;
+  revenue: number;
+  orders: number;
+};
+
+export type SalesStatsByCourse = {
+  course_title: string;
+  package_name: string;
+  count: number;
+  revenue: number;
+};
+
+export type SalesStatsByPayment = {
+  method: PaymentMethod;
+  count: number;
+  revenue: number;
+};
+
+export type SalesStats = {
+  this_month_revenue: number;
+  this_month_orders: number;
+  last_month_revenue: number;
+  avg_order_amount: number;
+  daily_revenue: SalesStatsDaily[];
+  by_course: SalesStatsByCourse[];
+  by_payment: SalesStatsByPayment[];
+};
+
 export type AdminQuizOptionRead = {
   id: number;
   option_text: string;

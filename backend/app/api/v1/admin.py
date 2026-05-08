@@ -1,4 +1,4 @@
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 
 from fastapi import (
@@ -48,6 +48,10 @@ from app.schemas.admin import (
     PostPatch,
     QuizRead,
     QuizSet,
+    SalesStats,
+    SalesStatsByCourse,
+    SalesStatsByPayment,
+    SalesStatsDaily,
 )
 from app.schemas.community import NoticeDetail, PostDetail
 from app.schemas.course import CourseDetail, CourseListItem, LectureItem
@@ -685,6 +689,129 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
         today_revenue=today_revenue,
         month_revenue=month_revenue,
         recent_orders=recent,
+    )
+
+
+@router.get("/stats/sales", response_model=SalesStats)
+def admin_sales_stats(db: Session = Depends(get_db)) -> SalesStats:
+    """매출 통계 — 이번달/전월/일별 30일/상품별/결제수단별 집계.
+
+    paid 상태 주문만 대상으로 함. paid_at 이 비어있는 데이터는 제외.
+    """
+    now = _now()
+    today = now.date()
+    this_month_start = datetime.combine(today.replace(day=1), time.min, tzinfo=timezone.utc)
+    last_month_end = this_month_start  # 전월 마지막 분 + 1
+    # 전월 1일
+    if today.month == 1:
+        last_month_start = datetime(today.year - 1, 12, 1, tzinfo=timezone.utc)
+    else:
+        last_month_start = datetime(today.year, today.month - 1, 1, tzinfo=timezone.utc)
+    # 30일 전
+    thirty_days_ago = datetime.combine(today, time.min, tzinfo=timezone.utc) - timedelta(days=29)
+
+    base = select(Order).where(Order.status == OrderStatus.PAID, Order.paid_at.is_not(None))
+
+    # 이번달 / 전월 합계
+    this_month_revenue = (
+        db.scalar(
+            select(func.coalesce(func.sum(Order.amount), 0)).where(
+                Order.status == OrderStatus.PAID,
+                Order.paid_at >= this_month_start,
+            )
+        )
+        or 0
+    )
+    this_month_orders = (
+        db.scalar(
+            select(func.count(Order.id)).where(
+                Order.status == OrderStatus.PAID,
+                Order.paid_at >= this_month_start,
+            )
+        )
+        or 0
+    )
+    last_month_revenue = (
+        db.scalar(
+            select(func.coalesce(func.sum(Order.amount), 0)).where(
+                Order.status == OrderStatus.PAID,
+                Order.paid_at >= last_month_start,
+                Order.paid_at < last_month_end,
+            )
+        )
+        or 0
+    )
+    avg_order_amount = (
+        int(round(this_month_revenue / this_month_orders)) if this_month_orders > 0 else 0
+    )
+
+    # 일별 매출 (최근 30일) — DB 에서 Python 으로 집계 (DB 호환성 단순화)
+    rows = db.execute(
+        select(Order.paid_at, Order.amount).where(
+            Order.status == OrderStatus.PAID,
+            Order.paid_at.is_not(None),
+            Order.paid_at >= thirty_days_ago,
+        )
+    ).all()
+    daily: dict[str, dict[str, int]] = {}
+    for paid_at, amount in rows:
+        key = paid_at.date().isoformat()
+        bucket = daily.setdefault(key, {"revenue": 0, "orders": 0})
+        bucket["revenue"] += amount
+        bucket["orders"] += 1
+    daily_revenue: list[SalesStatsDaily] = []
+    for i in range(30):
+        d = (thirty_days_ago + timedelta(days=i)).date().isoformat()
+        b = daily.get(d, {"revenue": 0, "orders": 0})
+        daily_revenue.append(SalesStatsDaily(date=d, revenue=b["revenue"], orders=b["orders"]))
+
+    # 상품(강의 + 패키지) 별
+    by_course_rows = db.execute(
+        select(
+            Course.title,
+            Package.name,
+            func.count(Order.id),
+            func.coalesce(func.sum(Order.amount), 0),
+        )
+        .join(Course, Course.id == Order.course_id)
+        .join(Package, Package.id == Order.package_id)
+        .where(Order.status == OrderStatus.PAID)
+        .group_by(Course.title, Package.name)
+        .order_by(func.coalesce(func.sum(Order.amount), 0).desc())
+    ).all()
+    by_course = [
+        SalesStatsByCourse(
+            course_title=ct, package_name=pn, count=cnt, revenue=rev
+        )
+        for (ct, pn, cnt, rev) in by_course_rows
+    ]
+
+    # 결제수단 별
+    by_payment_rows = db.execute(
+        select(
+            Order.payment_method,
+            func.count(Order.id),
+            func.coalesce(func.sum(Order.amount), 0),
+        )
+        .where(Order.status == OrderStatus.PAID)
+        .group_by(Order.payment_method)
+        .order_by(func.count(Order.id).desc())
+    ).all()
+    by_payment = [
+        SalesStatsByPayment(method=method, count=cnt, revenue=rev)
+        for (method, cnt, rev) in by_payment_rows
+    ]
+
+    # 사용 안 하는 변수 — base 는 단순 hint 용
+    _ = base
+    return SalesStats(
+        this_month_revenue=this_month_revenue,
+        this_month_orders=this_month_orders,
+        last_month_revenue=last_month_revenue,
+        avg_order_amount=avg_order_amount,
+        daily_revenue=daily_revenue,
+        by_course=by_course,
+        by_payment=by_payment,
     )
 
 
