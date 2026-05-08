@@ -309,10 +309,15 @@ def add_lecture(
     course = db.get(Course, course_id)
     if course is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="강의를 찾을 수 없습니다.")
+    # order_index 는 자동 할당: 현재 lecture 수 + 1.
+    # 페이로드의 값은 무시 (어드민 UI 가 더 이상 보내지 않음).
+    existing_count = db.scalar(
+        select(func.count(Lecture.id)).where(Lecture.course_id == course.id)
+    ) or 0
     lecture = Lecture(
         course_id=course.id,
         title=payload.title,
-        order_index=payload.order_index,
+        order_index=existing_count + 1,
         video_url=payload.video_url,
         duration_seconds=payload.duration_seconds,
         is_active=True,

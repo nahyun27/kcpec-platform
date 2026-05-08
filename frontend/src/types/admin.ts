@@ -124,7 +124,8 @@ export type AdminCourseCreate = {
 
 export type AdminLectureCreate = {
   title: string;
-  order_index: number;
+  // order_index 는 백엔드가 자동 할당 (현재 lecture 수 + 1).
+  order_index?: number;
   video_url?: string;
   duration_seconds?: number;
 };

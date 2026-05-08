@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type DragEvent as ReactDragEvent } from "react";
+import { GripVertical } from "lucide-react";
 import { isAxiosError } from "axios";
 import {
   addLecture,
@@ -223,6 +224,17 @@ export default function AdminCoursesPage() {
                               );
                             }
                           }}
+                          onReorder={async (orderedIds) => {
+                            // 1-indexed order_index 를 모두 PATCH (병렬). 실패는 무시.
+                            await Promise.all(
+                              orderedIds.map((id, idx) =>
+                                patchAdminLecture(id, { order_index: idx + 1 }).catch(
+                                  () => null,
+                                ),
+                              ),
+                            );
+                            await loadLectures(c.id);
+                          }}
                           onAddClick={() => setModal({ kind: "new-lecture", course: c })}
                         />
                       </td>
@@ -322,15 +334,61 @@ function LectureList({
   lectures,
   onEdit,
   onDelete,
+  onReorder,
   onAddClick,
 }: {
   lectures: AdminLectureFull[] | undefined;
   onEdit: (lec: AdminLectureFull) => void;
   onDelete: (lec: AdminLectureFull) => void;
+  onReorder: (orderedIds: number[]) => Promise<void>;
   onAddClick: () => void;
 }) {
+  // 로컬 미러 — 드래그 동안 즉시 시각 반영. props 가 갱신되면 동기화.
+  const [items, setItems] = useState<AdminLectureFull[]>(lectures ?? []);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    setItems(lectures ?? []);
+  }, [lectures]);
+
   if (lectures === undefined) {
     return <p className="px-2 text-xs text-slate-500">불러오는 중...</p>;
+  }
+
+  function handleDragStart(e: ReactDragEvent<HTMLTableRowElement>, idx: number) {
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
+    // Firefox 호환: setData 호출 없으면 드래그 자체가 시작 안 됨
+    e.dataTransfer.setData("text/plain", String(idx));
+  }
+
+  function handleDragOver(e: ReactDragEvent<HTMLTableRowElement>, idx: number) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragIdx == null || dragIdx === idx) return;
+    if (overIdx !== idx) setOverIdx(idx);
+  }
+
+  function handleDrop(e: ReactDragEvent<HTMLTableRowElement>, idx: number) {
+    e.preventDefault();
+    if (dragIdx == null || dragIdx === idx) {
+      setDragIdx(null);
+      setOverIdx(null);
+      return;
+    }
+    const next = [...items];
+    const [moved] = next.splice(dragIdx, 1);
+    next.splice(idx, 0, moved);
+    setItems(next);
+    setDragIdx(null);
+    setOverIdx(null);
+    void onReorder(next.map((l) => l.id));
+  }
+
+  function handleDragEnd() {
+    setDragIdx(null);
+    setOverIdx(null);
   }
 
   return (
@@ -339,7 +397,8 @@ function LectureList({
         <table className="w-full text-left text-xs">
           <thead className="bg-zinc-50 text-[10px] uppercase tracking-wider text-zinc-500">
             <tr>
-              <th className="w-14 px-3 py-2 text-center">순서</th>
+              <th className="w-8 px-2 py-2"></th>
+              <th className="w-12 px-2 py-2 text-center">순서</th>
               <th className="px-3 py-2">제목</th>
               <th className="w-20 px-3 py-2 text-right">시간</th>
               <th className="px-3 py-2">video URL</th>
@@ -347,16 +406,33 @@ function LectureList({
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
-            {lectures.length === 0 ? (
+            {items.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-zinc-500">
+                <td colSpan={6} className="px-3 py-6 text-center text-zinc-500">
                   등록된 영상이 없습니다.
                 </td>
               </tr>
             ) : (
-              lectures.map((lec) => (
-                <tr key={lec.id}>
-                  <td className="px-3 py-2 text-center text-zinc-500">{lec.order_index}</td>
+              items.map((lec, idx) => (
+                <tr
+                  key={lec.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDrop={(e) => handleDrop(e, idx)}
+                  onDragEnd={handleDragEnd}
+                  className={
+                    dragIdx === idx
+                      ? "opacity-40"
+                      : overIdx === idx
+                        ? "bg-[var(--color-primary)]/5"
+                        : ""
+                  }
+                >
+                  <td className="px-2 py-2 text-center text-zinc-400">
+                    <GripVertical className="mx-auto h-3.5 w-3.5 cursor-grab active:cursor-grabbing" />
+                  </td>
+                  <td className="px-2 py-2 text-center text-zinc-500">{idx + 1}</td>
                   <td className="px-3 py-2 font-medium text-slate-800">
                     {lec.title}
                     {!lec.is_active ? (
@@ -698,10 +774,7 @@ function NewLectureModal({
   onCreated: () => void;
 }) {
   const [title, setTitle] = useState("");
-  const [orderIndex, setOrderIndex] = useState(0);
-  const [videoUrl, setVideoUrl] = useState(
-    "http://localhost:8000/static/videos/sample_lecture.mp4",
-  );
+  const [videoUrl, setVideoUrl] = useState("http://localhost:8000/static/videos/");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -710,9 +783,9 @@ function NewLectureModal({
     setErr(null);
     setSubmitting(true);
     try {
+      // order_index 는 백엔드가 자동 부여 (기존 lecture 수 + 1)
       await addLecture(course.id, {
         title: title.trim(),
-        order_index: orderIndex,
         video_url: videoUrl.trim() || undefined,
       });
       onCreated();
@@ -743,21 +816,13 @@ function NewLectureModal({
           <input
             value={videoUrl}
             onChange={(e) => setVideoUrl(e.target.value)}
-            placeholder="http://..."
+            placeholder="http://localhost:8000/static/videos/sample.mp4"
             className={`${inputCls} font-mono text-xs`}
           />
           <p className="text-xs text-zinc-500">
-            영상 길이는 사용자가 처음 재생할 때 자동으로 감지됩니다.
+            영상 길이는 사용자가 처음 재생할 때 자동으로 감지됩니다. 순서는 자동
+            부여되며, 추가 후 목록에서 드래그로 변경할 수 있습니다.
           </p>
-        </Field>
-        <Field label="순서">
-          <input
-            type="number"
-            min={0}
-            value={orderIndex}
-            onChange={(e) => setOrderIndex(Number(e.target.value))}
-            className={inputCls}
-          />
         </Field>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
         <FormActions onClose={onClose} submitting={submitting} submitLabel="추가" />
