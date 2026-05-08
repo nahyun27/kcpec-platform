@@ -48,6 +48,8 @@ export type PostListItem = {
   created_at: string;
   // review 카테고리 응답에만 포함됨 (별점 + 본문 한번에 노출용)
   content: string | null;
+  // 관리자 답변 (Q&A 에만 의미 있음)
+  admin_reply: string | null;
 };
 export type PostDetail = Omit<PostListItem, "content"> & {
   content: string;

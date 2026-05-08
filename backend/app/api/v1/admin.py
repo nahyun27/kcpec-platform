@@ -53,7 +53,7 @@ from app.schemas.admin import (
     SalesStatsByPayment,
     SalesStatsDaily,
 )
-from app.schemas.community import NoticeDetail, PostDetail
+from app.schemas.community import NoticeDetail, PostAdminReply, PostDetail
 from app.schemas.course import CourseDetail, CourseListItem, LectureItem
 from app.schemas.document import DocumentResponse
 from app.schemas.order import OrderResponse
@@ -891,3 +891,17 @@ def delete_post(post_id: int, db: Session = Depends(get_db)) -> OkResponse:
     db.delete(post)
     db.commit()
     return OkResponse()
+
+
+@router.patch("/posts/{post_id}/reply", response_model=PostDetail)
+def patch_post_reply(
+    post_id: int, payload: PostAdminReply, db: Session = Depends(get_db)
+) -> PostDetail:
+    """관리자 답변 등록/수정. Q&A 카테고리에만 의미 있음."""
+    post = db.get(Post, post_id)
+    if post is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="게시글을 찾을 수 없습니다.")
+    post.admin_reply = payload.reply.strip()
+    db.commit()
+    db.refresh(post)
+    return PostDetail.model_validate(post)

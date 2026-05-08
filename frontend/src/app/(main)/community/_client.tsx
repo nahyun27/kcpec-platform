@@ -479,6 +479,17 @@ function PostAccordion({
           {content}
         </div>
       )}
+
+      {post.category === "qna" && post.admin_reply ? (
+        <div className="mt-6 rounded-xl border-l-4 border-emerald-500 bg-emerald-50/60 p-4">
+          <p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-700">
+            관리자 답변
+          </p>
+          <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-slate-800">
+            {post.admin_reply}
+          </p>
+        </div>
+      ) : null}
     </AccordionRow>
   );
 }

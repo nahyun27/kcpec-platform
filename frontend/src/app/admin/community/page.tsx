@@ -11,6 +11,7 @@ import {
   getPosts,
   patchAdminNotice,
   patchAdminPost,
+  patchAdminPostReply,
 } from "@/lib/api";
 import {
   COMMUNITY_LABEL,
@@ -30,7 +31,17 @@ type UnifiedRow = {
   view_count: number;
   created_at: string;
   is_pinned?: boolean;
+  // Q&A 답변 모달용 (Q&A 카테고리에서만 채워짐)
+  question_content?: string | null;
+  admin_reply?: string | null;
 };
+
+// 작성자 표시 규칙: 사용자 생성 카테고리(QNA/REVIEW)는 실제 author_name,
+// 그 외는 "관리자" 로 통일.
+function displayAuthor(category: CommunityCategory, author: string): string {
+  if (category === "qna" || category === "review") return author;
+  return "관리자";
+}
 
 type Filter = "all" | CommunityCategory;
 
@@ -54,6 +65,7 @@ export default function AdminCommunityPage() {
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<UnifiedRow | null>(null);
+  const [replying, setReplying] = useState<UnifiedRow | null>(null);
 
   async function reload() {
     setError(null);
@@ -109,6 +121,8 @@ export default function AdminCommunityPage() {
         author: p.author_name,
         view_count: p.view_count,
         created_at: p.created_at,
+        question_content: p.content,
+        admin_reply: p.admin_reply,
       })),
       ...columns.map<UnifiedRow>((p) => ({
         table: "post",
@@ -213,13 +227,27 @@ export default function AdminCommunityPage() {
                     <td className="px-3 py-3 text-xs">
                       <CategoryBadge category={r.category} />
                     </td>
-                    <td className="px-3 py-3">
-                      {r.is_pinned ? (
-                        <span className="mr-1 text-[var(--color-accent)]">📌</span>
-                      ) : null}
-                      <span className="text-sm text-zinc-800">{r.title}</span>
+                    <td className="max-w-[280px] px-3 py-3">
+                      <div className="flex items-center gap-1">
+                        {r.is_pinned ? (
+                          <span className="text-[var(--color-accent)]">📌</span>
+                        ) : null}
+                        <span
+                          title={r.title}
+                          className="block truncate text-sm text-zinc-800"
+                        >
+                          {r.title}
+                        </span>
+                        {r.category === "qna" && r.admin_reply ? (
+                          <span className="ml-1 shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                            답변완료
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
-                    <td className="px-3 py-3 text-xs text-zinc-600">{r.author}</td>
+                    <td className="px-3 py-3 text-xs text-zinc-600">
+                      {displayAuthor(r.category, r.author)}
+                    </td>
                     <td className="px-3 py-3 text-right text-xs text-zinc-500">
                       {r.view_count.toLocaleString()}
                     </td>
@@ -227,22 +255,12 @@ export default function AdminCommunityPage() {
                       {new Date(r.created_at).toLocaleDateString("ko-KR")}
                     </td>
                     <td className="px-3 py-3">
-                      <div className="flex gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setEditing(r)}
-                          className="rounded border border-zinc-300 px-2.5 py-1 text-xs hover:border-[var(--color-primary)]"
-                        >
-                          수정
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(r)}
-                          className="rounded border border-red-300 px-2.5 py-1 text-xs text-red-600 hover:border-red-500"
-                        >
-                          삭제
-                        </button>
-                      </div>
+                      <RowActions
+                        row={r}
+                        onEdit={() => setEditing(r)}
+                        onReply={() => setReplying(r)}
+                        onDelete={() => handleDelete(r)}
+                      />
                     </td>
                   </tr>
                 ))
@@ -258,8 +276,71 @@ export default function AdminCommunityPage() {
       {editing ? (
         <EditModal row={editing} onClose={() => setEditing(null)} onSaved={reload} />
       ) : null}
+      {replying ? (
+        <ReplyModal
+          row={replying}
+          onClose={() => setReplying(null)}
+          onSaved={reload}
+        />
+      ) : null}
     </div>
   );
+}
+
+function RowActions({
+  row,
+  onEdit,
+  onReply,
+  onDelete,
+}: {
+  row: UnifiedRow;
+  onEdit: () => void;
+  onReply: () => void;
+  onDelete: () => void;
+}) {
+  const editBtn = (
+    <button
+      key="edit"
+      type="button"
+      onClick={onEdit}
+      className="rounded border border-zinc-300 px-2.5 py-1 text-xs hover:border-[var(--color-primary)]"
+    >
+      수정
+    </button>
+  );
+  const replyBtn = (
+    <button
+      key="reply"
+      type="button"
+      onClick={onReply}
+      className="rounded bg-[var(--color-primary)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)]"
+    >
+      {row.admin_reply ? "답변 수정" : "답변하기"}
+    </button>
+  );
+  const deleteBtn = (
+    <button
+      key="delete"
+      type="button"
+      onClick={onDelete}
+      className="rounded border border-red-300 px-2.5 py-1 text-xs text-red-600 hover:border-red-500"
+    >
+      삭제
+    </button>
+  );
+
+  // 카테고리별 액션:
+  // - notice / resource / column : 수정 + 삭제
+  // - qna : 답변 + 삭제
+  // - review : 삭제만
+  const actions =
+    row.category === "qna"
+      ? [replyBtn, deleteBtn]
+      : row.category === "review"
+        ? [deleteBtn]
+        : [editBtn, deleteBtn];
+
+  return <div className="flex gap-1.5">{actions}</div>;
 }
 
 function CategoryBadge({ category }: { category: CommunityCategory }) {
@@ -534,6 +615,90 @@ function EditModal({
             상단 고정 (📌)
           </label>
         ) : null}
+        {err ? <p className="text-sm text-red-600">{err}</p> : null}
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded border border-zinc-300 px-4 py-2 text-sm"
+          >
+            취소
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded bg-[var(--color-primary)] px-5 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+          >
+            {submitting ? "저장 중..." : "저장"}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
+function ReplyModal({
+  row,
+  onClose,
+  onSaved,
+}: {
+  row: UnifiedRow;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [reply, setReply] = useState(row.admin_reply ?? "");
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    if (!reply.trim()) {
+      setErr("답변 내용을 입력해 주세요.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await patchAdminPostReply(row.id, reply.trim());
+      onSaved();
+      onClose();
+    } catch (caught) {
+      const detail = isAxiosError(caught)
+        ? (caught.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      setErr(detail ?? "답변 저장에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <ModalShell title={row.admin_reply ? "답변 수정" : "답변하기"} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-zinc-800">질문</label>
+          <div className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm">
+            <p className="font-semibold text-slate-900">{row.title}</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              {row.author} · {new Date(row.created_at).toLocaleDateString("ko-KR")}
+            </p>
+            {row.question_content ? (
+              <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">
+                {row.question_content}
+              </p>
+            ) : null}
+          </div>
+        </div>
+        <Field label="답변">
+          <textarea
+            required
+            rows={6}
+            value={reply}
+            onChange={(e) => setReply(e.target.value)}
+            className={`${inputCls} resize-y`}
+            placeholder="답변 내용을 입력해 주세요."
+          />
+        </Field>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
         <div className="flex justify-end gap-2">
           <button

@@ -101,10 +101,11 @@ def list_posts(
         ).all()
     )
     # review 카테고리 응답에만 본문을 포함 (별점 + 본문 한번에 노출용).
-    # 다른 카테고리는 list 응답 크기를 줄이기 위해 content=None 으로 마스킹.
+    # Q&A 는 list 단계에서 본문 + 관리자 답변까지 함께 보여줘야 하므로 본문 포함.
+    # 그 외(column) 는 list 응답 크기를 줄이기 위해 content=None 으로 마스킹.
     def to_dto(p: Post) -> PostListItem:
         dto = PostListItem.model_validate(p)
-        if p.category != PostCategory.REVIEW:
+        if p.category not in (PostCategory.REVIEW, PostCategory.QNA):
             dto.content = None
         return dto
 
@@ -142,11 +143,21 @@ def create_post(
             status.HTTP_403_FORBIDDEN,
             detail="전문가 칼럼은 관리자만 작성할 수 있습니다.",
         )
+    # author_name 우선순위:
+    # - 칼럼: payload (관리자가 지정한 전문가명) 우선, 없으면 "관리자"
+    # - 그 외(QNA, REVIEW): 항상 current_user.username — 사용자가 임의로 "익명"
+    #   으로 보내도 무시 (스키마 default 가 "익명" 인 데서 오는 누수 방어).
+    if payload.category == PostCategory.COLUMN:
+        author = payload.author_name.strip() if payload.author_name else ""
+        if not author or author == "익명":
+            author = "관리자"
+    else:
+        author = current_user.username
     post = Post(
         title=payload.title,
         content=payload.content,
         category=payload.category,
-        author_name=payload.author_name or current_user.username,
+        author_name=author,
         course_category=payload.course_category,
         rating=payload.rating,
     )

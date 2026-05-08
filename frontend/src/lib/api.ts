@@ -562,6 +562,17 @@ export async function deleteAdminPost(postId: number): Promise<void> {
   await api.delete(`/admin/posts/${postId}`);
 }
 
+export async function patchAdminPostReply(
+  postId: number,
+  reply: string,
+): Promise<PostDetail> {
+  const { data } = await api.patch<PostDetail>(
+    `/admin/posts/${postId}/reply`,
+    { reply },
+  );
+  return data;
+}
+
 // ---------- community ------------------------------------------------------
 
 export async function getNotices(

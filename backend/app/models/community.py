@@ -69,6 +69,8 @@ class Post(Base):
     course_category: Mapped[str | None] = mapped_column(String(50), nullable=True)
     rating: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # 관리자 답변 (Q&A 전용 — 다른 카테고리에선 항상 None)
+    admin_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
