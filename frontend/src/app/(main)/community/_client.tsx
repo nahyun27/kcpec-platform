@@ -106,6 +106,19 @@ export default function CommunityClient() {
   );
 }
 
+// 본문이 HTML 이면 그대로, plain text 면 <p> 단락으로 감싼다.
+// TipTap 에디터로 작성된 새 글은 HTML, 기존 plain text 시드/사용자 데이터는
+// 자연스럽게 단락 분리해 동일 .tiptap-content 스타일을 입을 수 있게.
+function richHtml(content: string | null | undefined): string {
+  if (!content) return "";
+  const trimmed = content.trim();
+  if (trimmed.startsWith("<")) return trimmed;
+  return trimmed
+    .split(/\n{2,}/)
+    .map((para) => `<p>${para.replace(/\n/g, "<br/>")}</p>`)
+    .join("");
+}
+
 // ---------- shared accordion -----------------------------------------------
 
 function AccordionRow({
@@ -269,9 +282,10 @@ function NoticeAccordion({
       
       {detail ? (
         <div className="space-y-6">
-          <div className="whitespace-pre-wrap leading-relaxed text-slate-700 text-[15px]">
-            {detail.content}
-          </div>
+          <div
+            className="tiptap-content text-slate-700 text-[15px]"
+            dangerouslySetInnerHTML={{ __html: richHtml(detail.content) }}
+          />
           {detail.file_url && (
             <div className="pt-4">
               <a
@@ -479,6 +493,13 @@ function PostAccordion({
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>본문을 불러오는 중입니다...</span>
         </div>
+      ) : post.category === "column" ? (
+        <div
+          className={`tiptap-content text-slate-700 text-[15px] ${
+            scrollableBody ? "max-h-[500px] overflow-y-auto pr-4 custom-scrollbar" : ""
+          }`}
+          dangerouslySetInnerHTML={{ __html: richHtml(content) }}
+        />
       ) : (
         <div
           className={`whitespace-pre-wrap leading-relaxed text-slate-700 text-[15px] ${

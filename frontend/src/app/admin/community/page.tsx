@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { isAxiosError } from "axios";
+import { TiptapEditor } from "@/components/ui/TiptapEditor";
 import {
   createNotice,
   createPost,
@@ -418,6 +419,10 @@ function CreateModal({
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setErr(null);
+    if (!content.trim()) {
+      setErr("본문을 입력해 주세요.");
+      return;
+    }
     setSubmitting(true);
     try {
       if (category === "notice" || category === "resource") {
@@ -486,12 +491,10 @@ function CreateModal({
           </Field>
         ) : null}
         <Field label="본문">
-          <textarea
-            required
-            rows={8}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            className={`${inputCls} resize-y`}
+          <TiptapEditor
+            initialHtml=""
+            onChange={setContent}
+            placeholder="본문을 입력하세요. 굵게 / 기울임 / 제목 / 인용 / 목록 사용 가능."
           />
         </Field>
         {isNotice ? (
@@ -596,12 +599,10 @@ function EditModal({
           />
         </Field>
         <Field label="본문 (변경 시에만 입력)">
-          <textarea
-            rows={8}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            className={`${inputCls} resize-y`}
-            placeholder="비워두면 본문은 변경되지 않습니다."
+          <TiptapEditor
+            initialHtml=""
+            onChange={setContent}
+            placeholder="비워두면 본문은 변경되지 않습니다. 입력 시 굵게/제목/인용/목록 사용 가능."
           />
         </Field>
         {row.table === "notice" ? (
