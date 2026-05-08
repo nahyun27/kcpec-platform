@@ -454,6 +454,16 @@ function FaqSection() {
             );
           })}
         </div>
+
+        <div className="mt-10 text-center">
+          <Link
+            href="/community?tab=faq"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-primary)] px-5 py-2.5 text-sm font-bold text-[var(--color-primary)] transition-colors hover:bg-[var(--color-primary)] hover:text-white"
+          >
+            더 많은 질문 보기
+            <ChevronDown className="h-4 w-4 -rotate-90" />
+          </Link>
+        </div>
       </div>
     </section>
   );

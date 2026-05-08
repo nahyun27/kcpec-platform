@@ -15,31 +15,39 @@ import {
   type NoticeListItem,
   type PostListItem,
 } from "@/types/community";
-import { 
-  ChevronDown, 
-  Pin, 
-  MessageSquare, 
-  FileText, 
-  Edit3, 
-  Loader2, 
-  AlertCircle, 
-  Inbox, 
+import {
+  ChevronDown,
+  Pin,
+  MessageSquare,
+  FileText,
+  Edit3,
+  Loader2,
+  AlertCircle,
+  Inbox,
   Download,
-  Star
+  Star,
+  HelpCircle
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 
-type TabKey = "notice" | "qna" | "column" | "review";
+type TabKey = "notice" | "qna" | "column" | "review" | "faq";
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   { key: "notice", label: "공지사항 및 자료실", icon: <Pin className="w-4 h-4" /> },
   { key: "qna", label: "Q&A", icon: <MessageSquare className="w-4 h-4" /> },
   { key: "column", label: "전문가 칼럼", icon: <FileText className="w-4 h-4" /> },
   { key: "review", label: "강의 수강 및 상담 후기", icon: <Star className="w-4 h-4" /> },
+  { key: "faq", label: "자주 묻는 질문", icon: <HelpCircle className="w-4 h-4" /> },
 ];
 
 function isTabKey(s: string | null): s is TabKey {
-  return s === "notice" || s === "qna" || s === "column" || s === "review";
+  return (
+    s === "notice" ||
+    s === "qna" ||
+    s === "column" ||
+    s === "review" ||
+    s === "faq"
+  );
 }
 
 export default function CommunityClient() {
@@ -92,6 +100,7 @@ export default function CommunityClient() {
         {tab === "qna" ? <QnaTab /> : null}
         {tab === "column" ? <ColumnTab /> : null}
         {tab === "review" ? <ReviewTab /> : null}
+        {tab === "faq" ? <FaqTab /> : null}
       </div>
     </div>
   );
@@ -679,6 +688,134 @@ function ReviewListItem({ post }: { post: PostListItem }) {
         <span>{new Date(post.created_at).toLocaleDateString("ko-KR")}</span>
       </div>
     </li>
+  );
+}
+
+// ---------- 자주 묻는 질문 (정적 콘텐츠) -------------------------------------
+
+type FaqCategory = "all" | "docs" | "refund" | "counseling" | "etc";
+
+const FAQ_CATEGORY_TABS: { key: FaqCategory; label: string }[] = [
+  { key: "all", label: "전체" },
+  { key: "docs", label: "수료증·서류" },
+  { key: "refund", label: "환불·취소" },
+  { key: "counseling", label: "상담" },
+  { key: "etc", label: "기타" },
+];
+
+const FAQ_ITEMS: { q: string; a: string; cat: Exclude<FaqCategory, "all"> }[] = [
+  {
+    cat: "docs",
+    q: "수료증 또는 상담의견서 등은 언제 어떻게 받을 수 있나요?",
+    a: "수강자가 강의를 수강한 내역이 확인되면 익일 24시까지 가입하신 이메일을 통해 pdf파일로 보내드립니다.\n상담의견서는 상담 후 24시간 이내에 가입하신 이메일을 통해 pdf파일로 보내드립니다.",
+  },
+  {
+    cat: "docs",
+    q: "수료증을 재발급 받을 수 있나요?",
+    a: "수료증을 재발급 받기 위해서는 법령에 따른 개인정보 보관 기간 내에 admin@kcpec.co.kr 이메일로 문의주시면 1회에 한하여 재발급해드립니다.",
+  },
+  {
+    cat: "refund",
+    q: "환불 및 취소가 가능한가요?",
+    a: "결제 오류에 대한 환불이나 취소는 가능하나, 강의 수강 시작 후 또는 상담 의뢰 후 환불이나 취소는 불가합니다.",
+  },
+  {
+    cat: "counseling",
+    q: "상담 절차는 어떻게 진행되나요?",
+    a: "기본 상담 절차는 이용자가 상담 설문지를 작성하여 제출하는 서면상담 방식으로 진행됩니다.\n심화상담은 의뢰를 하실 경우 상담사와 일정을 맞춘 후 상담사가 해당 시간에 이용자에게 전화를 드리거나 대면상담을 진행합니다.\n모든 상담이 종료된 후 24시간 이내에 상담의견서 등을 pdf파일로 가입하신 이메일로 보내드립니다.",
+  },
+  {
+    cat: "docs",
+    q: "발급받은 서류를 법원이나 수사기관에 제출해도 되나요?",
+    a: "네, 저희 센터에서 발급한 수료증, 상담 의견서, 서약서 등 자료는 법원이나 수사기관, 학교 등 공공기관에 제출하셔도 됩니다.",
+  },
+  {
+    cat: "etc",
+    q: "양형자료만 내면 무조건 감형이 되는 건가요?",
+    a: "그렇지 않습니다. 검찰이나 법원의 양형판단은 다양한 요소들을 바탕으로 종합적으로 이루어지기 때문입니다.\n다만 수료증, 상담 의견서 등 양형자료는 재범예방교육 또는 심리상담을 통해 피고인(또는 피의자)이 재범하지 않을 것을 굳게 다짐하고 있다는 사정을 경찰, 검찰이나 법원에 알리는 효과적인 방법이 될 수 있습니다.",
+  },
+  {
+    cat: "docs",
+    q: "발급받은 서류의 진위 확인이 가능한가요?",
+    a: "네 가능합니다. 저희 센터에서 발급하는 서류는 워터마크가 삽입되어 있으며 문서일련번호로 진위 확인이 가능합니다.\n서류의 진위확인을 원하시는 경우, 서류 사본과 문의하실 내용을 적어 admin@kcpec.co.kr로 이메일 문의를 주시면 답변드립니다.",
+  },
+  {
+    cat: "etc",
+    q: "사건에 대한 변호사 상담을 받을 수 있나요?",
+    a: "본 센터는 변호사 소개나 알선, 상담을 제공하지 않습니다.",
+  },
+];
+
+function FaqTab() {
+  const [cat, setCat] = useState<FaqCategory>("all");
+  const [openIdx, setOpenIdx] = useState<number | null>(0);
+
+  const visible = useMemo(
+    () => (cat === "all" ? FAQ_ITEMS : FAQ_ITEMS.filter((it) => it.cat === cat)),
+    [cat],
+  );
+
+  return (
+    <div>
+      <div className="mb-6 flex flex-wrap gap-2">
+        {FAQ_CATEGORY_TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => {
+              setCat(t.key);
+              setOpenIdx(0);
+            }}
+            className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+              cat === t.key
+                ? "bg-[var(--color-primary)] text-white"
+                : "border border-zinc-200 bg-white text-slate-600 hover:border-[var(--color-primary)]"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {visible.length === 0 ? (
+        <EmptyMessage
+          text="해당 카테고리의 질문이 아직 없습니다."
+          icon={<HelpCircle className="h-10 w-10 text-slate-300" />}
+        />
+      ) : (
+        <ul className="space-y-2">
+          {visible.map((item, idx) => {
+            const open = openIdx === idx;
+            return (
+              <li
+                key={item.q}
+                className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm"
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenIdx(open ? null : idx)}
+                  className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+                >
+                  <span className="font-sans text-sm font-semibold text-slate-900 sm:text-base">
+                    Q. {item.q}
+                  </span>
+                  <ChevronDown
+                    className={`h-4 w-4 shrink-0 text-[var(--color-primary)] transition-transform ${
+                      open ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+                {open ? (
+                  <div className="whitespace-pre-line border-t border-zinc-200 bg-slate-50/50 px-5 py-4 text-sm leading-relaxed text-slate-700">
+                    A. {item.a}
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 
