@@ -22,6 +22,9 @@ backend/static/videos/*.mp4
 .DS_Store
 .claude/settings.local.json
 
+# 로컬 작업용 스크래치 (커밋 안 함)
+frontend/scratch/
+
 # 주의: 이 저장소의 상위 경로(예: ~/github/, ~/) 에
 # 무관한 package.json / package-lock.json 이 존재하면
 # Next.js (Turbopack) 가 워크스페이스 루트를 잘못 인식해
