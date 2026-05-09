@@ -271,7 +271,7 @@ function SalesStatsView({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* 상품별 판매 현황 */}
         <section className="lg:col-span-2 overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
-          <header className="border-b border-slate-200/60 px-5 py-4">
+          <header className="border-b border-slate-200/60 px-4 py-3">
             <h2 className="font-sans text-sm font-bold tracking-wide text-slate-800">
               상품별 판매 현황
             </h2>
@@ -279,13 +279,13 @@ function SalesStatsView({
           </header>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-[13px]">
-              <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
                 <tr>
-                  <th className="px-5 py-4">강의</th>
-                  <th className="px-5 py-4">패키지</th>
-                  <th className="px-5 py-4 text-right">건수</th>
-                  <th className="px-5 py-4 text-right">매출액</th>
-                  <th className="w-32 px-5 py-4 text-right">비율</th>
+                  <th className="px-4 py-3">강의</th>
+                  <th className="px-4 py-3">패키지</th>
+                  <th className="px-4 py-3 text-right">건수</th>
+                  <th className="px-4 py-3 text-right">매출액</th>
+                  <th className="w-32 px-4 py-3 text-right">비율</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -303,19 +303,19 @@ function SalesStatsView({
                         : 0;
                     return (
                       <tr key={`${row.course_title}|${row.package_name}`} className="transition-colors hover:bg-slate-50/80">
-                        <td className="px-5 py-4 font-semibold text-slate-900">
+                        <td className="px-4 py-3 font-semibold text-slate-900">
                           {row.course_title}
                         </td>
-                        <td className="px-5 py-4 text-slate-500">
+                        <td className="px-4 py-3 text-slate-500">
                           {row.package_name}
                         </td>
-                        <td className="px-5 py-4 text-right font-medium text-slate-700">
+                        <td className="px-4 py-3 text-right font-medium text-slate-700">
                           {row.count.toLocaleString()}
                         </td>
-                        <td className="px-5 py-4 text-right font-bold text-slate-900">
+                        <td className="px-4 py-3 text-right font-bold text-slate-900">
                           {row.revenue.toLocaleString()}원
                         </td>
-                        <td className="px-5 py-4">
+                        <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
                               <div

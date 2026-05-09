@@ -58,7 +58,7 @@ export default function AdminUsersPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr]">
         <aside className="space-y-1 rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm">
-          <p className="mb-3 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+          <p className="mb-3 px-3 py-1 text-[12px] font-bold uppercase tracking-widest text-slate-400">
             강의별 수강생
           </p>
           <SidebarRow label="전체 사용자" value={data.total} bold />
@@ -77,14 +77,14 @@ export default function AdminUsersPage() {
 
         <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
           <table className="w-full text-left text-[13px]">
-            <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-5 py-4">닉네임</th>
-                <th className="px-5 py-4">이메일</th>
-                <th className="px-5 py-4">가입일</th>
-                <th className="px-5 py-4 text-right">수강 강의</th>
-                <th className="px-5 py-4 text-right">결제 횟수</th>
-                <th className="px-5 py-4 text-right">누적 결제금액</th>
+                <th className="px-4 py-3">닉네임</th>
+                <th className="px-4 py-3">이메일</th>
+                <th className="px-4 py-3">가입일</th>
+                <th className="px-4 py-3 text-right">수강 강의</th>
+                <th className="px-4 py-3 text-right">결제 횟수</th>
+                <th className="px-4 py-3 text-right">누적 결제금액</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -94,7 +94,7 @@ export default function AdminUsersPage() {
                   onClick={() => setOpenUser(u)}
                   className="cursor-pointer transition-colors hover:bg-slate-50/80"
                 >
-                  <td className="px-5 py-4 font-semibold text-slate-900">
+                  <td className="px-4 py-3 font-semibold text-slate-900">
                     <div className="flex items-center gap-2">
                       {u.username}
                       {u.is_admin && (
@@ -104,17 +104,17 @@ export default function AdminUsersPage() {
                       )}
                     </div>
                   </td>
-                  <td className="px-5 py-4 text-slate-500">{u.email}</td>
-                  <td className="px-5 py-4 text-slate-500">
+                  <td className="px-4 py-3 text-slate-500">{u.email}</td>
+                  <td className="px-4 py-3 text-slate-500">
                     {new Date(u.created_at).toLocaleDateString("ko-KR")}
                   </td>
-                  <td className="px-5 py-4 text-right font-medium text-slate-700">
+                  <td className="px-4 py-3 text-right font-medium text-slate-700">
                     {u.enrollment_count.toLocaleString()}
                   </td>
-                  <td className="px-5 py-4 text-right font-medium text-slate-700">
+                  <td className="px-4 py-3 text-right font-medium text-slate-700">
                     {u.payment_count.toLocaleString()}
                   </td>
-                  <td className="px-5 py-4 text-right font-bold text-slate-900">
+                  <td className="px-4 py-3 text-right font-bold text-slate-900">
                     {u.total_payment.toLocaleString()}원
                   </td>
                 </tr>
@@ -225,7 +225,7 @@ function UserEnrollmentsModal({
                       onClick={() =>
                         setExpandedCourseId(isExpanded ? null : r.course_id)
                       }
-                      className="grid w-full grid-cols-[1fr_180px_60px_60px_24px] items-center gap-4 bg-white px-5 py-4 text-left transition-colors hover:bg-slate-50/50"
+                      className="grid w-full grid-cols-[1fr_180px_60px_60px_24px] items-center gap-4 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50/50"
                     >
                       <div>
                         <p className="text-[11px] font-bold text-blue-600">
@@ -271,7 +271,7 @@ function UserEnrollmentsModal({
                       </span>
                     </button>
                     {isExpanded ? (
-                      <div className="border-t border-slate-100 bg-slate-50/50 px-5 py-4">
+                      <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-3">
                         {r.lectures.length === 0 ? (
                           <p className="py-2 text-center text-xs text-slate-400">
                             등록된 차시가 없습니다.

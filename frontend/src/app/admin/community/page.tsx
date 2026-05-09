@@ -249,14 +249,14 @@ function AdminCommunityPage() {
 
         <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
           <table className="w-full text-left text-[13px]">
-            <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-5 py-4">카테고리</th>
-                <th className="px-5 py-4">제목</th>
-                <th className="px-5 py-4">작성자</th>
-                <th className="px-5 py-4 text-right">조회수</th>
-                <th className="px-5 py-4">작성일</th>
-                <th className="px-5 py-4">액션</th>
+                <th className="px-4 py-3">카테고리</th>
+                <th className="px-4 py-3">제목</th>
+                <th className="px-4 py-3">작성자</th>
+                <th className="px-4 py-3 text-right">조회수</th>
+                <th className="px-4 py-3">작성일</th>
+                <th className="px-4 py-3">액션</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -269,10 +269,10 @@ function AdminCommunityPage() {
               ) : (
                 rows.map((r) => (
                   <tr key={`${r.table}-${r.id}`} className="transition-colors hover:bg-slate-50/80">
-                    <td className="px-5 py-4 text-xs">
+                    <td className="px-4 py-3 text-xs">
                       <CategoryBadge category={r.category} />
                     </td>
-                    <td className="max-w-[280px] px-5 py-4">
+                    <td className="max-w-[280px] px-4 py-3">
                       <div className="flex items-center gap-2">
                         {r.is_pinned ? (
                           <span className="text-[var(--color-accent)]">📌</span>
@@ -290,16 +290,16 @@ function AdminCommunityPage() {
                         ) : null}
                       </div>
                     </td>
-                    <td className="px-5 py-4 text-slate-500">
+                    <td className="px-4 py-3 text-slate-500">
                       {displayAuthor(r.category, r.author)}
                     </td>
-                    <td className="px-5 py-4 text-right font-medium text-slate-700">
+                    <td className="px-4 py-3 text-right font-medium text-slate-700">
                       {r.view_count.toLocaleString()}
                     </td>
-                    <td className="px-5 py-4 text-slate-500">
+                    <td className="px-4 py-3 text-slate-500">
                       {new Date(r.created_at).toLocaleDateString("ko-KR")}
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-4 py-3">
                       <RowActions
                         row={r}
                         onEdit={() => setEditing(r)}

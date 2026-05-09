@@ -66,15 +66,15 @@ export default function AdminSurveysPage() {
       ) : (
         <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
           <table className="w-full text-left text-[13px]">
-            <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-5 py-4">설문</th>
-                <th className="px-5 py-4">유형</th>
-                <th className="px-5 py-4">사용자</th>
-                <th className="px-5 py-4">강의/프로그램</th>
-                <th className="px-5 py-4">제출일</th>
-                <th className="px-5 py-4">상태</th>
-                <th className="px-5 py-4">액션</th>
+                <th className="px-4 py-3">설문</th>
+                <th className="px-4 py-3">유형</th>
+                <th className="px-4 py-3">사용자</th>
+                <th className="px-4 py-3">강의/프로그램</th>
+                <th className="px-4 py-3">제출일</th>
+                <th className="px-4 py-3">상태</th>
+                <th className="px-4 py-3">액션</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -84,8 +84,8 @@ export default function AdminSurveysPage() {
                   onClick={() => setOpenId(r.id)}
                   className="cursor-pointer transition-colors hover:bg-slate-50/80"
                 >
-                  <td className="px-5 py-4 text-xs text-slate-500">#{r.id}</td>
-                  <td className="px-5 py-4">
+                  <td className="px-4 py-3 text-xs text-slate-500">#{r.id}</td>
+                  <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                         r.order_type === "counseling"
@@ -96,15 +96,15 @@ export default function AdminSurveysPage() {
                       {r.order_type === "counseling" ? "독립 구매" : "패키지 포함"}
                     </span>
                   </td>
-                  <td className="px-5 py-4 font-semibold text-slate-900">{r.username}</td>
-                  <td className="px-5 py-4 text-slate-700">{r.course_title}</td>
-                  <td className="px-5 py-4 text-xs text-slate-500">
+                  <td className="px-4 py-3 font-semibold text-slate-900">{r.username}</td>
+                  <td className="px-4 py-3 text-slate-700">{r.course_title}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">
                     {new Date(r.submitted_at).toLocaleString("ko-KR")}
                   </td>
-                  <td className="px-5 py-4">
+                  <td className="px-4 py-3">
                     <SurveyStatusBadge status={r.status} />
                   </td>
-                  <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"

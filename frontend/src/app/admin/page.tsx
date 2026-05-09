@@ -388,15 +388,15 @@ function RecentOrdersTable({ rows }: { rows: AdminOrderRow[] }) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
       <table className="w-full text-left text-[13px]">
-        <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+        <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
           <tr>
-            <th className="px-5 py-4">주문일시</th>
-            <th className="px-5 py-4">고객명</th>
-            <th className="px-5 py-4">강의명</th>
-            <th className="px-5 py-4">패키지</th>
-            <th className="px-5 py-4">결제수단</th>
-            <th className="px-5 py-4 text-right">금액</th>
-            <th className="px-5 py-4">상태</th>
+            <th className="px-4 py-3">주문일시</th>
+            <th className="px-4 py-3">고객명</th>
+            <th className="px-4 py-3">강의명</th>
+            <th className="px-4 py-3">패키지</th>
+            <th className="px-4 py-3">결제수단</th>
+            <th className="px-4 py-3 text-right">금액</th>
+            <th className="px-4 py-3">상태</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -405,17 +405,17 @@ function RecentOrdersTable({ rows }: { rows: AdminOrderRow[] }) {
               r.status === "pending" && r.payment_method === "bank_transfer";
             return (
               <tr key={r.id} className={isPendingBank ? "bg-red-50/50" : "transition-colors hover:bg-slate-50/80"}>
-                <td className="px-5 py-4 text-slate-500">
+                <td className="px-4 py-3 text-slate-500">
                   {new Date(r.created_at).toLocaleString("ko-KR")}
                 </td>
-                <td className="px-5 py-4 font-semibold text-slate-900">{r.username}</td>
-                <td className="px-5 py-4 text-slate-700">{r.course_title}</td>
-                <td className="px-5 py-4 text-slate-700">{r.package_name}</td>
-                <td className="px-5 py-4 text-slate-500">{PAYMENT_METHOD_LABEL[r.payment_method]}</td>
-                <td className="px-5 py-4 text-right font-bold text-slate-900">
+                <td className="px-4 py-3 font-semibold text-slate-900">{r.username}</td>
+                <td className="px-4 py-3 text-slate-700">{r.course_title}</td>
+                <td className="px-4 py-3 text-slate-700">{r.package_name}</td>
+                <td className="px-4 py-3 text-slate-500">{PAYMENT_METHOD_LABEL[r.payment_method]}</td>
+                <td className="px-4 py-3 text-right font-bold text-slate-900">
                   {r.amount.toLocaleString()}원
                 </td>
-                <td className="px-5 py-4">
+                <td className="px-4 py-3">
                   {isPendingBank ? (
                     <span className="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700 ring-1 ring-inset ring-red-600/10">
                       입금 대기

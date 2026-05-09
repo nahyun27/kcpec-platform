@@ -133,14 +133,14 @@ export default function AdminCoursesPage() {
 
       <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
         <table className="w-full text-left text-[13px]">
-          <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+          <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
             <tr>
-              <th className="w-12 px-5 py-4 text-center">#</th>
-              <th className="px-5 py-4">제목</th>
-              <th className="px-5 py-4">카테고리</th>
-              <th className="px-5 py-4 text-right">가격</th>
-              <th className="px-5 py-4 text-center">활성</th>
-              <th className="px-5 py-4 text-right">액션</th>
+              <th className="w-12 px-4 py-3 text-center">#</th>
+              <th className="px-4 py-3">제목</th>
+              <th className="px-4 py-3">카테고리</th>
+              <th className="px-4 py-3 text-right">가격</th>
+              <th className="px-4 py-3 text-center">활성</th>
+              <th className="px-4 py-3 text-right">액션</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -161,10 +161,10 @@ export default function AdminCoursesPage() {
                       open ? "bg-slate-50/80" : "hover:bg-slate-50/50"
                     }`}
                   >
-                    <td className="px-5 py-4 text-center text-xs text-slate-500">
+                    <td className="px-4 py-3 text-center text-xs text-slate-500">
                       {c.id}
                     </td>
-                    <td className="px-5 py-4 font-semibold text-slate-900">
+                    <td className="px-4 py-3 font-semibold text-slate-900">
                       <span
                         className={`mr-2 inline-block transition-transform text-slate-400 ${
                           open ? "rotate-90" : ""
@@ -178,11 +178,11 @@ export default function AdminCoursesPage() {
                         quiz={quizByCourse[c.id]}
                       />
                     </td>
-                    <td className="px-5 py-4 text-xs text-slate-500">{c.category}</td>
-                    <td className="px-5 py-4 text-right font-medium text-slate-700">
+                    <td className="px-4 py-3 text-xs text-slate-500">{c.category}</td>
+                    <td className="px-4 py-3 text-right font-medium text-slate-700">
                       {c.price != null ? `${c.price.toLocaleString()}원` : "—"}
                     </td>
-                    <td className="px-5 py-4 text-center">
+                    <td className="px-4 py-3 text-center">
                       {c.is_active ? (
                         <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
                           활성
@@ -194,7 +194,7 @@ export default function AdminCoursesPage() {
                       )}
                     </td>
                     <td
-                      className="px-5 py-4 text-right"
+                      className="px-4 py-3 text-right"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="inline-flex flex-wrap justify-end gap-2">
@@ -221,7 +221,7 @@ export default function AdminCoursesPage() {
                   </tr>,
                   open ? (
                     <tr key={`${c.id}-lectures`} className="bg-slate-50/30">
-                      <td colSpan={6} className="px-5 py-4">
+                      <td colSpan={6} className="px-4 py-3">
                         <LectureList
                           lectures={lecturesByCourse[c.id]}
                           onEdit={(lec) =>
