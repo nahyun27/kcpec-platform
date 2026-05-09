@@ -131,19 +131,19 @@ export default function AdminCoursesPage() {
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+      <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
+        <table className="w-full text-left text-[13px]">
+          <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
             <tr>
-              <th className="w-12 px-3 py-3 text-center">#</th>
-              <th className="px-3 py-3">제목</th>
-              <th className="px-3 py-3">카테고리</th>
-              <th className="px-3 py-3 text-right">가격</th>
-              <th className="px-3 py-3 text-center">활성</th>
-              <th className="px-3 py-3 text-right">액션</th>
+              <th className="w-12 px-5 py-4 text-center">#</th>
+              <th className="px-5 py-4">제목</th>
+              <th className="px-5 py-4">카테고리</th>
+              <th className="px-5 py-4 text-right">가격</th>
+              <th className="px-5 py-4 text-center">활성</th>
+              <th className="px-5 py-4 text-right">액션</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-200">
+          <tbody className="divide-y divide-slate-100">
             {courses.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-12 text-center text-sm text-zinc-500">
@@ -158,15 +158,15 @@ export default function AdminCoursesPage() {
                     key={c.id}
                     onClick={() => toggleOpen(c.id)}
                     className={`cursor-pointer transition-colors ${
-                      open ? "bg-slate-50" : "hover:bg-slate-50/50"
+                      open ? "bg-slate-50/80" : "hover:bg-slate-50/50"
                     }`}
                   >
-                    <td className="px-3 py-3 text-center text-xs text-slate-500">
+                    <td className="px-5 py-4 text-center text-xs text-slate-500">
                       {c.id}
                     </td>
-                    <td className="px-3 py-3 font-medium">
+                    <td className="px-5 py-4 font-semibold text-slate-900">
                       <span
-                        className={`mr-2 inline-block transition-transform ${
+                        className={`mr-2 inline-block transition-transform text-slate-400 ${
                           open ? "rotate-90" : ""
                         }`}
                       >
@@ -178,30 +178,30 @@ export default function AdminCoursesPage() {
                         quiz={quizByCourse[c.id]}
                       />
                     </td>
-                    <td className="px-3 py-3 text-xs">{c.category}</td>
-                    <td className="px-3 py-3 text-right">
+                    <td className="px-5 py-4 text-xs text-slate-500">{c.category}</td>
+                    <td className="px-5 py-4 text-right font-medium text-slate-700">
                       {c.price != null ? `${c.price.toLocaleString()}원` : "—"}
                     </td>
-                    <td className="px-3 py-3 text-center">
+                    <td className="px-5 py-4 text-center">
                       {c.is_active ? (
-                        <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                        <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
                           활성
                         </span>
                       ) : (
-                        <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-bold text-zinc-600">
+                        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 ring-1 ring-inset ring-slate-500/10">
                           비활성
                         </span>
                       )}
                     </td>
                     <td
-                      className="px-3 py-3 text-right"
+                      className="px-5 py-4 text-right"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="inline-flex flex-wrap justify-end gap-1.5">
+                      <div className="inline-flex flex-wrap justify-end gap-2">
                         <button
                           type="button"
                           onClick={() => setModal({ kind: "new-lecture", course: c })}
-                          className="rounded border border-zinc-300 px-2.5 py-1 text-xs hover:border-[var(--color-primary)]"
+                          className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
                         >
                           영상 추가
                         </button>
@@ -212,7 +212,7 @@ export default function AdminCoursesPage() {
                         <button
                           type="button"
                           onClick={() => setModal({ kind: "edit-course", course: c })}
-                          className="rounded border border-zinc-300 px-2.5 py-1 text-xs hover:border-[var(--color-primary)]"
+                          className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
                         >
                           수정
                         </button>
@@ -220,8 +220,8 @@ export default function AdminCoursesPage() {
                     </td>
                   </tr>,
                   open ? (
-                    <tr key={`${c.id}-lectures`} className="bg-slate-50/40">
-                      <td colSpan={6} className="px-3 py-4">
+                    <tr key={`${c.id}-lectures`} className="bg-slate-50/30">
+                      <td colSpan={6} className="px-5 py-4">
                         <LectureList
                           lectures={lecturesByCourse[c.id]}
                           onEdit={(lec) =>
@@ -354,7 +354,7 @@ function QuizButton({
       <button
         type="button"
         disabled
-        className="rounded border border-zinc-200 px-2.5 py-1 text-xs text-zinc-400"
+        className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-400 shadow-sm"
       >
         퀴즈 …
       </button>
@@ -365,7 +365,7 @@ function QuizButton({
       <button
         type="button"
         onClick={onClick}
-        className="rounded border border-zinc-300 px-2.5 py-1 text-xs hover:border-[var(--color-primary)]"
+        className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
       >
         퀴즈 등록
       </button>
@@ -375,7 +375,7 @@ function QuizButton({
     <button
       type="button"
       onClick={onClick}
-      className="rounded bg-[var(--color-primary)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)]"
+      className="rounded-md bg-[var(--color-primary)] px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-[var(--color-primary-hover)]"
     >
       퀴즈 수정
     </button>
@@ -503,22 +503,22 @@ function LectureList({
 
   return (
     <div className="space-y-2">
-      <div className="overflow-hidden rounded border border-zinc-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-slate-200/60 bg-white shadow-sm">
         <table className="w-full text-left text-xs">
-          <thead className="bg-zinc-50 text-[10px] uppercase tracking-wider text-zinc-500">
+          <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[10px] font-bold uppercase tracking-wider text-slate-500">
             <tr>
-              <th className="w-8 px-2 py-2"></th>
-              <th className="w-12 px-2 py-2 text-center">순서</th>
-              <th className="px-3 py-2">제목</th>
-              <th className="w-20 px-3 py-2 text-right">시간</th>
-              <th className="px-3 py-2">video URL</th>
-              <th className="w-32 px-3 py-2 text-right">액션</th>
+              <th className="w-8 px-3 py-2.5"></th>
+              <th className="w-12 px-3 py-2.5 text-center">순서</th>
+              <th className="px-4 py-2.5">제목</th>
+              <th className="w-20 px-4 py-2.5 text-right">시간</th>
+              <th className="px-4 py-2.5">video URL</th>
+              <th className="w-32 px-4 py-2.5 text-right">액션</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-100">
+          <tbody className="divide-y divide-slate-100">
             {items.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-zinc-500">
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
                   등록된 영상이 없습니다.
                 </td>
               </tr>
@@ -531,30 +531,30 @@ function LectureList({
                   onDragOver={(e) => handleDragOver(e, idx)}
                   onDrop={(e) => handleDrop(e, idx)}
                   onDragEnd={handleDragEnd}
-                  className={
+                  className={`transition-colors ${
                     dragIdx === idx
                       ? "opacity-40"
                       : overIdx === idx
                         ? "bg-[var(--color-primary)]/5"
-                        : ""
-                  }
+                        : "hover:bg-slate-50/80"
+                  }`}
                 >
-                  <td className="px-2 py-2 text-center text-zinc-400">
+                  <td className="px-3 py-3 text-center text-slate-400">
                     <GripVertical className="mx-auto h-3.5 w-3.5 cursor-grab active:cursor-grabbing" />
                   </td>
-                  <td className="px-2 py-2 text-center text-zinc-500">{idx + 1}</td>
-                  <td className="px-3 py-2 font-medium text-slate-800">
+                  <td className="px-3 py-3 text-center font-medium text-slate-500">{idx + 1}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-800">
                     {lec.title}
                     {!lec.is_active ? (
-                      <span className="ml-1 rounded bg-zinc-200 px-1.5 py-0.5 text-[9px] font-bold text-zinc-600">
+                      <span className="ml-1.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600 ring-1 ring-inset ring-slate-500/10">
                         비활성
                       </span>
                     ) : null}
                   </td>
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-4 py-3 text-right text-slate-600">
                     {formatDuration(lec.duration_seconds)}
                   </td>
-                  <td className="px-3 py-2 text-zinc-500">
+                  <td className="px-4 py-3 text-slate-500">
                     {lec.video_url ? (
                       <a
                         href={lec.video_url}
@@ -565,22 +565,22 @@ function LectureList({
                         {abbreviate(lec.video_url, 36)}
                       </a>
                     ) : (
-                      <span className="text-zinc-400">—</span>
+                      <span className="text-slate-300">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-right">
-                    <div className="inline-flex gap-1">
+                  <td className="px-4 py-3 text-right">
+                    <div className="inline-flex gap-1.5">
                       <button
                         type="button"
                         onClick={() => onEdit(lec)}
-                        className="rounded border border-zinc-300 px-2 py-0.5 hover:border-[var(--color-primary)]"
+                        className="rounded border border-slate-200 px-2 py-0.5 text-slate-600 hover:border-slate-400"
                       >
                         수정
                       </button>
                       <button
                         type="button"
                         onClick={() => onDelete(lec)}
-                        className="rounded border border-red-300 px-2 py-0.5 text-red-600 hover:border-red-500"
+                        className="rounded border border-red-200 px-2 py-0.5 text-red-600 hover:border-red-400 hover:bg-red-50"
                       >
                         삭제
                       </button>

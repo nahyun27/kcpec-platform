@@ -247,19 +247,19 @@ function AdminCommunityPage() {
           ))}
         </aside>
 
-        <div className="overflow-hidden rounded-lg border border-zinc-200">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+        <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
+          <table className="w-full text-left text-[13px]">
+            <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-3 py-3">카테고리</th>
-                <th className="px-3 py-3">제목</th>
-                <th className="px-3 py-3">작성자</th>
-                <th className="px-3 py-3 text-right">조회수</th>
-                <th className="px-3 py-3">작성일</th>
-                <th className="px-3 py-3">액션</th>
+                <th className="px-5 py-4">카테고리</th>
+                <th className="px-5 py-4">제목</th>
+                <th className="px-5 py-4">작성자</th>
+                <th className="px-5 py-4 text-right">조회수</th>
+                <th className="px-5 py-4">작성일</th>
+                <th className="px-5 py-4">액션</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-200">
+            <tbody className="divide-y divide-slate-100">
               {rows.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-10 text-center text-sm text-zinc-500">
@@ -268,38 +268,38 @@ function AdminCommunityPage() {
                 </tr>
               ) : (
                 rows.map((r) => (
-                  <tr key={`${r.table}-${r.id}`}>
-                    <td className="px-3 py-3 text-xs">
+                  <tr key={`${r.table}-${r.id}`} className="transition-colors hover:bg-slate-50/80">
+                    <td className="px-5 py-4 text-xs">
                       <CategoryBadge category={r.category} />
                     </td>
-                    <td className="max-w-[280px] px-3 py-3">
-                      <div className="flex items-center gap-1">
+                    <td className="max-w-[280px] px-5 py-4">
+                      <div className="flex items-center gap-2">
                         {r.is_pinned ? (
                           <span className="text-[var(--color-accent)]">📌</span>
                         ) : null}
                         <span
                           title={r.title}
-                          className="block truncate text-sm text-zinc-800"
+                          className="block truncate text-[13px] font-semibold text-slate-900"
                         >
                           {r.title}
                         </span>
                         {r.category === "qna" && r.admin_reply ? (
-                          <span className="ml-1 shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                          <span className="ml-1 shrink-0 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
                             답변완료
                           </span>
                         ) : null}
                       </div>
                     </td>
-                    <td className="px-3 py-3 text-xs text-zinc-600">
+                    <td className="px-5 py-4 text-slate-500">
                       {displayAuthor(r.category, r.author)}
                     </td>
-                    <td className="px-3 py-3 text-right text-xs text-zinc-500">
+                    <td className="px-5 py-4 text-right font-medium text-slate-700">
                       {r.view_count.toLocaleString()}
                     </td>
-                    <td className="px-3 py-3 text-xs text-zinc-500">
+                    <td className="px-5 py-4 text-slate-500">
                       {new Date(r.created_at).toLocaleDateString("ko-KR")}
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="px-5 py-4">
                       <RowActions
                         row={r}
                         onEdit={() => setEditing(r)}

@@ -270,25 +270,25 @@ function SalesStatsView({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* 상품별 판매 현황 */}
-        <section className="lg:col-span-2 rounded-lg border border-zinc-200 bg-white">
-          <header className="border-b border-zinc-200 px-4 py-3">
-            <h2 className="font-sans text-base font-bold text-[var(--color-primary)]">
+        <section className="lg:col-span-2 overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
+          <header className="border-b border-slate-200/60 px-5 py-4">
+            <h2 className="font-sans text-sm font-bold tracking-wide text-slate-800">
               상품별 판매 현황
             </h2>
-            <p className="text-xs text-zinc-500">paid 누적 기준 · 매출 내림차순</p>
+            <p className="mt-0.5 text-xs text-slate-500">paid 누적 기준 · 매출 내림차순</p>
           </header>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+            <table className="w-full text-left text-[13px]">
+              <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 <tr>
-                  <th className="px-3 py-2.5">강의</th>
-                  <th className="px-3 py-2.5">패키지</th>
-                  <th className="px-3 py-2.5 text-right">건수</th>
-                  <th className="px-3 py-2.5 text-right">매출액</th>
-                  <th className="w-32 px-3 py-2.5 text-right">비율</th>
+                  <th className="px-5 py-4">강의</th>
+                  <th className="px-5 py-4">패키지</th>
+                  <th className="px-5 py-4 text-right">건수</th>
+                  <th className="px-5 py-4 text-right">매출액</th>
+                  <th className="w-32 px-5 py-4 text-right">비율</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100">
+              <tbody className="divide-y divide-slate-100">
                 {data.by_course.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-3 py-12 text-center text-zinc-500">
@@ -302,28 +302,28 @@ function SalesStatsView({
                         ? (row.revenue / totalByCourseRevenue) * 100
                         : 0;
                     return (
-                      <tr key={`${row.course_title}|${row.package_name}`}>
-                        <td className="px-3 py-2.5 font-medium text-slate-900">
+                      <tr key={`${row.course_title}|${row.package_name}`} className="transition-colors hover:bg-slate-50/80">
+                        <td className="px-5 py-4 font-semibold text-slate-900">
                           {row.course_title}
                         </td>
-                        <td className="px-3 py-2.5 text-xs text-zinc-600">
+                        <td className="px-5 py-4 text-slate-500">
                           {row.package_name}
                         </td>
-                        <td className="px-3 py-2.5 text-right tabular-nums">
+                        <td className="px-5 py-4 text-right font-medium text-slate-700">
                           {row.count.toLocaleString()}
                         </td>
-                        <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-[var(--color-primary)]">
+                        <td className="px-5 py-4 text-right font-bold text-slate-900">
                           {row.revenue.toLocaleString()}원
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className="px-5 py-4">
                           <div className="flex items-center gap-2">
-                            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200">
+                            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
                               <div
-                                className="h-full bg-[var(--color-accent)]"
+                                className="h-full rounded-full bg-blue-500"
                                 style={{ width: `${pct}%` }}
                               />
                             </div>
-                            <span className="w-10 text-right text-xs text-zinc-500">
+                            <span className="w-10 text-right text-[11px] font-bold text-slate-500">
                               {pct.toFixed(1)}%
                             </span>
                           </div>

@@ -64,52 +64,52 @@ export default function AdminSurveysPage() {
           제출된 설문이 없습니다.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-zinc-200">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+        <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
+          <table className="w-full text-left text-[13px]">
+            <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3">설문</th>
-                <th className="px-4 py-3">유형</th>
-                <th className="px-4 py-3">사용자</th>
-                <th className="px-4 py-3">강의/프로그램</th>
-                <th className="px-4 py-3">제출일</th>
-                <th className="px-4 py-3">상태</th>
-                <th className="px-4 py-3">액션</th>
+                <th className="px-5 py-4">설문</th>
+                <th className="px-5 py-4">유형</th>
+                <th className="px-5 py-4">사용자</th>
+                <th className="px-5 py-4">강의/프로그램</th>
+                <th className="px-5 py-4">제출일</th>
+                <th className="px-5 py-4">상태</th>
+                <th className="px-5 py-4">액션</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-200">
+            <tbody className="divide-y divide-slate-100">
               {rows.map((r) => (
                 <tr
                   key={r.id}
                   onClick={() => setOpenId(r.id)}
-                  className="cursor-pointer transition-colors hover:bg-slate-50"
+                  className="cursor-pointer transition-colors hover:bg-slate-50/80"
                 >
-                  <td className="px-4 py-3 text-xs text-zinc-500">#{r.id}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-4 text-xs text-slate-500">#{r.id}</td>
+                  <td className="px-5 py-4">
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                         r.order_type === "counseling"
-                          ? "bg-purple-100 text-purple-700"
-                          : "bg-blue-100 text-blue-700"
+                          ? "bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/10"
+                          : "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/10"
                       }`}
                     >
                       {r.order_type === "counseling" ? "독립 구매" : "패키지 포함"}
                     </span>
                   </td>
-                  <td className="px-4 py-3">{r.username}</td>
-                  <td className="px-4 py-3">{r.course_title}</td>
-                  <td className="px-4 py-3 text-xs text-zinc-500">
+                  <td className="px-5 py-4 font-semibold text-slate-900">{r.username}</td>
+                  <td className="px-5 py-4 text-slate-700">{r.course_title}</td>
+                  <td className="px-5 py-4 text-xs text-slate-500">
                     {new Date(r.submitted_at).toLocaleString("ko-KR")}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-4">
                     <SurveyStatusBadge status={r.status} />
                   </td>
-                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex flex-wrap gap-1.5">
+                  <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => setOpenId(r.id)}
-                        className="rounded border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 hover:border-[var(--color-primary)]"
+                        className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
                       >
                         응답 보기
                       </button>
@@ -118,7 +118,7 @@ export default function AdminSurveysPage() {
                           href={r.ai_draft_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="rounded border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 hover:border-[var(--color-primary)]"
+                          className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
                         >
                           초안 보기
                         </a>
@@ -128,7 +128,7 @@ export default function AdminSurveysPage() {
                           href={r.final_pdf_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="rounded bg-[var(--color-accent)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--color-accent-hover)]"
+                          className="rounded-md bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-emerald-700"
                         >
                           최종본 PDF
                         </a>
@@ -151,7 +151,7 @@ export default function AdminSurveysPage() {
                             type="button"
                             onClick={() => fileInputs.current[r.id]?.click()}
                             disabled={uploadingId === r.id}
-                            className="rounded bg-[var(--color-primary)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+                            className="rounded-md bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
                           >
                             {uploadingId === r.id ? "업로드 중..." : "최종본 업로드"}
                           </button>
@@ -337,11 +337,11 @@ function SurveyDetailModal({
 
 function SurveyStatusBadge({ status }: { status: CounselingStatus }) {
   const map: Record<CounselingStatus, { label: string; cls: string }> = {
-    submitted: { label: "검토 대기", cls: "bg-zinc-200 text-zinc-700" },
-    draft_generated: { label: "초안 생성", cls: "bg-blue-100 text-blue-700" },
-    sent_to_staff: { label: "검토 중", cls: "bg-amber-100 text-amber-700" },
-    completed: { label: "완료", cls: "bg-emerald-100 text-emerald-700" },
+    submitted: { label: "검토 대기", cls: "bg-slate-100 text-slate-700 ring-slate-500/10" },
+    draft_generated: { label: "초안 생성", cls: "bg-blue-50 text-blue-700 ring-blue-600/10" },
+    sent_to_staff: { label: "검토 중", cls: "bg-amber-50 text-amber-700 ring-amber-600/10" },
+    completed: { label: "완료", cls: "bg-emerald-50 text-emerald-700 ring-emerald-600/10" },
   };
   const { label, cls } = map[status];
-  return <span className={`rounded px-2 py-0.5 text-xs font-semibold ${cls}`}>{label}</span>;
+  return <span className={`inline-flex items-center rounded-md px-2 py-1 text-[11px] font-semibold ring-1 ring-inset ${cls}`}>{label}</span>;
 }

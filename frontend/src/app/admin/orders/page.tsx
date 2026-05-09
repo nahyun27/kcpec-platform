@@ -123,52 +123,52 @@ function AdminOrdersPage() {
       ) : data.items.length === 0 ? (
         <p className="py-10 text-center text-sm text-zinc-500">주문이 없습니다.</p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-zinc-200">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+        <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
+          <table className="w-full text-left text-[13px]">
+            <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-3 py-3">주문일시</th>
-                <th className="px-3 py-3">고객명</th>
-                <th className="px-3 py-3">이메일</th>
-                <th className="px-3 py-3">강의명</th>
-                <th className="px-3 py-3">패키지</th>
-                <th className="px-3 py-3">결제수단</th>
-                <th className="px-3 py-3 text-right">금액</th>
-                <th className="px-3 py-3">상태</th>
-                <th className="px-3 py-3">액션</th>
+                <th className="px-5 py-4">주문일시</th>
+                <th className="px-5 py-4">고객명</th>
+                <th className="px-5 py-4">이메일</th>
+                <th className="px-5 py-4">강의명</th>
+                <th className="px-5 py-4">패키지</th>
+                <th className="px-5 py-4">결제수단</th>
+                <th className="px-5 py-4 text-right">금액</th>
+                <th className="px-5 py-4">상태</th>
+                <th className="px-5 py-4">액션</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-200">
+            <tbody className="divide-y divide-slate-100">
               {data.items.map((r) => {
                 const isPendingBank =
                   r.status === "pending" && r.payment_method === "bank_transfer";
                 return (
-                  <tr key={r.id} className={isPendingBank ? "bg-red-50/40" : ""}>
-                    <td className="px-3 py-3 text-xs text-zinc-500">
+                  <tr key={r.id} className={`transition-colors hover:bg-slate-50/80 ${isPendingBank ? "bg-red-50/40" : ""}`}>
+                    <td className="px-5 py-4 text-slate-500">
                       {new Date(r.created_at).toLocaleString("ko-KR")}
                     </td>
-                    <td className="px-3 py-3 font-medium">{r.username}</td>
-                    <td className="px-3 py-3 text-xs text-zinc-600">
+                    <td className="px-5 py-4 font-semibold text-slate-900">{r.username}</td>
+                    <td className="px-5 py-4 text-slate-500">
                       {r.email ?? "-"}
                     </td>
-                    <td className="px-3 py-3">{r.course_title}</td>
-                    <td className="px-3 py-3">{r.package_name}</td>
-                    <td className="px-3 py-3 text-xs">
+                    <td className="px-5 py-4 text-slate-700">{r.course_title}</td>
+                    <td className="px-5 py-4 text-slate-700">{r.package_name}</td>
+                    <td className="px-5 py-4 text-slate-500">
                       {PAYMENT_METHOD_LABEL[r.payment_method]}
                     </td>
-                    <td className="px-3 py-3 text-right">
+                    <td className="px-5 py-4 text-right font-bold text-slate-900">
                       {r.amount.toLocaleString()}원
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="px-5 py-4">
                       <StatusBadge status={r.status} pendingBank={isPendingBank} />
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="px-5 py-4">
                       {isPendingBank ? (
                         <button
                           type="button"
                           onClick={() => handleConfirm(r)}
                           disabled={confirmingId === r.id}
-                          className="rounded bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+                          className="rounded-md bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
                         >
                           {confirmingId === r.id ? "처리 중..." : "입금 확인"}
                         </button>
@@ -176,12 +176,12 @@ function AdminOrdersPage() {
                         <button
                           type="button"
                           onClick={() => setDocsOrder(r)}
-                          className="rounded border border-zinc-300 px-3 py-1.5 text-xs text-zinc-700 hover:border-[var(--color-primary)]"
+                          className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
                         >
                           발급 현황
                         </button>
                       ) : (
-                        <span className="text-xs text-zinc-400">—</span>
+                        <span className="text-xs text-slate-300">—</span>
                       )}
                     </td>
                   </tr>
