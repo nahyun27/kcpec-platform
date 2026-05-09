@@ -118,11 +118,9 @@ export default function CourseDetailPage({
               <h1 className="font-sans text-3xl font-extrabold leading-tight text-slate-900 sm:text-4xl">
                 {course.title}
               </h1>
-              {course.description && (
-                <p className="whitespace-pre-line text-lg leading-relaxed text-slate-600">
-                  {course.description}
-                </p>
-              )}
+              <p className="whitespace-pre-wrap text-lg leading-relaxed text-slate-600">
+                {course.description ?? "— 자세한 설명은 추후 업데이트됩니다."}
+              </p>
             </div>
 
             {/* Video Thumbnail */}

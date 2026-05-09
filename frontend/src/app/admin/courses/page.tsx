@@ -17,6 +17,7 @@ import {
   getAdminCourseLectures,
   getAdminCourseQuiz,
   getAdminCourses,
+  getCourseDetail,
   patchAdminLecture,
   patchCourse,
   setQuiz,
@@ -780,11 +781,12 @@ function NewCourseModal({
             className={inputCls}
           />
         </Field>
-        <Field label="설명">
+        <Field label="강의 설명">
           <textarea
             rows={4}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            placeholder="강의 소개 및 학습 목표를 입력하세요"
             className={`${inputCls} resize-y`}
           />
         </Field>
@@ -808,14 +810,35 @@ function EditCourseModal({
   const [category, setCategory] = useState<CourseCategory>(course.category);
   const [price, setPrice] = useState<number>(course.price ?? 0);
   const [isActive, setIsActive] = useState(course.is_active);
+  // description 은 list 응답에 없어 detail 을 별도 fetch.
+  const [description, setDescription] = useState<string>("");
+  const [originalDescription, setOriginalDescription] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCourseDetail(course.id)
+      .then((d) => {
+        if (cancelled) return;
+        const desc = d.description ?? "";
+        setDescription(desc);
+        setOriginalDescription(desc);
+      })
+      .catch(() => {
+        /* description 미로드 시 빈 값 유지 — 저장 시 실수 방지 위해 dirty 검사가 막아줌 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [course.id]);
 
   const isDirty =
     title !== course.title ||
     category !== course.category ||
     price !== (course.price ?? 0) ||
-    isActive !== course.is_active;
+    isActive !== course.is_active ||
+    description !== originalDescription;
   const safeClose = () => confirmClose(isDirty, onClose);
 
   async function handleSubmit(e: FormEvent) {
@@ -823,11 +846,13 @@ function EditCourseModal({
     setErr(null);
     setSubmitting(true);
     try {
+      const trimmed = description.trim();
       await patchCourse(course.id, {
         title: title.trim(),
         category,
         price,
         is_active: isActive,
+        description: trimmed === "" ? undefined : trimmed,
       });
       onSaved();
     } catch (caught) {
@@ -884,6 +909,15 @@ function EditCourseModal({
           />
           강의 활성화 (체크 해제 시 공개 목록에서 숨김)
         </label>
+        <Field label="강의 설명">
+          <textarea
+            rows={4}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="강의 소개 및 학습 목표를 입력하세요"
+            className={`${inputCls} resize-y`}
+          />
+        </Field>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
         <FormActions onClose={safeClose} submitting={submitting} />
       </form>
