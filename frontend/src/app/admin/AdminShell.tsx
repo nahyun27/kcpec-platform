@@ -166,8 +166,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </button>
         </div>
       </aside>
-      <main className="ml-60 min-h-screen bg-white">
-        <div className="mx-auto max-w-6xl px-8 py-8">{children}</div>
+      <main className="ml-60 min-h-screen min-w-0 overflow-x-hidden bg-white">
+        <div className="mx-auto min-w-0 max-w-6xl px-8 py-8">{children}</div>
       </main>
     </div>
   );

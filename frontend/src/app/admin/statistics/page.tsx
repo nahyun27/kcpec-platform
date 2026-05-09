@@ -221,8 +221,8 @@ function SalesStatsView({
         <h2 className="mb-3 font-sans text-base font-bold text-[var(--color-primary)]">
           최근 30일 일별 매출
         </h2>
-        <div className="h-72 w-full">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-72 w-full min-w-0" style={{ width: "100%" }}>
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <LineChart
               data={data.daily_revenue}
               margin={{ top: 8, right: 16, bottom: 4, left: 0 }}
@@ -335,8 +335,8 @@ function SalesStatsView({
             <p className="py-12 text-center text-sm text-zinc-500">데이터 없음</p>
           ) : (
             <>
-              <div className="h-56 w-full">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-56 w-full min-w-0" style={{ width: "100%" }}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <PieChart>
                     <Tooltip
                       formatter={(v, _n, item) => {
