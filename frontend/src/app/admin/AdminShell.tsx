@@ -28,29 +28,54 @@ type SingleNav = {
 type GroupNav = {
   kind: "group";
   basePath: string;
+  // 자식 메뉴를 구분하는 URL 쿼리 키 (예: "tab", "status"). 기본값 "tab".
+  paramKey?: string;
   label: string;
   icon: ReactNode;
-  children: { tab: string; label: string }[];
+  children: { value: string; label: string }[];
 };
 
 const NAV: (SingleNav | GroupNav)[] = [
   { kind: "single", href: "/admin", label: "대시보드", icon: <LayoutDashboard className="h-4 w-4" /> },
   { kind: "single", href: "/admin/users", label: "사용자", icon: <Users className="h-4 w-4" /> },
   { kind: "single", href: "/admin/courses", label: "강의 관리", icon: <BookOpen className="h-4 w-4" /> },
-  { kind: "single", href: "/admin/orders", label: "주문", icon: <ShoppingCart className="h-4 w-4" /> },
-  { kind: "single", href: "/admin/statistics", label: "매출 통계", icon: <BarChart2 className="h-4 w-4" /> },
+  {
+    kind: "group",
+    basePath: "/admin/orders",
+    paramKey: "status",
+    label: "주문",
+    icon: <ShoppingCart className="h-4 w-4" />,
+    children: [
+      { value: "all", label: "전체" },
+      { value: "paid", label: "결제완료" },
+      { value: "pending", label: "입금대기" },
+      { value: "cancelled", label: "취소" },
+    ],
+  },
+  {
+    kind: "group",
+    basePath: "/admin/statistics",
+    paramKey: "tab",
+    label: "통계",
+    icon: <BarChart2 className="h-4 w-4" />,
+    children: [
+      { value: "sales", label: "매출 통계" },
+      { value: "visitors", label: "방문자 통계" },
+    ],
+  },
   { kind: "single", href: "/admin/documents", label: "의견서", icon: <FileText className="h-4 w-4" /> },
   {
     kind: "group",
     basePath: "/admin/community",
+    paramKey: "tab",
     label: "커뮤니티",
     icon: <MessageSquare className="h-4 w-4" />,
     children: [
-      { tab: "notice", label: "공지/자료실" },
-      { tab: "qna", label: "Q&A" },
-      { tab: "column", label: "전문가 칼럼" },
-      { tab: "review", label: "수강후기" },
-      { tab: "faq", label: "FAQ" },
+      { value: "notice", label: "공지/자료실" },
+      { value: "qna", label: "Q&A" },
+      { value: "column", label: "전문가 칼럼" },
+      { value: "review", label: "수강후기" },
+      { value: "faq", label: "FAQ" },
     ],
   },
 ];
@@ -150,13 +175,31 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
 function SidebarNav({ pathname }: { pathname: string }) {
   const search = useSearchParams();
-  const activeTab = search.get("tab");
-  // 커뮤니티 경로면 아코디언 자동 열림 + 사용자 토글 가능
-  const communityActive = pathname.startsWith("/admin/community");
-  const [communityOpen, setCommunityOpen] = useState(communityActive);
+  // 그룹 별 펼침 상태. basePath 가 현재 경로와 일치하면 자동 열림 + 사용자 토글 가능.
+  const [openMap, setOpenMap] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    for (const item of NAV) {
+      if (item.kind === "group" && pathname.startsWith(item.basePath)) {
+        initial[item.basePath] = true;
+      }
+    }
+    return initial;
+  });
+
+  // 경로 변경으로 새 그룹에 진입하면 자동 펼침
   useEffect(() => {
-    if (communityActive) setCommunityOpen(true);
-  }, [communityActive]);
+    setOpenMap((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const item of NAV) {
+        if (item.kind === "group" && pathname.startsWith(item.basePath) && !next[item.basePath]) {
+          next[item.basePath] = true;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [pathname]);
 
   return (
     <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4 text-sm">
@@ -182,15 +225,19 @@ function SidebarNav({ pathname }: { pathname: string }) {
           );
         }
 
-        // group (community)
-        const open = communityOpen;
+        const groupActive = pathname.startsWith(item.basePath);
+        const paramKey = item.paramKey ?? "tab";
+        const activeValue = groupActive ? search.get(paramKey) : null;
+        const open = openMap[item.basePath] ?? false;
         return (
           <div key={item.basePath}>
             <button
               type="button"
-              onClick={() => setCommunityOpen((v) => !v)}
+              onClick={() =>
+                setOpenMap((m) => ({ ...m, [item.basePath]: !open }))
+              }
               className={`flex w-full items-center justify-between gap-2 rounded px-3 py-2 transition-colors ${
-                communityActive
+                groupActive
                   ? "bg-white/10 font-semibold text-white"
                   : "text-white/80 hover:bg-white/5 hover:text-white"
               }`}
@@ -208,11 +255,11 @@ function SidebarNav({ pathname }: { pathname: string }) {
             {open ? (
               <div className="mt-1 space-y-0.5">
                 {item.children.map((c) => {
-                  const isActive = communityActive && activeTab === c.tab;
+                  const isActive = groupActive && activeValue === c.value;
                   return (
                     <Link
-                      key={c.tab}
-                      href={`${item.basePath}?tab=${c.tab}`}
+                      key={c.value}
+                      href={`${item.basePath}?${paramKey}=${c.value}`}
                       className={`block py-1.5 pl-8 pr-3 text-sm transition-colors ${
                         isActive
                           ? "border-l-2 border-white text-white"

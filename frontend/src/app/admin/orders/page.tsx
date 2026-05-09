@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isAxiosError } from "axios";
 import {
   confirmBankOrder,
@@ -10,15 +11,43 @@ import {
 import type { AdminOrderRow, AdminOrdersResponse } from "@/types/admin";
 import { PAYMENT_METHOD_LABEL, type DocumentResponse, type OrderStatus } from "@/types/order";
 
-const FILTERS: { value: OrderStatus | "all"; label: string }[] = [
+type FilterValue = OrderStatus | "all";
+
+const FILTERS: { value: FilterValue; label: string }[] = [
   { value: "all", label: "전체" },
   { value: "paid", label: "결제완료" },
   { value: "pending", label: "입금대기" },
   { value: "cancelled", label: "취소" },
 ];
 
-export default function AdminOrdersPage() {
-  const [filter, setFilter] = useState<OrderStatus | "all">("all");
+function isFilterValue(v: unknown): v is FilterValue {
+  return v === "all" || v === "paid" || v === "pending" || v === "cancelled";
+}
+
+export default function AdminOrdersPageWrapper() {
+  // useSearchParams 사용을 위해 Suspense 경계 필요
+  return (
+    <Suspense fallback={null}>
+      <AdminOrdersPage />
+    </Suspense>
+  );
+}
+
+function AdminOrdersPage() {
+  const search = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+  const statusParam = search.get("status");
+  const filter: FilterValue = isFilterValue(statusParam) ? statusParam : "all";
+
+  function setFilter(next: FilterValue) {
+    const params = new URLSearchParams(search.toString());
+    if (next === "all") params.delete("status");
+    else params.set("status", next);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
+
   const [data, setData] = useState<AdminOrdersResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);

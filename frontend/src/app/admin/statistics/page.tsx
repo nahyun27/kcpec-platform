@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CartesianGrid,
   Cell,
@@ -36,11 +37,35 @@ const PIE_COLORS = ["#1C3461", "#2A4B8D", "#5B85C7", "#A6BFD9", "#D9A23E"];
 
 type TabKey = "sales" | "visitors";
 
-export default function AdminStatsPage() {
+function isTabKey(v: unknown): v is TabKey {
+  return v === "sales" || v === "visitors";
+}
+
+export default function AdminStatsPageWrapper() {
+  // useSearchParams 사용을 위해 Suspense 경계 필요 (Next.js 요구사항)
+  return (
+    <Suspense fallback={null}>
+      <AdminStatsPage />
+    </Suspense>
+  );
+}
+
+function AdminStatsPage() {
+  const search = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+  const tabParam = search.get("tab");
+  const tab: TabKey = isTabKey(tabParam) ? tabParam : "sales";
+
+  function setTab(next: TabKey) {
+    const params = new URLSearchParams(search.toString());
+    params.set("tab", next);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
   const [data, setData] = useState<SalesStats | null>(null);
   const [visitors, setVisitors] = useState<VisitorStats | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<TabKey>("sales");
 
   useEffect(() => {
     let cancelled = false;
