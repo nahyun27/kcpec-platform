@@ -18,8 +18,8 @@ const thumbnailMap: Record<string, string> = {
 
 interface Props {
   category: string;
-  // 하단 좌측 라벨 (기본값: category 그대로)
-  categoryLabel?: string;
+  // 썸네일 중앙에 표시할 텍스트 (강의명) — 미지정 시 표시 안 함
+  title?: string;
   // 외부에서 추가로 얹을 오버레이 (재생 버튼 등)
   children?: React.ReactNode;
 }
@@ -29,9 +29,8 @@ interface Props {
  * - thumbnailMap 에 정의된 카테고리는 /thumbnails/{slug}.png 사용
  * - 정의되지 않은 카테고리는 네이비 배경 + BookOpen 아이콘 fallback
  */
-export function CourseThumbnail({ category, categoryLabel, children }: Props) {
+export function CourseThumbnail({ category, title, children }: Props) {
   const slug = thumbnailMap[category];
-  const label = categoryLabel ?? category;
 
   return (
     <div
@@ -47,7 +46,7 @@ export function CourseThumbnail({ category, categoryLabel, children }: Props) {
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={`/thumbnails/${slug}.png`}
-          alt={label}
+          alt={title ?? category}
           style={{
             objectFit: "cover",
             width: "100%",
@@ -69,19 +68,9 @@ export function CourseThumbnail({ category, categoryLabel, children }: Props) {
         </div>
       )}
 
-      {/* 다크 그라디언트 — 위는 진하게, 아래는 살짝 (좌상단 뱃지 가독성) */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.25) 100%)",
-        }}
-      />
-
-      {/* 좌상단 카테고리 뱃지 */}
+      {/* 좌상단 무료 수강 뱃지 */}
       <span className="absolute top-2.5 left-3 rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium text-white backdrop-blur">
-        {label}
+        무료 수강
       </span>
 
       {/* 우상단 KCPEC 로고마크 */}
@@ -93,12 +82,33 @@ export function CourseThumbnail({ category, categoryLabel, children }: Props) {
           position: "absolute",
           top: 10,
           right: 12,
-          width: 28,
+          width: 40,
           height: "auto",
           filter: "brightness(0) invert(1)",
-          opacity: 0.7,
+          opacity: 0.8,
         }}
       />
+
+      {/* 중앙 강의 제목 */}
+      {title && (
+        <span
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            maxWidth: "80%",
+            textAlign: "center",
+            color: "white",
+            fontSize: "1.25rem",
+            fontWeight: 700,
+            lineHeight: 1.3,
+            textShadow: "0 2px 8px rgba(0,0,0,0.4)",
+          }}
+        >
+          {title}
+        </span>
+      )}
 
       {children}
     </div>

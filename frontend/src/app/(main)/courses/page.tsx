@@ -120,10 +120,10 @@ function CourseCard({ course }: { course: CourseListItem }) {
       href={`/courses/${course.id}`}
       className="group relative flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
     >
-      <CourseThumbnail category={course.category} />
+      <CourseThumbnail category={course.category} title={course.title} />
 
       <div className="flex flex-1 flex-col gap-3 p-6">
-        <h2 className="font-sans text-base font-medium leading-snug text-slate-900 group-hover:text-[var(--color-primary)] transition-colors line-clamp-2">
+        <h2 className="font-sans text-base font-bold leading-snug text-slate-900 group-hover:text-[var(--color-primary)] transition-colors line-clamp-2">
           {course.title}
         </h2>
         <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4 text-sm">
