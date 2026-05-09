@@ -63,7 +63,7 @@ export default function CommunityClient() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12 pb-24 min-h-[80vh]">
+    <div className="mx-auto min-h-[80vh] max-w-5xl px-4 pb-24 pt-6 sm:px-6 sm:pt-12">
       <PageHeader
         title="커뮤니티"
         subtitle="Community"
@@ -71,9 +71,9 @@ export default function CommunityClient() {
         description="공지사항, Q&A, 전문가 칼럼, 수강 후기를 한 곳에서 편리하게 확인하세요."
       />
 
-      {/* Modern Pill Tabs */}
-      <div className="mb-8 overflow-x-auto pb-2 hide-scrollbar">
-        <div className="flex w-max space-x-2 rounded-2xl bg-slate-100 p-1.5 sm:w-auto sm:flex-wrap">
+      {/* Pill Tabs — 모바일에선 가로 스크롤(절대 줄바꿈 X), 데스크톱에선 일반 배치 */}
+      <div className="hide-scrollbar -mx-4 mb-6 overflow-x-auto px-4 pb-2 sm:mx-0 sm:mb-8 sm:px-0">
+        <div className="inline-flex w-max gap-1.5 rounded-2xl bg-slate-100 p-1.5 sm:w-auto sm:gap-2">
           {TABS.map((t) => {
             const active = tab === t.key;
             return (
@@ -81,7 +81,7 @@ export default function CommunityClient() {
                 key={t.key}
                 type="button"
                 onClick={() => setTab(t.key)}
-                className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-all duration-300 ${
+                className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold transition-all duration-300 sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm ${
                   active
                     ? "bg-white text-[var(--color-primary)] shadow-sm ring-1 ring-slate-200"
                     : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"
@@ -345,19 +345,33 @@ function QnaTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm font-medium text-slate-500">
           궁금한 점을 자유롭게 남겨주시면 관리자가 답변해 드립니다.
         </p>
+        {/* 데스크톱: 인라인 버튼 / 모바일: 하단 fixed FAB (아래) */}
         <button
           type="button"
           onClick={handleWrite}
-          className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-[var(--color-primary)]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-lg"
+          className="hidden items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-[var(--color-primary)]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-lg sm:inline-flex"
         >
           <Edit3 className="h-4 w-4" />
           질문하기
         </button>
       </div>
+
+      {/* 모바일 전용 floating action button — 폼이 열려있을 땐 숨김 */}
+      {!showWrite ? (
+        <button
+          type="button"
+          onClick={handleWrite}
+          aria-label="질문하기"
+          className="fixed bottom-6 right-4 z-50 inline-flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-[var(--color-primary)]/30 transition-transform active:scale-95 sm:hidden"
+        >
+          <Edit3 className="h-4 w-4" />
+          질문하기
+        </button>
+      ) : null}
 
       {showWrite && (
         <div className="animate-in fade-in slide-in-from-top-4 duration-300">

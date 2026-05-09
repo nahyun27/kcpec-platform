@@ -95,3 +95,12 @@ body {
   height: 0;
   float: left;
 }
+
+/* 가로 스크롤 영역(탭 메뉴 등)에서 스크롤바를 숨기되 스크롤은 유지 */
+.hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome / Safari / Edge */
+}
