@@ -10,7 +10,16 @@ import {
   Tooltip,
   XAxis,
 } from "recharts";
-import { Users, CreditCard, TrendingUp, Wallet, ArrowUpRight } from "lucide-react";
+import {
+  Users,
+  CreditCard,
+  TrendingUp,
+  Wallet,
+  ArrowUpRight,
+  CheckCircle2,
+  MessageCircle,
+  UserX,
+} from "lucide-react";
 
 import { getAdminSalesStats, getAdminStats } from "@/lib/api";
 import type {
@@ -231,10 +240,10 @@ function WeeklyMiniChart({
   };
 
   return (
-    <div className="h-[120px] w-full min-w-0" style={{ width: "100%", minWidth: 0 }}>
+    <div className="h-[220px] w-full min-w-0" style={{ width: "100%", minWidth: 0 }}>
       {mounted ? (
-        <ResponsiveContainer width="100%" height={120} minWidth={0}>
-          <BarChart data={data} margin={{ top: 16, right: 8, bottom: 0, left: 8 }}>
+        <ResponsiveContainer width="100%" height={220} minWidth={0}>
+          <BarChart data={data} margin={{ top: 30, right: 8, bottom: 0, left: 8 }}>
             <XAxis
               dataKey="date"
               tickFormatter={(d: string) => d.slice(5)}
@@ -334,65 +343,79 @@ function RecentUsersList({ items }: { items: AdminUserBrief[] }) {
 function RecentActivitiesList({ items }: { items: AdminActivity[] }) {
   if (items.length === 0)
     return <p className="py-10 text-center text-xs text-zinc-400">최근 활동이 없습니다.</p>;
-  // 백엔드가 향후 user_deleted 도 emit 하면 빨간 점으로 표시되도록 매핑 포함
-  const dotClass: Record<string, string> = {
-    order_paid: "bg-green-500",
-    course_completed: "bg-blue-500",
-    qna_posted: "bg-amber-500",
-    user_deleted: "bg-red-400",
-  };
+
   return (
-    <ul className="space-y-3">
-      {items.map((a, i) => (
-        <li key={i} className="relative flex items-start gap-4 pb-4 last:pb-0">
-          {i !== items.length - 1 && (
-            <span className="absolute left-[7px] top-4 -ml-px h-full w-0.5 bg-slate-100" aria-hidden="true" />
-          )}
-          <span
-            className={`relative mt-1 inline-block h-3.5 w-3.5 shrink-0 rounded-full border-2 border-white shadow-sm ring-1 ring-slate-100 ${dotClass[a.type] ?? "bg-slate-400"}`}
-          />
-          <div className="min-w-0 flex-1 pt-0.5">
-            <p className="text-[13px] leading-relaxed text-slate-700">{a.message}</p>
-            <p className="mt-1 text-[11px] font-medium text-slate-400">{timeAgo(a.created_at)}</p>
-          </div>
-        </li>
-      ))}
+    <ul className="space-y-0">
+      {items.map((a, i) => {
+        let Icon = MessageCircle;
+        let colorClass = "bg-slate-100 text-slate-500 ring-slate-200";
+        if (a.type === "order_paid") {
+          Icon = CreditCard;
+          colorClass = "bg-emerald-50 text-emerald-600 ring-emerald-100";
+        } else if (a.type === "course_completed") {
+          Icon = CheckCircle2;
+          colorClass = "bg-blue-50 text-blue-600 ring-blue-100";
+        } else if (a.type === "qna_posted") {
+          Icon = MessageCircle;
+          colorClass = "bg-amber-50 text-amber-600 ring-amber-100";
+        } else if (a.type === "user_deleted") {
+          Icon = UserX;
+          colorClass = "bg-red-50 text-red-600 ring-red-100";
+        }
+
+        return (
+          <li key={i} className="relative flex items-start gap-3 pb-4 last:pb-0">
+            {i !== items.length - 1 && (
+              <span className="absolute left-[13px] top-7 -ml-px h-full w-0.5 bg-slate-100" aria-hidden="true" />
+            )}
+            <span
+              className={`relative mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ring-1 ${colorClass}`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+            </span>
+            <div className="min-w-0 flex-1 pt-1">
+              <p className="text-[13px] leading-snug text-slate-700">{a.message}</p>
+              <p className="mt-1 text-[11px] font-medium text-slate-400">{timeAgo(a.created_at)}</p>
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
 function RecentOrdersTable({ rows }: { rows: AdminOrderRow[] }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-zinc-200">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+    <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
+      <table className="w-full text-left text-[13px]">
+        <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
           <tr>
-            <th className="px-4 py-3">주문일시</th>
-            <th className="px-4 py-3">고객명</th>
-            <th className="px-4 py-3">강의명</th>
-            <th className="px-4 py-3">패키지</th>
-            <th className="px-4 py-3">결제수단</th>
-            <th className="px-4 py-3 text-right">금액</th>
-            <th className="px-4 py-3">상태</th>
+            <th className="px-5 py-4">주문일시</th>
+            <th className="px-5 py-4">고객명</th>
+            <th className="px-5 py-4">강의명</th>
+            <th className="px-5 py-4">패키지</th>
+            <th className="px-5 py-4">결제수단</th>
+            <th className="px-5 py-4 text-right">금액</th>
+            <th className="px-5 py-4">상태</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-200">
+        <tbody className="divide-y divide-slate-100">
           {rows.map((r) => {
             const isPendingBank =
               r.status === "pending" && r.payment_method === "bank_transfer";
             return (
-              <tr key={r.id} className={isPendingBank ? "bg-red-50/50" : ""}>
-                <td className="px-4 py-3 text-xs text-zinc-500">
+              <tr key={r.id} className={isPendingBank ? "bg-red-50/50" : "transition-colors hover:bg-slate-50/80"}>
+                <td className="px-5 py-4 text-slate-500">
                   {new Date(r.created_at).toLocaleString("ko-KR")}
                 </td>
-                <td className="px-4 py-3 font-medium">{r.username}</td>
-                <td className="px-4 py-3">{r.course_title}</td>
-                <td className="px-4 py-3">{r.package_name}</td>
-                <td className="px-4 py-3 text-xs">{PAYMENT_METHOD_LABEL[r.payment_method]}</td>
-                <td className="px-4 py-3 text-right font-medium">
+                <td className="px-5 py-4 font-semibold text-slate-900">{r.username}</td>
+                <td className="px-5 py-4 text-slate-700">{r.course_title}</td>
+                <td className="px-5 py-4 text-slate-700">{r.package_name}</td>
+                <td className="px-5 py-4 text-slate-500">{PAYMENT_METHOD_LABEL[r.payment_method]}</td>
+                <td className="px-5 py-4 text-right font-bold text-slate-900">
                   {r.amount.toLocaleString()}원
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-5 py-4">
                   {isPendingBank ? (
                     <span className="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700 ring-1 ring-inset ring-red-600/10">
                       입금 대기
