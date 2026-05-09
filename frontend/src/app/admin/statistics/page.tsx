@@ -18,19 +18,25 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   CreditCard,
+  ExternalLink,
+  GraduationCap,
   ReceiptText,
+  Repeat,
   TrendingUp,
+  UserPlus,
+  Users,
   Wallet,
 } from "lucide-react";
 
-import { getAdminSalesStats } from "@/lib/api";
+import { getAdminSalesStats, getAdminVisitorStats } from "@/lib/api";
 import { PAYMENT_METHOD_LABEL } from "@/types/order";
-import type { SalesStats } from "@/types/admin";
+import type { SalesStats, VisitorStats } from "@/types/admin";
 
 const PIE_COLORS = ["#1C3461", "#2A4B8D", "#5B85C7", "#A6BFD9", "#D9A23E"];
 
 export default function AdminStatsPage() {
   const [data, setData] = useState<SalesStats | null>(null);
+  const [visitors, setVisitors] = useState<VisitorStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,6 +47,13 @@ export default function AdminStatsPage() {
       })
       .catch(() => {
         if (!cancelled) setError("매출 통계를 불러오지 못했습니다.");
+      });
+    getAdminVisitorStats()
+      .then((v) => {
+        if (!cancelled) setVisitors(v);
+      })
+      .catch(() => {
+        /* 방문자 섹션은 부가 정보 — 실패는 silent */
       });
     return () => {
       cancelled = true;
@@ -299,6 +312,56 @@ export default function AdminStatsPage() {
           )}
         </section>
       </div>
+
+      {/* 방문자 통계 (DB 기반 근사 — GA4 연동 전) */}
+      <section className="space-y-3">
+        <header className="flex items-baseline justify-between">
+          <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">
+            방문자 통계
+          </h2>
+          <a
+            href="https://analytics.google.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-[var(--color-primary)]"
+          >
+            실시간 방문자는 Google Analytics 에서 확인
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </header>
+
+        {visitors == null ? (
+          <p className="rounded-lg border border-zinc-200 bg-white p-6 text-center text-sm text-zinc-500">
+            방문자 지표를 불러오는 중...
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <SummaryCard
+              icon={<UserPlus className="h-4 w-4" />}
+              label="이번 달 신규 회원"
+              value={`${visitors.new_users_this_month.toLocaleString()}명`}
+              sub={`전월 ${visitors.new_users_last_month.toLocaleString()}명`}
+            />
+            <SummaryCard
+              icon={<Users className="h-4 w-4" />}
+              label="누적 수강 신청"
+              value={`${visitors.total_enrollments.toLocaleString()}건`}
+            />
+            <SummaryCard
+              icon={<Repeat className="h-4 w-4" />}
+              label="이번 달 전환율"
+              value={`${visitors.conversion_rate.toFixed(1)}%`}
+              sub="결제 완료 / 신규 가입"
+            />
+            <SummaryCard
+              icon={<GraduationCap className="h-4 w-4" />}
+              label="평균 수강 강의 수"
+              value={`${visitors.avg_courses_per_user.toFixed(1)}건`}
+              sub="활성 사용자 1인당"
+            />
+          </div>
+        )}
+      </section>
     </div>
   );
 }

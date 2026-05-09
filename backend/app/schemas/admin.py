@@ -181,6 +181,16 @@ class SalesStats(BaseModel):
     by_payment: list[SalesStatsByPayment]
 
 
+class VisitorStats(BaseModel):
+    new_users_this_month: int
+    new_users_last_month: int
+    total_enrollments: int
+    # 결제 완료 / 신규 가입 (이번달 기준, %)
+    conversion_rate: float
+    # 활성 사용자 1인당 평균 수강 신청 수
+    avg_courses_per_user: float
+
+
 class AdminStats(BaseModel):
     total_users: int
     total_enrollments: int

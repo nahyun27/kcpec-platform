@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isAxiosError } from "axios";
 import { TiptapEditor } from "@/components/ui/TiptapEditor";
 import {
@@ -67,8 +68,41 @@ const SIDEBAR: { key: Filter; label: string }[] = [
 
 const ADMIN_WRITABLE: CommunityCategory[] = ["notice", "resource", "column"];
 
-export default function AdminCommunityPage() {
-  const [filter, setFilter] = useState<Filter>("all");
+export default function AdminCommunityPageWrapper() {
+  // useSearchParams 사용을 위해 Suspense 경계로 감싼다 (Next.js 요구사항).
+  return (
+    <Suspense fallback={null}>
+      <AdminCommunityPage />
+    </Suspense>
+  );
+}
+
+function isFilter(v: unknown): v is Filter {
+  return (
+    v === "all" ||
+    v === "notice" ||
+    v === "resource" ||
+    v === "qna" ||
+    v === "column" ||
+    v === "review"
+  );
+}
+
+function AdminCommunityPage() {
+  const search = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+  const tabParam = search.get("tab");
+  const filter: Filter = isFilter(tabParam) ? tabParam : "all";
+
+  function setFilter(next: Filter) {
+    const params = new URLSearchParams(search.toString());
+    if (next === "all") params.delete("tab");
+    else params.set("tab", next);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
+
   const [notices, setNotices] = useState<NoticeListItem[]>([]);
   const [qnas, setQnas] = useState<PostListItem[]>([]);
   const [columns, setColumns] = useState<PostListItem[]>([]);

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { GA4 } from "@/components/analytics/GA4";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="ko" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-white text-foreground">
+        <GA4 />
         {children}
       </body>
     </html>

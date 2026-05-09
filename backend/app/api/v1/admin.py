@@ -52,6 +52,7 @@ from app.schemas.admin import (
     SalesStatsByCourse,
     SalesStatsByPayment,
     SalesStatsDaily,
+    VisitorStats,
 )
 from app.schemas.community import NoticeDetail, PostAdminReply, PostDetail
 from app.schemas.course import CourseDetail, CourseListItem, LectureItem
@@ -692,7 +693,7 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
     )
 
 
-@router.get("/stats/sales", response_model=SalesStats)
+@router.get("/statistics/sales", response_model=SalesStats)
 def admin_sales_stats(db: Session = Depends(get_db)) -> SalesStats:
     """매출 통계 — 이번달/전월/일별 30일/상품별/결제수단별 집계.
 
@@ -812,6 +813,75 @@ def admin_sales_stats(db: Session = Depends(get_db)) -> SalesStats:
         daily_revenue=daily_revenue,
         by_course=by_course,
         by_payment=by_payment,
+    )
+
+
+@router.get("/statistics/visitors", response_model=VisitorStats)
+def admin_visitor_stats(db: Session = Depends(get_db)) -> VisitorStats:
+    """방문자 통계 — GA4 연동 전 DB 기반 근사 지표.
+
+    - 신규 가입자 (이번달 / 전월)
+    - 누적 수강 신청
+    - 이번달 전환율 = 이번달 결제 완료 / 이번달 신규 가입
+    - 활성 사용자 1인당 평균 수강 신청 수
+    """
+    now = _now()
+    today = now.date()
+    this_month_start = datetime.combine(today.replace(day=1), time.min, tzinfo=timezone.utc)
+    if today.month == 1:
+        last_month_start = datetime(today.year - 1, 12, 1, tzinfo=timezone.utc)
+    else:
+        last_month_start = datetime(today.year, today.month - 1, 1, tzinfo=timezone.utc)
+
+    new_users_this_month = (
+        db.scalar(
+            select(func.count(User.id)).where(User.created_at >= this_month_start)
+        )
+        or 0
+    )
+    new_users_last_month = (
+        db.scalar(
+            select(func.count(User.id)).where(
+                User.created_at >= last_month_start,
+                User.created_at < this_month_start,
+            )
+        )
+        or 0
+    )
+    total_enrollments = db.scalar(select(func.count(Enrollment.id))) or 0
+
+    paid_this_month = (
+        db.scalar(
+            select(func.count(Order.id)).where(
+                Order.status == OrderStatus.PAID,
+                Order.paid_at.is_not(None),
+                Order.paid_at >= this_month_start,
+            )
+        )
+        or 0
+    )
+    conversion_rate = (
+        round((paid_this_month / new_users_this_month) * 100, 1)
+        if new_users_this_month > 0
+        else 0.0
+    )
+
+    # 평균 수강 신청 수 — enrollments 가 있는 사용자만 분모 (활성)
+    distinct_enrolled_users = (
+        db.scalar(select(func.count(func.distinct(Enrollment.user_id)))) or 0
+    )
+    avg_courses_per_user = (
+        round(total_enrollments / distinct_enrolled_users, 1)
+        if distinct_enrolled_users > 0
+        else 0.0
+    )
+
+    return VisitorStats(
+        new_users_this_month=new_users_this_month,
+        new_users_last_month=new_users_last_month,
+        total_enrollments=total_enrollments,
+        conversion_rate=conversion_rate,
+        avg_courses_per_user=avg_courses_per_user,
     )
 
 

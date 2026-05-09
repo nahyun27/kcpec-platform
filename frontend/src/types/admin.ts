@@ -192,6 +192,14 @@ export type SalesStats = {
   by_payment: SalesStatsByPayment[];
 };
 
+export type VisitorStats = {
+  new_users_this_month: number;
+  new_users_last_month: number;
+  total_enrollments: number;
+  conversion_rate: number;
+  avg_courses_per_user: number;
+};
+
 export type AdminQuizOptionRead = {
   id: number;
   option_text: string;

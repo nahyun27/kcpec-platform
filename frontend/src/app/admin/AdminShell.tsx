@@ -2,19 +2,57 @@
 
 import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { isAxiosError } from "axios";
+import {
+  BarChart2,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  LayoutDashboard,
+  MessageSquare,
+  ShoppingCart,
+  Users,
+} from "lucide-react";
 import { getMe, logout, tokenStorage } from "@/lib/api";
 
-const NAV = [
-  { href: "/admin", label: "대시보드" },
-  { href: "/admin/users", label: "사용자" },
-  { href: "/admin/courses", label: "강의 관리" },
-  { href: "/admin/orders", label: "주문" },
-  { href: "/admin/stats", label: "매출 통계" },
-  { href: "/admin/surveys", label: "의견서" },
-  { href: "/admin/community", label: "커뮤니티" },
+type SingleNav = {
+  kind: "single";
+  href: string;
+  label: string;
+  icon: ReactNode;
+};
+
+type GroupNav = {
+  kind: "group";
+  basePath: string;
+  label: string;
+  icon: ReactNode;
+  children: { tab: string; label: string }[];
+};
+
+const NAV: (SingleNav | GroupNav)[] = [
+  { kind: "single", href: "/admin", label: "대시보드", icon: <LayoutDashboard className="h-4 w-4" /> },
+  { kind: "single", href: "/admin/users", label: "사용자", icon: <Users className="h-4 w-4" /> },
+  { kind: "single", href: "/admin/courses", label: "강의 관리", icon: <BookOpen className="h-4 w-4" /> },
+  { kind: "single", href: "/admin/orders", label: "주문", icon: <ShoppingCart className="h-4 w-4" /> },
+  { kind: "single", href: "/admin/statistics", label: "매출 통계", icon: <BarChart2 className="h-4 w-4" /> },
+  { kind: "single", href: "/admin/documents", label: "의견서", icon: <FileText className="h-4 w-4" /> },
+  {
+    kind: "group",
+    basePath: "/admin/community",
+    label: "커뮤니티",
+    icon: <MessageSquare className="h-4 w-4" />,
+    children: [
+      { tab: "notice", label: "공지/자료실" },
+      { tab: "qna", label: "Q&A" },
+      { tab: "column", label: "전문가 칼럼" },
+      { tab: "review", label: "수강후기" },
+      { tab: "faq", label: "FAQ" },
+    ],
+  },
 ];
 
 type DenyReason =
@@ -85,27 +123,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           <Logo variant="white" kind="mark" className="mb-2" />
           <p className="font-sans text-lg font-bold">관리자 콘솔</p>
         </div>
-        <nav className="flex-1 space-y-1 px-3 py-4 text-sm">
-          {NAV.map((item) => {
-            const active =
-              item.href === "/admin"
-                ? pathname === "/admin"
-                : pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`block rounded px-3 py-2 transition-colors ${
-                  active
-                    ? "bg-white/10 font-semibold text-white"
-                    : "text-white/80 hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <Suspense fallback={<nav className="flex-1 px-3 py-4" />}>
+          <SidebarNav pathname={pathname} />
+        </Suspense>
         <div className="space-y-2 border-t border-white/10 px-4 py-4 text-xs">
           {username ? <p className="text-white/70">로그인: {username}</p> : null}
           <button
@@ -124,6 +144,90 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <div className="mx-auto max-w-6xl px-8 py-8">{children}</div>
       </main>
     </div>
+  );
+}
+
+function SidebarNav({ pathname }: { pathname: string }) {
+  const search = useSearchParams();
+  const activeTab = search.get("tab");
+  // 커뮤니티 경로면 아코디언 자동 열림 + 사용자 토글 가능
+  const communityActive = pathname.startsWith("/admin/community");
+  const [communityOpen, setCommunityOpen] = useState(communityActive);
+  useEffect(() => {
+    if (communityActive) setCommunityOpen(true);
+  }, [communityActive]);
+
+  return (
+    <nav className="flex-1 space-y-1 px-3 py-4 text-sm">
+      {NAV.map((item) => {
+        if (item.kind === "single") {
+          const active =
+            item.href === "/admin"
+              ? pathname === "/admin"
+              : pathname.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-2 rounded px-3 py-2 transition-colors ${
+                active
+                  ? "bg-white/10 font-semibold text-white"
+                  : "text-white/80 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              {item.icon}
+              {item.label}
+            </Link>
+          );
+        }
+
+        // group (community)
+        const open = communityOpen;
+        return (
+          <div key={item.basePath}>
+            <button
+              type="button"
+              onClick={() => setCommunityOpen((v) => !v)}
+              className={`flex w-full items-center justify-between gap-2 rounded px-3 py-2 transition-colors ${
+                communityActive
+                  ? "bg-white/10 font-semibold text-white"
+                  : "text-white/80 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                {item.icon}
+                {item.label}
+              </span>
+              {open ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
+            {open ? (
+              <div className="mt-1 space-y-0.5">
+                {item.children.map((c) => {
+                  const isActive = communityActive && activeTab === c.tab;
+                  return (
+                    <Link
+                      key={c.tab}
+                      href={`${item.basePath}?tab=${c.tab}`}
+                      className={`block py-1.5 pl-8 pr-3 text-sm transition-colors ${
+                        isActive
+                          ? "border-l-2 border-white text-white"
+                          : "border-l-2 border-transparent text-white/60 hover:text-white"
+                      }`}
+                    >
+                      {c.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </nav>
   );
 }
 
