@@ -6,7 +6,7 @@ import { getCourses } from "@/lib/api";
 import { COURSE_CATEGORIES, type CourseCategory, type CourseListItem } from "@/types/course";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
-import { PlayCircle, GraduationCap, BookOpen } from "lucide-react";
+import { GraduationCap, BookOpen, BadgeCheck } from "lucide-react";
 
 export default function CoursesListPage() {
   const [category, setCategory] = useState<CourseCategory | null>(null);
@@ -118,24 +118,19 @@ function CourseCard({ course }: { course: CourseListItem }) {
   return (
     <Link
       href={`/courses/${course.id}`}
-      className="group relative flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/10"
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
     >
-      <CourseThumbnail category={course.category}>
-        <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-full bg-[var(--color-accent)]/90 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm shadow-sm">
-          <PlayCircle className="h-3 w-3" />
-          무료 수강
-        </span>
-      </CourseThumbnail>
-      
+      <CourseThumbnail category={course.category} />
+
       <div className="flex flex-1 flex-col gap-3 p-6">
-        <span className="text-xs font-bold tracking-wider text-[var(--color-accent)]">
-          {course.category}
-        </span>
-        <h2 className="font-sans text-xl font-bold leading-snug text-slate-900 group-hover:text-[var(--color-primary)] transition-colors line-clamp-2">
+        <h2 className="font-sans text-base font-medium leading-snug text-slate-900 group-hover:text-[var(--color-primary)] transition-colors line-clamp-2">
           {course.title}
         </h2>
         <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4 text-sm">
-          <span className="font-medium text-slate-500">수료증 발급 가능</span>
+          <span className="inline-flex items-center gap-1.5 font-medium text-slate-500">
+            <BadgeCheck className="h-4 w-4 text-[var(--color-accent)]" />
+            수료증 발급
+          </span>
           <span className="font-bold text-[var(--color-primary)]">
             {course.price.toLocaleString()}원~
           </span>

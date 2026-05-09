@@ -69,44 +69,36 @@ export function CourseThumbnail({ category, categoryLabel, children }: Props) {
         </div>
       )}
 
-      {/* 다크 그라디언트 — 위는 살짝, 아래로 갈수록 진하게 */}
+      {/* 다크 그라디언트 — 위는 진하게, 아래는 살짝 (좌상단 뱃지 가독성) */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background:
-            "linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.4) 70%, rgba(0,0,0,0.65) 100%)",
+            "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.25) 100%)",
         }}
       />
 
-      {/* 우상단 KCPEC 워터마크 */}
-      <span
+      {/* 좌상단 카테고리 뱃지 */}
+      <span className="absolute top-2.5 left-3 rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium text-white backdrop-blur">
+        {label}
+      </span>
+
+      {/* 우상단 KCPEC 로고마크 */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/images/logo-mark.png"
+        alt="KCPEC"
         style={{
           position: "absolute",
           top: 10,
           right: 12,
-          color: "rgba(255,255,255,0.6)",
-          fontSize: 11,
-          fontWeight: 500,
-          letterSpacing: 1,
+          width: 28,
+          height: "auto",
+          filter: "brightness(0) invert(1)",
+          opacity: 0.7,
         }}
-      >
-        KCPEC
-      </span>
-
-      {/* 하단 카테고리 레이블 */}
-      <span
-        style={{
-          position: "absolute",
-          bottom: 10,
-          left: 12,
-          color: "white",
-          fontSize: 13,
-          fontWeight: 500,
-        }}
-      >
-        {label}
-      </span>
+      />
 
       {children}
     </div>
