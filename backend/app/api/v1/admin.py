@@ -43,6 +43,9 @@ from app.schemas.admin import (
     LectureCreate,
     LectureFull,
     LecturePatch,
+    AdminActivity,
+    AdminTopCourse,
+    AdminUserBrief,
     NoticePatch,
     OkResponse,
     PostPatch,
@@ -625,6 +628,7 @@ async def upload_final(
 @router.get("/stats", response_model=AdminStats)
 def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
     today_start = datetime.combine(_now().date(), time.min, tzinfo=timezone.utc)
+    yesterday_start = today_start - timedelta(days=1)
 
     total_users = db.scalar(select(func.count(User.id))) or 0
     total_enrollments = db.scalar(select(func.count(Enrollment.id))) or 0
@@ -660,6 +664,35 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
         )
         or 0
     )
+    yesterday_new_users = (
+        db.scalar(
+            select(func.count(User.id)).where(
+                User.created_at >= yesterday_start,
+                User.created_at < today_start,
+            )
+        )
+        or 0
+    )
+    yesterday_orders = (
+        db.scalar(
+            select(func.count(Order.id)).where(
+                Order.status == OrderStatus.PAID,
+                Order.paid_at >= yesterday_start,
+                Order.paid_at < today_start,
+            )
+        )
+        or 0
+    )
+    yesterday_revenue = (
+        db.scalar(
+            select(func.coalesce(func.sum(Order.amount), 0)).where(
+                Order.status == OrderStatus.PAID,
+                Order.paid_at >= yesterday_start,
+                Order.paid_at < today_start,
+            )
+        )
+        or 0
+    )
     month_start = datetime.combine(
         _now().date().replace(day=1), time.min, tzinfo=timezone.utc
     )
@@ -680,6 +713,96 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
     ).all()
     recent = [_row_from_order(o, u, c, p) for (o, u, c, p) in recent_rows]
 
+    # 인기 강의 top 5 (paid 매출 기준)
+    top_rows = db.execute(
+        select(Course.title, func.coalesce(func.sum(Order.amount), 0))
+        .join(Course, Course.id == Order.course_id)
+        .where(Order.status == OrderStatus.PAID)
+        .group_by(Course.title)
+        .order_by(func.coalesce(func.sum(Order.amount), 0).desc())
+        .limit(5)
+    ).all()
+    top_courses: list[AdminTopCourse] = [
+        AdminTopCourse(
+            course_title=ct,
+            revenue=int(rev),
+            percentage=(round(int(rev) * 100 / total_revenue, 1) if total_revenue else 0.0),
+        )
+        for (ct, rev) in top_rows
+    ]
+
+    # 최근 가입 회원 (admin 제외, 더미가 아니어도 그대로 노출)
+    recent_user_rows = list(
+        db.scalars(
+            select(User)
+            .where(User.is_admin.is_(False))
+            .order_by(User.created_at.desc())
+            .limit(4)
+        ).all()
+    )
+    recent_users = [
+        AdminUserBrief(id=u.id, name=u.username, email=u.email, created_at=u.created_at)
+        for u in recent_user_rows
+    ]
+
+    # 최근 활동 로그 (paid 결제 / 강의 수료 / Q&A 등록 union)
+    activities: list[AdminActivity] = []
+    # 1) 결제
+    paid_acts = db.execute(
+        select(Order, User, Course, Package)
+        .join(User, User.id == Order.user_id)
+        .join(Course, Course.id == Order.course_id)
+        .join(Package, Package.id == Order.package_id)
+        .where(Order.status == OrderStatus.PAID, Order.paid_at.is_not(None))
+        .order_by(Order.paid_at.desc())
+        .limit(5)
+    ).all()
+    for o, u, c, p in paid_acts:
+        activities.append(
+            AdminActivity(
+                type="order_paid",
+                message=f"{u.username}님이 {c.title} {p.name} 결제 완료",
+                created_at=o.paid_at or o.created_at,
+            )
+        )
+    # 2) 수료
+    completed_acts = db.execute(
+        select(Enrollment, User, Course)
+        .join(User, User.id == Enrollment.user_id)
+        .join(Course, Course.id == Enrollment.course_id)
+        .where(Enrollment.is_completed.is_(True), Enrollment.completed_at.is_not(None))
+        .order_by(Enrollment.completed_at.desc())
+        .limit(5)
+    ).all()
+    for e, u, c in completed_acts:
+        activities.append(
+            AdminActivity(
+                type="course_completed",
+                message=f"{u.username}님이 {c.title} 수료",
+                created_at=e.completed_at or _now(),
+            )
+        )
+    # 3) Q&A
+    from app.models.community import PostCategory as _PC  # local import 로 의존 최소화
+    qna_acts = list(
+        db.scalars(
+            select(Post)
+            .where(Post.category == _PC.QNA)
+            .order_by(Post.created_at.desc())
+            .limit(5)
+        ).all()
+    )
+    for p in qna_acts:
+        activities.append(
+            AdminActivity(
+                type="qna_posted",
+                message=f"{p.author_name}님이 Q&A 문의 등록",
+                created_at=p.created_at,
+            )
+        )
+    activities.sort(key=lambda a: a.created_at, reverse=True)
+    recent_activities = activities[:5]
+
     return AdminStats(
         total_users=total_users,
         total_enrollments=total_enrollments,
@@ -688,8 +811,14 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
         today_signups=today_signups,
         today_paid_orders=today_paid_orders,
         today_revenue=today_revenue,
+        yesterday_new_users=yesterday_new_users,
+        yesterday_orders=yesterday_orders,
+        yesterday_revenue=yesterday_revenue,
         month_revenue=month_revenue,
         recent_orders=recent,
+        top_courses=top_courses,
+        recent_users=recent_users,
+        recent_activities=recent_activities,
     )
 
 

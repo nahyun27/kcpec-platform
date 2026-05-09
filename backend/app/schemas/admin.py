@@ -191,6 +191,25 @@ class VisitorStats(BaseModel):
     avg_courses_per_user: float
 
 
+class AdminUserBrief(BaseModel):
+    id: int
+    name: str
+    email: EmailStr
+    created_at: datetime
+
+
+class AdminTopCourse(BaseModel):
+    course_title: str
+    revenue: int
+    percentage: float  # 0~100, 전체 매출 대비
+
+
+class AdminActivity(BaseModel):
+    type: Literal["order_paid", "course_completed", "qna_posted"]
+    message: str
+    created_at: datetime
+
+
 class AdminStats(BaseModel):
     total_users: int
     total_enrollments: int
@@ -199,8 +218,14 @@ class AdminStats(BaseModel):
     today_signups: int
     today_paid_orders: int
     today_revenue: int
+    yesterday_new_users: int = 0
+    yesterday_orders: int = 0
+    yesterday_revenue: int = 0
     month_revenue: int
     recent_orders: list[AdminOrderRow]
+    top_courses: list[AdminTopCourse] = []
+    recent_users: list[AdminUserBrief] = []
+    recent_activities: list[AdminActivity] = []
 
 
 class CourseEnrollmentCount(BaseModel):

@@ -42,6 +42,25 @@ export type AdminOrdersResponse = {
   size: number;
 };
 
+export type AdminUserBrief = {
+  id: number;
+  name: string;
+  email: string;
+  created_at: string;
+};
+
+export type AdminTopCourse = {
+  course_title: string;
+  revenue: number;
+  percentage: number;
+};
+
+export type AdminActivity = {
+  type: "order_paid" | "course_completed" | "qna_posted";
+  message: string;
+  created_at: string;
+};
+
 export type AdminStats = {
   total_users: number;
   total_enrollments: number;
@@ -50,8 +69,14 @@ export type AdminStats = {
   today_signups: number;
   today_paid_orders: number;
   today_revenue: number;
+  yesterday_new_users: number;
+  yesterday_orders: number;
+  yesterday_revenue: number;
   month_revenue: number;
   recent_orders: AdminOrderRow[];
+  top_courses: AdminTopCourse[];
+  recent_users: AdminUserBrief[];
+  recent_activities: AdminActivity[];
 };
 
 export type CourseEnrollmentCount = {
