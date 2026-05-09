@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CartesianGrid,
   Cell,
@@ -34,10 +34,13 @@ import type { SalesStats, VisitorStats } from "@/types/admin";
 
 const PIE_COLORS = ["#1C3461", "#2A4B8D", "#5B85C7", "#A6BFD9", "#D9A23E"];
 
+type TabKey = "sales" | "visitors";
+
 export default function AdminStatsPage() {
   const [data, setData] = useState<SalesStats | null>(null);
   const [visitors, setVisitors] = useState<VisitorStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<TabKey>("sales");
 
   useEffect(() => {
     let cancelled = false;
@@ -60,8 +63,75 @@ export default function AdminStatsPage() {
     };
   }, []);
 
-  const momChange = useMemo(() => {
-    if (!data) return null;
+  if (error) return <p className="py-20 text-center text-sm text-red-600">{error}</p>;
+  if (!data) return <p className="py-20 text-center text-sm text-zinc-500">불러오는 중...</p>;
+
+  const totalByCourseRevenue = data.by_course.reduce((acc, r) => acc + r.revenue, 0);
+
+  return (
+    <div className="space-y-6">
+      <header>
+        <h1 className="font-sans text-2xl font-bold text-[var(--color-primary)]">통계</h1>
+        <p className="mt-1 text-sm text-zinc-500">
+          {tab === "sales"
+            ? "paid 상태 주문 기준. 최근 30일 일별 분포 + 상품/결제수단 별 집계."
+            : "신규 가입 / 수강 신청 / 전환율 요약. 실시간 방문자는 Google Analytics 에서 확인."}
+        </p>
+      </header>
+
+      <StatsTabs tab={tab} onChange={setTab} />
+
+      {tab === "sales" ? (
+        <SalesStatsView data={data} totalByCourseRevenue={totalByCourseRevenue} />
+      ) : (
+        <VisitorStatsView visitors={visitors} />
+      )}
+    </div>
+  );
+}
+
+function StatsTabs({
+  tab,
+  onChange,
+}: {
+  tab: TabKey;
+  onChange: (next: TabKey) => void;
+}) {
+  const tabs: { key: TabKey; label: string }[] = [
+    { key: "sales", label: "매출 통계" },
+    { key: "visitors", label: "방문자 통계" },
+  ];
+  return (
+    <div className="flex border-b border-zinc-200">
+      {tabs.map((t) => {
+        const active = tab === t.key;
+        return (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => onChange(t.key)}
+            className={`-mb-px border-b-2 px-4 py-2.5 text-sm transition-colors ${
+              active
+                ? "border-[#1C3461] font-semibold text-[#1C3461]"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SalesStatsView({
+  data,
+  totalByCourseRevenue,
+}: {
+  data: SalesStats;
+  totalByCourseRevenue: number;
+}) {
+  const momChange = (() => {
     const last = data.last_month_revenue;
     const cur = data.this_month_revenue;
     if (last === 0 && cur === 0) return { pct: 0, dir: "flat" as const };
@@ -71,20 +141,10 @@ export default function AdminStatsPage() {
       pct: Math.abs(diff),
       dir: diff > 0 ? ("up" as const) : diff < 0 ? ("down" as const) : ("flat" as const),
     };
-  }, [data]);
-
-  if (error) return <p className="py-20 text-center text-sm text-red-600">{error}</p>;
-  if (!data) return <p className="py-20 text-center text-sm text-zinc-500">불러오는 중...</p>;
-
-  const totalByCourseRevenue = data.by_course.reduce((acc, r) => acc + r.revenue, 0);
+  })();
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="font-sans text-2xl font-bold text-[var(--color-primary)]">매출 통계</h1>
-        <p className="mt-1 text-sm text-zinc-500">paid 상태 주문 기준. 최근 30일 일별 분포 + 상품/결제수단 별 집계.</p>
-      </header>
-
       {/* 요약 카드 */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard
@@ -313,55 +373,61 @@ export default function AdminStatsPage() {
         </section>
       </div>
 
-      {/* 방문자 통계 (DB 기반 근사 — GA4 연동 전) */}
-      <section className="space-y-3">
-        <header className="flex items-baseline justify-between">
-          <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">
-            방문자 통계
-          </h2>
-          <a
-            href="https://analytics.google.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-[var(--color-primary)]"
-          >
-            실시간 방문자는 Google Analytics 에서 확인
-            <ExternalLink className="h-3 w-3" />
-          </a>
-        </header>
+    </div>
+  );
+}
 
-        {visitors == null ? (
-          <p className="rounded-lg border border-zinc-200 bg-white p-6 text-center text-sm text-zinc-500">
-            방문자 지표를 불러오는 중...
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <SummaryCard
-              icon={<UserPlus className="h-4 w-4" />}
-              label="이번 달 신규 회원"
-              value={`${visitors.new_users_this_month.toLocaleString()}명`}
-              sub={`전월 ${visitors.new_users_last_month.toLocaleString()}명`}
-            />
-            <SummaryCard
-              icon={<Users className="h-4 w-4" />}
-              label="누적 수강 신청"
-              value={`${visitors.total_enrollments.toLocaleString()}건`}
-            />
-            <SummaryCard
-              icon={<Repeat className="h-4 w-4" />}
-              label="이번 달 전환율"
-              value={`${visitors.conversion_rate.toFixed(1)}%`}
-              sub="결제 완료 / 신규 가입"
-            />
-            <SummaryCard
-              icon={<GraduationCap className="h-4 w-4" />}
-              label="평균 수강 강의 수"
-              value={`${visitors.avg_courses_per_user.toFixed(1)}건`}
-              sub="활성 사용자 1인당"
-            />
-          </div>
-        )}
-      </section>
+function VisitorStatsView({ visitors }: { visitors: VisitorStats | null }) {
+  if (visitors == null) {
+    return (
+      <p className="rounded-lg border border-zinc-200 bg-white p-6 text-center text-sm text-zinc-500">
+        방문자 지표를 불러오는 중...
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard
+          icon={<UserPlus className="h-4 w-4" />}
+          label="이번 달 신규 회원"
+          value={`${visitors.new_users_this_month.toLocaleString()}명`}
+          sub={`전월 ${visitors.new_users_last_month.toLocaleString()}명`}
+        />
+        <SummaryCard
+          icon={<Users className="h-4 w-4" />}
+          label="누적 수강 신청"
+          value={`${visitors.total_enrollments.toLocaleString()}건`}
+        />
+        <SummaryCard
+          icon={<Repeat className="h-4 w-4" />}
+          label="이번 달 전환율"
+          value={`${visitors.conversion_rate.toFixed(1)}%`}
+          sub="결제 완료 / 신규 가입"
+        />
+        <SummaryCard
+          icon={<GraduationCap className="h-4 w-4" />}
+          label="평균 수강 강의 수"
+          value={`${visitors.avg_courses_per_user.toFixed(1)}건`}
+          sub="활성 사용자 1인당"
+        />
+      </div>
+
+      <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+        실시간 방문자 통계는 Google Analytics 대시보드에서 확인하세요.{" "}
+        <a
+          href="https://analytics.google.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 font-semibold text-[var(--color-primary)] hover:underline"
+        >
+          analytics.google.com
+          <ExternalLink className="h-3 w-3" />
+        </a>
+        <p className="mt-1 text-xs text-zinc-500">
+          향후 GA4 Data API 연동 시 일별 방문자/이벤트 차트가 이 영역에 추가됩니다.
+        </p>
+      </div>
     </div>
   );
 }

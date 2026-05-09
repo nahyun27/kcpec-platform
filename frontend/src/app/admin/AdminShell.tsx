@@ -117,16 +117,17 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <div className="flex min-h-screen bg-zinc-100">
-      <aside className="flex w-60 flex-col bg-[var(--color-primary)] text-white">
-        <div className="border-b border-white/10 px-6 py-5">
+    <div className="min-h-screen bg-zinc-100">
+      <aside className="fixed left-0 top-0 z-40 flex h-screen w-60 flex-col bg-[var(--color-primary)] text-white">
+        <div className="shrink-0 border-b border-white/10 px-6 py-5">
           <Logo variant="white" kind="mark" className="mb-2" />
           <p className="font-sans text-lg font-bold">관리자 콘솔</p>
         </div>
-        <Suspense fallback={<nav className="flex-1 px-3 py-4" />}>
+        {/* nav 영역만 자체 스크롤 — 메뉴가 길어져도 사이드바 자체는 viewport 에 고정 */}
+        <Suspense fallback={<nav className="flex-1 overflow-y-auto px-3 py-4" />}>
           <SidebarNav pathname={pathname} />
         </Suspense>
-        <div className="space-y-2 border-t border-white/10 px-4 py-4 text-xs">
+        <div className="shrink-0 space-y-2 border-t border-white/10 px-4 py-4 text-xs">
           {username ? <p className="text-white/70">로그인: {username}</p> : null}
           <button
             type="button"
@@ -140,7 +141,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </button>
         </div>
       </aside>
-      <main className="flex-1 overflow-x-hidden bg-white">
+      <main className="ml-60 min-h-screen bg-white">
         <div className="mx-auto max-w-6xl px-8 py-8">{children}</div>
       </main>
     </div>
@@ -158,7 +159,7 @@ function SidebarNav({ pathname }: { pathname: string }) {
   }, [communityActive]);
 
   return (
-    <nav className="flex-1 space-y-1 px-3 py-4 text-sm">
+    <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4 text-sm">
       {NAV.map((item) => {
         if (item.kind === "single") {
           const active =
