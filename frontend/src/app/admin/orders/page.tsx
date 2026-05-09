@@ -96,21 +96,24 @@ function AdminOrdersPage() {
         </p>
       </header>
 
-      <div className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            onClick={() => setFilter(f.value)}
-            className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
-              filter === f.value
-                ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white"
-                : "border-zinc-300 bg-white text-zinc-700 hover:border-[var(--color-primary)]"
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="inline-flex flex-wrap items-center gap-1.5 rounded-xl bg-slate-100/80 p-1.5 shadow-inner">
+        {FILTERS.map((f) => {
+          const active = filter === f.value;
+          return (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => setFilter(f.value)}
+              className={`rounded-lg px-4 py-1.5 text-[13px] font-semibold transition-all ${
+                active
+                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-900/5"
+                  : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"
+              }`}
+            >
+              {f.label}
+            </button>
+          );
+        })}
       </div>
 
       {error ? (
