@@ -6,6 +6,7 @@ import { use, useEffect, useState } from "react";
 import { isAxiosError } from "axios";
 import { enrollCourse, getCourseDetail, tokenStorage } from "@/lib/api";
 import type { CourseDetail } from "@/types/course";
+import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { ArrowLeft, Clock, FileText, PlayCircle, BookOpen } from "lucide-react";
 
 function formatDuration(seconds: number): string {
@@ -125,27 +126,17 @@ export default function CourseDetailPage({
             </div>
 
             {/* Video Thumbnail */}
-            <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-slate-100 shadow-sm">
-              <div className="relative aspect-video w-full">
-                {course.thumbnail_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={course.thumbnail_url}
-                    alt={course.title}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 font-sans text-4xl font-bold tracking-tight text-slate-300">
-                    KCPEC
-                  </div>
-                )}
-                {/* Play Button Overlay */}
-                <div className="absolute inset-0 flex items-center justify-center bg-black/10 transition-colors hover:bg-black/20 group cursor-pointer" onClick={handleStart}>
+            <div className="overflow-hidden rounded-2xl border border-zinc-200 shadow-sm">
+              <CourseThumbnail category={course.category}>
+                <div
+                  className="absolute inset-0 flex items-center justify-center bg-black/10 transition-colors hover:bg-black/20 group cursor-pointer"
+                  onClick={handleStart}
+                >
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-xl backdrop-blur-sm transition-transform group-hover:scale-110">
                     <PlayCircle className="h-8 w-8 text-[var(--color-primary)]" />
                   </div>
                 </div>
-              </div>
+              </CourseThumbnail>
             </div>
 
             {/* Curriculum Section */}

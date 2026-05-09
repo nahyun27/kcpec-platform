@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { getCourses } from "@/lib/api";
 import { COURSE_CATEGORIES, type CourseCategory, type CourseListItem } from "@/types/course";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { PlayCircle, GraduationCap, BookOpen } from "lucide-react";
 
 export default function CoursesListPage() {
@@ -119,26 +120,12 @@ function CourseCard({ course }: { course: CourseListItem }) {
       href={`/courses/${course.id}`}
       className="group relative flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/10"
     >
-      <div className="relative aspect-video w-full bg-slate-100 overflow-hidden">
-        {course.thumbnail_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={course.thumbnail_url}
-            alt={course.title}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 font-sans text-3xl font-bold tracking-tight text-slate-300">
-            KCPEC
-          </div>
-        )}
-        {/* Subtle overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 transition-opacity duration-300 group-hover:opacity-80"></div>
+      <CourseThumbnail category={course.category}>
         <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-full bg-[var(--color-accent)]/90 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm shadow-sm">
           <PlayCircle className="h-3 w-3" />
           무료 수강
         </span>
-      </div>
+      </CourseThumbnail>
       
       <div className="flex flex-1 flex-col gap-3 p-6">
         <span className="text-xs font-bold tracking-wider text-[var(--color-accent)]">
