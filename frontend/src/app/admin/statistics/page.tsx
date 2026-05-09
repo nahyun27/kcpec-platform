@@ -66,6 +66,9 @@ function AdminStatsPage() {
   const [data, setData] = useState<SalesStats | null>(null);
   const [visitors, setVisitors] = useState<VisitorStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Recharts ResponsiveContainer 가 첫 렌더에서 부모 width 를 0/-1 로 읽는 케이스 회피
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,7 +110,11 @@ function AdminStatsPage() {
       <StatsTabs tab={tab} onChange={setTab} />
 
       {tab === "sales" ? (
-        <SalesStatsView data={data} totalByCourseRevenue={totalByCourseRevenue} />
+        <SalesStatsView
+          data={data}
+          totalByCourseRevenue={totalByCourseRevenue}
+          mounted={mounted}
+        />
       ) : (
         <VisitorStatsView visitors={visitors} />
       )}
@@ -152,9 +159,11 @@ function StatsTabs({
 function SalesStatsView({
   data,
   totalByCourseRevenue,
+  mounted,
 }: {
   data: SalesStats;
   totalByCourseRevenue: number;
+  mounted: boolean;
 }) {
   const momChange = (() => {
     const last = data.last_month_revenue;
@@ -221,7 +230,8 @@ function SalesStatsView({
         <h2 className="mb-3 font-sans text-base font-bold text-[var(--color-primary)]">
           최근 30일 일별 매출
         </h2>
-        <div className="h-72 w-full min-w-0" style={{ width: "100%" }}>
+        <div className="h-72 w-full min-w-0" style={{ width: "100%", minWidth: 0 }}>
+          {mounted ? (
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <LineChart
               data={data.daily_revenue}
@@ -254,6 +264,7 @@ function SalesStatsView({
               />
             </LineChart>
           </ResponsiveContainer>
+          ) : null}
         </div>
       </section>
 
@@ -335,7 +346,8 @@ function SalesStatsView({
             <p className="py-12 text-center text-sm text-zinc-500">데이터 없음</p>
           ) : (
             <>
-              <div className="h-56 w-full min-w-0" style={{ width: "100%" }}>
+              <div className="h-56 w-full min-w-0" style={{ width: "100%", minWidth: 0 }}>
+                {mounted ? (
                 <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <PieChart>
                     <Tooltip
@@ -373,6 +385,7 @@ function SalesStatsView({
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
+                ) : null}
               </div>
               <ul className="mt-2 space-y-1 text-xs">
                 {data.by_payment.map((r, i) => (

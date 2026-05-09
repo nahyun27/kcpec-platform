@@ -48,17 +48,17 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="font-sans text-2xl font-bold text-[var(--color-primary)]">사용자</h1>
-        <p className="mt-1 text-sm text-zinc-500">
+      <header className="mb-8">
+        <h1 className="font-sans text-3xl font-bold tracking-tight text-slate-900">사용자</h1>
+        <p className="mt-1 text-sm text-slate-500">
           전체 {data.total.toLocaleString()}명 · 누적 수강 등록{" "}
           {totalEnrollments.toLocaleString()}건
         </p>
       </header>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr]">
-        <aside className="space-y-1 rounded-lg border border-zinc-200 bg-white p-3 text-sm">
-          <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr]">
+        <aside className="space-y-1 rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm">
+          <p className="mb-3 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">
             강의별 수강생
           </p>
           <SidebarRow label="전체 사용자" value={data.total} bold />
@@ -75,44 +75,46 @@ export default function AdminUsersPage() {
           )}
         </aside>
 
-        <div className="overflow-hidden rounded-lg border border-zinc-200">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+        <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
+          <table className="w-full text-left text-[13px]">
+            <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-3 py-3">닉네임</th>
-                <th className="px-3 py-3">이메일</th>
-                <th className="px-3 py-3">가입일</th>
-                <th className="px-3 py-3 text-right">수강 강의</th>
-                <th className="px-3 py-3 text-right">결제 횟수</th>
-                <th className="px-3 py-3 text-right">누적 결제금액</th>
+                <th className="px-5 py-4">닉네임</th>
+                <th className="px-5 py-4">이메일</th>
+                <th className="px-5 py-4">가입일</th>
+                <th className="px-5 py-4 text-right">수강 강의</th>
+                <th className="px-5 py-4 text-right">결제 횟수</th>
+                <th className="px-5 py-4 text-right">누적 결제금액</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-200">
+            <tbody className="divide-y divide-slate-100">
               {data.items.map((u) => (
                 <tr
                   key={u.id}
                   onClick={() => setOpenUser(u)}
-                  className="cursor-pointer transition-colors hover:bg-slate-50"
+                  className="cursor-pointer transition-colors hover:bg-slate-50/80"
                 >
-                  <td className="px-3 py-3 font-medium">
-                    {u.username}
-                    {u.is_admin ? (
-                      <span className="ml-1 rounded bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold text-white">
-                        ADMIN
-                      </span>
-                    ) : null}
+                  <td className="px-5 py-4 font-semibold text-slate-900">
+                    <div className="flex items-center gap-2">
+                      {u.username}
+                      {u.is_admin && (
+                        <span className="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-blue-700 ring-1 ring-inset ring-blue-600/20">
+                          ADMIN
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td className="px-3 py-3 text-xs text-zinc-600">{u.email}</td>
-                  <td className="px-3 py-3 text-xs text-zinc-500">
+                  <td className="px-5 py-4 text-slate-500">{u.email}</td>
+                  <td className="px-5 py-4 text-slate-500">
                     {new Date(u.created_at).toLocaleDateString("ko-KR")}
                   </td>
-                  <td className="px-3 py-3 text-right">
+                  <td className="px-5 py-4 text-right font-medium text-slate-700">
                     {u.enrollment_count.toLocaleString()}
                   </td>
-                  <td className="px-3 py-3 text-right">
+                  <td className="px-5 py-4 text-right font-medium text-slate-700">
                     {u.payment_count.toLocaleString()}
                   </td>
-                  <td className="px-3 py-3 text-right font-medium">
+                  <td className="px-5 py-4 text-right font-bold text-slate-900">
                     {u.total_payment.toLocaleString()}원
                   </td>
                 </tr>
@@ -127,23 +129,23 @@ export default function AdminUsersPage() {
       ) : null}
 
       {totalPages > 1 ? (
-        <div className="flex items-center justify-end gap-2 text-sm">
+        <div className="flex items-center justify-end gap-3 text-sm">
           <button
             type="button"
             onClick={() => setPage(Math.max(1, page - 1))}
             disabled={page <= 1}
-            className="rounded border border-zinc-300 px-3 py-1.5 disabled:opacity-40"
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white"
           >
             이전
           </button>
-          <span className="text-zinc-600">
-            {page} / {totalPages}
+          <span className="font-medium text-slate-500">
+            {page} <span className="mx-1 font-normal text-slate-300">/</span> {totalPages}
           </span>
           <button
             type="button"
             onClick={() => setPage(Math.min(totalPages, page + 1))}
             disabled={page >= totalPages}
-            className="rounded border border-zinc-300 px-3 py-1.5 disabled:opacity-40"
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white"
           >
             다음
           </button>
@@ -172,100 +174,106 @@ function UserEnrollmentsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+        className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-[20px] bg-white shadow-2xl ring-1 ring-slate-900/5"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-baseline justify-between border-b border-zinc-200 px-6 py-4">
+        <header className="flex items-center justify-between border-b border-slate-100 px-8 py-6">
           <div>
-            <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">
+            <h2 className="font-sans text-xl font-bold tracking-tight text-slate-900">
               {user.username} 님의 수강 현황
             </h2>
-            <p className="mt-1 text-xs text-zinc-500">
-              {user.email} · 등록 {user.enrollment_count}건 · 결제{" "}
-              {user.payment_count}건 · 누적 {user.total_payment.toLocaleString()}원
+            <p className="mt-2 text-[13px] font-medium text-slate-500">
+              {user.email} · <span className="text-slate-400">등록</span> {user.enrollment_count}건 · <span className="text-slate-400">결제</span>{" "}
+              {user.payment_count}건 · <span className="text-slate-400">누적</span> {user.total_payment.toLocaleString()}원
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-sm text-zinc-500 hover:text-zinc-900"
+            className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
           >
-            닫기
+            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto bg-slate-50/50 p-8">
           {error ? (
             <p className="text-sm text-red-600">{error}</p>
           ) : rows == null ? (
-            <p className="text-sm text-zinc-500">불러오는 중...</p>
+            <p className="text-sm text-slate-500">불러오는 중...</p>
           ) : rows.length === 0 ? (
-            <p className="text-sm text-zinc-500">수강 등록한 강의가 없습니다.</p>
+            <div className="flex h-40 flex-col items-center justify-center rounded-xl border border-slate-200 border-dashed bg-white">
+              <p className="text-sm font-medium text-slate-500">수강 등록한 강의가 없습니다.</p>
+            </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {rows.map((r) => {
                 const isExpanded = expandedCourseId === r.course_id;
                 return (
                   <div
                     key={r.course_id}
-                    className="overflow-hidden rounded-lg border border-zinc-200"
+                    className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm transition-shadow hover:shadow-md"
                   >
                     <button
                       type="button"
                       onClick={() =>
                         setExpandedCourseId(isExpanded ? null : r.course_id)
                       }
-                      className="grid w-full grid-cols-[1fr_180px_60px_60px_24px] items-center gap-3 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                      className="grid w-full grid-cols-[1fr_180px_60px_60px_24px] items-center gap-4 bg-white px-5 py-4 text-left transition-colors hover:bg-slate-50/50"
                     >
                       <div>
-                        <p className="text-xs font-medium text-[var(--color-accent)]">
+                        <p className="text-[11px] font-bold text-blue-600">
                           {r.category}
                         </p>
-                        <p className="text-sm font-semibold text-slate-900">
+                        <p className="mt-0.5 text-sm font-bold text-slate-900">
                           {r.course_title}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200">
+                      <div className="flex items-center gap-3">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
                           <div
-                            className="h-full bg-[var(--color-accent)] transition-[width]"
+                            className="h-full rounded-full bg-blue-500 transition-[width]"
                             style={{ width: `${r.overall_progress_pct}%` }}
                           />
                         </div>
-                        <span className="w-10 text-right text-xs font-semibold text-[var(--color-primary)]">
+                        <span className="w-10 text-right text-[13px] font-bold text-slate-700">
                           {r.overall_progress_pct}%
                         </span>
                       </div>
                       <div className="text-center">
                         {r.is_completed ? (
-                          <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
-                            수료 ✓
+                          <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-bold tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
+                            수료
                           </span>
                         ) : (
-                          <span className="text-xs text-zinc-400">—</span>
+                          <span className="text-xs text-slate-300">—</span>
                         )}
                       </div>
                       <div className="text-center">
                         {r.quiz_passed ? (
-                          <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
-                            퀴즈 ✓
+                          <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-bold tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
+                            통과
                           </span>
                         ) : (
-                          <span className="text-xs text-zinc-400">—</span>
+                          <span className="text-xs text-slate-300">—</span>
                         )}
                       </div>
-                      <span className="text-xs text-zinc-400">
-                        {isExpanded ? "▾" : "▸"}
+                      <span className="flex items-center justify-center text-slate-400">
+                        <svg className={`h-5 w-5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
                       </span>
                     </button>
                     {isExpanded ? (
-                      <div className="border-t border-zinc-200 bg-slate-50 px-4 py-3">
+                      <div className="border-t border-slate-100 bg-slate-50/50 px-5 py-4">
                         {r.lectures.length === 0 ? (
-                          <p className="py-2 text-xs text-zinc-500">
+                          <p className="py-2 text-center text-xs text-slate-400">
                             등록된 차시가 없습니다.
                           </p>
                         ) : (
@@ -295,29 +303,29 @@ function LectureProgressItem({ lec }: { lec: AdminLectureProgressDetail }) {
   const totalSec = lec.duration_seconds % 60;
 
   return (
-    <li className="grid grid-cols-[24px_1fr_220px_70px] items-center gap-3 rounded bg-white px-3 py-2 text-xs">
-      <span className="text-zinc-400">{lec.order_index + 1}.</span>
-      <p className="truncate font-medium text-slate-700">{lec.lecture_title}</p>
-      <div className="flex items-center gap-2">
-        <div className="h-1 flex-1 overflow-hidden rounded-full bg-zinc-200">
+    <li className="grid grid-cols-[28px_1fr_220px_80px] items-center gap-4 rounded-lg bg-white px-4 py-3 text-[13px] shadow-sm ring-1 ring-slate-200/50">
+      <span className="font-medium text-slate-400">{lec.order_index + 1}.</span>
+      <p className="truncate font-semibold text-slate-700">{lec.lecture_title}</p>
+      <div className="flex items-center gap-3">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
           <div
-            className={`h-full ${
+            className={`h-full rounded-full transition-[width] ${
               lec.is_completed
-                ? "bg-emerald-500"
-                : "bg-[var(--color-accent)]"
+                ? "bg-emerald-400"
+                : "bg-blue-500"
             }`}
             style={{ width: `${lec.progress_pct}%` }}
           />
         </div>
-        <span className="w-9 text-right font-semibold text-[var(--color-primary)]">
+        <span className="w-10 text-right font-bold text-slate-600">
           {lec.progress_pct}%
         </span>
       </div>
       <div className="text-right">
         {lec.is_completed ? (
-          <span className="font-semibold text-emerald-600">완료 ✓</span>
+          <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-600/10">완료</span>
         ) : (
-          <span className="text-zinc-500">
+          <span className="text-[12px] font-medium text-slate-500">
             {watchedMin}:{String(watchedSec).padStart(2, "0")} /{" "}
             {totalMin}:{String(totalSec).padStart(2, "0")}
           </span>
@@ -338,12 +346,12 @@ function SidebarRow({
 }) {
   return (
     <div
-      className={`flex items-center justify-between rounded px-3 py-2 hover:bg-slate-50 ${
-        bold ? "font-semibold text-[var(--color-primary)]" : "text-zinc-700"
+      className={`flex items-center justify-between rounded-md px-3 py-2.5 hover:bg-slate-50 transition-colors ${
+        bold ? "font-bold text-slate-900" : "font-medium text-slate-600"
       }`}
     >
-      <span className="truncate text-xs">{label}</span>
-      <span className="ml-2 shrink-0 text-xs">{value.toLocaleString()}</span>
+      <span className="truncate text-[13px]">{label}</span>
+      <span className="ml-2 shrink-0 text-[13px]">{value.toLocaleString()}</span>
     </div>
   );
 }

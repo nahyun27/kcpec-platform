@@ -142,32 +142,32 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <div className="min-h-screen bg-zinc-100">
-      <aside className="fixed left-0 top-0 z-40 flex h-screen w-60 flex-col bg-[var(--color-primary)] text-white">
-        <div className="shrink-0 border-b border-white/10 px-6 py-5">
+    <div className="min-h-screen bg-slate-50">
+      <aside className="fixed left-0 top-0 z-40 flex h-screen w-60 flex-col bg-slate-950 text-slate-300">
+        <div className="shrink-0 border-b border-slate-800/60 px-6 py-6">
           <Logo variant="white" kind="mark" className="mb-2" />
-          <p className="font-sans text-lg font-bold">관리자 콘솔</p>
+          <p className="font-sans text-lg font-bold text-slate-100 tracking-tight">관리자 콘솔</p>
         </div>
         {/* nav 영역만 자체 스크롤 — 메뉴가 길어져도 사이드바 자체는 viewport 에 고정 */}
         <Suspense fallback={<nav className="flex-1 overflow-y-auto px-3 py-4" />}>
           <SidebarNav pathname={pathname} />
         </Suspense>
-        <div className="shrink-0 space-y-2 border-t border-white/10 px-4 py-4 text-xs">
-          {username ? <p className="text-white/70">로그인: {username}</p> : null}
+        <div className="shrink-0 space-y-3 border-t border-slate-800/60 px-4 py-5 text-xs">
+          {username ? <p className="px-2 text-slate-500 font-medium">로그인: <span className="text-slate-300">{username}</span></p> : null}
           <button
             type="button"
             onClick={() => {
               logout();
               router.push("/");
             }}
-            className="w-full rounded border border-white/20 py-1.5 text-white/80 hover:bg-white/10"
+            className="w-full rounded-md border border-slate-800 bg-slate-900/50 py-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
           >
             로그아웃
           </button>
         </div>
       </aside>
-      <main className="ml-60 min-h-screen min-w-0 overflow-x-hidden bg-white">
-        <div className="mx-auto min-w-0 max-w-6xl px-8 py-8">{children}</div>
+      <main className="ml-60 min-h-screen min-w-0 overflow-x-hidden bg-slate-50">
+        <div className="mx-auto min-w-0 max-w-[1400px] px-8 py-8">{children}</div>
       </main>
     </div>
   );
@@ -213,10 +213,10 @@ function SidebarNav({ pathname }: { pathname: string }) {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-2 rounded px-3 py-2 transition-colors ${
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200 ${
                 active
-                  ? "bg-white/10 font-semibold text-white"
-                  : "text-white/80 hover:bg-white/5 hover:text-white"
+                  ? "bg-blue-600/10 font-semibold text-blue-400 relative after:absolute after:left-0 after:top-1/2 after:-translate-y-1/2 after:h-5 after:w-1 after:rounded-r-full after:bg-blue-500"
+                  : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
               }`}
             >
               {item.icon}
@@ -236,10 +236,10 @@ function SidebarNav({ pathname }: { pathname: string }) {
               onClick={() =>
                 setOpenMap((m) => ({ ...m, [item.basePath]: !open }))
               }
-              className={`flex w-full items-center justify-between gap-2 rounded px-3 py-2 transition-colors ${
+              className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 transition-all duration-200 ${
                 groupActive
-                  ? "bg-white/10 font-semibold text-white"
-                  : "text-white/80 hover:bg-white/5 hover:text-white"
+                  ? "bg-slate-900/50 font-medium text-slate-200"
+                  : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
               }`}
             >
               <span className="inline-flex items-center gap-2">
@@ -260,10 +260,10 @@ function SidebarNav({ pathname }: { pathname: string }) {
                     <Link
                       key={c.value}
                       href={`${item.basePath}?${paramKey}=${c.value}`}
-                      className={`block py-1.5 pl-8 pr-3 text-sm transition-colors ${
+                      className={`block py-2 pl-9 pr-3 text-[13px] transition-all duration-200 relative ${
                         isActive
-                          ? "border-l-2 border-white text-white"
-                          : "border-l-2 border-transparent text-white/60 hover:text-white"
+                          ? "font-medium text-blue-400 before:absolute before:left-3.5 before:top-1/2 before:-translate-y-1/2 before:h-1.5 before:w-1.5 before:rounded-full before:bg-blue-500"
+                          : "text-slate-500 hover:text-slate-300 before:absolute before:left-[15px] before:top-1/2 before:-translate-y-1/2 before:h-1 before:w-1 before:rounded-full before:bg-slate-700 hover:before:bg-slate-500"
                       }`}
                     >
                       {c.label}
