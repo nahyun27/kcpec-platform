@@ -333,7 +333,7 @@ function CourseRowBadges({
       ) : null}
       {quiz?.exists ? (
         <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
-          퀴즈 ✓
+          퀴즈 {quiz.questions.length}문항
         </span>
       ) : null}
     </span>
@@ -377,7 +377,7 @@ function QuizButton({
       onClick={onClick}
       className="rounded bg-[var(--color-primary)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)]"
     >
-      퀴즈 수정 ({quiz.questions.length}문항)
+      퀴즈 수정
     </button>
   );
 }
