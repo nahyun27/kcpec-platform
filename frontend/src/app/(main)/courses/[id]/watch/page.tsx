@@ -16,7 +16,6 @@ import VideoPlayer, {
   type VideoPlayerTimeUpdate,
 } from "@/components/features/VideoPlayer";
 import {
-  enrollCourse,
   getCourseDetail,
   getCourseProgress,
   getStreamUrl,
@@ -46,7 +45,11 @@ export default function WatchPage({
   const [status, setStatus] = useState<EnrollmentStatus | null>(null);
   const [activeLectureId, setActiveLectureId] = useState<number | null>(null);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // 에러 원인을 분류해 사용자에게 다른 메시지 표시.
+  // - inactive: 강의가 비공개(준비 중)
+  // - not_enrolled: 결제/수강 신청 안 한 상태로 직접 접근
+  // - server: 일시적 서버/네트워크 오류
+  const [errKind, setErrKind] = useState<"inactive" | "not_enrolled" | "server" | null>(null);
 
   // 실시간 누적 시청 시간 (초). 서버 watched_seconds 로 초기화 후 timeupdate 마다 증가.
   const [liveWatched, setLiveWatched] = useState(0);
@@ -81,22 +84,41 @@ export default function WatchPage({
     let cancelled = false;
     async function init() {
       try {
-        const detail = await getCourseDetail(courseId);
+        // 1) 강의 detail. 비활성이고 권한 없으면 백엔드가 404 반환.
+        let detail: CourseDetail;
+        try {
+          detail = await getCourseDetail(courseId);
+        } catch (err) {
+          if (cancelled) return;
+          if (isAxiosError(err) && err.response?.status === 404) {
+            setErrKind("inactive");
+            return;
+          }
+          if (isAxiosError(err) && err.response?.status === 401) {
+            router.push(`/login?next=/courses/${courseId}/watch`);
+            return;
+          }
+          throw err;
+        }
         if (cancelled) return;
         setCourse(detail);
 
+        // 2) 진도 / enrollment 확인. 미수강이면 자동 enroll 하지 않고 안내 메시지 노출
+        //    (결제 우회 방지).
         let st: EnrollmentStatus;
         try {
           st = await getCourseProgress(courseId);
         } catch (err) {
-          if (isAxiosError(err) && err.response?.status === 404) {
-            st = await enrollCourse(courseId);
-          } else if (isAxiosError(err) && err.response?.status === 401) {
+          if (cancelled) return;
+          if (isAxiosError(err) && err.response?.status === 401) {
             router.push(`/login?next=/courses/${courseId}/watch`);
             return;
-          } else {
-            throw err;
           }
+          if (isAxiosError(err) && err.response?.status === 404) {
+            setErrKind("not_enrolled");
+            return;
+          }
+          throw err;
         }
         if (cancelled) return;
         setStatus(st);
@@ -108,7 +130,7 @@ export default function WatchPage({
           ) ?? detail.lectures[0];
         if (firstIncomplete) setActiveLectureId(firstIncomplete.id);
       } catch {
-        if (!cancelled) setError("강의를 불러오지 못했습니다.");
+        if (!cancelled) setErrKind("server");
       }
     }
     init();
@@ -138,7 +160,7 @@ export default function WatchPage({
         if (!cancelled) setStreamUrl(res.url);
       })
       .catch(() => {
-        if (!cancelled) setError("재생 URL을 발급받지 못했습니다.");
+        if (!cancelled) setErrKind("server");
       });
 
     return () => {
@@ -369,8 +391,8 @@ export default function WatchPage({
     savedProgressRef.current.find((p) => p.lecture_id === activeLectureId)
       ?.last_position_sec ?? 0;
 
-  if (error) {
-    return <p className="py-20 text-center text-sm text-red-600">{error}</p>;
+  if (errKind) {
+    return <WatchErrorPanel kind={errKind} courseId={courseId} />;
   }
   if (!course || !status) {
     return <p className="py-20 text-center text-sm text-zinc-500">불러오는 중...</p>;
@@ -515,6 +537,53 @@ export default function WatchPage({
             })}
           </ol>
         </aside>
+      </div>
+    </div>
+  );
+}
+
+function WatchErrorPanel({
+  kind,
+  courseId,
+}: {
+  kind: "inactive" | "not_enrolled" | "server";
+  courseId: number;
+}) {
+  const config: Record<typeof kind, { title: string; desc: string; cta?: { label: string; href: string } }> = {
+    inactive: {
+      title: "현재 준비 중인 강의입니다.",
+      desc: "강의가 일시적으로 비공개 상태입니다. 관리자가 공개 후 다시 시도해 주세요.",
+    },
+    not_enrolled: {
+      title: "수강 신청 후 이용하실 수 있습니다.",
+      desc: "결제 완료 후에 강의를 시청하실 수 있습니다.",
+      cta: { label: "강의 상세로 이동", href: `/courses/${courseId}` },
+    },
+    server: {
+      title: "일시적인 오류가 발생했습니다.",
+      desc: "잠시 후 다시 시도해 주세요. 문제가 계속되면 관리자에게 문의해 주세요.",
+    },
+  };
+  const c = config[kind];
+  return (
+    <div className="mx-auto max-w-md px-6 py-20 text-center">
+      <p className="font-sans text-xl font-bold text-[var(--color-primary)]">{c.title}</p>
+      <p className="mt-3 text-sm leading-relaxed text-zinc-600">{c.desc}</p>
+      <div className="mt-6 flex flex-col gap-2">
+        {c.cta ? (
+          <Link
+            href={c.cta.href}
+            className="rounded bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)]"
+          >
+            {c.cta.label}
+          </Link>
+        ) : null}
+        <Link
+          href="/courses"
+          className="rounded border border-zinc-300 px-5 py-2.5 text-sm text-zinc-700 hover:border-[var(--color-primary)]"
+        >
+          강의 목록으로
+        </Link>
       </div>
     </div>
   );

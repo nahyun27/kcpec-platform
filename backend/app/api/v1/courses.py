@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_current_user_optional
 from app.core.storage import issue_stream_url
 from app.models.course import Course, CourseCategory
 from app.models.enrollment import Enrollment, LectureProgress
@@ -47,6 +47,44 @@ def _get_active_course(db: Session, course_id: int) -> Course:
     if course is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="강의를 찾을 수 없습니다.")
     return course
+
+
+def _get_course_visible_to(
+    db: Session, course_id: int, viewer: User | None
+) -> Course:
+    """비활성(is_active=false) 강의도 어드민/수강자에게는 노출.
+
+    - 활성 강의: 모두 조회 가능
+    - 비활성 강의: 어드민이거나 enrollment 가 있는 사용자만 조회 가능, 그 외 404
+    """
+    course = db.scalar(
+        select(Course)
+        .where(Course.id == course_id)
+        .options(selectinload(Course.lectures))
+    )
+    if course is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="강의를 찾을 수 없습니다.")
+    if course.is_active:
+        return course
+    # inactive — 어드민 OR 수강 등록자만 허용
+    if viewer is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail="현재 준비 중인 강의입니다.",
+        )
+    if viewer.is_admin:
+        return course
+    enrolled = db.scalar(
+        select(func.count(Enrollment.id)).where(
+            Enrollment.user_id == viewer.id,
+            Enrollment.course_id == course_id,
+        )
+    )
+    if enrolled and enrolled > 0:
+        return course
+    raise HTTPException(
+        status.HTTP_404_NOT_FOUND, detail="현재 준비 중인 강의입니다."
+    )
 
 
 def _get_enrollment(db: Session, user_id: int, course_id: int) -> Enrollment | None:
@@ -153,8 +191,12 @@ def list_my_enrollments(
 
 
 @router.get("/courses/{course_id}", response_model=CourseDetail)
-def get_course(course_id: int, db: Session = Depends(get_db)) -> CourseDetail:
-    course = _get_active_course(db, course_id)
+def get_course(
+    course_id: int,
+    db: Session = Depends(get_db),
+    viewer: User | None = Depends(get_current_user_optional),
+) -> CourseDetail:
+    course = _get_course_visible_to(db, course_id, viewer)
     has_quiz = (
         db.scalar(select(func.count(Quiz.id)).where(Quiz.course_id == course_id)) or 0
     ) > 0
@@ -204,7 +246,7 @@ def get_progress(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> EnrollmentStatus:
-    course = _get_active_course(db, course_id)
+    course = _get_course_visible_to(db, course_id, current_user)
     enrollment = _get_enrollment(db, current_user.id, course_id)
     if enrollment is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="수강 등록 내역이 없습니다.")
@@ -233,7 +275,8 @@ def update_lecture_progress(
     if lecture is None or not lecture.is_active:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="강의를 찾을 수 없습니다.")
 
-    course = _get_active_course(db, lecture.course_id)
+    # 코스가 비활성으로 바뀌더라도 이미 수강 중이면 진도는 계속 갱신 가능
+    course = _get_course_visible_to(db, lecture.course_id, current_user)
     enrollment = _get_enrollment(db, current_user.id, course.id)
     if enrollment is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="수강 등록이 필요합니다.")
@@ -315,7 +358,7 @@ def get_quiz(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> QuizDetail:
-    course = _get_active_course(db, course_id)
+    course = _get_course_visible_to(db, course_id, current_user)
     if _get_enrollment(db, current_user.id, course.id) is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="수강 등록이 필요합니다.")
 
@@ -341,7 +384,7 @@ def submit_quiz(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> QuizResult:
-    course = _get_active_course(db, course_id)
+    course = _get_course_visible_to(db, course_id, current_user)
     enrollment = _get_enrollment(db, current_user.id, course.id)
     if enrollment is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="수강 등록이 필요합니다.")
