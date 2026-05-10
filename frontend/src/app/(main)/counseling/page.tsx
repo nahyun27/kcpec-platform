@@ -1,36 +1,37 @@
+import Image from "next/image";
 import Link from "next/link";
 import ApplyButton from "./ApplyButton";
 import type { CounselingType } from "@/types/counseling";
-import { Award, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 
 export const metadata = {
   title: "전문가 심리상담 | KCPEC",
   description: "전문 심리상담사가 진행하는 범죄심리·정신분석 상담 프로그램",
 };
 
-const CERTIFICATES: { file: string; title: string; issuer: string }[] = [
+const CERTIFICATES: { slug: string; title: string; issuer: string }[] = [
   {
-    file: "cognitive_counselor_1st.pdf",
+    slug: "cognitive_counselor_1st",
     title: "인지행동심리상담사 1급",
     issuer: "한국자격검정진흥원",
   },
   {
-    file: "counselor_1st.pdf",
+    slug: "counselor_1st",
     title: "심리상담사 1급",
     issuer: "한국자격검정평가진흥원",
   },
   {
-    file: "addiction_counselor.pdf",
+    slug: "addiction_counselor",
     title: "중독심리상담사",
     issuer: "한국복지상담심리협회",
   },
   {
-    file: "school_violence_counselor_1st.pdf",
+    slug: "school_violence_counselor_1st",
     title: "학교폭력예방상담사 1급",
     issuer: "한국자격검정평가진흥원",
   },
   {
-    file: "crime_counselor.pdf",
+    slug: "crime_counselor",
     title: "범죄심리상담사",
     issuer: "한국자격검정평가진흥원",
   },
@@ -142,16 +143,24 @@ export default function CounselingPage() {
           <div className="grid grid-cols-2 gap-5 lg:grid-cols-5">
             {CERTIFICATES.map((c) => (
               <a
-                key={c.file}
-                href={`/certs/${c.file}`}
+                key={c.slug}
+                href={`/certs/${c.slug}.pdf`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:border-[var(--color-primary)]/40 hover:shadow-lg cursor-pointer"
+                title={`${c.title} 원본 PDF 새 탭에서 보기`}
+                className="group overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:border-[var(--color-primary)]/40 hover:shadow-lg"
               >
-                {/* PDF 직접 임베드는 무겁고 모바일 호환 이슈가 있어 아이콘 + 안내로 대체 */}
-                <div className="flex aspect-[3/4] flex-col items-center justify-center gap-3 bg-gradient-to-br from-slate-50 to-slate-100 text-slate-400 transition-colors group-hover:from-blue-50/40 group-hover:to-slate-50">
-                  <Award size={64} color="#1C3461" strokeWidth={1.5} />
-                  <p className="text-xs text-slate-400">클릭하여 확인</p>
+                {/* 원본 PDF 를 sips 로 변환한 JPEG 정적 자산을 직접 노출.
+                    원본 PDF 가 필요한 사용자는 카드 클릭으로 새 탭에서 열람. */}
+                <div className="relative aspect-[611/845] overflow-hidden bg-slate-100">
+                  <Image
+                    src={`/certs/${c.slug}.jpg`}
+                    alt={`${c.title} 자격증`}
+                    fill
+                    sizes="(max-width: 640px) 50vw, 20vw"
+                    quality={80}
+                    className="object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                  />
                 </div>
                 <div className="space-y-1 p-4 text-center">
                   <p className="font-sans text-sm font-semibold leading-snug text-slate-900">
