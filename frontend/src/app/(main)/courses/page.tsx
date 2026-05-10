@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { getCourses } from "@/lib/api";
 import { COURSE_CATEGORIES, type CourseCategory, type CourseListItem } from "@/types/course";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -45,7 +46,25 @@ function matchesQuery(course: CourseListItem, q: string): boolean {
 }
 
 export default function CoursesListPage() {
-  const [category, setCategory] = useState<CourseCategory | null>(null);
+  return (
+    <Suspense fallback={null}>
+      <CoursesListInner />
+    </Suspense>
+  );
+}
+
+function CoursesListInner() {
+  const searchParams = useSearchParams();
+  // ?category= 가 유효한 카테고리면 초기 필터로 사용 (CurationModal → 라우팅)
+  const initialCategory = (() => {
+    const raw = searchParams.get("category");
+    if (raw && (COURSE_CATEGORIES as readonly string[]).includes(raw)) {
+      return raw as CourseCategory;
+    }
+    return null;
+  })();
+
+  const [category, setCategory] = useState<CourseCategory | null>(initialCategory);
   const [searchQuery, setSearchQuery] = useState("");
   const [courses, setCourses] = useState<CourseListItem[]>([]);
   const [loading, setLoading] = useState(true);

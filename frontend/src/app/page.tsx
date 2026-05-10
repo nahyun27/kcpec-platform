@@ -4,9 +4,10 @@ import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { getCourses } from "@/lib/api";
+import { getCourses, tokenStorage } from "@/lib/api";
 import type { CourseListItem } from "@/types/course";
 import SiteHeader from "@/components/layout/SiteHeader";
+import { CurationModal } from "@/components/CurationModal";
 import {
   ArrowRight,
   CheckCircle2,
@@ -85,14 +86,24 @@ const STEPS = [
 
 export default function HomePage() {
   const [courses, setCourses] = useState<CourseListItem[]>([]);
+  const [curationOpen, setCurationOpen] = useState(false);
 
   useEffect(() => {
     getCourses().then(setCourses).catch(() => setCourses([]));
   }, []);
 
+  // 비로그인 + 첫 방문 자동 노출. localStorage 는 모달의 markSeen 에서 기록.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (tokenStorage.getAccess()) return;
+    if (window.localStorage.getItem("curation_seen")) return;
+    setCurationOpen(true);
+  }, []);
+
   return (
     <div className="flex min-h-full flex-1 flex-col bg-[var(--color-muted)]">
       <SiteHeader />
+      <CurationBanner onOpen={() => setCurationOpen(true)} />
       <Hero />
       <TrustSection />
       <CoursesSection courses={courses} />
@@ -101,6 +112,32 @@ export default function HomePage() {
       <SamplesSection />
       <FaqSection />
       <Footer />
+      <CurationModal
+        isOpen={curationOpen}
+        onClose={() => setCurationOpen(false)}
+      />
+    </div>
+  );
+}
+
+// ---------- curation banner -----------------------------------------------
+
+function CurationBanner({ onOpen }: { onOpen: () => void }) {
+  return (
+    <div className="bg-[#1C3461] text-white">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-6 py-2.5">
+        <p className="text-sm font-medium text-white/90">
+          어떤 교육이 필요한지 모르겠다면?
+        </p>
+        <button
+          type="button"
+          onClick={onOpen}
+          className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#1C3461] shadow-sm transition-transform hover:-translate-y-0.5 hover:bg-slate-50"
+        >
+          강의 추천받기
+          <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </div>
   );
 }
