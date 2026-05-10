@@ -627,17 +627,22 @@ function ReviewTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex flex-wrap gap-2 text-sm max-w-3xl">
-          <CategoryChip active={filter === null} onClick={() => setFilter(null)}>
-            전체
-          </CategoryChip>
-          {REVIEW_CATEGORIES.map((c) => (
-            <CategoryChip key={c} active={filter === c} onClick={() => setFilter(c)}>
-              {c}
-            </CategoryChip>
-          ))}
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
+          카테고리
+          <select
+            value={filter ?? ""}
+            onChange={(e) => setFilter(e.target.value === "" ? null : e.target.value)}
+            className="min-w-[160px] rounded-full border border-zinc-200 bg-white px-4 py-2 pr-9 text-sm font-bold text-slate-700 shadow-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+          >
+            <option value="">전체</option>
+            {REVIEW_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
         <button
           type="button"
           onClick={handleWriteToggle}
@@ -673,30 +678,6 @@ function ReviewTab() {
         </ul>
       )}
     </div>
-  );
-}
-
-function CategoryChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-full px-4 py-1.5 font-bold text-xs transition-all duration-300 ${
-        active
-          ? "bg-[var(--color-accent)] text-white shadow-sm ring-1 ring-[var(--color-accent)]"
-          : "bg-white border border-zinc-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 
