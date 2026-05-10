@@ -10,12 +10,26 @@ import {
 import type { AdminSurveyDetail, AdminSurveyRow } from "@/types/admin";
 import type { CounselingStatus } from "@/types/counseling";
 
+const NO_DRAFT_TOOLTIP = "설문 제출 후 자동 생성됩니다.";
+
+// /static 은 백엔드(:8000) 가 서빙. 프론트(:3000) 에서 fetch 하려면 절대 URL 필요.
+function backendOrigin(): string {
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
+  try {
+    return new URL(apiBase).origin;
+  } catch {
+    return "http://localhost:8000";
+  }
+}
+
 export default function AdminSurveysPage() {
   const [rows, setRows] = useState<AdminSurveyRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
   const fileInputs = useRef<Record<number, HTMLInputElement | null>>({});
   const [openId, setOpenId] = useState<number | null>(null);
+  const [draftViewerUrl, setDraftViewerUrl] = useState<string | null>(null);
 
   async function load() {
     setError(null);
@@ -113,16 +127,17 @@ export default function AdminSurveysPage() {
                       >
                         응답 보기
                       </button>
-                      {r.ai_draft_url ? (
-                        <a
-                          href={r.ai_draft_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
-                        >
-                          초안 보기
-                        </a>
-                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          r.ai_draft_url && setDraftViewerUrl(r.ai_draft_url)
+                        }
+                        disabled={!r.ai_draft_url}
+                        title={r.ai_draft_url ? "Claude 초안 보기" : NO_DRAFT_TOOLTIP}
+                        className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-600"
+                      >
+                        초안 보기
+                      </button>
                       {r.status === "completed" && r.final_pdf_url ? (
                         <a
                           href={r.final_pdf_url}
@@ -171,6 +186,14 @@ export default function AdminSurveysPage() {
           surveyId={openId}
           onClose={() => setOpenId(null)}
           onUpload={(file) => handleUpload(openId, file)}
+          onOpenDraft={(url) => setDraftViewerUrl(url)}
+        />
+      ) : null}
+
+      {draftViewerUrl ? (
+        <DraftViewerModal
+          path={draftViewerUrl}
+          onClose={() => setDraftViewerUrl(null)}
         />
       ) : null}
     </div>
@@ -201,10 +224,12 @@ function SurveyDetailModal({
   surveyId,
   onClose,
   onUpload,
+  onOpenDraft,
 }: {
   surveyId: number;
   onClose: () => void;
   onUpload: (file: File) => Promise<void> | void;
+  onOpenDraft: (path: string) => void;
 }) {
   const [detail, setDetail] = useState<AdminSurveyDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -284,16 +309,17 @@ function SurveyDetailModal({
           <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 bg-slate-50/50 px-6 py-4">
             <div className="flex flex-wrap gap-2">
               {detail.ai_draft_url ? (
-                <a
-                  href={detail.ai_draft_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => onOpenDraft(detail.ai_draft_url!)}
                   className="rounded border border-zinc-300 px-3 py-1.5 text-xs text-zinc-700 hover:border-[var(--color-primary)]"
                 >
                   Claude 초안 보기
-                </a>
+                </button>
               ) : (
-                <span className="text-xs text-zinc-400">초안 생성 중...</span>
+                <span className="text-xs text-zinc-400" title={NO_DRAFT_TOOLTIP}>
+                  초안 생성 중...
+                </span>
               )}
               {detail.status === "completed" && detail.final_pdf_url ? (
                 <a
@@ -330,6 +356,118 @@ function SurveyDetailModal({
             ) : null}
           </footer>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+// ---------- draft viewer modal -------------------------------------------
+
+function DraftViewerModal({
+  path,
+  onClose,
+}: {
+  path: string;
+  onClose: () => void;
+}) {
+  const [text, setText] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const url = path.startsWith("http") ? path : `${backendOrigin()}${path}`;
+    setLoading(true);
+    setError(null);
+    fetch(url)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.text();
+      })
+      .then((body) => {
+        if (!cancelled) setText(body);
+      })
+      .catch(() => {
+        if (!cancelled) setError("초안 파일을 불러오지 못했습니다.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard 차단 환경 — 사용자가 직접 선택/복사 */
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex items-center justify-between gap-3 border-b border-zinc-200 px-6 py-4">
+          <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">
+            Claude 초안 뷰어
+          </h2>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCopy}
+              disabled={loading || !!error}
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50"
+            >
+              {copied ? "복사됨" : "복사하기"}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-sm text-zinc-500 hover:text-zinc-900"
+            >
+              닫기
+            </button>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-hidden p-4">
+          {loading ? (
+            <p className="py-10 text-center text-sm text-zinc-500">불러오는 중...</p>
+          ) : error ? (
+            <p className="py-10 text-center text-sm text-red-600">{error}</p>
+          ) : (
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              spellCheck={false}
+              className="h-full min-h-[60vh] w-full resize-none rounded-md border border-zinc-200 bg-slate-50/50 p-4 font-mono text-[13px] leading-relaxed text-slate-800 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+            />
+          )}
+        </div>
+
+        <footer className="flex items-center justify-between gap-2 border-t border-zinc-200 bg-slate-50/50 px-6 py-3">
+          <p className="text-xs text-slate-500">
+            편집 후 최종본 PDF 작성 시 이 초안을 참고하세요. 편집 내용은 저장되지 않습니다.
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded border border-zinc-300 px-3 py-1.5 text-xs text-zinc-700 hover:bg-white"
+          >
+            닫기
+          </button>
+        </footer>
       </div>
     </div>
   );
