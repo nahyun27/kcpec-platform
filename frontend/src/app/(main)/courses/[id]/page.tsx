@@ -226,7 +226,7 @@ export default function CourseDetailPage({
             <div className="relative mx-auto w-full max-w-lg lg:ml-auto lg:mr-0">
               <div className="absolute -inset-4 rounded-[2rem] bg-gradient-to-br from-[var(--color-primary)]/20 to-transparent blur-2xl"></div>
               <div className="relative overflow-hidden rounded-3xl border border-slate-200/60 bg-white shadow-2xl">
-                <CourseThumbnail category={course.category}>
+                <CourseThumbnail category={course.category} title={course.title}>
                   <div
                     className="absolute inset-0 flex items-center justify-center bg-black/20 transition-all hover:bg-black/30 group cursor-pointer"
                     onClick={handlePlayClick}

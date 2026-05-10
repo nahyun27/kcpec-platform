@@ -212,6 +212,7 @@ function CourseCard({ course, eager = false }: { course: CourseListItem; eager?:
           <CourseThumbnail
             category={course.category}
             title={course.title}
+            showTitle
             eager={eager}
           />
         </div>
