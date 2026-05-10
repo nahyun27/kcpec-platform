@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.database import get_db
 from app.core.deps import get_current_user, get_current_user_optional
 from app.core.storage import issue_stream_url
+from app.models.community import Post, PostCategory
 from app.models.course import Course, CourseCategory
 from app.models.enrollment import Enrollment, LectureProgress
 from app.models.lecture import Lecture
@@ -15,6 +16,7 @@ from app.models.user import User
 from app.schemas.course import (
     CourseDetail,
     CourseListItem,
+    CourseReviewItem,
     LectureItem,
     StreamUrlResponse,
 )
@@ -215,6 +217,45 @@ def get_course(
         ],
         has_quiz=has_quiz,
     )
+
+
+# ---------- reviews -----------------------------------------------------------
+
+
+def _mask_author(name: str | None) -> str:
+    """수강 후기 작성자명 마스킹 — 이름의 첫 글자 + ** (예: '김다람' → '김**').
+    빈 문자열/None 인 경우 '익**' 로 안전하게 폴백.
+    """
+    if not name:
+        return "익**"
+    return f"{name[0]}**"
+
+
+@router.get("/courses/{course_id}/reviews", response_model=list[CourseReviewItem])
+def list_course_reviews(
+    course_id: int, db: Session = Depends(get_db)
+) -> list[CourseReviewItem]:
+    posts = list(
+        db.scalars(
+            select(Post)
+            .where(
+                Post.category == PostCategory.REVIEW,
+                Post.course_id == course_id,
+            )
+            .order_by(Post.created_at.desc())
+            .limit(10)
+        ).all()
+    )
+    return [
+        CourseReviewItem(
+            id=p.id,
+            content=p.content,
+            created_at=p.created_at,
+            author_name=_mask_author(p.author_name),
+            rating=p.rating,
+        )
+        for p in posts
+    ]
 
 
 # ---------- enrollment + progress ---------------------------------------------

@@ -2,17 +2,35 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
-import { enrollCourse, getCourseDetail, tokenStorage } from "@/lib/api";
-import type { CourseDetail } from "@/types/course";
+import {
+  enrollCourse,
+  getCourseDetail,
+  getCourseProgress,
+  getCourseReviews,
+  tokenStorage,
+} from "@/lib/api";
+import type { CourseDetail, CourseReview } from "@/types/course";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
-import { ArrowLeft, Clock, FileText, PlayCircle, BookOpen } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpen,
+  Clock,
+  FileText,
+  MessageSquare,
+  PlayCircle,
+} from "lucide-react";
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}분 ${s.toString().padStart(2, "0")}초`;
+}
+
+function formatReviewDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}`;
 }
 
 export default function CourseDetailPage({
@@ -28,6 +46,13 @@ export default function CourseDetailPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enrolling, setEnrolling] = useState(false);
+  // null = 미확정 (로딩 또는 비로그인 판정 전)
+  const [isEnrolled, setIsEnrolled] = useState<boolean | null>(null);
+  const [reviews, setReviews] = useState<CourseReview[]>([]);
+  const [reviewsLoaded, setReviewsLoaded] = useState(false);
+  const [expandedReviews, setExpandedReviews] = useState<Set<number>>(new Set());
+  const [sidebarFlash, setSidebarFlash] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,6 +71,59 @@ export default function CourseDetailPage({
     };
   }, [courseId]);
 
+  // 후기 — 로그인 여부 무관 공개 조회.
+  useEffect(() => {
+    let cancelled = false;
+    getCourseReviews(courseId)
+      .then((data) => {
+        if (!cancelled) setReviews(data);
+      })
+      .catch(() => {
+        /* 후기 로드 실패는 전체 페이지를 막지 않음 — 빈 배열로 노출 */
+      })
+      .finally(() => {
+        if (!cancelled) setReviewsLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
+
+  // 수강 등록 여부 — 비로그인이면 false, 로그인 + 미등록(404)도 false.
+  useEffect(() => {
+    let cancelled = false;
+    if (!tokenStorage.getAccess()) {
+      setIsEnrolled(false);
+      return;
+    }
+    getCourseProgress(courseId)
+      .then(() => {
+        if (!cancelled) setIsEnrolled(true);
+      })
+      .catch(() => {
+        if (!cancelled) setIsEnrolled(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
+
+  function handlePlayClick() {
+    // 비로그인 → 로그인 페이지로 (next 으로 복귀 경로 보존)
+    if (!tokenStorage.getAccess()) {
+      router.push(`/login?next=/courses/${courseId}`);
+      return;
+    }
+    // 등록 상태 미확정이면 안전하게 사이드바 강조 (네트워크 race)
+    if (isEnrolled) {
+      router.push(`/courses/${courseId}/watch`);
+      return;
+    }
+    sidebarRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setSidebarFlash(true);
+    setTimeout(() => setSidebarFlash(false), 1500);
+  }
+
   async function handleStart() {
     if (!tokenStorage.getAccess()) {
       router.push(`/login?next=/courses/${courseId}`);
@@ -63,6 +141,15 @@ export default function CourseDetailPage({
     } finally {
       setEnrolling(false);
     }
+  }
+
+  function toggleReview(id: number) {
+    setExpandedReviews((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   if (loading) {
@@ -128,7 +215,7 @@ export default function CourseDetailPage({
               <CourseThumbnail category={course.category}>
                 <div
                   className="absolute inset-0 flex items-center justify-center bg-black/10 transition-colors hover:bg-black/20 group cursor-pointer"
-                  onClick={handleStart}
+                  onClick={handlePlayClick}
                 >
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-xl backdrop-blur-sm transition-transform group-hover:scale-110">
                     <PlayCircle className="h-8 w-8 text-[var(--color-primary)]" />
@@ -162,11 +249,89 @@ export default function CourseDetailPage({
                 ))}
               </ol>
             </section>
+
+            {/* Reviews Section */}
+            <section className="space-y-6">
+              <div className="flex items-center justify-between gap-2 border-b border-zinc-200 pb-4">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-6 w-6 text-[var(--color-primary)]" />
+                  <h2 className="font-sans text-2xl font-bold text-slate-900">
+                    수강 후기
+                  </h2>
+                  {reviewsLoaded && reviews.length > 0 ? (
+                    <span className="text-sm font-medium text-slate-500">
+                      ({reviews.length}개)
+                    </span>
+                  ) : null}
+                </div>
+                <Link
+                  href="/community?tab=review"
+                  className="text-sm font-semibold text-[var(--color-primary)] hover:underline"
+                >
+                  후기 작성하기 →
+                </Link>
+              </div>
+              {!reviewsLoaded ? (
+                <p className="rounded-2xl border border-dashed border-zinc-200 bg-white py-10 text-center text-sm text-slate-400">
+                  불러오는 중...
+                </p>
+              ) : reviews.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-zinc-300 bg-white/50 py-10 text-center text-slate-500">
+                  <MessageSquare className="mx-auto mb-3 h-8 w-8 text-zinc-300" />
+                  <p className="font-medium">아직 등록된 후기가 없습니다.</p>
+                  <p className="mt-1 text-xs text-slate-400">첫 후기를 남겨보세요.</p>
+                </div>
+              ) : (
+                <ul className="space-y-3">
+                  {reviews.map((r) => {
+                    const expanded = expandedReviews.has(r.id);
+                    return (
+                      <li
+                        key={r.id}
+                        className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+                      >
+                        <div className="mb-2 flex items-center justify-between text-sm">
+                          <span className="font-bold text-slate-800">
+                            {r.author_name}
+                          </span>
+                          <span className="text-xs font-medium text-slate-400">
+                            {formatReviewDate(r.created_at)}
+                          </span>
+                        </div>
+                        <p
+                          className={`whitespace-pre-wrap text-sm leading-relaxed text-slate-600 ${
+                            expanded ? "" : "line-clamp-3"
+                          }`}
+                        >
+                          {r.content}
+                        </p>
+                        {r.content.length > 120 ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleReview(r.id)}
+                            className="mt-2 text-xs font-semibold text-[var(--color-primary)] hover:underline"
+                          >
+                            {expanded ? "접기" : "더보기"}
+                          </button>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
           </div>
 
           {/* Sticky Sidebar (Right) */}
           <div className="lg:col-span-1">
-            <div className="sticky top-24 rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl shadow-slate-200/50">
+            <div
+              ref={sidebarRef}
+              className={`sticky top-24 rounded-3xl border bg-white p-6 shadow-xl shadow-slate-200/50 transition-all duration-500 ${
+                sidebarFlash
+                  ? "border-[var(--color-primary)] ring-4 ring-[var(--color-primary)]/30"
+                  : "border-zinc-200"
+              }`}
+            >
               <h3 className="font-sans text-lg font-bold text-slate-900 mb-6">강의 정보</h3>
               
               <div className="space-y-4 mb-8">

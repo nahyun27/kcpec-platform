@@ -38,6 +38,7 @@ class PostListItem(BaseModel):
     category: PostCategory
     author_name: str
     course_category: str | None
+    course_id: int | None = None
     rating: int = 5
     view_count: int
     created_at: datetime
@@ -63,6 +64,7 @@ class PostCreate(BaseModel):
     category: PostCategory
     author_name: str = Field(default="익명", max_length=50)
     course_category: str | None = Field(default=None, max_length=50)
+    course_id: int | None = None
     rating: int = Field(default=5, ge=1, le=5)
 
 

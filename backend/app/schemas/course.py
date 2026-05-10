@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 
 from app.models.course import CourseCategory
@@ -34,3 +36,12 @@ class CourseDetail(CourseListItem):
 class StreamUrlResponse(BaseModel):
     url: str
     expires_in: int
+
+
+class CourseReviewItem(BaseModel):
+    id: int
+    content: str
+    created_at: datetime
+    # 작성자명 마스킹된 형태 (예: "김**"). 클라이언트에 원본 노출 안 함.
+    author_name: str
+    rating: int

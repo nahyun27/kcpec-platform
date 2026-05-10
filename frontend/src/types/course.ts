@@ -67,6 +67,15 @@ export type StreamUrlResponse = {
   expires_in: number;
 };
 
+export type CourseReview = {
+  id: number;
+  content: string;
+  created_at: string;
+  // 마스킹된 작성자명 (예: "김**")
+  author_name: string;
+  rating: number;
+};
+
 export type QuizOptionItem = {
   id: number;
   option_text: string;

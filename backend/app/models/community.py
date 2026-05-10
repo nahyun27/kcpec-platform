@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -67,6 +67,13 @@ class Post(Base):
     )
     author_name: Mapped[str] = mapped_column(String(50), nullable=False, default="익명")
     course_category: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # 수강 후기 → 강의 연결 (REVIEW 카테고리에서만 사용, 그 외는 None)
+    course_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("courses.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     rating: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # 관리자 답변 (Q&A 전용 — 다른 카테고리에선 항상 None)

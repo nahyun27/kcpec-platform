@@ -159,6 +159,7 @@ def create_post(
         category=payload.category,
         author_name=author,
         course_category=payload.course_category,
+        course_id=payload.course_id if payload.category == PostCategory.REVIEW else None,
         rating=payload.rating,
     )
     db.add(post)

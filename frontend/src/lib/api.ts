@@ -7,6 +7,7 @@ import type {
   CourseCategory,
   CourseDetail,
   CourseListItem,
+  CourseReview,
   EnrollmentStatus,
   LectureProgressUpdate,
   QuizDetail,
@@ -246,6 +247,11 @@ export async function getCourses(category?: CourseCategory): Promise<CourseListI
 
 export async function getCourseDetail(courseId: number): Promise<CourseDetail> {
   const { data } = await api.get<CourseDetail>(`/courses/${courseId}`);
+  return data;
+}
+
+export async function getCourseReviews(courseId: number): Promise<CourseReview[]> {
+  const { data } = await api.get<CourseReview[]>(`/courses/${courseId}/reviews`);
   return data;
 }
 
