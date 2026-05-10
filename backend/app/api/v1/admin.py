@@ -1,5 +1,6 @@
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
+from typing import Literal
 
 from fastapi import (
     APIRouter,
@@ -11,12 +12,16 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.admin import require_admin
 from app.core.database import get_db
+from app.core.document_generator import fill_counseling_template
 from app.core.email import send_final_to_user
+from app.core.pdf import convert_office_to_pdf
 from app.models.community import Notice, Post
 from app.models.counseling import CounselingStatus, CounselingSurvey
 from app.models.course import Course
@@ -65,6 +70,7 @@ from app.schemas.order import OrderResponse
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
 FINALS_DIR = Path(__file__).resolve().parents[3] / "static" / "finals"
+EXPORTS_DIR = Path(__file__).resolve().parents[3] / "static" / "exports"
 
 
 def _now() -> datetime:
@@ -619,6 +625,70 @@ async def upload_final(
         completed_at=survey.completed_at,
         ai_draft_url=survey.ai_draft_url,
         final_pdf_url=survey.final_pdf_url,
+    )
+
+
+# ---------- 의견서 양식 자동 채우기 (DOCX/PDF 다운로드) ----------------------
+
+
+class ExportRequest(BaseModel):
+    draft_text: str = Field(min_length=1)
+    format: Literal["docx", "pdf"]
+
+
+def _safe_filename_part(s: str) -> str:
+    """Content-Disposition 값에 들어가도 안전한 ASCII filename fallback 용 정규화."""
+    return "".join(c if c.isalnum() else "_" for c in s) or "survey"
+
+
+@router.post("/surveys/{survey_id}/export")
+def export_counseling_doc(
+    survey_id: int,
+    payload: ExportRequest,
+    db: Session = Depends(get_db),
+):
+    survey = db.get(CounselingSurvey, survey_id)
+    if survey is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="설문을 찾을 수 없습니다.")
+    user = db.get(User, survey.user_id) if survey.user_id else None
+    if user is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="설문 작성자를 찾을 수 없습니다.")
+
+    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    docx_path = EXPORTS_DIR / f"counseling_{survey.id}.docx"
+
+    try:
+        fill_counseling_template(survey, user, payload.draft_text, docx_path)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"양식 채우기 실패: {e}",
+        )
+
+    name_part = _safe_filename_part(user.username)
+    date_part = datetime.now().strftime("%Y%m%d")
+
+    if payload.format == "pdf":
+        try:
+            pdf_path = convert_office_to_pdf(docx_path, EXPORTS_DIR)
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"PDF 변환 실패: {e}",
+            )
+        return FileResponse(
+            pdf_path,
+            media_type="application/pdf",
+            filename=f"심리상담_의견서_{name_part}_{date_part}.pdf",
+        )
+
+    return FileResponse(
+        docx_path,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "wordprocessingml.document"
+        ),
+        filename=f"심리상담_의견서_{name_part}_{date_part}.docx",
     )
 
 

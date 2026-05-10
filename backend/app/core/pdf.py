@@ -128,8 +128,10 @@ def _fill_template(
     prs.save(str(pptx_path))
 
 
-def _convert_to_pdf(pptx_path: Path, out_dir: Path) -> Path:
-    """soffice headless 로 PPTX → PDF 변환. 성공 시 PDF 경로 반환."""
+def convert_office_to_pdf(input_path: Path, out_dir: Path) -> Path:
+    """soffice headless 로 Office 파일(PPTX/DOCX/...) → PDF 변환.
+    성공 시 PDF 경로 반환. 실패 시 RuntimeError.
+    """
     soffice = _find_soffice()
     result = subprocess.run(
         [
@@ -139,18 +141,22 @@ def _convert_to_pdf(pptx_path: Path, out_dir: Path) -> Path:
             "pdf",
             "--outdir",
             str(out_dir),
-            str(pptx_path),
+            str(input_path),
         ],
         capture_output=True,
         timeout=SOFFICE_TIMEOUT_SEC,
     )
-    pdf_path = out_dir / f"{pptx_path.stem}.pdf"
+    pdf_path = out_dir / f"{input_path.stem}.pdf"
     if not pdf_path.exists():
         raise RuntimeError(
             f"PDF 변환 실패 (returncode={result.returncode}): "
             f"{result.stderr.decode(errors='replace')}",
         )
     return pdf_path
+
+
+# 기존 호출자(generate_certificate_pdf) 호환용 별칭.
+_convert_to_pdf = convert_office_to_pdf
 
 
 def generate_certificate_pdf(

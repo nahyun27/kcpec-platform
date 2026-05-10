@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import {
+  exportCounselingDoc,
   getAdminSurveyDetail,
   getAdminSurveys,
   uploadFinalPdf,
@@ -10,7 +11,13 @@ import {
 import type { AdminSurveyDetail, AdminSurveyRow } from "@/types/admin";
 import type { CounselingStatus } from "@/types/counseling";
 
-const NO_DRAFT_TOOLTIP = "설문 제출 후 자동 생성됩니다.";
+// 초안 부재 시 textarea 에 보일 기본 템플릿. document_generator 의
+// [상담배경]/[상담내용] 섹션 분리 패턴을 그대로 따른다.
+const DEFAULT_DRAFT_TEMPLATE = `[상담배경]
+1.
+
+[상담내용]
+1. `;
 
 // /static 은 백엔드(:8000) 가 서빙. 프론트(:3000) 에서 fetch 하려면 절대 URL 필요.
 function backendOrigin(): string {
@@ -29,7 +36,11 @@ export default function AdminSurveysPage() {
   const [uploadingId, setUploadingId] = useState<number | null>(null);
   const fileInputs = useRef<Record<number, HTMLInputElement | null>>({});
   const [openId, setOpenId] = useState<number | null>(null);
-  const [draftViewerUrl, setDraftViewerUrl] = useState<string | null>(null);
+  // surveyId 와 draftPath(없으면 null) 를 함께 보관 — modal 이 export 호출 시 surveyId 필요.
+  const [draftTarget, setDraftTarget] = useState<{
+    surveyId: number;
+    path: string | null;
+  } | null>(null);
 
   async function load() {
     setError(null);
@@ -130,11 +141,17 @@ export default function AdminSurveysPage() {
                       <button
                         type="button"
                         onClick={() =>
-                          r.ai_draft_url && setDraftViewerUrl(r.ai_draft_url)
+                          setDraftTarget({
+                            surveyId: r.id,
+                            path: r.ai_draft_url ?? null,
+                          })
                         }
-                        disabled={!r.ai_draft_url}
-                        title={r.ai_draft_url ? "Claude 초안 보기" : NO_DRAFT_TOOLTIP}
-                        className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-600"
+                        title={
+                          r.ai_draft_url
+                            ? "Claude 초안 보기"
+                            : "기본 템플릿으로 직접 작성"
+                        }
+                        className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
                       >
                         초안 보기
                       </button>
@@ -186,14 +203,17 @@ export default function AdminSurveysPage() {
           surveyId={openId}
           onClose={() => setOpenId(null)}
           onUpload={(file) => handleUpload(openId, file)}
-          onOpenDraft={(url) => setDraftViewerUrl(url)}
+          onOpenDraft={(surveyId, path) =>
+            setDraftTarget({ surveyId, path })
+          }
         />
       ) : null}
 
-      {draftViewerUrl ? (
+      {draftTarget ? (
         <DraftViewerModal
-          path={draftViewerUrl}
-          onClose={() => setDraftViewerUrl(null)}
+          surveyId={draftTarget.surveyId}
+          path={draftTarget.path}
+          onClose={() => setDraftTarget(null)}
         />
       ) : null}
     </div>
@@ -229,7 +249,7 @@ function SurveyDetailModal({
   surveyId: number;
   onClose: () => void;
   onUpload: (file: File) => Promise<void> | void;
-  onOpenDraft: (path: string) => void;
+  onOpenDraft: (surveyId: number, path: string | null) => void;
 }) {
   const [detail, setDetail] = useState<AdminSurveyDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -308,19 +328,13 @@ function SurveyDetailModal({
         {detail ? (
           <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 bg-slate-50/50 px-6 py-4">
             <div className="flex flex-wrap gap-2">
-              {detail.ai_draft_url ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenDraft(detail.ai_draft_url!)}
-                  className="rounded border border-zinc-300 px-3 py-1.5 text-xs text-zinc-700 hover:border-[var(--color-primary)]"
-                >
-                  Claude 초안 보기
-                </button>
-              ) : (
-                <span className="text-xs text-zinc-400" title={NO_DRAFT_TOOLTIP}>
-                  초안 생성 중...
-                </span>
-              )}
+              <button
+                type="button"
+                onClick={() => onOpenDraft(detail.id, detail.ai_draft_url ?? null)}
+                className="rounded border border-zinc-300 px-3 py-1.5 text-xs text-zinc-700 hover:border-[var(--color-primary)]"
+              >
+                {detail.ai_draft_url ? "Claude 초안 보기" : "직접 작성"}
+              </button>
               {detail.status === "completed" && detail.final_pdf_url ? (
                 <a
                   href={detail.final_pdf_url}
@@ -364,18 +378,26 @@ function SurveyDetailModal({
 // ---------- draft viewer modal -------------------------------------------
 
 function DraftViewerModal({
+  surveyId,
   path,
   onClose,
 }: {
-  path: string;
+  surveyId: number;
+  path: string | null;
   onClose: () => void;
 }) {
-  const [text, setText] = useState<string>("");
-  const [loading, setLoading] = useState(true);
+  const [text, setText] = useState<string>(path ? "" : DEFAULT_DRAFT_TEMPLATE);
+  const [loading, setLoading] = useState<boolean>(!!path);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState<"docx" | "pdf" | null>(null);
 
   useEffect(() => {
+    if (!path) {
+      // 초안 없음 — 기본 템플릿 prefill 상태 그대로
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     const url = path.startsWith("http") ? path : `${backendOrigin()}${path}`;
     setLoading(true);
@@ -409,6 +431,34 @@ function DraftViewerModal({
     }
   }
 
+  async function handleDownload(format: "docx" | "pdf") {
+    if (!text.trim()) {
+      alert("초안 내용이 비어있습니다.");
+      return;
+    }
+    setDownloading(format);
+    try {
+      const blob = await exportCounselingDoc(surveyId, text, format);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `심리상담_의견서_${surveyId}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      const detail = isAxiosError(err)
+        ? (err.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      alert(detail ?? `${format.toUpperCase()} 다운로드에 실패했습니다.`);
+    } finally {
+      setDownloading(null);
+    }
+  }
+
+  const busy = downloading != null;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -419,26 +469,22 @@ function DraftViewerModal({
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between gap-3 border-b border-zinc-200 px-6 py-4">
-          <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">
-            Claude 초안 뷰어
-          </h2>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleCopy}
-              disabled={loading || !!error}
-              className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50"
-            >
-              {copied ? "복사됨" : "복사하기"}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-sm text-zinc-500 hover:text-zinc-900"
-            >
-              닫기
-            </button>
+          <div>
+            <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">
+              심리상담 의견서 초안
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              아래 내용을 검토하고 수정 후 다운로드하세요.
+              {path ? null : " (Claude 초안이 없어 기본 템플릿이 표시됩니다.)"}
+            </p>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm text-zinc-500 hover:text-zinc-900"
+          >
+            닫기
+          </button>
         </header>
 
         <div className="flex-1 overflow-hidden p-4">
@@ -456,17 +502,33 @@ function DraftViewerModal({
           )}
         </div>
 
-        <footer className="flex items-center justify-between gap-2 border-t border-zinc-200 bg-slate-50/50 px-6 py-3">
-          <p className="text-xs text-slate-500">
-            편집 후 최종본 PDF 작성 시 이 초안을 참고하세요. 편집 내용은 저장되지 않습니다.
-          </p>
+        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 bg-slate-50/50 px-6 py-3">
           <button
             type="button"
-            onClick={onClose}
-            className="rounded border border-zinc-300 px-3 py-1.5 text-xs text-zinc-700 hover:bg-white"
+            onClick={handleCopy}
+            disabled={loading || !!error || busy}
+            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50"
           >
-            닫기
+            {copied ? "복사됨" : "복사하기"}
           </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleDownload("docx")}
+              disabled={loading || !!error || busy}
+              className="inline-flex min-w-[120px] items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50"
+            >
+              {downloading === "docx" ? "생성 중..." : "DOCX 다운로드"}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDownload("pdf")}
+              disabled={loading || !!error || busy}
+              className="inline-flex min-w-[120px] items-center justify-center gap-2 rounded-md bg-[var(--color-primary)] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[var(--color-primary-hover)] disabled:opacity-50"
+            >
+              {downloading === "pdf" ? "변환 중..." : "PDF 다운로드"}
+            </button>
+          </div>
         </footer>
       </div>
     </div>

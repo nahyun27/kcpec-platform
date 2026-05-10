@@ -499,6 +499,21 @@ export async function uploadFinalPdf(
   return data;
 }
 
+// 의견서 양식 자동 채우기 + DOCX/PDF 다운로드.
+// 백엔드는 FileResponse 로 바이너리 반환 — blob 으로 받아 트리거.
+export async function exportCounselingDoc(
+  surveyId: number,
+  draftText: string,
+  format: "docx" | "pdf",
+): Promise<Blob> {
+  const { data } = await api.post<Blob>(
+    `/admin/surveys/${surveyId}/export`,
+    { draft_text: draftText, format },
+    { responseType: "blob" },
+  );
+  return data;
+}
+
 export async function getCourseEnrollmentCounts(): Promise<CourseEnrollmentCount[]> {
   const { data } = await api.get<CourseEnrollmentCount[]>(
     "/admin/courses/enrollment-counts",
