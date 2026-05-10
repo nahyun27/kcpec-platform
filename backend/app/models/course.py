@@ -8,17 +8,18 @@ from app.core.database import Base
 
 
 class CourseCategory(str, enum.Enum):
-    LAW_COMPLIANCE = "준법"
-    DRUNK_DRIVING = "음주"
-    SEX_OFFENSE = "성범죄"
-    PROSTITUTION = "성매매"
-    DIGITAL_SEX_OFFENSE = "디지털성범죄"
-    DRUG = "마약"
-    GAMBLING = "도박"
-    PHISHING = "피싱"
-    PROPERTY_CRIME = "재산범죄"
-    STALKING = "스토킹"
-    SCHOOL_VIOLENCE = "학교폭력"
+    """6개 통합 카테고리 + 심리상담.
+
+    이전 11개 카테고리(준법/음주/성범죄/성매매/디지털성범죄/마약/도박/
+    피싱/재산범죄/스토킹/학교폭력) 는 alembic 0015 에서 통합됐다.
+    """
+
+    SEX_OFFENSE = "성범죄"           # 성범죄/성매매/디지털성범죄
+    VIOLENCE = "폭력"                # 학교폭력/스토킹
+    PROPERTY_CRIME = "재산범죄"      # 재산범죄/피싱
+    DRUG_GAMBLING = "약물·도박"      # 마약/도박
+    TRAFFIC = "교통"                 # 음주
+    LAW_COMPLIANCE = "준법의식"      # 준법
     # 전문가 심리상담 프로그램(독립 구매) 도 Course 행으로 등록되며 이 카테고리를 사용.
     COUNSELING = "심리상담"
 

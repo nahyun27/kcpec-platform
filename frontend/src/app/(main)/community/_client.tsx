@@ -555,29 +555,28 @@ function PostAccordion({
 
 // ---------- 후기 (게시판 + 카테고리 필터) -------------------------------------
 
+// 통합 6개 카테고리 (alembic 0015 이후 courses.category 와 일치).
 const REVIEW_CATEGORIES: string[] = [
-  "준법", "음주운전", "성범죄", "성매매", "디지털성범죄",
-  "마약", "도박", "피싱", "재산범죄", "스토킹", "학교폭력",
+  "성범죄", "폭력", "재산범죄", "약물·도박", "교통", "준법의식",
 ];
 
+// 마이그레이션 0015 에서 review post 들의 course_category 도 같이
+// 새 카테고리로 갱신했으므로 정확 일치로 충분. 혹시 누락된 구버전
+// 데이터가 있을 경우엔 substring 폴백으로 관대하게 매칭.
 function matchesCategory(courseCategory: string | null, label: string): boolean {
   if (!courseCategory) return false;
+  if (courseCategory === label) return true;
   const norm = (s: string) => s.replace(/\s+/g, "");
   return norm(courseCategory).includes(norm(label));
 }
 
 const CATEGORY_BADGE: Record<string, string> = {
-  준법: "bg-slate-100 text-slate-700 ring-slate-500/20",
-  음주운전: "bg-rose-50 text-rose-700 ring-rose-500/20",
   성범죄: "bg-purple-50 text-purple-700 ring-purple-500/20",
-  성매매: "bg-violet-50 text-violet-700 ring-violet-500/20",
-  디지털성범죄: "bg-indigo-50 text-indigo-700 ring-indigo-500/20",
-  마약: "bg-red-50 text-red-700 ring-red-500/20",
-  도박: "bg-amber-50 text-amber-700 ring-amber-500/20",
-  피싱: "bg-sky-50 text-sky-700 ring-sky-500/20",
+  폭력: "bg-emerald-50 text-emerald-700 ring-emerald-500/20",
   재산범죄: "bg-stone-50 text-stone-700 ring-stone-500/20",
-  스토킹: "bg-fuchsia-50 text-fuchsia-700 ring-fuchsia-500/20",
-  학교폭력: "bg-emerald-50 text-emerald-700 ring-emerald-500/20",
+  "약물·도박": "bg-amber-50 text-amber-700 ring-amber-500/20",
+  교통: "bg-rose-50 text-rose-700 ring-rose-500/20",
+  준법의식: "bg-slate-100 text-slate-700 ring-slate-500/20",
 };
 
 function badgeClassFor(courseCategory: string | null): string {

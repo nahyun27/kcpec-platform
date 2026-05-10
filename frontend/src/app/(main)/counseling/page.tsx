@@ -111,67 +111,65 @@ export default function CounselingPage() {
       </section>
 
       {/* 2) Expert Intro & Qualifications (Merged) */}
-      <section className="relative overflow-hidden bg-slate-50 py-20 sm:py-32">
+      <section className="relative overflow-hidden bg-white py-24 sm:py-32">
         <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="overflow-hidden rounded-[2rem] border border-slate-200/60 bg-white shadow-xl shadow-slate-200/50 sm:rounded-[3rem]">
-            <div className="grid grid-cols-1 lg:grid-cols-2">
-              
-              {/* Text Description */}
-              <div className="flex flex-col justify-center p-8 sm:p-16">
-                <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[var(--color-primary)] ring-1 ring-inset ring-blue-500/20">
-                  <ShieldCheck className="h-4 w-4" />
-                  Certified Experts
-                </div>
-                <h2 className="font-sans text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-4xl">
-                  공인된 1급 심리상담사의<br />
-                  <span className="text-[var(--color-primary)]">전문적이고 확실한 치유</span>
-                </h2>
-                <div className="mt-6 space-y-4 text-[15px] leading-relaxed text-slate-600 sm:text-lg sm:leading-loose">
-                  <p>
-                    단순한 면담을 넘어, 내담자가 범죄에 이르게 된 <strong className="text-slate-900">근본적인 심리적 원인을 정밀하게 진단</strong>합니다.
-                  </p>
-                  <p>
-                    KCPEC의 모든 상담은 국가 및 공인 기관에서 엄격하게 검증받은 <strong>최고 수준의 1급 전문 심리상담사</strong>가 직접 진행하며, 내담자의 완전한 자기객관화와 성공적인 사회 복귀를 돕습니다.
-                  </p>
-                </div>
+          <div className="grid grid-cols-1 gap-16 lg:grid-cols-2 lg:items-center">
+            
+            {/* Text Description */}
+            <div className="flex flex-col justify-center">
+              <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[var(--color-primary)] ring-1 ring-inset ring-blue-500/20">
+                <ShieldCheck className="h-4 w-4" />
+                Certified Experts
               </div>
-
-              {/* Certificates Grid */}
-              <div className="bg-slate-50/50 p-8 sm:p-16 border-t lg:border-t-0 lg:border-l border-slate-100">
-                <div className="flex items-center gap-2 mb-8">
-                  <Award className="h-5 w-5 text-[var(--color-accent)]" />
-                  <h3 className="text-lg font-bold text-slate-900">상담사 보유 자격 및 면허</h3>
-                </div>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
-                  {CERTIFICATES.map((c) => (
-                    <a
-                      key={c.slug}
-                      href={`/certs/${c.slug}.pdf`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={`${c.title} 원본 보기`}
-                      className="group relative flex flex-col items-center justify-center overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-[var(--color-primary)]/40 hover:shadow-md"
-                    >
-                      <div className="relative mb-3 h-20 w-16 overflow-hidden rounded shadow-sm sm:h-24 sm:w-20">
-                        <Image
-                          src={`/certs/${c.slug}.jpg`}
-                          alt={`${c.title} 자격증`}
-                          fill
-                          sizes="80px"
-                          quality={80}
-                          className="object-cover transition-transform duration-300 group-hover:scale-110"
-                        />
-                      </div>
-                      <p className="font-sans text-[13px] font-extrabold leading-tight text-slate-900 sm:text-sm">
-                        {c.title}
-                      </p>
-                      <p className="mt-1 text-[11px] font-medium text-slate-500 sm:text-xs">{c.issuer}</p>
-                    </a>
-                  ))}
-                </div>
+              <h2 className="font-sans text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
+                공인된 1급 심리상담사의<br />
+                <span className="text-[var(--color-primary)]">전문적이고 확실한 치유</span>
+              </h2>
+              <div className="mt-8 space-y-6 text-base leading-relaxed text-slate-600 sm:text-lg sm:leading-loose">
+                <p>
+                  단순한 면담을 넘어, 내담자가 범죄에 이르게 된 <strong className="text-slate-900 font-bold underline decoration-blue-200 decoration-4 underline-offset-4">근본적인 심리적 원인을 정밀하게 진단</strong>합니다.
+                </p>
+                <p>
+                  KCPEC의 모든 상담은 국가 및 공인 기관에서 엄격하게 검증받은 <strong>최고 수준의 1급 전문 심리상담사</strong>가 직접 진행하며, 내담자의 완전한 자기객관화와 성공적인 사회 복귀를 돕습니다.
+                </p>
               </div>
-
             </div>
+
+            {/* Certificates Grid */}
+            <div className="rounded-3xl bg-slate-50 p-8 sm:p-12 ring-1 ring-inset ring-slate-200/60 shadow-sm">
+              <div className="flex items-center gap-2 mb-8">
+                <Award className="h-5 w-5 text-[var(--color-accent)]" />
+                <h3 className="text-lg font-bold text-slate-900">상담사 보유 자격 및 면허</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {CERTIFICATES.map((c) => (
+                  <a
+                    key={c.slug}
+                    href={`/certs/${c.slug}.pdf`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`${c.title} 원본 보기`}
+                    className="group relative flex flex-col items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-[var(--color-primary)]/40 hover:shadow-lg"
+                  >
+                    <div className="relative mb-3 h-20 w-16 overflow-hidden rounded shadow-sm sm:h-24 sm:w-20">
+                      <Image
+                        src={`/certs/${c.slug}.jpg`}
+                        alt={`${c.title} 자격증`}
+                        fill
+                        sizes="80px"
+                        quality={80}
+                        className="object-cover transition-transform duration-300 group-hover:scale-110"
+                      />
+                    </div>
+                    <p className="font-sans text-[13px] font-extrabold leading-tight text-slate-900 sm:text-sm">
+                      {c.title}
+                    </p>
+                    <p className="mt-1 text-[11px] font-medium text-slate-500 sm:text-xs">{c.issuer}</p>
+                  </a>
+                ))}
+              </div>
+            </div>
+
           </div>
         </div>
       </section>

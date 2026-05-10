@@ -3,18 +3,17 @@
 import Image from "next/image";
 import { BookOpen } from "lucide-react";
 
+// 통합 카테고리 → 대표 썸네일 슬러그.
+// 이전 11종 슬러그(prostitution / digital_crime / phishing / gambling /
+// stalking) 도 public/thumbnails/ 에 그대로 남아 있지만 카테고리가
+// 통합되면서 더 이상 매핑되지 않는다.
 const thumbnailMap: Record<string, string> = {
-  준법: "compliance",
-  음주: "driving",
   성범죄: "sex_crime",
-  성매매: "prostitution",
-  디지털성범죄: "digital_crime",
-  마약: "drug",
-  도박: "gambling",
-  피싱: "phishing",
+  폭력: "school_violence",
   재산범죄: "property_crime",
-  스토킹: "stalking",
-  학교폭력: "school_violence",
+  "약물·도박": "drug",
+  교통: "driving",
+  준법의식: "compliance",
 };
 
 interface Props {

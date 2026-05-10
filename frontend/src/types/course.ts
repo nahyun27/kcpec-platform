@@ -1,15 +1,12 @@
+// 통합 6개 카테고리 (심리상담 제외 — counseling 페이지 별도 노출).
+// 이전 11개 카테고리는 alembic 0015 에서 6개로 통합됐다.
 export const COURSE_CATEGORIES = [
-  "준법",
-  "음주",
   "성범죄",
-  "성매매",
-  "디지털성범죄",
-  "마약",
-  "도박",
-  "피싱",
+  "폭력",
   "재산범죄",
-  "스토킹",
-  "학교폭력",
+  "약물·도박",
+  "교통",
+  "준법의식",
 ] as const;
 
 export type CourseCategory = (typeof COURSE_CATEGORIES)[number];
@@ -17,6 +14,7 @@ export type CourseCategory = (typeof COURSE_CATEGORIES)[number];
 export type CourseListItem = {
   id: number;
   title: string;
+  description: string | null;
   category: CourseCategory;
   thumbnail_url: string | null;
   price: number;
@@ -31,7 +29,6 @@ export type LectureItem = {
 };
 
 export type CourseDetail = CourseListItem & {
-  description: string | null;
   min_progress_pct: number;
   quiz_pass_score: number;
   lectures: LectureItem[];

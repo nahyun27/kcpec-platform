@@ -8,6 +8,42 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { GraduationCap, BookOpen, BadgeCheck, Search } from "lucide-react";
 
+// 강의 제목 → 검색 키워드 사전. 카테고리 통합 후에도 강의 제목은
+// 변하지 않으므로 그대로 키로 사용한다. 키워드는 모두 lowercase 비교.
+const COURSE_KEYWORDS: Record<string, string[]> = {
+  "음주운전 예방": ["음주", "음주운전", "교통", "DUI", "술", "운전", "면허취소"],
+  "성범죄 예방": ["성범죄", "성폭력", "강간", "추행", "강제"],
+  "성매매 예방": ["성매매", "원조교제", "조건만남"],
+  "디지털 성범죄 예방": ["디지털", "불법촬영", "몰카", "n번방", "딥페이크", "사이버"],
+  "마약 예방": ["마약", "필로폰", "대마", "약물", "마약류"],
+  "도박 및 도박개장 예방": ["도박", "불법도박", "카지노", "배팅", "사설"],
+  "피싱범죄 예방": [
+    "피싱", "보이스피싱", "보이스", "스미싱", "파밍", "사기전화", "전화사기",
+  ],
+  "사기횡령배임 등 재산범죄 예방": ["사기", "횡령", "배임", "재산", "편취"],
+  "스토킹범죄 예방": ["스토킹", "접근금지", "따라다님", "집착"],
+  "학교폭력 예방": ["학교폭력", "따돌림", "왕따", "집단폭행", "교내"],
+  "준법의식 강화": ["준법", "법의식", "법교육", "법준수"],
+};
+
+const MIN_QUERY_LEN = 2;
+
+function matchesQuery(course: CourseListItem, q: string): boolean {
+  if (q.length < MIN_QUERY_LEN) return true;
+  if (course.title.toLowerCase().includes(q)) return true;
+  if (course.description && course.description.toLowerCase().includes(q)) return true;
+  const keywords = COURSE_KEYWORDS[course.title];
+  if (!keywords) return false;
+  for (const kw of keywords) {
+    const k = kw.toLowerCase();
+    // 1) 키워드가 검색어를 포함  (예: q="음주" ⊂ kw="음주운전")
+    if (k.includes(q)) return true;
+    // 2) 검색어가 키워드의 앞 2글자를 포함 (예: q="보이스피싱" ⊃ kw[:2]="보이")
+    if (k.length >= 2 && q.includes(k.slice(0, 2))) return true;
+  }
+  return false;
+}
+
 export default function CoursesListPage() {
   const [category, setCategory] = useState<CourseCategory | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -41,10 +77,13 @@ export default function CoursesListPage() {
     const q = trimmedQuery.toLowerCase();
     return courses.filter((c) => {
       if (category && c.category !== category) return false;
-      if (q && !c.title.toLowerCase().includes(q)) return false;
+      if (!matchesQuery(c, q)) return false;
       return true;
     });
   }, [courses, category, trimmedQuery]);
+
+  // 2글자 미만이면 빈 결과여도 검색어로 표시하지 않음 (안내 없이 전체 표시)
+  const isQueryActive = trimmedQuery.length >= MIN_QUERY_LEN;
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-24">
@@ -103,19 +142,19 @@ export default function CoursesListPage() {
         ) : filteredCourses.length === 0 ? (
           <div className="flex min-h-[400px] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white shadow-sm">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-50">
-              {trimmedQuery ? (
+              {isQueryActive ? (
                 <Search className="h-8 w-8 text-slate-300" />
               ) : (
                 <GraduationCap className="h-8 w-8 text-slate-300" />
               )}
             </div>
-            {trimmedQuery ? (
+            {isQueryActive ? (
               <>
                 <p className="text-xl font-bold text-slate-900">
-                  &lsquo;{trimmedQuery}&rsquo;에 대한 검색 결과가 없습니다.
+                  &lsquo;{trimmedQuery}&rsquo;에 대한 결과가 없습니다.
                 </p>
                 <p className="mt-2 text-[15px] font-medium text-slate-500">
-                  다른 검색어를 입력하거나 카테고리를 변경해보세요.
+                  다른 키워드로 검색해보세요.
                 </p>
               </>
             ) : (

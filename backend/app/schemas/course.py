@@ -17,6 +17,7 @@ class LectureItem(BaseModel):
 class CourseListItem(BaseModel):
     id: int
     title: str
+    description: str | None = None
     category: CourseCategory
     thumbnail_url: str | None
     price: int
@@ -26,7 +27,6 @@ class CourseListItem(BaseModel):
 
 
 class CourseDetail(CourseListItem):
-    description: str | None
     min_progress_pct: int
     quiz_pass_score: int
     lectures: list[LectureItem]
