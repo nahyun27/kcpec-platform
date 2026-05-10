@@ -51,8 +51,8 @@ export default function AdminCoursesPage() {
   >({});
   const [quizByCourse, setQuizByCourse] = useState<Record<number, AdminQuizRead>>({});
 
-  async function load() {
-    setError(null);
+  async function load(isInitial = false) {
+    if (!isInitial) setError(null);
     try {
       const courseList = await getAdminCourses();
       setCourses(courseList);
@@ -88,7 +88,7 @@ export default function AdminCoursesPage() {
   }
 
   useEffect(() => {
-    load();
+    void load(true);
   }, []);
 
   function toggleOpen(courseId: number) {
@@ -401,15 +401,17 @@ function LectureList({
   onAddClick: () => void;
 }) {
   // 로컬 미러 — 드래그 동안 즉시 시각 반영. props 가 갱신되면 동기화.
+  const [prevLectures, setPrevLectures] = useState(lectures);
   const [items, setItems] = useState<AdminLectureFull[]>(lectures ?? []);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
   // duration 자동 감지 시도 완료된 lecture id 캐시 (재시도 방지)
   const probedRef = useRef<Set<number>>(new Set());
 
-  useEffect(() => {
+  if (lectures !== prevLectures) {
+    setPrevLectures(lectures);
     setItems(lectures ?? []);
-  }, [lectures]);
+  }
 
   // duration_seconds 가 0 인 영상에 대해 1회만 자동 감지 PATCH.
   useEffect(() => {
@@ -781,12 +783,11 @@ function NewCourseModal({
             className={inputCls}
           />
         </Field>
-        <Field label="강의 설명">
+        <Field label="설명">
           <textarea
             rows={4}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="강의 소개 및 학습 목표를 입력하세요"
             className={`${inputCls} resize-y`}
           />
         </Field>
