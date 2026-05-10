@@ -310,6 +310,19 @@ function NoticeAccordion({
   );
 }
 
+// 공지사항/Q&A/칼럼 공용 — 표 헤더 (md+ 에서만 노출, 모바일은 카드형 row 가 처리)
+function PostTableHeader() {
+  return (
+    <div className="hidden bg-slate-50 px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200 md:grid md:grid-cols-[60px_1fr_100px_80px_40px] md:gap-4 items-center">
+      <span className="text-center">번호</span>
+      <span>제목</span>
+      <span className="text-center">날짜</span>
+      <span className="text-center">조회수</span>
+      <span></span>
+    </div>
+  );
+}
+
 // ---------- Q&A --------------------------------------------------------------
 
 function QnaTab() {
@@ -390,6 +403,7 @@ function QnaTab() {
         <EmptyMessage text="등록된 질문이 없습니다. 첫 번째 질문을 남겨보세요!" icon={<MessageSquare className="h-10 w-10 text-slate-300" />} />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <PostTableHeader />
           <ul className="divide-y divide-zinc-100">
             {items.map((p) => (
               <PostAccordion
@@ -428,6 +442,7 @@ function ColumnTab() {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <PostTableHeader />
       <ul className="divide-y divide-zinc-100">
         {items.map((p) => (
           <PostAccordion
