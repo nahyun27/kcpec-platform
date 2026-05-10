@@ -25,6 +25,7 @@ import type {
   CounselingPurchaseResponse,
   CounselingType,
   EnrollmentWithProgress,
+  SurveyDetail,
   SurveyResponse,
   SurveyStatusResponse,
 } from "@/types/counseling";
@@ -367,6 +368,22 @@ export async function getSurveyStatus(
   // 백엔드는 설문 미제출 시 200 + null 반환 (404 아님).
   const { data } = await api.get<SurveyStatusResponse | null>(
     `/orders/${orderId}/survey`,
+  );
+  return data;
+}
+
+export async function getMySurvey(surveyId: number): Promise<SurveyDetail> {
+  const { data } = await api.get<SurveyDetail>(`/counseling/surveys/${surveyId}`);
+  return data;
+}
+
+export async function updateMySurvey(
+  surveyId: number,
+  responses: Record<string, string>,
+): Promise<SurveyDetail> {
+  const { data } = await api.put<SurveyDetail>(
+    `/counseling/surveys/${surveyId}`,
+    { responses },
   );
   return data;
 }

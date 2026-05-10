@@ -20,10 +20,21 @@ export type SurveyResponse = {
 };
 
 export type SurveyStatusResponse = {
+  id: number;
   status: CounselingStatus;
   submitted_at: string;
   draft_sent_at: string | null;
   completed_at: string | null;
+  final_pdf_url: string | null;
+};
+
+export type SurveyDetail = {
+  id: number;
+  order_id: number;
+  status: CounselingStatus;
+  responses: Record<string, string>;
+  submitted_at: string;
+  ai_draft_url: string | null;
   final_pdf_url: string | null;
 };
 
@@ -64,6 +75,7 @@ export type CounselingOrderItem = {
   payment_method: "card" | "kakaopay" | "naverpay" | "bank_transfer";
   created_at: string;
   paid_at: string | null;
+  survey_id: number | null;
   survey_status: CounselingStatus | null;
   final_pdf_url: string | null;
 };

@@ -4,7 +4,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
-import { submitSurvey, tokenStorage } from "@/lib/api";
+import {
+  getMySurvey,
+  submitSurvey,
+  tokenStorage,
+  updateMySurvey,
+} from "@/lib/api";
 import { FileText } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 
@@ -79,30 +84,62 @@ const QUESTIONS: Question[] = [
 export default function SurveyClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // 패키지 주문(order_id) 또는 심리상담 독립 주문(counseling_order_id) 둘 다 허용.
+  // 신규 작성: ?order_id= 또는 ?counseling_order_id=
+  // 수정: ?edit={survey_id} (기존 응답 prefill + PUT)
+  const editParam = searchParams.get("edit");
+  const editSurveyId = editParam ? Number(editParam) : null;
+  const isEditMode = editSurveyId != null && Number.isFinite(editSurveyId);
+
   const orderIdParam =
     searchParams.get("order_id") ?? searchParams.get("counseling_order_id");
   const orderId = orderIdParam ? Number(orderIdParam) : NaN;
   const isCounseling = searchParams.get("counseling_order_id") != null;
 
   const [answers, setAnswers] = useState<string[]>(() => QUESTIONS.map(() => ""));
+  const [loadingPrefill, setLoadingPrefill] = useState(isEditMode);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 비로그인 → 로그인 페이지로 (edit 모드는 edit 쿼리 보존)
   useEffect(() => {
+    if (tokenStorage.getAccess()) return;
+    let next = "/survey";
+    if (isEditMode) next = `/survey?edit=${editSurveyId}`;
+    else if (isCounseling) next = `/survey?counseling_order_id=${orderId}`;
+    else if (Number.isFinite(orderId)) next = `/survey?order_id=${orderId}`;
+    router.replace(`/login?next=${encodeURIComponent(next)}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 신규 모드 진입 가드
+  useEffect(() => {
+    if (isEditMode) return;
     if (!Number.isFinite(orderId)) {
       setError("잘못된 접근입니다. (order_id 누락)");
-      return;
     }
-    if (!tokenStorage.getAccess()) {
-      const next = isCounseling
-        ? `/survey?counseling_order_id=${orderId}`
-        : `/survey?order_id=${orderId}`;
-      router.replace(`/login?next=${encodeURIComponent(next)}`);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderId]);
+  }, [isEditMode, orderId]);
+
+  // 수정 모드: 기존 응답 prefill
+  useEffect(() => {
+    if (!isEditMode || !tokenStorage.getAccess()) return;
+    let cancelled = false;
+    getMySurvey(editSurveyId!)
+      .then((d) => {
+        if (cancelled) return;
+        const next = QUESTIONS.map((q) => d.responses[q.key] ?? "");
+        setAnswers(next);
+      })
+      .catch(() => {
+        if (!cancelled) setError("기존 설문을 불러오지 못했습니다.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPrefill(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditMode, editSurveyId]);
 
   function update(idx: number, value: string) {
     setAnswers((prev) => {
@@ -131,13 +168,20 @@ export default function SurveyClient() {
           responses[q.key] = v;
         }
       });
-      await submitSurvey(orderId, responses);
+      if (isEditMode) {
+        await updateMySurvey(editSurveyId!, responses);
+      } else {
+        await submitSurvey(orderId, responses);
+      }
       setSubmitted(true);
     } catch (err) {
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
         : null;
-      setError(detail ?? "설문 제출에 실패했습니다.");
+      setError(
+        detail ??
+          (isEditMode ? "설문 수정에 실패했습니다." : "설문 제출에 실패했습니다."),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -162,10 +206,12 @@ export default function SurveyClient() {
       <div className="mx-auto max-w-xl px-4 py-16">
         <div className="rounded-lg border border-[var(--color-border)] bg-white p-8 text-center shadow-sm">
           <p className="font-sans text-2xl font-bold text-[var(--color-primary)]">
-            설문이 제출되었습니다
+            {isEditMode ? "설문이 수정되었습니다" : "설문이 제출되었습니다"}
           </p>
           <p className="mt-3 text-sm text-zinc-700">
-            전문 상담사가 검토 후 24시간 이내에 이메일로 의견서를 전달드립니다.
+            {isEditMode
+              ? "수정된 응답으로 의견서 초안을 다시 생성합니다. 결과는 검토 후 이메일로 전달드립니다."
+              : "전문 상담사가 검토 후 24시간 이내에 이메일로 의견서를 전달드립니다."}
           </p>
           <p className="mt-2 text-xs text-zinc-500">
             진행 상황은 마이페이지에서 확인하실 수 있습니다.
@@ -183,6 +229,14 @@ export default function SurveyClient() {
     );
   }
 
+  if (loadingPrefill) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-24 text-center text-sm text-zinc-500">
+        기존 응답을 불러오는 중입니다...
+      </div>
+    );
+  }
+
   const total = QUESTIONS.length;
   const answeredCount = QUESTIONS.reduce(
     (acc, q, i) => (q.required && answers[i].trim() ? acc + 1 : acc),
@@ -194,10 +248,14 @@ export default function SurveyClient() {
   return (
     <div className="mx-auto max-w-2xl space-y-8 px-4 py-16">
       <PageHeader
-        title="심리상담 설문"
-        subtitle="Counseling Survey"
+        title={isEditMode ? "심리상담 설문 수정" : "심리상담 설문"}
+        subtitle={isEditMode ? "Edit Survey" : "Counseling Survey"}
         icon={<FileText className="h-3.5 w-3.5" />}
-        description="전문 심리상담사가 분석할 수 있도록 가능한 한 구체적이고 솔직하게 답변해 주세요."
+        description={
+          isEditMode
+            ? "수정 후 제출하면 의견서 초안이 다시 생성됩니다."
+            : "전문 심리상담사가 분석할 수 있도록 가능한 한 구체적이고 솔직하게 답변해 주세요."
+        }
         centered
       />
 
@@ -275,10 +333,14 @@ export default function SurveyClient() {
           className="w-full rounded-xl bg-[var(--color-primary)] py-4 text-base font-semibold text-white shadow-md shadow-[var(--color-primary)]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-lg hover:shadow-[var(--color-primary)]/30 disabled:translate-y-0 disabled:opacity-60 disabled:hover:translate-y-0"
         >
           {submitting
-            ? "제출 중..."
+            ? isEditMode
+              ? "수정 중..."
+              : "제출 중..."
             : missing
               ? `필수 ${requiredCount - answeredCount}문항이 남았습니다`
-              : "제출하기"}
+              : isEditMode
+                ? "수정 완료"
+                : "제출하기"}
         </button>
       </div>
     </div>

@@ -21,6 +21,7 @@ class SurveyResponse(BaseModel):
 
 
 class SurveyStatusResponse(BaseModel):
+    id: int
     status: CounselingStatus
     submitted_at: datetime
     draft_sent_at: datetime | None
@@ -28,3 +29,21 @@ class SurveyStatusResponse(BaseModel):
     final_pdf_url: str | None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SurveyDetailResponse(BaseModel):
+    """본인 설문 상세 — 응답 본문 포함."""
+
+    id: int
+    order_id: int
+    status: CounselingStatus
+    responses: dict[str, str]
+    submitted_at: datetime
+    ai_draft_url: str | None
+    final_pdf_url: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SurveyUpdate(BaseModel):
+    responses: dict[str, str] = Field(min_length=1)

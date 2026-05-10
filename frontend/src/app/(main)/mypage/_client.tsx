@@ -10,6 +10,7 @@ import {
   getMyCounselingOrders,
   getMyEnrollments,
   getMyOrders,
+  getMySurvey,
   getOrderDocuments,
   getSurveyStatus,
   tokenStorage,
@@ -20,6 +21,7 @@ import type {
   CounselingOrderItem,
   CounselingStatus,
   EnrollmentWithProgress,
+  SurveyDetail,
   SurveyStatusResponse,
 } from "@/types/counseling";
 import {
@@ -48,6 +50,7 @@ export default function MyPageClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [answersSurveyId, setAnswersSurveyId] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -160,7 +163,11 @@ export default function MyPageClient() {
             ) : (
               <ul className="space-y-4">
                 {orders.map((o) => (
-                  <OrderRow key={o.id} order={o} />
+                  <OrderRow
+                    key={o.id}
+                    order={o}
+                    onViewAnswers={(id) => setAnswersSurveyId(id)}
+                  />
                 ))}
               </ul>
             )}
@@ -178,7 +185,11 @@ export default function MyPageClient() {
             ) : (
               <ul className="space-y-4">
                 {counselingOrders.map((co) => (
-                  <CounselingOrderCard key={co.order_id} order={co} />
+                  <CounselingOrderCard
+                    key={co.order_id}
+                    order={co}
+                    onViewAnswers={(id) => setAnswersSurveyId(id)}
+                  />
                 ))}
               </ul>
             )}
@@ -250,6 +261,12 @@ export default function MyPageClient() {
             setEditOpen(false);
             setToast("정보가 수정되었습니다");
           }}
+        />
+      ) : null}
+      {answersSurveyId != null ? (
+        <SurveyAnswersModal
+          surveyId={answersSurveyId}
+          onClose={() => setAnswersSurveyId(null)}
         />
       ) : null}
       {toast ? (
@@ -384,7 +401,13 @@ function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
   );
 }
 
-function OrderRow({ order }: { order: OrderWithExtras }) {
+function OrderRow({
+  order,
+  onViewAnswers,
+}: {
+  order: OrderWithExtras;
+  onViewAnswers: (surveyId: number) => void;
+}) {
   const isPaid = order.status === "paid";
   
   return (
@@ -451,7 +474,7 @@ function OrderRow({ order }: { order: OrderWithExtras }) {
 
             {/* Counseling */}
             <div className="mt-2">
-              <CounselingRow order={order} />
+              <CounselingRow order={order} onViewAnswers={onViewAnswers} />
             </div>
           </div>
         </div>
@@ -460,7 +483,13 @@ function OrderRow({ order }: { order: OrderWithExtras }) {
   );
 }
 
-function CounselingRow({ order }: { order: OrderWithExtras }) {
+function CounselingRow({
+  order,
+  onViewAnswers,
+}: {
+  order: OrderWithExtras;
+  onViewAnswers: (surveyId: number) => void;
+}) {
   const survey = order.survey;
   if (!survey) {
     return (
@@ -475,22 +504,44 @@ function CounselingRow({ order }: { order: OrderWithExtras }) {
       </div>
     );
   }
+  // 최종 발급 전이면 수정 가능 (spec: submitted / sent_to_staff)
+  const editable =
+    survey.status === "submitted" || survey.status === "sent_to_staff";
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/30 p-3">
+    <div className="flex flex-col gap-3 rounded-xl border border-blue-100 bg-blue-50/30 p-3 sm:flex-row sm:items-center sm:justify-between">
       <span className="text-sm font-medium text-slate-700">
-        심리상담 의견서 <span className="mx-2 text-slate-300">|</span> 
-        <strong className="text-[var(--color-accent)]">{COUNSELING_STATUS_LABEL[survey.status as CounselingStatus]}</strong>
+        심리상담 의견서 <span className="mx-2 text-slate-300">|</span>
+        <strong className="text-[var(--color-accent)]">
+          {COUNSELING_STATUS_LABEL[survey.status as CounselingStatus]}
+        </strong>
       </span>
-      {survey.status === "completed" && survey.final_pdf_url && (
-        <a
-          href={survey.final_pdf_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-[var(--color-accent-hover)] transition-colors"
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => onViewAnswers(survey.id)}
+          className="inline-flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
         >
-          <Download className="h-3.5 w-3.5" /> PDF 다운로드
-        </a>
-      )}
+          답변 보기
+        </button>
+        {editable ? (
+          <Link
+            href={`/survey?edit=${survey.id}`}
+            className="inline-flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+          >
+            수정하기
+          </Link>
+        ) : null}
+        {survey.status === "completed" && survey.final_pdf_url && (
+          <a
+            href={survey.final_pdf_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[var(--color-accent-hover)]"
+          >
+            <Download className="h-3.5 w-3.5" /> PDF 다운로드
+          </a>
+        )}
+      </div>
     </div>
   );
 }
@@ -510,11 +561,20 @@ function OrderStatusBadge({ status }: { status: OrderResponse["status"] }) {
   );
 }
 
-function CounselingOrderCard({ order }: { order: CounselingOrderItem }) {
+function CounselingOrderCard({
+  order,
+  onViewAnswers,
+}: {
+  order: CounselingOrderItem;
+  onViewAnswers: (surveyId: number) => void;
+}) {
   const programLabel = COUNSELING_PROGRAM_LABEL[order.counseling_type];
   const isPaid = order.status === "paid";
   const isCompleted = order.survey_status === "completed";
   const surveySubmitted = order.survey_status != null;
+  const editable =
+    order.survey_status === "submitted" ||
+    order.survey_status === "sent_to_staff";
 
   return (
     <li className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
@@ -561,19 +621,40 @@ function CounselingOrderCard({ order }: { order: CounselingOrderItem }) {
               결제 완료 후 설문 작성이 가능합니다.
             </span>
           )
-        ) : isCompleted && order.final_pdf_url ? (
-          <a
-            href={order.final_pdf_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-accent-hover)]"
-          >
-            의견서 다운로드
-          </a>
         ) : (
-          <span className="rounded bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
-            검토 중
-          </span>
+          <>
+            {order.survey_id != null ? (
+              <button
+                type="button"
+                onClick={() => onViewAnswers(order.survey_id!)}
+                className="rounded border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+              >
+                답변 보기
+              </button>
+            ) : null}
+            {editable && order.survey_id != null ? (
+              <Link
+                href={`/survey?edit=${order.survey_id}`}
+                className="rounded border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+              >
+                수정하기
+              </Link>
+            ) : null}
+            {isCompleted && order.final_pdf_url ? (
+              <a
+                href={order.final_pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-accent-hover)]"
+              >
+                의견서 다운로드
+              </a>
+            ) : !isCompleted ? (
+              <span className="rounded bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                검토 중
+              </span>
+            ) : null}
+          </>
         )}
       </div>
     </li>
@@ -857,5 +938,107 @@ function DeactivateRow({ isSocial }: { isSocial: boolean }) {
         </div>
       ) : null}
     </>
+  );
+}
+
+// ---------- 심리상담 답변 보기 모달 ----------------------------------------
+
+const SURVEY_QUESTION_LABELS: Record<string, string> = {
+  인적사항: "인적사항",
+  사건내용: "이 사건의 내용",
+  후회되는점: "이 사건에서 가장 후회되는 점",
+  걱정되는점: "이 사건으로 인해 가장 걱정되는 점",
+  재범방지노력: "추후 재범하지 않기 위해 스스로 노력해야 하는 점",
+  하고싶은말: "더 하고 싶은 말 (선택사항)",
+};
+
+const SURVEY_KEY_ORDER = [
+  "인적사항",
+  "사건내용",
+  "후회되는점",
+  "걱정되는점",
+  "재범방지노력",
+  "하고싶은말",
+];
+
+function SurveyAnswersModal({
+  surveyId,
+  onClose,
+}: {
+  surveyId: number;
+  onClose: () => void;
+}) {
+  const [detail, setDetail] = useState<SurveyDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getMySurvey(surveyId)
+      .then((d) => !cancelled && setDetail(d))
+      .catch(() => !cancelled && setError("설문을 불러오지 못했습니다."));
+    return () => {
+      cancelled = true;
+    };
+  }, [surveyId]);
+
+  // 알려진 키부터 정해진 순서로, 그 외 키는 뒤에.
+  const orderedEntries: [string, string][] = (() => {
+    if (!detail) return [];
+    const known = SURVEY_KEY_ORDER.filter((k) => k in detail.responses).map(
+      (k) => [k, detail.responses[k]] as [string, string],
+    );
+    const unknown = Object.entries(detail.responses).filter(
+      ([k]) => !SURVEY_KEY_ORDER.includes(k),
+    );
+    return [...known, ...unknown];
+  })();
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex items-center justify-between border-b border-zinc-200 px-6 py-4">
+          <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">
+            심리상담 설문 응답
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm text-zinc-500 hover:text-zinc-900"
+          >
+            닫기
+          </button>
+        </header>
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {error ? (
+            <p className="text-sm text-red-600">{error}</p>
+          ) : !detail ? (
+            <p className="text-sm text-slate-500">불러오는 중...</p>
+          ) : orderedEntries.length === 0 ? (
+            <p className="text-sm text-slate-500">응답이 없습니다.</p>
+          ) : (
+            <dl className="divide-y divide-zinc-100">
+              {orderedEntries.map(([key, value]) => (
+                <div key={key} className="py-4 first:pt-0 last:pb-0">
+                  <dt className="text-sm font-medium text-slate-500">
+                    {SURVEY_QUESTION_LABELS[key] ?? key}
+                  </dt>
+                  <dd className="mt-1.5 whitespace-pre-wrap text-base leading-relaxed text-slate-800">
+                    {value || (
+                      <span className="text-zinc-400">(빈 응답)</span>
+                    )}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

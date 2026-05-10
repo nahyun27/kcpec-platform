@@ -6,16 +6,21 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.v1.counseling import _process_draft
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.models.counseling import CounselingSurvey
+from app.models.counseling import CounselingStatus, CounselingSurvey
 from app.models.course import Course, CourseCategory
 from app.models.order import Order, OrderStatus, OrderType, PaymentMethod
 from app.models.user import User
+from app.schemas.counseling import (
+    SurveyDetailResponse,
+    SurveyUpdate,
+)
 from app.schemas.counseling_purchase import (
     CounselingOrderItem,
     CounselingPurchaseRequest,
@@ -134,11 +139,74 @@ def my_counseling_orders(
                 payment_method=order.payment_method,
                 created_at=order.created_at,
                 paid_at=order.paid_at,
+                survey_id=survey.id if survey else None,
                 survey_status=survey.status if survey else None,
                 final_pdf_url=survey.final_pdf_url if survey else None,
             )
         )
     return out
+
+
+# ---------- 본인 설문 상세 / 수정 ---------------------------------------------
+
+
+def _get_my_survey(
+    db: Session, survey_id: int, user_id: int
+) -> CounselingSurvey:
+    survey = db.get(CounselingSurvey, survey_id)
+    if survey is None or survey.user_id != user_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="설문을 찾을 수 없습니다.")
+    return survey
+
+
+@router.get("/surveys/{survey_id}", response_model=SurveyDetailResponse)
+def get_my_survey(
+    survey_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> SurveyDetailResponse:
+    survey = _get_my_survey(db, survey_id, current_user.id)
+    return SurveyDetailResponse.model_validate(survey)
+
+
+@router.put("/surveys/{survey_id}", response_model=SurveyDetailResponse)
+def update_my_survey(
+    survey_id: int,
+    payload: SurveyUpdate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> SurveyDetailResponse:
+    survey = _get_my_survey(db, survey_id, current_user.id)
+    if survey.status == CounselingStatus.COMPLETED:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="최종 의견서가 발급된 설문은 수정할 수 없습니다.",
+        )
+
+    survey.responses = payload.responses
+    survey.status = CounselingStatus.SUBMITTED
+    survey.ai_draft_url = None
+    survey.draft_sent_at = None
+    db.commit()
+    db.refresh(survey)
+
+    # 재생성을 위한 background task — submit_survey 와 동일한 흐름
+    order = db.get(Order, survey.order_id)
+    course = db.get(Course, order.course_id) if order else None
+    user_info = {
+        "이름": current_user.username,
+        "이메일": current_user.email,
+        "주문번호": str(survey.order_id),
+    }
+    background_tasks.add_task(
+        _process_draft,
+        survey.id,
+        course.title if course else "(강의 정보 없음)",
+        user_info,
+    )
+
+    return SurveyDetailResponse.model_validate(survey)
 
 
 __all__ = ["router"]

@@ -33,6 +33,8 @@ class CounselingOrderItem(BaseModel):
     payment_method: PaymentMethod
     created_at: datetime
     paid_at: datetime | None
+    # 본인 설문 상세 조회 / 수정 시 사용 (제출 전이면 None).
+    survey_id: int | None
     survey_status: CounselingStatus | None
     final_pdf_url: str | None
 
