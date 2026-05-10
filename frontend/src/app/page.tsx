@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
-import Image from "next/image";
+import { Spinner } from "@/components/ui/Spinner";
 import { useEffect, useState } from "react";
 import { getCourses, tokenStorage } from "@/lib/api";
 import type { CourseListItem } from "@/types/course";
@@ -19,7 +19,6 @@ import {
   PlayCircle,
   Search,
   ShieldCheck,
-  Star,
   Users,
 } from "lucide-react";
 
@@ -246,7 +245,7 @@ function CoursesSection({ courses }: { courses: CourseListItem[] }) {
 
         {courses.length === 0 ? (
           <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white/50 p-8 text-center text-zinc-500">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-200 border-t-[var(--color-accent)]"></div>
+            <Spinner size="sm" tone="accent" />
             <p className="mt-4 font-medium">강의 정보를 불러오는 중입니다...</p>
           </div>
         ) : (

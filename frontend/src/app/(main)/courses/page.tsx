@@ -7,6 +7,7 @@ import { getCourses } from "@/lib/api";
 import { COURSE_CATEGORIES, type CourseCategory, type CourseListItem } from "@/types/course";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
+import { Spinner } from "@/components/ui/Spinner";
 import { GraduationCap, BookOpen, BadgeCheck, Search } from "lucide-react";
 
 // 강의 제목 → 검색 키워드 사전. 카테고리 통합 후에도 강의 제목은
@@ -150,7 +151,7 @@ function CoursesListInner() {
         {loading ? (
           <div className="flex min-h-[400px] items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white/50">
             <div className="flex flex-col items-center gap-4">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[var(--color-primary)]"></div>
+              <Spinner size="md" tone="primary" />
               <p className="text-[15px] font-bold text-slate-500">강의 정보를 불러오는 중입니다...</p>
             </div>
           </div>

@@ -155,9 +155,6 @@ export default function VideoPlayer({
           return;
         }
         if (instance.currentTime > maxWatched + SEEK_TOLERANCE_SEC) {
-          console.log(
-            `[건너뛰기 방지] requested=${instance.currentTime.toFixed(1)}s → snap=${maxWatched.toFixed(1)}s`,
-          );
           isProgrammaticSeek = true;
           instance.currentTime = maxWatched;
         }

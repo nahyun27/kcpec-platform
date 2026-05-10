@@ -85,7 +85,7 @@ const PROGRAMS: {
 
 export default function CounselingPage() {
   return (
-    <div className="bg-white pb-24">
+    <div className="bg-white">
       {/* 1) Hero */}
       <section className="relative overflow-hidden bg-gradient-to-b from-[#0f1d3a] via-[var(--color-primary)] to-[#2A4B8D] py-24 text-white">
         <div
@@ -175,7 +175,7 @@ export default function CounselingPage() {
       </section>
 
       {/* 3) Programs */}
-      <section className="bg-white py-20 sm:py-32">
+      <section className="bg-slate-50 py-24 sm:py-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <header className="mb-12 text-center sm:mb-16">
             <h2 className="font-sans text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">

@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import type { CourseDetail, CourseReview } from "@/types/course";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
+import { Spinner } from "@/components/ui/Spinner";
 import {
   ArrowLeft,
   BookOpen,
@@ -156,7 +157,7 @@ export default function CourseDetailPage({
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-zinc-200 border-t-[var(--color-accent)]"></div>
+          <Spinner size="md" tone="accent" />
           <p className="text-sm font-medium text-zinc-500">불러오는 중...</p>
         </div>
       </div>
@@ -302,7 +303,7 @@ export default function CourseDetailPage({
               
               {!reviewsLoaded ? (
                 <div className="flex items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/50 py-16">
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-[var(--color-primary)]"></div>
+                  <Spinner size="sm" tone="primary" />
                 </div>
               ) : reviews.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center text-slate-500 shadow-sm">
@@ -395,7 +396,7 @@ export default function CourseDetailPage({
                   </div>
                   {enrolling ? (
                     <span className="flex items-center gap-2">
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
+                      <Spinner size="xs" tone="white" />
                       등록 중...
                     </span>
                   ) : (

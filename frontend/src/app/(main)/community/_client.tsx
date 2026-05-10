@@ -10,11 +10,7 @@ import {
   getPosts,
   tokenStorage,
 } from "@/lib/api";
-import {
-  COMMUNITY_LABEL,
-  type NoticeListItem,
-  type PostListItem,
-} from "@/types/community";
+import type { NoticeListItem, PostListItem } from "@/types/community";
 import {
   ChevronDown,
   Pin,

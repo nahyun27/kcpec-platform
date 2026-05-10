@@ -181,14 +181,10 @@ export default function WatchPage({
         is_completed: false,
         ...(dur > 0 ? { duration_seconds: Math.round(dur) } : {}),
       };
-      console.log(`[PATCH 요청] lecture=${lectureId}`, payload);
       try {
         const next = await updateLectureProgress(lectureId, payload);
         setStatus(next);
         savedProgressRef.current = next.lecture_progresses;
-        console.log(
-          `[PATCH 성공] lecture=${lectureId} overall=${next.overall_progress_pct}%`,
-        );
       } catch (err) {
         const ax = isAxiosError(err) ? err : null;
         console.error(
@@ -221,14 +217,10 @@ export default function WatchPage({
         is_completed: true,
         ...(dur > 0 ? { duration_seconds: dur } : {}),
       };
-      console.log(`[PATCH 요청 / 완료] lecture=${lectureId}`, payload);
       try {
         const next = await updateLectureProgress(lectureId, payload);
         setStatus(next);
         savedProgressRef.current = next.lecture_progresses;
-        console.log(
-          `[PATCH 성공 / 완료] lecture=${lectureId} overall=${next.overall_progress_pct}%`,
-        );
       } catch (err) {
         // 실패 시 dedup 해제 — 다음 트리거에서 재시도 가능
         completedRef.current.delete(lectureId);
@@ -244,9 +236,6 @@ export default function WatchPage({
 
   const handleLoadedMetadata = useCallback(
     (duration: number) => {
-      console.log(
-        `[loadedmetadata] lecture=${activeLectureId} player.duration=${duration}`,
-      );
       if (Number.isFinite(duration) && duration > 0) {
         setPlayerDuration(duration);
       }
@@ -270,9 +259,6 @@ export default function WatchPage({
                     ),
                   }
                 : prev,
-            );
-            console.log(
-              `[duration] lecture=${lectureId} → ${actualDuration}s (admin backfill)`,
             );
           })
           .catch(() => {
@@ -330,7 +316,6 @@ export default function WatchPage({
     };
     try {
       await updateLectureProgress(activeLectureId, payload);
-      console.log(`[PATCH 강의 전환] lecture=${activeLectureId}`, payload);
     } catch (err) {
       console.warn("[PATCH 강의 전환] 실패", err);
     }
