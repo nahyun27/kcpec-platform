@@ -1,18 +1,39 @@
 import Link from "next/link";
 import ApplyButton from "./ApplyButton";
 import type { CounselingType } from "@/types/counseling";
-import { CheckCircle2 } from "lucide-react";
+import { Award, CheckCircle2 } from "lucide-react";
 
 export const metadata = {
   title: "전문가 심리상담 | KCPEC",
   description: "전문 심리상담사가 진행하는 범죄심리·정신분석 상담 프로그램",
 };
 
-const CERTIFICATES = [
-  { title: "인지행동심리상담사 1급", issuer: "한국자격검정진흥원" },
-  { title: "심리상담사 1급", issuer: "한국자격검정평가진흥원" },
-  { title: "중독심리상담사", issuer: "한국복지상담심리협회" },
-  { title: "학교폭력예방상담사 1급", issuer: "한국자격검정평가진흥원" },
+const CERTIFICATES: { file: string; title: string; issuer: string }[] = [
+  {
+    file: "cognitive_counselor_1st.pdf",
+    title: "인지행동심리상담사 1급",
+    issuer: "한국자격검정진흥원",
+  },
+  {
+    file: "counselor_1st.pdf",
+    title: "심리상담사 1급",
+    issuer: "한국자격검정평가진흥원",
+  },
+  {
+    file: "addiction_counselor.pdf",
+    title: "중독심리상담사",
+    issuer: "한국복지상담심리협회",
+  },
+  {
+    file: "school_violence_counselor_1st.pdf",
+    title: "학교폭력예방상담사 1급",
+    issuer: "한국자격검정평가진흥원",
+  },
+  {
+    file: "crime_counselor.pdf",
+    title: "범죄심리상담사",
+    issuer: "한국자격검정평가진흥원",
+  },
 ];
 
 const PROGRAMS: {
@@ -118,30 +139,27 @@ export default function CounselingPage() {
               보유 자격증
             </h2>
           </header>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-5 lg:grid-cols-5">
             {CERTIFICATES.map((c) => (
-              <div
-                key={c.title}
-                className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-transform hover:-translate-y-1"
+              <a
+                key={c.file}
+                href={`/certs/${c.file}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:border-[var(--color-primary)]/40 hover:shadow-lg cursor-pointer"
               >
-                {/* 자격증 이미지 자리 — 추후 실제 이미지로 교체 */}
-                <div className="flex aspect-[3/4] items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400">
-                  <div className="text-center">
-                    <p className="font-sans text-2xl font-bold tracking-widest text-slate-300">
-                      KCPEC
-                    </p>
-                    <p className="mt-2 text-[10px] uppercase tracking-widest text-slate-400">
-                      Certificate
-                    </p>
-                  </div>
+                {/* PDF 직접 임베드는 무겁고 모바일 호환 이슈가 있어 아이콘 + 안내로 대체 */}
+                <div className="flex aspect-[3/4] flex-col items-center justify-center gap-3 bg-gradient-to-br from-slate-50 to-slate-100 text-slate-400 transition-colors group-hover:from-blue-50/40 group-hover:to-slate-50">
+                  <Award size={64} color="#1C3461" strokeWidth={1.5} />
+                  <p className="text-xs text-slate-400">클릭하여 확인</p>
                 </div>
                 <div className="space-y-1 p-4 text-center">
-                  <p className="font-sans text-sm font-bold leading-snug text-slate-900">
+                  <p className="font-sans text-sm font-semibold leading-snug text-slate-900">
                     {c.title}
                   </p>
-                  <p className="text-xs text-slate-500">{c.issuer}</p>
+                  <p className="text-sm text-slate-500">{c.issuer}</p>
                 </div>
-              </div>
+              </a>
             ))}
           </div>
         </div>
