@@ -5,7 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.claude_client import generate_counseling_draft
+from app.core.gemini_client import generate_counseling_draft
 from app.core.database import SessionLocal, get_db
 from app.core.deps import get_current_user
 from app.core.email import send_draft_to_staff

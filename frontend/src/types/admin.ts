@@ -133,7 +133,8 @@ export type AdminSurveyRow = {
 };
 
 export type AdminSurveyDetail = AdminSurveyRow & {
-  responses: Record<string, string>;
+  // personal 같은 nested object 도 허용
+  responses: Record<string, unknown>;
   user_email: string | null;
 };
 

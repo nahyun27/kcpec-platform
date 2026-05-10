@@ -26,6 +26,10 @@ class Settings(BaseSettings):
         "국민은행 123-456-789012 (예금주: 한국범죄예방교육센터)"
     )
 
+    # 의견서 초안 생성 LLM. Gemini 우선; 미설정 시 dummy fallback.
+    GEMINI_API_KEY: str | None = None
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+    # (legacy) Anthropic 설정 — 현재 미사용. 추후 정리 예정.
     ANTHROPIC_API_KEY: str | None = None
     ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"
 

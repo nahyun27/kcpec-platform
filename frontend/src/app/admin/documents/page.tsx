@@ -223,6 +223,13 @@ export default function AdminSurveysPage() {
 // ---------- modal --------------------------------------------------------
 
 const QUESTION_LABELS: Record<string, string> = {
+  // 신형 키
+  q2: "이 사건의 내용",
+  q3: "이 사건에서 가장 후회되는 점",
+  q4: "이 사건으로 인해 가장 걱정되는 점",
+  q5: "추후 재범하지 않기 위해 스스로 노력해야 하는 점",
+  q6: "더 하고 싶은 말",
+  // 구버전 한글 키 호환
   인적사항: "인적사항",
   사건내용: "이 사건의 내용",
   후회되는점: "이 사건에서 가장 후회되는 점",
@@ -232,6 +239,13 @@ const QUESTION_LABELS: Record<string, string> = {
 };
 
 const ORDERED_KEYS = [
+  "personal",
+  "q2",
+  "q3",
+  "q4",
+  "q5",
+  "q6",
+  // 구버전 호환 — 신키 없으면 사용
   "인적사항",
   "사건내용",
   "후회되는점",
@@ -239,6 +253,62 @@ const ORDERED_KEYS = [
   "재범방지노력",
   "하고싶은말",
 ];
+
+const PERSONAL_LABELS: Record<string, string> = {
+  name: "성명",
+  gender: "성별",
+  birthdate: "생년월일",
+  age: "나이",
+  phone: "연락처",
+  job: "직업",
+  education: "학력",
+  family: "가족관계",
+  criminal_record: "전과 유무",
+  criminal_detail: "전과 내용",
+  health: "건강상태",
+  military: "병역",
+};
+
+const PERSONAL_KEY_ORDER = [
+  "name",
+  "gender",
+  "birthdate",
+  "age",
+  "phone",
+  "job",
+  "education",
+  "family",
+  "criminal_record",
+  "criminal_detail",
+  "health",
+  "military",
+];
+
+function PersonalAdminSummary({ data }: { data: Record<string, unknown> }) {
+  const known = PERSONAL_KEY_ORDER.filter(
+    (k) => data[k] != null && data[k] !== "",
+  ).map((k) => [k, data[k]] as const);
+  const extra = Object.entries(data).filter(
+    ([k, v]) =>
+      !PERSONAL_KEY_ORDER.includes(k) && v != null && v !== "",
+  );
+  const all = [...known, ...extra];
+  if (all.length === 0) {
+    return <span className="text-zinc-400">(인적사항 미입력)</span>;
+  }
+  return (
+    <dl className="grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-2">
+      {all.map(([k, v]) => (
+        <div key={k} className="flex gap-2 text-sm">
+          <dt className="w-20 shrink-0 text-slate-500">
+            {PERSONAL_LABELS[k] ?? k}
+          </dt>
+          <dd className="font-medium text-slate-800">{String(v)}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
 
 function SurveyDetailModal({
   surveyId,
@@ -261,7 +331,7 @@ function SurveyDetailModal({
       .catch(() => setError("상세 정보를 불러오지 못했습니다."));
   }, [surveyId]);
 
-  function renderResponses(responses: Record<string, string>) {
+  function renderResponses(responses: Record<string, unknown>) {
     // 알려진 키부터 정해진 순서로, 그 외 키는 뒤에 이어서.
     const known = ORDERED_KEYS.filter((k) => k in responses);
     const unknown = Object.keys(responses).filter((k) => !ORDERED_KEYS.includes(k));
@@ -269,16 +339,28 @@ function SurveyDetailModal({
     if (all.length === 0) return <p className="text-sm text-zinc-500">응답이 없습니다.</p>;
     return (
       <dl className="space-y-5">
-        {all.map((k) => (
-          <div key={k}>
-            <dt className="text-xs font-bold uppercase tracking-wider text-[var(--color-accent)]">
-              {QUESTION_LABELS[k] ?? k}
-            </dt>
-            <dd className="mt-1.5 whitespace-pre-wrap rounded-lg border border-zinc-200 bg-slate-50/50 px-4 py-3 text-sm leading-relaxed text-slate-800">
-              {responses[k] || <span className="text-zinc-400">(빈 응답)</span>}
-            </dd>
-          </div>
-        ))}
+        {all.map((k) => {
+          const value = responses[k];
+          const label = k === "personal" ? "인적사항" : QUESTION_LABELS[k] ?? k;
+          return (
+            <div key={k}>
+              <dt className="text-xs font-bold uppercase tracking-wider text-[var(--color-accent)]">
+                {label}
+              </dt>
+              <dd className="mt-1.5 rounded-lg border border-zinc-200 bg-slate-50/50 px-4 py-3 text-sm leading-relaxed text-slate-800">
+                {k === "personal" && value && typeof value === "object" ? (
+                  <PersonalAdminSummary data={value as Record<string, unknown>} />
+                ) : (
+                  <span className="whitespace-pre-wrap">
+                    {String(value || "") || (
+                      <span className="text-zinc-400">(빈 응답)</span>
+                    )}
+                  </span>
+                )}
+              </dd>
+            </div>
+          );
+        })}
       </dl>
     );
   }
