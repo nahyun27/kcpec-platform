@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { BookOpen } from "lucide-react";
 
 const thumbnailMap: Record<string, string> = {
@@ -20,6 +21,8 @@ interface Props {
   category: string;
   // 썸네일 중앙에 표시할 텍스트 (강의명) — 미지정 시 표시 안 함
   title?: string;
+  // LCP 후보 (above-the-fold 카드): true 면 즉시 로드 + fetchPriority high
+  eager?: boolean;
   // 외부에서 추가로 얹을 오버레이 (재생 버튼 등)
   children?: React.ReactNode;
 }
@@ -29,7 +32,7 @@ interface Props {
  * - thumbnailMap 에 정의된 카테고리는 /thumbnails/{slug}.png 사용
  * - 정의되지 않은 카테고리는 네이비 배경 + BookOpen 아이콘 fallback
  */
-export function CourseThumbnail({ category, title, children }: Props) {
+export function CourseThumbnail({ category, title, eager = false, children }: Props) {
   const slug = thumbnailMap[category];
 
   return (
@@ -43,16 +46,15 @@ export function CourseThumbnail({ category, title, children }: Props) {
       }}
     >
       {slug ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={`/thumbnails/${slug}.png`}
           alt={title ?? category}
-          style={{
-            objectFit: "cover",
-            width: "100%",
-            height: "100%",
-            display: "block",
-          }}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          quality={80}
+          loading={eager ? "eager" : "lazy"}
+          fetchPriority={eager ? "high" : "auto"}
+          style={{ objectFit: "cover" }}
         />
       ) : (
         <div

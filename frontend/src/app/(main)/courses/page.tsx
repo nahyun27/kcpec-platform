@@ -84,8 +84,8 @@ export default function CoursesListPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {courses.map((c) => (
-              <CourseCard key={c.id} course={c} />
+            {courses.map((c, idx) => (
+              <CourseCard key={c.id} course={c} eager={idx < 3} />
             ))}
           </div>
         )}
@@ -118,15 +118,20 @@ function CategoryTab({
   );
 }
 
-function CourseCard({ course }: { course: CourseListItem }) {
+function CourseCard({ course, eager = false }: { course: CourseListItem; eager?: boolean }) {
   return (
     <Link
       href={`/courses/${course.id}`}
+      prefetch
       className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200/60 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/10"
     >
       <div className="overflow-hidden">
         <div className="transition-transform duration-500 group-hover:scale-105">
-          <CourseThumbnail category={course.category} title={course.title} />
+          <CourseThumbnail
+            category={course.category}
+            title={course.title}
+            eager={eager}
+          />
         </div>
       </div>
 
