@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.admin import require_admin
 from app.core.config import settings
@@ -88,14 +88,45 @@ def create_order(
 def list_my_orders(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> list[Order]:
-    return list(
+) -> list[OrderResponse]:
+    orders = list(
         db.scalars(
             select(Order)
             .where(Order.user_id == current_user.id)
             .order_by(Order.created_at.desc())
         ).all()
     )
+    if not orders:
+        return []
+
+    # 한 번의 쿼리로 모든 패키지 + 패키지 문서 타입 prefetch
+    pkg_ids = {o.package_id for o in orders if o.package_id is not None}
+    pkg_doc_types: dict[int, list] = {}
+    if pkg_ids:
+        for pkg in db.scalars(
+            select(Package)
+            .where(Package.id.in_(pkg_ids))
+            .options(selectinload(Package.documents))
+        ).all():
+            pkg_doc_types[pkg.id] = [d.document_type for d in pkg.documents]
+
+    out: list[OrderResponse] = []
+    for o in orders:
+        out.append(
+            OrderResponse(
+                id=o.id,
+                course_id=o.course_id,
+                package_id=o.package_id,
+                order_type=o.order_type,
+                status=o.status,
+                amount=o.amount,
+                payment_method=o.payment_method,
+                created_at=o.created_at,
+                paid_at=o.paid_at,
+                package_document_types=pkg_doc_types.get(o.package_id or -1, []),
+            )
+        )
+    return out
 
 
 def _mark_paid(order: Order, payment_key: str | None) -> None:

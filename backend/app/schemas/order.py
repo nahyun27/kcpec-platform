@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.order import OrderStatus, OrderType, PaymentMethod
+from app.models.package import DocumentType
 
 
 class OrderCreate(BaseModel):
@@ -22,6 +23,9 @@ class OrderResponse(BaseModel):
     payment_method: PaymentMethod
     created_at: datetime
     paid_at: datetime | None
+    # 패키지에 포함된 문서 타입 — UI 분기용 (예: counseling 포함 여부).
+    # /orders/my 등 list 응답에서만 채워서 내려보내고, 그 외 단건 응답은 [] 기본값.
+    package_document_types: list[DocumentType] = []
 
     model_config = ConfigDict(from_attributes=True)
 

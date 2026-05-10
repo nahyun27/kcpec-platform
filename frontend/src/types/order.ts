@@ -46,6 +46,8 @@ export type OrderResponse = {
   payment_method: PaymentMethod;
   created_at: string;
   paid_at: string | null;
+  // 패키지에 포함된 문서 타입 — UI 분기용. /orders/my 응답에서만 채워짐.
+  package_document_types?: DocumentType[];
 };
 
 export type IssuedDocumentType = "certificate" | "guide" | "cbt";

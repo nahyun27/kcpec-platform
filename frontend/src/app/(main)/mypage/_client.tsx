@@ -490,11 +490,33 @@ function CounselingRow({
   order: OrderWithExtras;
   onViewAnswers: (surveyId: number) => void;
 }) {
+  // 패키지에 심리상담 의견서가 포함되어야 설문 작성 의미가 있음.
+  const hasCounseling = (order.package_document_types ?? []).includes(
+    "counseling",
+  );
+
+  // 패키지에 심리상담 미포함 → 별도 구매 유도 (매출 기회 + 명확한 안내)
+  if (!hasCounseling) {
+    return (
+      <div className="rounded-xl border border-dashed border-zinc-300 p-4 text-center bg-slate-50/60">
+        <p className="text-xs text-slate-500 mb-3">
+          심리상담 의견서가 필요하신가요? 별도로 신청하실 수 있습니다.
+        </p>
+        <Link
+          href="/counseling"
+          className="inline-flex items-center justify-center rounded-lg bg-white border border-zinc-300 px-4 py-2 text-xs font-bold text-slate-700 shadow-sm hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+        >
+          심리상담 의견서 추가하기
+        </Link>
+      </div>
+    );
+  }
+
   const survey = order.survey;
   if (!survey) {
     return (
       <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-center bg-slate-50">
-        <p className="text-xs text-slate-500 mb-3">심리상담 의견서(패키지 포함 시) 발급을 위해 설문이 필요합니다.</p>
+        <p className="text-xs text-slate-500 mb-3">심리상담 의견서 발급을 위해 설문이 필요합니다.</p>
         <Link
           href={`/survey?order_id=${order.id}`}
           className="inline-flex items-center justify-center rounded-lg bg-white border border-zinc-300 px-4 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"

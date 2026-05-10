@@ -319,7 +319,7 @@ export default function SurveyClient() {
           </p>
           <p className="mt-3 text-sm text-zinc-700">
             {isEditMode
-              ? "수정된 응답으로 의견서 초안을 다시 생성합니다. 결과는 검토 후 이메일로 전달드립니다."
+              ? "수정된 응답으로 검토가 다시 진행됩니다. 결과는 24시간 이내에 이메일로 전달드립니다."
               : "전문 상담사가 검토 후 24시간 이내에 이메일로 의견서를 전달드립니다."}
           </p>
           <p className="mt-2 text-xs text-zinc-500">
@@ -354,7 +354,7 @@ export default function SurveyClient() {
         icon={<FileText className="h-3.5 w-3.5" />}
         description={
           isEditMode
-            ? "수정 후 제출하면 의견서 초안이 다시 생성됩니다."
+            ? "수정 후 제출하시면 검토가 다시 진행됩니다."
             : "전문 심리상담사가 분석할 수 있도록 가능한 한 구체적이고 솔직하게 답변해 주세요."
         }
         centered
