@@ -354,7 +354,8 @@ export async function getMyEnrollments(): Promise<EnrollmentWithProgress[]> {
 
 export async function submitSurvey(
   orderId: number,
-  responses: Record<string, string>,
+  // personal 같은 nested object 허용 (구조화 인적사항)
+  responses: Record<string, unknown>,
 ): Promise<SurveyResponse> {
   const { data } = await api.post<SurveyResponse>(`/orders/${orderId}/survey`, {
     responses,
@@ -379,7 +380,7 @@ export async function getMySurvey(surveyId: number): Promise<SurveyDetail> {
 
 export async function updateMySurvey(
   surveyId: number,
-  responses: Record<string, string>,
+  responses: Record<string, unknown>,
 ): Promise<SurveyDetail> {
   const { data } = await api.put<SurveyDetail>(
     `/counseling/surveys/${surveyId}`,

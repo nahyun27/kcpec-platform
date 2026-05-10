@@ -1,22 +1,19 @@
 """심리상담 의견서 DOCX 생성기.
 
-흐름:
-1. backend/static/templates/counseling_template.docx 사본 생성
-2. 표 셀에 설문 응답 + draft_text 의 [상담배경] / [상담내용] 섹션 채우기
-3. 발급일 셀의 날짜 paragraph 갱신
-4. (호출 측에서 필요 시) convert_office_to_pdf 로 PDF 변환
+새 템플릿(9 rows × 6 cols) 기준 셀 매핑:
+  R0 C0 : 증번호 (cols 0-2 merged)
+  R3 C1 : 성명
+  R3 C3 : 성별
+  R3 C5 : 생년월일
+  R4 C1 : 상담일자 (cols 1-3 merged)
+  R4 C5 : 연락처
+  R5 C1 : 상담배경 및 상담취지 (cols 1-5 merged)
+  R6 C1 : 상담내용 및 종합소견 (cols 1-5 merged)
+  R8 C0 : 발급일 (cell 의 "년/월/일" paragraph 만 갱신)
 
-cell 좌표는 실제 템플릿 inspect 결과 기반:
-- T0 R0 C0 : 증번호
-- T0 R3 C1 : 성명
-- T0 R3 C3 : 연령 (만 N세)
-- T0 R4 C1 : 생년월일 (YY년 MM월 DD일)
-- T0 R4 C3 : 연락처
-- T0 R5 C1 : 상담내용 (= draft 의 [상담배경] 섹션)
-- T0 R6 C1 : 상담의견 (= draft 의 [상담내용] 섹션)
-- T0 R7    : 발급일 (multi-paragraph; "년/월/일" paragraph 만 갱신)
-
-폰트/크기는 첫 run 의 서식을 보존한다.
+설문 응답(survey.responses)은 두 가지 형태를 모두 받아들인다:
+  - 신형: { "personal": {name, gender, birthdate, phone, ...}, "q2"..."q6": "..." }
+  - 구형: { "인적사항": "텍스트", "사건내용": "...", ... }  (regex 폴백)
 """
 
 from __future__ import annotations
@@ -24,8 +21,9 @@ from __future__ import annotations
 import re
 import shutil
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from typing import Any
 
 from docx import Document
 from docx.table import _Cell
@@ -37,26 +35,24 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 TEMPLATE_PATH = (
     BACKEND_DIR / "static" / "templates" / "counseling_template.docx"
 )
-DRAFTS_DIR = BACKEND_DIR / "static" / "drafts"
 
 
 # ---------- 셀 텍스트 치환 ----------------------------------------------------
 
 
 def _set_cell_text(cell: _Cell, text: str) -> None:
-    """셀을 단일 paragraph + 단일 run 으로 재구성하여 text 삽입.
-    첫 paragraph 첫 run 의 서식을 보존한다. 멀티라인은 \\n 을 줄바꿈으로.
+    """셀 내용을 text 로 교체. 첫 paragraph 첫 run 의 폰트/크기를 보존하고
+    멀티라인은 paragraph 분리.
     """
     paragraphs = list(cell.paragraphs)
-    lines = text.split("\n") if text else [""]
+    lines = (text or "").split("\n") if text else [""]
 
-    # 첫 paragraph 만 살리고 나머지 paragraph 는 제거.
     first_p = paragraphs[0] if paragraphs else cell.add_paragraph()
-
-    # 기존 first run 의 폰트/크기/볼드를 보존하기 위해 일단 텍스트만 비움.
     template_run = first_p.runs[0] if first_p.runs else None
+    template_font_name = template_run.font.name if template_run else None
+    template_font_size = template_run.font.size if template_run else None
 
-    # 첫 run 의 텍스트를 첫 라인으로 교체. 나머지 run 은 텍스트 비움.
+    # 첫 run 의 텍스트만 첫 라인으로 갈아치우고 나머지 run 텍스트는 비움.
     if template_run is not None:
         template_run.text = lines[0]
         for r in first_p.runs[1:]:
@@ -64,17 +60,11 @@ def _set_cell_text(cell: _Cell, text: str) -> None:
     else:
         first_p.add_run(lines[0])
 
-    # 첫 paragraph 이후의 paragraph 제거.
+    # 첫 paragraph 외 paragraph 제거.
     for p in paragraphs[1:]:
         p._element.getparent().remove(p._element)
 
-    # 추가 라인은 새 paragraph 로 — 첫 paragraph 의 스타일/run 폰트를 모방.
-    template_font_name = (
-        template_run.font.name if template_run else None
-    )
-    template_font_size = (
-        template_run.font.size if template_run else None
-    )
+    # 추가 라인은 새 paragraph 로 (스타일/폰트 모방).
     for line in lines[1:]:
         p = cell.add_paragraph()
         run = p.add_run(line)
@@ -85,7 +75,6 @@ def _set_cell_text(cell: _Cell, text: str) -> None:
 
 
 def _set_paragraph_text(paragraph, text: str) -> None:
-    """paragraph 의 텍스트만 교체 (첫 run 서식 보존)."""
     if paragraph.runs:
         paragraph.runs[0].text = text
         for r in paragraph.runs[1:]:
@@ -94,7 +83,7 @@ def _set_paragraph_text(paragraph, text: str) -> None:
         paragraph.add_run(text)
 
 
-# ---------- 인적사항 파싱 -----------------------------------------------------
+# ---------- 인적사항 추출 -----------------------------------------------------
 
 
 _AGE_RE = re.compile(r"(\d{1,3})\s*세")
@@ -105,60 +94,83 @@ _BIRTH_RE = re.compile(
 
 
 @dataclass
-class PersonalInfo:
-    name: str
-    age: str       # "만 N세" 또는 ""
-    birth: str     # "YY년 MM월 DD일" 또는 ""
-    phone: str     # "010-1234-5678" 형태 또는 ""
+class PersonalSnapshot:
+    name: str = ""
+    gender: str = ""
+    birthdate: str = ""   # 표시용: "1991년 3월 15일" 또는 입력 문자열 그대로
+    phone: str = ""
 
 
-def _format_birth(d: date) -> str:
-    return f"{d.year % 100:02d}년 {d.month:02d}월 {d.day:02d}일"
+def _format_korean_birth(s: str) -> str:
+    """ISO 'YYYY-MM-DD' 또는 'YY년 MM월 DD일' 등 다양한 형식을
+    "YYYY년 M월 D일" 한글 형식으로 정규화. 못 알아보면 원문 반환.
+    """
+    if not s:
+        return ""
+    s = s.strip()
+    # ISO YYYY-MM-DD
+    iso_m = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})", s)
+    if iso_m:
+        y, mo, d = iso_m.groups()
+        return f"{int(y)}년 {int(mo)}월 {int(d)}일"
+    bm = _BIRTH_RE.match(s)
+    if bm:
+        y, mo, d = bm.groups()
+        if len(y) == 2:
+            y = f"19{y}" if int(y) > 30 else f"20{y}"
+        return f"{int(y)}년 {int(mo)}월 {int(d)}일"
+    return s
 
 
-def _calc_age(birth: date, today: date) -> int:
-    years = today.year - birth.year
-    if (today.month, today.day) < (birth.month, birth.day):
-        years -= 1
-    return years
-
-
-def parse_personal_info(
-    user: User, q1_text: str, today: date | None = None
-) -> PersonalInfo:
-    """User 정보 우선, 부족하면 q1(인적사항) 텍스트에서 보완 파싱."""
-    today = today or date.today()
+def _parse_legacy_personal(q1_text: str, user: User) -> PersonalSnapshot:
+    """구형 데이터: q1(인적사항) 자유 텍스트에서 정규식으로 보완 추출."""
     name = user.username or ""
-    birth = ""
-    age = ""
+    gender = ""
+    birthdate = ""
     phone = ""
-
+    if "남" in q1_text and "남자" not in q1_text and "여자" not in q1_text:
+        gender = "남"
+    elif "남자" in q1_text or "남성" in q1_text:
+        gender = "남"
+    elif "여자" in q1_text or "여성" in q1_text:
+        gender = "여"
     if user.birth_date:
-        birth = _format_birth(user.birth_date)
-        age = f"만 {_calc_age(user.birth_date, today)}세"
+        birthdate = (
+            f"{user.birth_date.year}년 {user.birth_date.month}월 "
+            f"{user.birth_date.day}일"
+        )
     else:
-        m = _BIRTH_RE.search(q1_text)
-        if m:
-            yy, mm, dd = m.groups()
-            birth = f"{int(yy):02d}년 {int(mm):02d}월 {int(dd):02d}일"
-        am = _AGE_RE.search(q1_text)
-        if am:
-            age = f"만 {int(am.group(1))}세"
-
+        bm = _BIRTH_RE.search(q1_text)
+        if bm:
+            y, mo, d = bm.groups()
+            if len(y) == 2:
+                y = f"19{y}" if int(y) > 30 else f"20{y}"
+            birthdate = f"{int(y)}년 {int(mo)}월 {int(d)}일"
     pm = _PHONE_RE.search(q1_text)
     if pm:
         phone = pm.group(1).replace(" ", "-")
+    return PersonalSnapshot(name=name, gender=gender, birthdate=birthdate, phone=phone)
 
-    return PersonalInfo(name=name, age=age, birth=birth, phone=phone)
+
+def _personal_snapshot(survey: CounselingSurvey, user: User) -> PersonalSnapshot:
+    """survey.responses 에서 personal dict 추출 — 신형 우선, 구형은 폴백."""
+    responses: dict[str, Any] = survey.responses or {}
+    p = responses.get("personal")
+    if isinstance(p, dict):
+        return PersonalSnapshot(
+            name=str(p.get("name", "") or "").strip() or (user.username or ""),
+            gender=str(p.get("gender", "") or "").strip(),
+            birthdate=_format_korean_birth(str(p.get("birthdate", "") or "")),
+            phone=str(p.get("phone", "") or "").strip(),
+        )
+    legacy_q1 = responses.get("인적사항") or responses.get("q1") or ""
+    return _parse_legacy_personal(str(legacy_q1), user)
 
 
 # ---------- draft_text 섹션 분리 ---------------------------------------------
 
 
 def _split_draft_sections(draft_text: str) -> tuple[str, str]:
-    """draft_text 에서 [상담배경] / [상담내용] 섹션 분리.
-    형식이 어긋나면 전체를 상담내용 셀에 넣는다.
-    """
     if "[상담배경]" in draft_text and "[상담내용]" in draft_text:
         bg = (
             draft_text.split("[상담배경]", 1)[1]
@@ -174,9 +186,7 @@ def _split_draft_sections(draft_text: str) -> tuple[str, str]:
 
 
 def build_doc_number(survey_id: int, today: date) -> str:
-    return (
-        f"증 {today.year}-kcpec-{today.month:02d}-{survey_id:05d} 호"
-    )
+    return f"증 {today.year}-kcpec-{today.month:02d}-{survey_id:05d} 호"
 
 
 def fill_counseling_template(
@@ -186,15 +196,15 @@ def fill_counseling_template(
     output_path: Path,
     today: date | None = None,
 ) -> Path:
-    """양식에 데이터 채워서 output_path 에 DOCX 저장. 저장 경로 반환."""
+    """양식에 데이터 채워서 output_path 에 DOCX 저장."""
     if not TEMPLATE_PATH.exists():
         raise RuntimeError(f"템플릿 파일 누락: {TEMPLATE_PATH}")
 
-    today = today or date.today()
-    q1 = (survey.responses or {}).get("인적사항", "")
-    info = parse_personal_info(user, q1, today)
+    today = today or datetime.now().date()
+    info = _personal_snapshot(survey, user)
     background, content = _split_draft_sections(draft_text)
     doc_number = build_doc_number(survey.id, today)
+    counseling_date = f"{today.year}년 {today.month}월 {today.day}일"
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy(TEMPLATE_PATH, output_path)
@@ -204,15 +214,19 @@ def fill_counseling_template(
 
     _set_cell_text(table.rows[0].cells[0], doc_number)
     _set_cell_text(table.rows[3].cells[1], info.name)
-    _set_cell_text(table.rows[3].cells[3], info.age)
-    _set_cell_text(table.rows[4].cells[1], info.birth)
-    _set_cell_text(table.rows[4].cells[3], info.phone)
-    _set_cell_text(table.rows[5].cells[1], background or "(설문 응답 기반 초안 없음)")
+    _set_cell_text(table.rows[3].cells[3], info.gender)
+    _set_cell_text(table.rows[3].cells[5], info.birthdate)
+    _set_cell_text(table.rows[4].cells[1], counseling_date)
+    _set_cell_text(table.rows[4].cells[5], info.phone)
+    _set_cell_text(
+        table.rows[5].cells[1], background or "(설문 응답 기반 초안 없음)"
+    )
     _set_cell_text(table.rows[6].cells[1], content or "(초안 없음)")
 
-    # 발급일: R7 셀의 paragraph 중 "년 ... 월 ... 일" 패턴을 가진 것을 찾아 갱신
-    issued_str = f"{today.year}년 {today.month:>2d}월 {today.day:>2d}일"
-    issue_cell = table.rows[7].cells[0]
+    # 발급일: R8 셀의 paragraph 들 중 "년/월/일" 패턴을 가진 것을 찾아 갱신.
+    # (전체 셀을 비우면 가운데 정렬·여백 같은 템플릿 레이아웃이 깨짐)
+    issued_str = f"{today.year}년   {today.month}월   {today.day}일"
+    issue_cell = table.rows[8].cells[0]
     for para in issue_cell.paragraphs:
         if "년" in para.text and "월" in para.text and "일" in para.text:
             _set_paragraph_text(para, issued_str)
@@ -225,5 +239,4 @@ def fill_counseling_template(
 __all__ = [
     "build_doc_number",
     "fill_counseling_template",
-    "parse_personal_info",
 ]

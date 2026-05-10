@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -148,7 +148,8 @@ class AdminSurveyRow(BaseModel):
 
 
 class AdminSurveyDetail(AdminSurveyRow):
-    responses: dict[str, str]
+    # personal 같은 nested dict 도 허용.
+    responses: dict[str, Any]
     user_email: EmailStr | None = None
 
 

@@ -32,7 +32,8 @@ export type SurveyDetail = {
   id: number;
   order_id: number;
   status: CounselingStatus;
-  responses: Record<string, string>;
+  // 자유 응답(string) + nested object (예: personal: {...}) 혼재 가능
+  responses: Record<string, unknown>;
   submitted_at: string;
   ai_draft_url: string | null;
   final_pdf_url: string | null;

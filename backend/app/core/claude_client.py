@@ -31,23 +31,74 @@ SYSTEM_PROMPT = dedent(
 )
 
 
-def _format_user_prompt(survey_responses: dict[str, str], course_title: str) -> str:
-    bullet_lines = "\n".join(
-        f"- **{question}**\n  {answer}" for question, answer in survey_responses.items()
+def _format_personal(personal: dict | None) -> str:
+    """personal 딕셔너리를 한 줄 요약 문자열로 직렬화."""
+    if not isinstance(personal, dict) or not personal:
+        return "(인적사항 미입력)"
+    parts = []
+    name = personal.get("name") or ""
+    gender = personal.get("gender") or ""
+    age = personal.get("age")
+    head = ", ".join(x for x in [name, gender, (f"{age}세" if age else "")] if x)
+    if head:
+        parts.append(head)
+    if personal.get("birthdate"):
+        parts.append(f"생년월일 {personal['birthdate']}")
+    if personal.get("job"):
+        parts.append(f"직업 {personal['job']}")
+    if personal.get("education"):
+        parts.append(f"학력 {personal['education']}")
+    if personal.get("family"):
+        parts.append(f"가족관계 {personal['family']}")
+    cr = personal.get("criminal_record") or ""
+    if cr:
+        cd = personal.get("criminal_detail") or ""
+        parts.append(f"전과 {cr}{f' ({cd})' if cd and cr == '있음' else ''}")
+    if personal.get("health"):
+        parts.append(f"건강상태 {personal['health']}")
+    if personal.get("military"):
+        parts.append(f"병역 {personal['military']}")
+    return " / ".join(parts)
+
+
+def _format_user_prompt(
+    survey_responses: dict, course_title: str
+) -> str:
+    """신형(personal dict + q2..q6) / 구형(인적사항 등 자유 텍스트) 모두 수용."""
+    personal = survey_responses.get("personal")
+    legacy_personal = survey_responses.get("인적사항", "")
+    personal_summary = (
+        _format_personal(personal)
+        if isinstance(personal, dict)
+        else (str(legacy_personal) or "(인적사항 미입력)")
     )
+
+    def get(key: str, legacy_key: str) -> str:
+        v = survey_responses.get(key)
+        if v is None:
+            v = survey_responses.get(legacy_key, "")
+        return str(v or "").strip() or "(미입력)"
+
     return dedent(
         f"""\
         다음 정보를 바탕으로 심리상담 의견서 초안을 작성해 주세요.
 
         - 이수 교육 과정: {course_title}
-        - 설문 응답:
 
-        {bullet_lines}
+        [내담자 인적사항]
+        {personal_summary}
+
+        [설문 응답]
+        ■ 상담 의뢰 내용 (사건 경위): {get('q2', '사건내용')}
+        ■ 현재 심리 상태 및 반성: {get('q3', '후회되는점')}
+        ■ 범행에 대한 인식 / 우려사항: {get('q4', '걱정되는점')}
+        ■ 재범 방지 계획: {get('q5', '재범방지노력')}
+        ■ 기타 사항: {get('q6', '하고싶은말')}
         """
     )
 
 
-def _dummy_draft(survey_responses: dict[str, str], course_title: str) -> str:
+def _dummy_draft(survey_responses: dict, course_title: str) -> str:
     """ANTHROPIC_API_KEY 미설정 시 사용되는 더미 초안.
     document_generator 가 기대하는 [상담배경] / [상담내용] 섹션 포맷을 따른다.
     """
@@ -68,7 +119,7 @@ def _dummy_draft(survey_responses: dict[str, str], course_title: str) -> str:
     )
 
 
-def generate_counseling_draft(survey_responses: dict[str, str], course_title: str) -> str:
+def generate_counseling_draft(survey_responses: dict, course_title: str) -> str:
     if not settings.ANTHROPIC_API_KEY:
         logger.info("ANTHROPIC_API_KEY 미설정 — 더미 초안 반환")
         return _dummy_draft(survey_responses, course_title)

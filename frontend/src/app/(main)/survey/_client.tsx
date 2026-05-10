@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { isAxiosError } from "axios";
 import {
   getMySurvey,
@@ -13,29 +13,85 @@ import {
 import { FileText } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 
+// ---------- 인적사항 (구조화 입력) -------------------------------------------
+
+type Gender = "" | "남" | "여";
+type CriminalRecord = "" | "없음" | "있음";
+
+type PersonalInfo = {
+  name: string;
+  gender: Gender;
+  birthdate: string;     // ISO yyyy-mm-dd
+  phone: string;
+  age: string;           // string for input flexibility
+  job: string;
+  education: string;
+  family: string;
+  criminal_record: CriminalRecord;
+  criminal_detail: string;
+  health: string;
+  military: string;
+};
+
+const EMPTY_PERSONAL: PersonalInfo = {
+  name: "",
+  gender: "",
+  birthdate: "",
+  phone: "",
+  age: "",
+  job: "",
+  education: "",
+  family: "",
+  criminal_record: "",
+  criminal_detail: "",
+  health: "",
+  military: "",
+};
+
+const EDUCATION_OPTIONS = [
+  "중졸 이하",
+  "고졸",
+  "대학 재학",
+  "대졸",
+  "대학원졸",
+];
+
+const MILITARY_OPTIONS = [
+  "해당없음",
+  "복무중",
+  "만기전역",
+  "미필",
+  "면제",
+];
+
+function calcAge(isoDate: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const today = new Date();
+  let age = today.getFullYear() - y;
+  if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) {
+    age -= 1;
+  }
+  return age >= 0 && age < 130 ? age : null;
+}
+
+// ---------- 자유 응답 (q2..q6) -----------------------------------------------
+
 type Question = {
-  /** 백엔드 responses dict 의 key (Claude 프롬프트와 동일해야 함) */
+  /** 백엔드 responses 키 (예: "q2") */
   key: string;
-  /** 화면 라벨 */
+  /** 구버전 한글 키 (편집 모드 prefill 폴백) */
+  legacyKey: string;
   label: string;
-  /** 라벨 아래 회색으로 노출되는 작성 가이드 */
   description: string;
-  /** textarea 내부에 보일 짧은 예시 */
   placeholder: string;
   required: boolean;
 };
 
 const QUESTIONS: Question[] = [
   {
-    key: "인적사항",
-    label: "인적사항",
-    description:
-      "성별, 나이, 직업, 학력, 가족관계, 전과유무, 기타(병역, 건강상태 등)를 작성해 주세요.",
-    placeholder: "예) 35세 남성, 직장인, 배우자와 자녀 2명, 군필, 별다른 지병 없음",
-    required: true,
-  },
-  {
-    key: "사건내용",
+    key: "q2",
+    legacyKey: "사건내용",
     label: "이 사건의 내용",
     description:
       "각 사건별로 일시, 장소, 구체적인 경위를 시간 순서대로 작성해 주세요.",
@@ -44,7 +100,8 @@ const QUESTIONS: Question[] = [
     required: true,
   },
   {
-    key: "후회되는점",
+    key: "q3",
+    legacyKey: "후회되는점",
     label: "이 사건에서 가장 후회되는 점",
     description:
       "사건 당시 본인의 판단·행동 중 지금 돌이켜 가장 후회되는 부분을 솔직하게 적어 주세요.",
@@ -53,7 +110,8 @@ const QUESTIONS: Question[] = [
     required: true,
   },
   {
-    key: "걱정되는점",
+    key: "q4",
+    legacyKey: "걱정되는점",
     label: "이 사건으로 인해 가장 걱정되는 점",
     description:
       "법적·경제적·관계적·심리적 측면에서 지금 가장 우려되는 부분을 적어 주세요.",
@@ -62,7 +120,8 @@ const QUESTIONS: Question[] = [
     required: true,
   },
   {
-    key: "재범방지노력",
+    key: "q5",
+    legacyKey: "재범방지노력",
     label: "추후 재범하지 않기 위해 스스로 노력해야 하는 점",
     description:
       "구체적인 행동 계획이나 환경 변화 등 본인이 실천할 수 있는 다짐을 적어 주세요.",
@@ -71,7 +130,8 @@ const QUESTIONS: Question[] = [
     required: true,
   },
   {
-    key: "하고싶은말",
+    key: "q6",
+    legacyKey: "하고싶은말",
     label: "더 하고 싶은 말 (선택사항)",
     description:
       "위 항목 외에 상담사에게 미리 전달하고 싶은 내용이 있다면 자유롭게 적어 주세요.",
@@ -81,11 +141,11 @@ const QUESTIONS: Question[] = [
   },
 ];
 
+// ---------- 컴포넌트 ----------------------------------------------------------
+
 export default function SurveyClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // 신규 작성: ?order_id= 또는 ?counseling_order_id=
-  // 수정: ?edit={survey_id} (기존 응답 prefill + PUT)
   const editParam = searchParams.get("edit");
   const editSurveyId = editParam ? Number(editParam) : null;
   const isEditMode = editSurveyId != null && Number.isFinite(editSurveyId);
@@ -95,13 +155,14 @@ export default function SurveyClient() {
   const orderId = orderIdParam ? Number(orderIdParam) : NaN;
   const isCounseling = searchParams.get("counseling_order_id") != null;
 
+  const [personal, setPersonal] = useState<PersonalInfo>(EMPTY_PERSONAL);
   const [answers, setAnswers] = useState<string[]>(() => QUESTIONS.map(() => ""));
   const [loadingPrefill, setLoadingPrefill] = useState(isEditMode);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 비로그인 → 로그인 페이지로 (edit 모드는 edit 쿼리 보존)
+  // 비로그인 → 로그인 페이지로
   useEffect(() => {
     if (tokenStorage.getAccess()) return;
     let next = "/survey";
@@ -120,14 +181,22 @@ export default function SurveyClient() {
     }
   }, [isEditMode, orderId]);
 
-  // 수정 모드: 기존 응답 prefill
+  // 수정 모드 prefill
   useEffect(() => {
     if (!isEditMode || !tokenStorage.getAccess()) return;
     let cancelled = false;
     getMySurvey(editSurveyId!)
       .then((d) => {
         if (cancelled) return;
-        const next = QUESTIONS.map((q) => d.responses[q.key] ?? "");
+        const r = d.responses ?? {};
+        const p = r.personal;
+        if (p && typeof p === "object") {
+          setPersonal({ ...EMPTY_PERSONAL, ...(p as Partial<PersonalInfo>) });
+        }
+        // 자유 응답: q2..q6 우선, 없으면 한글 legacy 키 폴백
+        const next = QUESTIONS.map(
+          (q) => (r[q.key] as string | undefined) ?? (r[q.legacyKey] as string | undefined) ?? "",
+        );
         setAnswers(next);
       })
       .catch(() => {
@@ -141,7 +210,26 @@ export default function SurveyClient() {
     };
   }, [isEditMode, editSurveyId]);
 
-  function update(idx: number, value: string) {
+  // 생년월일 → 나이 자동 채움 (사용자가 수동 입력 안 했을 때만)
+  useEffect(() => {
+    if (!personal.birthdate) return;
+    const auto = calcAge(personal.birthdate);
+    if (auto == null) return;
+    setPersonal((prev) =>
+      prev.age && prev.age !== String(auto)
+        ? prev // 사용자가 직접 입력한 값이 있으면 덮어쓰지 않음
+        : { ...prev, age: String(auto) },
+    );
+  }, [personal.birthdate]);
+
+  function updatePersonal<K extends keyof PersonalInfo>(
+    key: K,
+    value: PersonalInfo[K],
+  ) {
+    setPersonal((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function updateAnswer(idx: number, value: string) {
     setAnswers((prev) => {
       const next = [...prev];
       next[idx] = value;
@@ -149,24 +237,45 @@ export default function SurveyClient() {
     });
   }
 
-  function isMissingRequired(): boolean {
-    return QUESTIONS.some((q, i) => q.required && !answers[i].trim());
-  }
+  // ---------- 검증 ----------
+  const personalMissing = useMemo(() => {
+    const missing: string[] = [];
+    if (!personal.name.trim()) missing.push("성명");
+    if (!personal.gender) missing.push("성별");
+    if (!personal.birthdate) missing.push("생년월일");
+    return missing;
+  }, [personal]);
+
+  const freeMissing = QUESTIONS.filter(
+    (q, i) => q.required && !answers[i].trim(),
+  ).length;
+
+  const isMissing = personalMissing.length > 0 || freeMissing > 0;
 
   async function handleSubmit() {
-    if (isMissingRequired()) {
-      setError("필수 문항(선택사항 제외)에 모두 답변해 주세요.");
+    if (isMissing) {
+      setError(
+        personalMissing.length > 0
+          ? `인적사항 필수 항목이 누락됐습니다: ${personalMissing.join(", ")}`
+          : "필수 문항(선택사항 제외)에 모두 답변해 주세요.",
+      );
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      const responses: Record<string, string> = {};
+      const personalPayload: Record<string, unknown> = {
+        ...personal,
+        age: personal.age ? Number(personal.age) : null,
+      };
+      // criminal_detail 은 record="있음" 이 아니면 빈 문자열로 정규화
+      if (personal.criminal_record !== "있음") {
+        personalPayload.criminal_detail = "";
+      }
+      const responses: Record<string, unknown> = { personal: personalPayload };
       QUESTIONS.forEach((q, i) => {
         const v = answers[i].trim();
-        if (q.required || v.length > 0) {
-          responses[q.key] = v;
-        }
+        if (q.required || v.length > 0) responses[q.key] = v;
       });
       if (isEditMode) {
         await updateMySurvey(editSurveyId!, responses);
@@ -237,14 +346,6 @@ export default function SurveyClient() {
     );
   }
 
-  const total = QUESTIONS.length;
-  const answeredCount = QUESTIONS.reduce(
-    (acc, q, i) => (q.required && answers[i].trim() ? acc + 1 : acc),
-    0,
-  );
-  const requiredCount = QUESTIONS.filter((q) => q.required).length;
-  const missing = isMissingRequired();
-
   return (
     <div className="mx-auto max-w-2xl space-y-8 px-4 py-16">
       <PageHeader
@@ -259,64 +360,20 @@ export default function SurveyClient() {
         centered
       />
 
-      {/* 진행 상태 — 응답 완료된 필수 문항 수 기반 */}
-      <div className="sticky top-16 z-10 -mx-4 rounded-none border-y border-[var(--color-border)] bg-white/85 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border">
-        <div className="flex items-center justify-between text-xs font-medium text-zinc-600">
-          <span>
-            응답 완료{" "}
-            <span className="font-bold text-[var(--color-primary)]">
-              {answeredCount}
-            </span>{" "}
-            / {requiredCount} 문항
-          </span>
-          <span className="text-zinc-400">선택 1문항 포함, 총 {total}개</span>
-        </div>
-        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-zinc-200">
-          <div
-            className="h-full bg-[var(--color-primary)] transition-[width] duration-300"
-            style={{ width: `${(answeredCount / requiredCount) * 100}%` }}
-          />
-        </div>
-      </div>
-
       <div className="space-y-10">
-        {QUESTIONS.map((q, idx) => {
-          const value = answers[idx];
-          return (
-            <section
-              key={q.key}
-              className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm"
-            >
-              <div className="flex items-center gap-3">
-                <span className="inline-flex h-7 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--color-primary)]/10 font-mono text-xs font-bold tracking-wider text-[var(--color-primary)]">
-                  {String(idx + 1).padStart(2, "0")}
-                </span>
-                <h2 className="font-sans text-base font-semibold leading-snug text-zinc-900">
-                  {q.label}
-                  {q.required ? (
-                    <span className="ml-1.5 text-xs font-bold text-red-500">
-                      *
-                    </span>
-                  ) : null}
-                </h2>
-              </div>
-              <p className="mt-2 text-sm leading-relaxed text-zinc-500">
-                {q.description}
-              </p>
-              <textarea
-                value={value}
-                onChange={(e) => update(idx, e.target.value)}
-                rows={5}
-                maxLength={2000}
-                placeholder={q.placeholder}
-                className="mt-3 min-h-[120px] w-full resize-y rounded border border-[var(--color-border)] px-3 py-2.5 text-sm leading-relaxed text-foreground placeholder:text-zinc-400 focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
-              />
-              <p className="mt-1 text-right text-xs text-zinc-400">
-                {value.length} / 2000
-              </p>
-            </section>
-          );
-        })}
+        {/* 인적사항 (구조화 입력) */}
+        <PersonalSection personal={personal} onChange={updatePersonal} />
+
+        {/* 자유 응답 q2..q6 */}
+        {QUESTIONS.map((q, idx) => (
+          <FreeAnswerSection
+            key={q.key}
+            index={idx + 2}   // 표시 번호: 2~6 (인적사항이 1번)
+            question={q}
+            value={answers[idx]}
+            onChange={(v) => updateAnswer(idx, v)}
+          />
+        ))}
       </div>
 
       {error ? (
@@ -329,20 +386,289 @@ export default function SurveyClient() {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={submitting || missing}
+          disabled={submitting || isMissing}
           className="w-full rounded-xl bg-[var(--color-primary)] py-4 text-base font-semibold text-white shadow-md shadow-[var(--color-primary)]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-lg hover:shadow-[var(--color-primary)]/30 disabled:translate-y-0 disabled:opacity-60 disabled:hover:translate-y-0"
         >
           {submitting
             ? isEditMode
               ? "수정 중..."
               : "제출 중..."
-            : missing
-              ? `필수 ${requiredCount - answeredCount}문항이 남았습니다`
+            : isMissing
+              ? personalMissing.length > 0
+                ? `필수 인적사항: ${personalMissing.join(", ")}`
+                : `필수 ${freeMissing}문항 남음`
               : isEditMode
                 ? "수정 완료"
                 : "제출하기"}
         </button>
       </div>
     </div>
+  );
+}
+
+// ---------- subcomponents ----------------------------------------------------
+
+function SectionShell({
+  index,
+  label,
+  description,
+  children,
+}: {
+  index: number;
+  label: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="flex items-center gap-3">
+        <span className="inline-flex h-7 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--color-primary)]/10 font-mono text-xs font-bold tracking-wider text-[var(--color-primary)]">
+          {String(index).padStart(2, "0")}
+        </span>
+        <h2 className="font-sans text-base font-semibold leading-snug text-zinc-900">
+          {label}
+        </h2>
+      </div>
+      {description ? (
+        <p className="mt-2 text-sm leading-relaxed text-zinc-500">{description}</p>
+      ) : null}
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+const inputCls =
+  "w-full rounded border border-[var(--color-border)] px-3 py-2.5 text-sm text-foreground placeholder:text-zinc-400 focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20";
+
+function FieldLabel({
+  required,
+  children,
+}: {
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block text-xs font-bold text-slate-700">
+      {children}
+      {required ? <span className="ml-1 text-red-500">*</span> : null}
+    </label>
+  );
+}
+
+function PersonalSection({
+  personal,
+  onChange,
+}: {
+  personal: PersonalInfo;
+  onChange: <K extends keyof PersonalInfo>(key: K, value: PersonalInfo[K]) => void;
+}) {
+  return (
+    <SectionShell
+      index={1}
+      label="인적사항"
+      description="의견서 기본 정보로 사용되는 항목입니다. 정확히 입력해 주세요."
+    >
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <FieldLabel required>성명</FieldLabel>
+          <input
+            value={personal.name}
+            onChange={(e) => onChange("name", e.target.value)}
+            placeholder="홍길동"
+            className={inputCls}
+            maxLength={50}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldLabel required>성별</FieldLabel>
+          <div className="flex h-[42px] items-center gap-4 px-1 text-sm">
+            {(["남", "여"] as const).map((g) => (
+              <label key={g} className="inline-flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  name="gender"
+                  value={g}
+                  checked={personal.gender === g}
+                  onChange={() => onChange("gender", g)}
+                  className="accent-[var(--color-primary)]"
+                />
+                {g}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldLabel required>생년월일</FieldLabel>
+          <input
+            type="date"
+            value={personal.birthdate}
+            onChange={(e) => onChange("birthdate", e.target.value)}
+            className={inputCls}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldLabel>나이</FieldLabel>
+          <input
+            type="number"
+            min={0}
+            max={130}
+            value={personal.age}
+            onChange={(e) => onChange("age", e.target.value)}
+            placeholder="생년월일 입력 시 자동 계산"
+            className={inputCls}
+          />
+        </div>
+
+        <div className="space-y-1.5 sm:col-span-2">
+          <FieldLabel>연락처</FieldLabel>
+          <input
+            type="tel"
+            value={personal.phone}
+            onChange={(e) => onChange("phone", e.target.value)}
+            placeholder="010-0000-0000"
+            className={inputCls}
+            maxLength={20}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldLabel>직업</FieldLabel>
+          <input
+            value={personal.job}
+            onChange={(e) => onChange("job", e.target.value)}
+            placeholder="회사원, 자영업, 학생 등"
+            className={inputCls}
+            maxLength={50}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldLabel>학력</FieldLabel>
+          <select
+            value={personal.education}
+            onChange={(e) => onChange("education", e.target.value)}
+            className={inputCls}
+          >
+            <option value="">선택</option>
+            {EDUCATION_OPTIONS.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-1.5 sm:col-span-2">
+          <FieldLabel>가족관계</FieldLabel>
+          <input
+            value={personal.family}
+            onChange={(e) => onChange("family", e.target.value)}
+            placeholder="예) 기혼, 배우자 및 자녀 1명"
+            className={inputCls}
+            maxLength={120}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldLabel>전과 유무</FieldLabel>
+          <div className="flex h-[42px] items-center gap-4 px-1 text-sm">
+            {(["없음", "있음"] as const).map((c) => (
+              <label key={c} className="inline-flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  name="criminal_record"
+                  value={c}
+                  checked={personal.criminal_record === c}
+                  onChange={() => onChange("criminal_record", c)}
+                  className="accent-[var(--color-primary)]"
+                />
+                {c}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldLabel>병역</FieldLabel>
+          <select
+            value={personal.military}
+            onChange={(e) => onChange("military", e.target.value)}
+            className={inputCls}
+          >
+            <option value="">선택</option>
+            {MILITARY_OPTIONS.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {personal.criminal_record === "있음" ? (
+          <div className="space-y-1.5 sm:col-span-2">
+            <FieldLabel>전과 내용</FieldLabel>
+            <textarea
+              value={personal.criminal_detail}
+              onChange={(e) => onChange("criminal_detail", e.target.value)}
+              placeholder="죄명·시기·처분 내역을 간단히 적어 주세요."
+              rows={2}
+              className={`${inputCls} resize-y`}
+              maxLength={500}
+            />
+          </div>
+        ) : null}
+
+        <div className="space-y-1.5 sm:col-span-2">
+          <FieldLabel>건강상태</FieldLabel>
+          <input
+            value={personal.health}
+            onChange={(e) => onChange("health", e.target.value)}
+            placeholder="특이사항 없으면 '이상 없음'"
+            className={inputCls}
+            maxLength={100}
+          />
+        </div>
+      </div>
+    </SectionShell>
+  );
+}
+
+function FreeAnswerSection({
+  index,
+  question,
+  value,
+  onChange,
+}: {
+  index: number;
+  question: Question;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <SectionShell
+      index={index}
+      label={
+        question.required
+          ? `${question.label}`
+          : `${question.label}`
+      }
+      description={question.description}
+    >
+      {question.required ? null : null}
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={5}
+        maxLength={2000}
+        placeholder={question.placeholder}
+        className="min-h-[120px] w-full resize-y rounded border border-[var(--color-border)] px-3 py-2.5 text-sm leading-relaxed text-foreground placeholder:text-zinc-400 focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+      />
+      <p className="mt-1 text-right text-xs text-zinc-400">
+        {value.length} / 2000
+      </p>
+    </SectionShell>
   );
 }

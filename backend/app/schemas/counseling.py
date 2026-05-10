@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -6,8 +7,8 @@ from app.models.counseling import CounselingStatus
 
 
 class SurveySubmit(BaseModel):
-    # 항목명(질문) → 응답 텍스트
-    responses: dict[str, str] = Field(min_length=1)
+    # 키 → 응답 (str) 또는 nested dict (예: "personal" 인적사항 객체)
+    responses: dict[str, Any] = Field(min_length=1)
 
 
 class SurveyResponse(BaseModel):
@@ -37,7 +38,7 @@ class SurveyDetailResponse(BaseModel):
     id: int
     order_id: int
     status: CounselingStatus
-    responses: dict[str, str]
+    responses: dict[str, Any]
     submitted_at: datetime
     ai_draft_url: str | None
     final_pdf_url: str | None
@@ -46,4 +47,4 @@ class SurveyDetailResponse(BaseModel):
 
 
 class SurveyUpdate(BaseModel):
-    responses: dict[str, str] = Field(min_length=1)
+    responses: dict[str, Any] = Field(min_length=1)

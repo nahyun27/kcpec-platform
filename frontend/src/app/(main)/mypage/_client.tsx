@@ -943,22 +943,66 @@ function DeactivateRow({ isSocial }: { isSocial: boolean }) {
 
 // ---------- 심리상담 답변 보기 모달 ----------------------------------------
 
+// q2..q6 + 구버전 한글 키 → 표시 라벨
 const SURVEY_QUESTION_LABELS: Record<string, string> = {
-  인적사항: "인적사항",
+  q2: "이 사건의 내용",
+  q3: "이 사건에서 가장 후회되는 점",
+  q4: "이 사건으로 인해 가장 걱정되는 점",
+  q5: "추후 재범하지 않기 위해 스스로 노력해야 하는 점",
+  q6: "더 하고 싶은 말",
+  // 구버전 데이터 호환
   사건내용: "이 사건의 내용",
   후회되는점: "이 사건에서 가장 후회되는 점",
   걱정되는점: "이 사건으로 인해 가장 걱정되는 점",
   재범방지노력: "추후 재범하지 않기 위해 스스로 노력해야 하는 점",
-  하고싶은말: "더 하고 싶은 말 (선택사항)",
+  하고싶은말: "더 하고 싶은 말",
+  인적사항: "인적사항",
 };
 
 const SURVEY_KEY_ORDER = [
+  "personal",
+  "q2",
+  "q3",
+  "q4",
+  "q5",
+  "q6",
+  // 구버전 호환 — 신키와 충돌하지 않도록 뒤에 위치
   "인적사항",
   "사건내용",
   "후회되는점",
   "걱정되는점",
   "재범방지노력",
   "하고싶은말",
+];
+
+const PERSONAL_LABELS: Record<string, string> = {
+  name: "성명",
+  gender: "성별",
+  birthdate: "생년월일",
+  age: "나이",
+  phone: "연락처",
+  job: "직업",
+  education: "학력",
+  family: "가족관계",
+  criminal_record: "전과 유무",
+  criminal_detail: "전과 내용",
+  health: "건강상태",
+  military: "병역",
+};
+
+const PERSONAL_KEY_ORDER = [
+  "name",
+  "gender",
+  "birthdate",
+  "age",
+  "phone",
+  "job",
+  "education",
+  "family",
+  "criminal_record",
+  "criminal_detail",
+  "health",
+  "military",
 ];
 
 function SurveyAnswersModal({
@@ -982,12 +1026,13 @@ function SurveyAnswersModal({
   }, [surveyId]);
 
   // 알려진 키부터 정해진 순서로, 그 외 키는 뒤에.
-  const orderedEntries: [string, string][] = (() => {
+  const orderedEntries: [string, unknown][] = (() => {
     if (!detail) return [];
-    const known = SURVEY_KEY_ORDER.filter((k) => k in detail.responses).map(
-      (k) => [k, detail.responses[k]] as [string, string],
+    const r = detail.responses;
+    const known = SURVEY_KEY_ORDER.filter((k) => k in r).map(
+      (k) => [k, r[k]] as [string, unknown],
     );
-    const unknown = Object.entries(detail.responses).filter(
+    const unknown = Object.entries(r).filter(
       ([k]) => !SURVEY_KEY_ORDER.includes(k),
     );
     return [...known, ...unknown];
@@ -1026,11 +1071,19 @@ function SurveyAnswersModal({
               {orderedEntries.map(([key, value]) => (
                 <div key={key} className="py-4 first:pt-0 last:pb-0">
                   <dt className="text-sm font-medium text-slate-500">
-                    {SURVEY_QUESTION_LABELS[key] ?? key}
+                    {key === "personal"
+                      ? "인적사항"
+                      : SURVEY_QUESTION_LABELS[key] ?? key}
                   </dt>
-                  <dd className="mt-1.5 whitespace-pre-wrap text-base leading-relaxed text-slate-800">
-                    {value || (
-                      <span className="text-zinc-400">(빈 응답)</span>
+                  <dd className="mt-1.5 text-base leading-relaxed text-slate-800">
+                    {key === "personal" && value && typeof value === "object" ? (
+                      <PersonalSummary data={value as Record<string, unknown>} />
+                    ) : (
+                      <span className="whitespace-pre-wrap">
+                        {String(value || "") || (
+                          <span className="text-zinc-400">(빈 응답)</span>
+                        )}
+                      </span>
                     )}
                   </dd>
                 </div>
@@ -1040,5 +1093,31 @@ function SurveyAnswersModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function PersonalSummary({ data }: { data: Record<string, unknown> }) {
+  const entries = PERSONAL_KEY_ORDER
+    .filter((k) => data[k] != null && data[k] !== "")
+    .map((k) => [k, data[k]] as const);
+  const extra = Object.entries(data).filter(
+    ([k, v]) =>
+      !PERSONAL_KEY_ORDER.includes(k) && v != null && v !== "",
+  );
+  const all = [...entries, ...extra];
+  if (all.length === 0) {
+    return <span className="text-zinc-400">(인적사항 미입력)</span>;
+  }
+  return (
+    <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+      {all.map(([k, v]) => (
+        <div key={k} className="flex gap-3 text-sm">
+          <dt className="w-20 shrink-0 text-slate-500">
+            {PERSONAL_LABELS[k] ?? k}
+          </dt>
+          <dd className="font-medium text-slate-800">{String(v)}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }

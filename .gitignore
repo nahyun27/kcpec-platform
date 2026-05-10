@@ -15,6 +15,7 @@ backend/**/*.pyc
 backend/static/pdfs/
 backend/static/drafts/
 backend/static/finals/
+backend/static/exports/
 backend/static/fonts/*.ttf
 backend/static/videos/*.mp4
 
