@@ -1,24 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getCourses } from "@/lib/api";
 import { COURSE_CATEGORIES, type CourseCategory, type CourseListItem } from "@/types/course";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
-import { GraduationCap, BookOpen, BadgeCheck } from "lucide-react";
+import { GraduationCap, BookOpen, BadgeCheck, Search } from "lucide-react";
 
 export default function CoursesListPage() {
   const [category, setCategory] = useState<CourseCategory | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [courses, setCourses] = useState<CourseListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 전체 목록을 한 번만 받아서 카테고리/검색을 클라이언트에서 합성.
+  // (강의 수가 수십 개 수준이라 매 입력마다 API 를 부르는 비용이 더 큼)
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    getCourses(category ?? undefined)
+    getCourses()
       .then((data) => {
         if (!cancelled) setCourses(data);
       })
@@ -31,7 +34,17 @@ export default function CoursesListPage() {
     return () => {
       cancelled = true;
     };
-  }, [category]);
+  }, []);
+
+  const trimmedQuery = searchQuery.trim();
+  const filteredCourses = useMemo(() => {
+    const q = trimmedQuery.toLowerCase();
+    return courses.filter((c) => {
+      if (category && c.category !== category) return false;
+      if (q && !c.title.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [courses, category, trimmedQuery]);
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-24">
@@ -45,7 +58,20 @@ export default function CoursesListPage() {
             description="전문가들이 감수한 심리·준법교육 과정을 전액 무료로 수강하실 수 있습니다. 원하시는 과정을 선택하고 바로 학습을 시작하세요."
           />
 
-          <div className="flex flex-wrap items-center gap-3 pt-4">
+          <div className="mt-4 mb-4">
+            <div className="relative w-full max-w-md">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="강의명으로 검색하세요"
+                className="w-full rounded-full border border-slate-200 bg-white py-2.5 pl-11 pr-5 text-sm text-slate-800 placeholder:text-slate-400 shadow-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
             <CategoryTab active={category === null} onClick={() => setCategory(null)}>
               전체 보기
             </CategoryTab>
@@ -74,17 +100,34 @@ export default function CoursesListPage() {
           <div className="rounded-3xl border border-red-200 bg-red-50 py-16 text-center text-red-600 shadow-sm">
             <p className="text-lg font-bold">{error}</p>
           </div>
-        ) : courses.length === 0 ? (
+        ) : filteredCourses.length === 0 ? (
           <div className="flex min-h-[400px] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white shadow-sm">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-50">
-              <GraduationCap className="h-8 w-8 text-slate-300" />
+              {trimmedQuery ? (
+                <Search className="h-8 w-8 text-slate-300" />
+              ) : (
+                <GraduationCap className="h-8 w-8 text-slate-300" />
+              )}
             </div>
-            <p className="text-xl font-bold text-slate-900">등록된 강의가 없습니다.</p>
-            <p className="mt-2 text-[15px] font-medium text-slate-500">다른 카테고리를 선택해보세요.</p>
+            {trimmedQuery ? (
+              <>
+                <p className="text-xl font-bold text-slate-900">
+                  &lsquo;{trimmedQuery}&rsquo;에 대한 검색 결과가 없습니다.
+                </p>
+                <p className="mt-2 text-[15px] font-medium text-slate-500">
+                  다른 검색어를 입력하거나 카테고리를 변경해보세요.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-xl font-bold text-slate-900">등록된 강의가 없습니다.</p>
+                <p className="mt-2 text-[15px] font-medium text-slate-500">다른 카테고리를 선택해보세요.</p>
+              </>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {courses.map((c, idx) => (
+            {filteredCourses.map((c, idx) => (
               <CourseCard key={c.id} course={c} eager={idx < 3} />
             ))}
           </div>
