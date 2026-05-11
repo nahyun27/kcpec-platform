@@ -116,23 +116,26 @@ function CoursesListInner() {
             icon={<BookOpen className="h-3.5 w-3.5" />}
             description="전문가들이 감수한 심리·준법교육 과정을 전액 무료로 수강하실 수 있습니다. 원하시는 과정을 선택하고 바로 학습을 시작하세요."
           />
+        </div>
+      </div>
 
-          <div className="mt-4 mb-4">
-            <div className="relative w-full max-w-md">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="강의명으로 검색하세요"
-                className="w-full rounded-full border border-slate-200 bg-white py-2.5 pl-11 pr-5 text-sm text-slate-800 placeholder:text-slate-400 shadow-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
-              />
-            </div>
+      <div className="mx-auto max-w-6xl px-6 py-10">
+        {/* Controls: Search & Filter */}
+        <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative w-full max-w-md">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="강의명으로 검색하세요"
+              className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-5 text-[15px] text-slate-800 placeholder:text-slate-400 shadow-sm transition-all focus:border-[var(--color-primary)] focus:outline-none focus:ring-4 focus:ring-[var(--color-primary)]/10"
+            />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <CategoryTab active={category === null} onClick={() => setCategory(null)}>
-              전체 보기
+              전체
             </CategoryTab>
             {COURSE_CATEGORIES.map((c) => (
               <CategoryTab
@@ -145,9 +148,7 @@ function CoursesListInner() {
             ))}
           </div>
         </div>
-      </div>
 
-      <div className="mx-auto max-w-6xl px-6 pt-12">
         {loading ? (
           <div className="flex min-h-[400px] items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white/50">
             <div className="flex flex-col items-center gap-4">
