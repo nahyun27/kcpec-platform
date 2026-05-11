@@ -440,6 +440,18 @@ function OrderRow({
             <span className="text-slate-300">•</span>
             <span className="text-xs text-slate-500">{new Date(order.created_at).toLocaleString("ko-KR")}</span>
           </div>
+          {order.course_title ? (
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <span className="font-sans text-base font-semibold text-slate-900">
+                {order.course_title}
+              </span>
+              {order.package_name ? (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                  {order.package_name}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           <p className="font-sans text-lg font-bold text-slate-900">
             {order.amount.toLocaleString()}원 <span className="text-sm font-medium text-slate-500 ml-1">({PAYMENT_METHOD_LABEL[order.payment_method]})</span>
           </p>

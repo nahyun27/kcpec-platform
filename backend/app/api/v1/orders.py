@@ -99,9 +99,10 @@ def list_my_orders(
     if not orders:
         return []
 
-    # 한 번의 쿼리로 모든 패키지 + 패키지 문서 타입 prefetch
+    # 한 번의 쿼리로 모든 패키지(+문서 타입) prefetch
     pkg_ids = {o.package_id for o in orders if o.package_id is not None}
     pkg_doc_types: dict[int, list] = {}
+    pkg_names: dict[int, str] = {}
     if pkg_ids:
         for pkg in db.scalars(
             select(Package)
@@ -109,6 +110,14 @@ def list_my_orders(
             .options(selectinload(Package.documents))
         ).all():
             pkg_doc_types[pkg.id] = [d.document_type for d in pkg.documents]
+            pkg_names[pkg.id] = pkg.name
+
+    # 강의 제목도 한 번에 prefetch
+    course_ids = {o.course_id for o in orders}
+    course_titles: dict[int, str] = {
+        c.id: c.title
+        for c in db.scalars(select(Course).where(Course.id.in_(course_ids))).all()
+    }
 
     out: list[OrderResponse] = []
     for o in orders:
@@ -124,6 +133,8 @@ def list_my_orders(
                 created_at=o.created_at,
                 paid_at=o.paid_at,
                 package_document_types=pkg_doc_types.get(o.package_id or -1, []),
+                course_title=course_titles.get(o.course_id),
+                package_name=pkg_names.get(o.package_id) if o.package_id else None,
             )
         )
     return out

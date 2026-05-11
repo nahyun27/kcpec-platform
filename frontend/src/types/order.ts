@@ -48,6 +48,9 @@ export type OrderResponse = {
   paid_at: string | null;
   // 패키지에 포함된 문서 타입 — UI 분기용. /orders/my 응답에서만 채워짐.
   package_document_types?: DocumentType[];
+  // 카드 헤더 표시용 — /orders/my 응답에서만 채워짐.
+  course_title?: string | null;
+  package_name?: string | null;
 };
 
 export type IssuedDocumentType = "certificate" | "guide" | "cbt";
