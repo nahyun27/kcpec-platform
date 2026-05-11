@@ -108,7 +108,7 @@ function CoursesListInner() {
   return (
     <div className="min-h-screen bg-slate-50/50 pb-24">
       {/* Page Header */}
-      <div className="bg-white border-b border-slate-200/60 pb-8 pt-12 shadow-sm relative z-10">
+      <div className="bg-white pt-12 relative z-10">
         <div className="mx-auto max-w-6xl px-6">
           <PageHeader
             title="교육 강의"
@@ -119,7 +119,7 @@ function CoursesListInner() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-6 py-10">
+      <div className="mx-auto max-w-6xl px-6 pt-4 pb-12">
         {/* Controls: Search & Filter */}
         <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full max-w-md">
