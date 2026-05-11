@@ -63,6 +63,27 @@ import type {
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
 
+// 백엔드 origin (예: http://localhost:8000) — /static/... 같은 절대경로
+// 정적 자원을 프런트(:3000) 가 아닌 백엔드(:8000) 에서 받기 위함.
+function _backendOrigin(): string {
+  try {
+    return new URL(API_BASE_URL).origin;
+  } catch {
+    return "http://localhost:8000";
+  }
+}
+
+/**
+ * 백엔드가 내려준 정적 경로(`/static/...` 등) 를 브라우저에서 바로 열 수 있는
+ * 절대 URL 로 변환한다. 이미 http(s) 절대 URL 이면 그대로 반환.
+ */
+export function absUrl(path: string | null | undefined): string {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  if (path.startsWith("/")) return `${_backendOrigin()}${path}`;
+  return path;
+}
+
 const ACCESS_TOKEN_KEY = "kcpec_access_token";
 const REFRESH_TOKEN_KEY = "kcpec_refresh_token";
 

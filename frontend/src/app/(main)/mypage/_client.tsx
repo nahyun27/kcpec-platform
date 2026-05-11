@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
 import {
+  absUrl,
   deleteMe,
   getMe,
   getMyCounselingOrders,
@@ -482,7 +483,7 @@ function OrderRow({
                     </span>
                     {d.pdf_url && (
                       <a
-                        href={d.pdf_url}
+                        href={absUrl(d.pdf_url)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white border border-zinc-200 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:border-blue-200 hover:text-[var(--color-accent)] transition-colors"
@@ -588,7 +589,7 @@ function CounselingRow({
         ) : null}
         {survey.status === "completed" && survey.final_pdf_url && (
           <a
-            href={survey.final_pdf_url}
+            href={absUrl(survey.final_pdf_url)}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[var(--color-accent-hover)]"
@@ -697,7 +698,7 @@ function CounselingOrderCard({
             ) : null}
             {isCompleted && order.final_pdf_url ? (
               <a
-                href={order.final_pdf_url}
+                href={absUrl(order.final_pdf_url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-accent-hover)]"

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { isAxiosError } from "axios";
-import { issueDocument, tokenStorage } from "@/lib/api";
+import { absUrl, issueDocument, tokenStorage } from "@/lib/api";
 import type { DocumentResponse } from "@/types/order";
 import { Award } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -66,7 +66,7 @@ export default function IssuePage() {
           <div className="mt-8 flex flex-col gap-2">
             {document.pdf_url ? (
               <a
-                href={document.pdf_url}
+                href={absUrl(document.pdf_url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded bg-[var(--color-accent)] py-3 font-semibold text-white hover:bg-[var(--color-accent-hover)]"

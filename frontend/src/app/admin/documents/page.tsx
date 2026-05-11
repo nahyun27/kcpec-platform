@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import {
+  absUrl,
   exportCounselingDoc,
   getAdminSurveyDetail,
   getAdminSurveys,
@@ -19,17 +20,6 @@ const DEFAULT_DRAFT_TEMPLATE = `[상담배경]
 
 [상담내용]
 1. `;
-
-// /static 은 백엔드(:8000) 가 서빙. 프론트(:3000) 에서 fetch 하려면 절대 URL 필요.
-function backendOrigin(): string {
-  const apiBase =
-    process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
-  try {
-    return new URL(apiBase).origin;
-  } catch {
-    return "http://localhost:8000";
-  }
-}
 
 export default function AdminSurveysPage() {
   const [rows, setRows] = useState<AdminSurveyRow[]>([]);
@@ -158,7 +148,7 @@ export default function AdminSurveysPage() {
                       </button>
                       {r.status === "completed" && r.final_pdf_url ? (
                         <a
-                          href={r.final_pdf_url}
+                          href={absUrl(r.final_pdf_url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="rounded-md bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-emerald-700"
@@ -420,7 +410,7 @@ function SurveyDetailModal({
               </button>
               {detail.status === "completed" && detail.final_pdf_url ? (
                 <a
-                  href={detail.final_pdf_url}
+                  href={absUrl(detail.final_pdf_url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="rounded bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-accent-hover)]"
@@ -485,7 +475,7 @@ function DraftViewerModal({
       return;
     }
     let cancelled = false;
-    const url = path.startsWith("http") ? path : `${backendOrigin()}${path}`;
+    const url = absUrl(path);
     setLoading(true);
     setError(null);
     fetch(url)

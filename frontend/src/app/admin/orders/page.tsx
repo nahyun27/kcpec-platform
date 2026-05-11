@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isAxiosError } from "axios";
 import {
+  absUrl,
   confirmBankOrder,
   getAdminOrderDocuments,
   getAdminOrders,
@@ -286,7 +287,7 @@ function DocumentsModal({
                   </div>
                   {d.pdf_url ? (
                     <a
-                      href={d.pdf_url}
+                      href={absUrl(d.pdf_url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="rounded bg-[var(--color-accent)] px-3 py-1 text-xs font-semibold text-white hover:bg-[var(--color-accent-hover)]"
