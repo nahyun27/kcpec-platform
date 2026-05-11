@@ -35,6 +35,7 @@ import {
 } from "@/types/order";
 import { BookOpen, CreditCard, Download, FileText, User, ChevronRight, PlayCircle, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { CourseThumbnail } from "@/components/CourseThumbnail";
 
 type OrderWithExtras = OrderResponse & {
   documents: DocumentResponse[];
@@ -327,74 +328,94 @@ function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
   const progressPct = enrollment.overall_progress_pct;
 
   return (
-    <li className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-all hover:border-[var(--color-primary)]/30 hover:shadow-md">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold tracking-wide text-[var(--color-accent)] ring-1 ring-blue-500/20">
-              {enrollment.category}
-            </span>
-            {isComplete ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-600 ring-1 ring-emerald-500/20">
-                수료 완료
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-600 ring-1 ring-blue-500/20">
-                수강 중
-              </span>
-            )}
-          </div>
-          <h3 className="font-sans text-xl font-bold text-slate-900 line-clamp-1">
-            {enrollment.course_title}
-          </h3>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-2 sm:mt-0 mt-4">
-          <Link
-            href={`/courses/${enrollment.course_id}/watch`}
-            className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition-colors hover:border-[var(--color-primary)] hover:bg-slate-50 hover:text-[var(--color-primary)]"
-          >
-            <PlayCircle className="h-4 w-4" /> 이어보기
-          </Link>
-          {isComplete ? (
-            <Link
-              href={`/checkout?course_id=${enrollment.course_id}`}
-              className="flex items-center gap-1.5 rounded-full bg-[var(--color-primary)] px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[var(--color-primary-hover)]"
-            >
-              수료증 결제
-            </Link>
-          ) : enrollment.has_quiz ? (
-            progressPct >= 100 ? (
-              <Link
-                href={`/courses/${enrollment.course_id}/quiz`}
-                className="flex items-center gap-1.5 rounded-full border border-[var(--color-accent)] bg-blue-50 px-4 py-2 text-sm font-bold text-[var(--color-accent)] transition-colors hover:bg-[var(--color-accent)] hover:text-white"
-              >
-                퀴즈 응시
-              </Link>
-            ) : (
-              <span
-                title="모든 강의를 완료해야 응시 가능합니다"
-                className="flex cursor-not-allowed items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-bold text-zinc-400"
-              >
-                퀴즈 응시
-              </span>
-            )
-          ) : null}
-        </div>
-      </div>
-
-      <div className="mt-6 rounded-xl bg-slate-50 p-4">
-        <div className="flex items-end justify-between text-sm mb-2">
-          <span className="font-bold text-slate-700">진도율</span>
-          <span className="text-xl font-extrabold text-[var(--color-accent)]">
-            {progressPct}%
-          </span>
-        </div>
-        <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200/80 shadow-inner">
-          <div
-            className={`h-full rounded-full transition-all duration-1000 ease-out ${isComplete ? 'bg-emerald-500' : 'bg-gradient-to-r from-blue-400 to-[var(--color-accent)]'}`}
-            style={{ width: `${progressPct}%` }}
+    <li className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-all hover:border-[var(--color-primary)]/30 hover:shadow-md">
+      <div className="flex gap-4">
+        {/* 좌측 썸네일 (16:9 — w-28 ~ sm:w-32 폭) */}
+        <div className="w-28 shrink-0 self-start overflow-hidden rounded-lg sm:w-32">
+          <CourseThumbnail
+            category={enrollment.category}
+            title={enrollment.course_title}
           />
+        </div>
+
+        {/* 우측 내용 */}
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-[var(--color-accent)] ring-1 ring-blue-500/20">
+                  {enrollment.category}
+                </span>
+                {isComplete ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-600 ring-1 ring-emerald-500/20">
+                    수료 완료
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-blue-600 ring-1 ring-blue-500/20">
+                    수강 중
+                  </span>
+                )}
+              </div>
+              <h3 className="font-sans text-base font-bold text-slate-900 line-clamp-2 sm:text-lg">
+                {enrollment.course_title}
+              </h3>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                href={`/courses/${enrollment.course_id}/watch`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:border-[var(--color-primary)] hover:bg-slate-50 hover:text-[var(--color-primary)]"
+              >
+                <PlayCircle className="h-3.5 w-3.5" /> 이어보기
+              </Link>
+              {isComplete ? (
+                <Link
+                  href={`/checkout?course_id=${enrollment.course_id}`}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary)] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[var(--color-primary-hover)]"
+                >
+                  수료증 결제
+                </Link>
+              ) : enrollment.has_quiz ? (
+                progressPct >= 100 ? (
+                  <Link
+                    href={`/courses/${enrollment.course_id}/quiz`}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-accent)] bg-blue-50 px-3 py-1.5 text-xs font-bold text-[var(--color-accent)] transition-colors hover:bg-[var(--color-accent)] hover:text-white"
+                  >
+                    퀴즈 응시
+                  </Link>
+                ) : (
+                  <span
+                    title="모든 강의를 완료해야 응시 가능합니다"
+                    className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-bold text-zinc-400"
+                  >
+                    퀴즈 응시
+                  </span>
+                )
+              ) : null}
+            </div>
+          </div>
+
+          {/* 진도율 한 줄: 라벨 | 바 | 퍼센트 */}
+          <div className="mt-1 flex items-center gap-3">
+            <span className="shrink-0 text-xs text-slate-500">진도율</span>
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ease-out ${
+                  isComplete
+                    ? "bg-emerald-500"
+                    : "bg-[var(--color-primary)]"
+                }`}
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <span
+              className={`w-10 shrink-0 text-right text-xs font-bold ${
+                isComplete ? "text-emerald-600" : "text-[var(--color-primary)]"
+              }`}
+            >
+              {progressPct}%
+            </span>
+          </div>
         </div>
       </div>
     </li>
