@@ -119,7 +119,7 @@ function CoursesListInner() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-6 pt-4 pb-12">
+      <div className="mx-auto max-w-6xl px-6 pt-0 pb-12">
         {/* Controls: Search & Filter */}
         <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full max-w-md">
@@ -129,7 +129,7 @@ function CoursesListInner() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="강의명으로 검색하세요"
-              className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-5 text-[15px] text-slate-800 placeholder:text-slate-400 shadow-sm transition-all focus:border-[var(--color-primary)] focus:outline-none focus:ring-4 focus:ring-[var(--color-primary)]/10"
+              className="w-full rounded-2xl border-none bg-white py-3.5 pl-11 pr-5 text-[15px] text-slate-800 placeholder:text-slate-400 shadow-md shadow-slate-200/50 transition-all hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-[var(--color-primary)]/10"
             />
           </div>
 
