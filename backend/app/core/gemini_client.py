@@ -80,8 +80,14 @@ def _format_personal(personal: dict | None) -> str:
     return " / ".join(parts)
 
 
-def _format_user_prompt(survey_responses: dict, course_title: str) -> str:
-    """신형(personal dict + q2..q6) / 구형(인적사항 등 자유 텍스트) 모두 수용."""
+def _format_user_prompt(
+    survey_responses: dict,
+    course_title: str,
+    extra_instructions: str = "",
+) -> str:
+    """신형(personal dict + q2..q6) / 구형(인적사항 등 자유 텍스트) 모두 수용.
+    extra_instructions: 어드민이 재생성 시 추가로 주는 지시사항(없으면 미포함).
+    """
     personal = survey_responses.get("personal")
     legacy_personal = survey_responses.get("인적사항", "")
     personal_summary = (
@@ -96,7 +102,7 @@ def _format_user_prompt(survey_responses: dict, course_title: str) -> str:
             v = survey_responses.get(legacy_key, "")
         return str(v or "").strip() or "(미입력)"
 
-    return dedent(
+    base = dedent(
         f"""\
         다음 정보를 바탕으로 심리상담 의견서 초안을 작성해 주세요.
 
@@ -113,6 +119,42 @@ def _format_user_prompt(survey_responses: dict, course_title: str) -> str:
         ■ 기타 사항: {get('q6', '하고싶은말')}
         """
     )
+    extra = (extra_instructions or "").strip()
+    if extra:
+        base += dedent(
+            f"""
+
+            [추가 지시 (관리자 요청)]
+            아래 지시사항을 반영하여 작성해 주세요. 다만 출력 형식 규칙
+            ([상담배경]/[상담내용] 두 섹션, Markdown 금지) 은 그대로 유지할 것.
+            {extra}
+            """
+        )
+    return base
+
+
+def generate_counseling_draft(
+    survey_responses: dict,
+    course_title: str,
+    extra_instructions: str = "",
+) -> str:
+    if not settings.GEMINI_API_KEY:
+        logger.info("GEMINI_API_KEY 미설정 — 더미 초안 반환")
+        return _dummy_draft(survey_responses, course_title)
+
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    response = client.models.generate_content(
+        model=settings.GEMINI_MODEL,
+        contents=_format_user_prompt(
+            survey_responses, course_title, extra_instructions
+        ),
+        config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
+    )
+    text = (response.text or "").strip()
+    return text or _dummy_draft(survey_responses, course_title)
 
 
 def _dummy_draft(survey_responses: dict, course_title: str) -> str:
@@ -134,25 +176,6 @@ def _dummy_draft(survey_responses: dict, course_title: str) -> str:
         5. 본 초안은 더미 텍스트로 실제 발송 전 반드시 검토 후 재작성이 필요함. 재범 가능성은 추가 평가를 통해 판단 가능함.
         """
     )
-
-
-def generate_counseling_draft(survey_responses: dict, course_title: str) -> str:
-    if not settings.GEMINI_API_KEY:
-        logger.info("GEMINI_API_KEY 미설정 — 더미 초안 반환")
-        return _dummy_draft(survey_responses, course_title)
-
-    # Lazy import — google-genai 가 없거나 키만 비어 있는 환경에서 import 비용 회피.
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    response = client.models.generate_content(
-        model=settings.GEMINI_MODEL,
-        contents=_format_user_prompt(survey_responses, course_title),
-        config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
-    )
-    text = (response.text or "").strip()
-    return text or _dummy_draft(survey_responses, course_title)
 
 
 __all__ = ["generate_counseling_draft"]

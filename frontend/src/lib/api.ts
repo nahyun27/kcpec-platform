@@ -515,6 +515,23 @@ export async function exportCounselingDoc(
   return data;
 }
 
+// LLM(Gemini) 으로 초안 재생성 — 추가 지시사항 옵션.
+export type RegenerateDraftResponse = {
+  draft_text: string;
+  draft_url: string;
+};
+
+export async function regenerateCounselingDraft(
+  surveyId: number,
+  extraInstructions: string = "",
+): Promise<RegenerateDraftResponse> {
+  const { data } = await api.post<RegenerateDraftResponse>(
+    `/admin/surveys/${surveyId}/regenerate-draft`,
+    { extra_instructions: extraInstructions },
+  );
+  return data;
+}
+
 export async function getCourseEnrollmentCounts(): Promise<CourseEnrollmentCount[]> {
   const { data } = await api.get<CourseEnrollmentCount[]>(
     "/admin/courses/enrollment-counts",

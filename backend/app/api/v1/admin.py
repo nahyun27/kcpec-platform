@@ -21,6 +21,7 @@ from app.core.admin import require_admin
 from app.core.database import get_db
 from app.core.document_generator import fill_counseling_template
 from app.core.email import send_final_to_user
+from app.core.gemini_client import generate_counseling_draft
 from app.core.pdf import convert_office_to_pdf
 from app.models.community import Notice, Post
 from app.models.counseling import CounselingStatus, CounselingSurvey
@@ -71,6 +72,7 @@ router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(requir
 
 FINALS_DIR = Path(__file__).resolve().parents[3] / "static" / "finals"
 EXPORTS_DIR = Path(__file__).resolve().parents[3] / "static" / "exports"
+DRAFTS_DIR = Path(__file__).resolve().parents[3] / "static" / "drafts"
 
 
 def _now() -> datetime:
@@ -690,6 +692,64 @@ def export_counseling_doc(
         ),
         filename=f"심리상담_의견서_{name_part}_{date_part}.docx",
     )
+
+
+# ---------- 의견서 초안 LLM 재생성 -------------------------------------------
+
+
+class RegenerateDraftRequest(BaseModel):
+    # 추가 지시사항 (선택). 비어 있으면 기본 프롬프트만으로 재생성.
+    extra_instructions: str = ""
+
+
+class RegenerateDraftResponse(BaseModel):
+    draft_text: str
+    draft_url: str
+
+
+@router.post(
+    "/surveys/{survey_id}/regenerate-draft",
+    response_model=RegenerateDraftResponse,
+)
+def regenerate_draft(
+    survey_id: int,
+    payload: RegenerateDraftRequest,
+    db: Session = Depends(get_db),
+) -> RegenerateDraftResponse:
+    survey = db.get(CounselingSurvey, survey_id)
+    if survey is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail="설문을 찾을 수 없습니다."
+        )
+
+    order = db.get(Order, survey.order_id)
+    course = db.get(Course, order.course_id) if order else None
+    course_title = course.title if course else "(강의 정보 없음)"
+
+    try:
+        draft = generate_counseling_draft(
+            survey.responses,
+            course_title,
+            extra_instructions=payload.extra_instructions,
+        )
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"초안 재생성 실패: {e}",
+        )
+
+    DRAFTS_DIR.mkdir(parents=True, exist_ok=True)
+    draft_path = DRAFTS_DIR / f"{survey.id}.txt"
+    draft_path.write_text(draft, encoding="utf-8")
+
+    draft_url = f"/static/drafts/{survey.id}.txt"
+    survey.ai_draft_url = draft_url
+    # 상태가 SUBMITTED 였다면 DRAFT_GENERATED 로 끌어올림 (이미 더 진행된 상태면 유지).
+    if survey.status == CounselingStatus.SUBMITTED:
+        survey.status = CounselingStatus.DRAFT_GENERATED
+    db.commit()
+
+    return RegenerateDraftResponse(draft_text=draft, draft_url=draft_url)
 
 
 # ---------- stats -------------------------------------------------------------

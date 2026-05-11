@@ -6,6 +6,7 @@ import {
   exportCounselingDoc,
   getAdminSurveyDetail,
   getAdminSurveys,
+  regenerateCounselingDraft,
   uploadFinalPdf,
 } from "@/lib/api";
 import type { AdminSurveyDetail, AdminSurveyRow } from "@/types/admin";
@@ -473,6 +474,9 @@ function DraftViewerModal({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState<"docx" | "pdf" | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [extraInstructions, setExtraInstructions] = useState("");
 
   useEffect(() => {
     if (!path) {
@@ -539,7 +543,48 @@ function DraftViewerModal({
     }
   }
 
-  const busy = downloading != null;
+  // 현재 textarea 내용으로 PDF 만든 뒤 새 탭에서 인라인 표시 (다운로드 X).
+  async function handlePreview() {
+    if (!text.trim()) {
+      alert("초안 내용이 비어있습니다.");
+      return;
+    }
+    setPreviewing(true);
+    try {
+      const blob = await exportCounselingDoc(surveyId, text, "pdf");
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener");
+      // blob URL 은 새 탭이 닫혀도 자동 정리되므로 즉시 revoke 하지 않음.
+      // 안전장치로 1분 후 정리.
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      const detail = isAxiosError(err)
+        ? (err.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      alert(detail ?? "미리보기 생성에 실패했습니다.");
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
+  // Gemini 에 추가 지시사항을 함께 보내 초안 재생성.
+  async function handleRegenerate() {
+    setRegenerating(true);
+    try {
+      const res = await regenerateCounselingDraft(surveyId, extraInstructions);
+      setText(res.draft_text);
+      setExtraInstructions("");
+    } catch (err) {
+      const detail = isAxiosError(err)
+        ? (err.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      alert(detail ?? "초안 재생성에 실패했습니다.");
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
+  const busy = downloading != null || previewing || regenerating;
 
   return (
     <div
@@ -569,18 +614,49 @@ function DraftViewerModal({
           </button>
         </header>
 
-        <div className="flex-1 overflow-hidden p-4">
+        <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
           {loading ? (
             <p className="py-10 text-center text-sm text-zinc-500">불러오는 중...</p>
           ) : error ? (
             <p className="py-10 text-center text-sm text-red-600">{error}</p>
           ) : (
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              spellCheck={false}
-              className="h-full min-h-[60vh] w-full resize-none rounded-md border border-zinc-200 bg-slate-50/50 p-4 font-mono text-[13px] leading-relaxed text-slate-800 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
-            />
+            <>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                spellCheck={false}
+                disabled={regenerating}
+                className="min-h-[50vh] w-full flex-1 resize-none rounded-md border border-zinc-200 bg-slate-50/50 p-4 font-mono text-[13px] leading-relaxed text-slate-800 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 disabled:opacity-60"
+              />
+
+              {/* LLM 재생성 영역 */}
+              <div className="rounded-md border border-zinc-200 bg-slate-50/40 p-3">
+                <label className="block text-xs font-bold text-slate-700">
+                  추가 지시 (선택)
+                </label>
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  Gemini 에 전달할 추가 요청사항. 비워두면 기본 프롬프트로 재생성합니다.
+                </p>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <textarea
+                    value={extraInstructions}
+                    onChange={(e) => setExtraInstructions(e.target.value)}
+                    rows={2}
+                    placeholder="예) 재범 방지 계획을 더 구체적으로, 가족 지지체계 강조"
+                    disabled={regenerating}
+                    className="flex-1 resize-y rounded border border-zinc-200 bg-white px-3 py-2 text-xs leading-relaxed text-slate-800 placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 disabled:opacity-60"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRegenerate}
+                    disabled={loading || !!error || busy}
+                    className="inline-flex min-w-[140px] items-center justify-center self-stretch rounded-md border border-[var(--color-primary)] bg-white px-3 py-2 text-xs font-bold text-[var(--color-primary)] shadow-sm transition-colors hover:bg-[var(--color-primary)]/5 disabled:opacity-50"
+                  >
+                    {regenerating ? "재생성 중..." : "LLM 다시 돌리기"}
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -594,6 +670,14 @@ function DraftViewerModal({
             {copied ? "복사됨" : "복사하기"}
           </button>
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePreview}
+              disabled={loading || !!error || busy}
+              className="inline-flex min-w-[100px] items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50"
+            >
+              {previewing ? "생성 중..." : "미리 보기"}
+            </button>
             <button
               type="button"
               onClick={() => handleDownload("docx")}
