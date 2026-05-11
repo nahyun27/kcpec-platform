@@ -59,13 +59,19 @@ export default function CommunityClient() {
   }
 
   return (
-    <div className="mx-auto min-h-[80vh] max-w-5xl px-4 pb-24 pt-6 sm:px-6 sm:pt-12">
-      <PageHeader
-        title="커뮤니티"
-        subtitle="Community"
-        icon={<MessageSquare className="h-3.5 w-3.5" />}
-        description="공지사항, Q&A, 전문가 칼럼, 수강 후기를 한 곳에서 편리하게 확인하세요."
-      />
+    <div className="min-h-screen bg-slate-50/50">
+      <div className="bg-white pt-12 relative z-10">
+        <div className="mx-auto max-w-5xl px-6">
+          <PageHeader
+            title="커뮤니티"
+            subtitle="Community"
+            icon={<MessageSquare className="h-3.5 w-3.5" />}
+            description="KCPEC 커뮤니티에서 유익한 자료를 확인하고, 다른 수강생들과 자유롭게 소통해보세요."
+          />
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 pt-10 pb-24">
 
       {/* Pill Tabs — 모바일에선 가로 스크롤(절대 줄바꿈 X), 데스크톱에선 일반 배치 */}
       <div className="hide-scrollbar -mx-4 mb-6 overflow-x-auto px-4 pb-2 sm:mx-0 sm:mb-8 sm:px-0">
@@ -98,6 +104,7 @@ export default function CommunityClient() {
         {tab === "review" ? <ReviewTab /> : null}
         {tab === "faq" ? <FaqTab /> : null}
       </div>
+    </div>
     </div>
   );
 }

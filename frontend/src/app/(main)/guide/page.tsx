@@ -73,13 +73,18 @@ import { PageHeader } from "@/components/layout/PageHeader";
 
 export default function GuidePage() {
   return (
-    <div className="mx-auto max-w-4xl space-y-12 px-6 py-12 pb-24">
-      <PageHeader
-        title="서비스 이용 안내"
-        subtitle="KCPEC 이용 안내"
-        icon={<BookText className="h-3.5 w-3.5" />}
-        description="무료 수강 후 필요한 자료만 결제하는 단순한 모델입니다."
-      />
+    <div className="min-h-screen bg-slate-50/50">
+      <div className="bg-white pt-12 relative z-10">
+        <div className="mx-auto max-w-4xl px-6">
+          <PageHeader
+            title="서비스 이용 안내"
+            subtitle="Guide"
+            icon={<BookText className="h-3.5 w-3.5" />}
+            description="KCPEC의 합리적이고 투명한 교육 서비스 이용 방법을 안내해 드립니다."
+          />
+        </div>
+      </div>
+      <div className="mx-auto max-w-4xl px-6 pt-10 pb-24 space-y-12">
 
       <Section title="서비스 소개">
         <p>
@@ -204,6 +209,7 @@ export default function GuidePage() {
           자주 묻는 질문 보기 →
         </Link>
       </div>
+    </div>
     </div>
   );
 }

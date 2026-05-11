@@ -18,7 +18,7 @@ export function PageHeader({
   centered = false,
 }: PageHeaderProps) {
   return (
-    <header className={`mb-10 flex flex-col gap-4 border-b border-zinc-200 pb-8 sm:flex-row ${rightContent ? "sm:items-end sm:justify-between" : ""} ${centered ? "text-center sm:text-center" : "text-center sm:text-left"}`}>
+    <header className={`mb-8 flex flex-col gap-4 pb-4 sm:flex-row ${rightContent ? "sm:items-end sm:justify-between" : ""} ${centered ? "text-center sm:text-center" : "text-center sm:text-left"}`}>
       <div className={centered ? "mx-auto" : ""}>
         {subtitle && (
           <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[var(--color-accent)] ring-1 ring-blue-500/20">
