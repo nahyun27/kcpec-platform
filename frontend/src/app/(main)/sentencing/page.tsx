@@ -110,6 +110,21 @@ const CRIME_TO_DOCUMENTS: Record<CrimeKey, string[]> = {
   etc: [],
 };
 
+// 발급서류 → 연관 강의 ID (null 이면 강의와 무관, 항상 활성)
+const DOC_TO_COURSE: Record<string, CourseId | null> = {
+  "준법의식 수료증": "law",
+  서약서: null,
+  "성범죄 예방 수료증": "sex",
+  "디지털 성범죄 예방 수료증": "digital_sex",
+  "음주운전 예방 수료증": "drunk",
+  "마약 예방 수료증": "drug",
+  "도박 예방 수료증": "gambling",
+  "재산범죄 예방 수료증": "fraud",
+  "스토킹범죄 예방 수료증": "stalking",
+  "학교폭력 예방 수료증": "school",
+  "심리상담 의견서": "counseling",
+};
+
 // ---------- Y/N 추가 질문 (Step 2) -------------------------------------------
 
 type FollowUp = {
@@ -156,6 +171,10 @@ export default function SentencingPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selected, setSelected] = useState<Set<CrimeKey>>(new Set());
   const [answers, setAnswers] = useState<Record<string, "Y" | "N" | "">>({});
+  // Step3 에서 사용자가 개별 해제한 강의 — 추천에서 빠지진 않고 회색 처리.
+  const [disabledCourses, setDisabledCourses] = useState<Set<CourseId>>(
+    new Set(),
+  );
 
   function toggleCrime(key: CrimeKey) {
     setSelected((prev) => {
@@ -168,6 +187,15 @@ export default function SentencingPage() {
 
   function setAnswer(key: string, val: "Y" | "N") {
     setAnswers((prev) => ({ ...prev, [key]: val }));
+  }
+
+  function toggleCourse(id: CourseId) {
+    setDisabledCourses((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   // 노출되어야 할 follow-up 만 필터
@@ -185,20 +213,33 @@ export default function SentencingPage() {
     const courses = Array.from(courseIds).map((id) => COURSES[id]);
     const documents = ["준법의식 수료증", "서약서"];
     selected.forEach((k) => documents.push(...CRIME_TO_DOCUMENTS[k]));
-    if (answers["counseling_needed"] === "Y" || answers["drug_counseling"] === "Y" || answers["mental_health"] === "Y") {
+    if (
+      answers["counseling_needed"] === "Y" ||
+      answers["drug_counseling"] === "Y" ||
+      answers["mental_health"] === "Y"
+    ) {
       documents.push("심리상담 의견서");
     }
-    const total = courses.reduce((sum, c) => sum + c.price, 0);
-    // 발급서류 dedup
-    return { courses, documents: Array.from(new Set(documents)), total };
-  }, [selected, answers, activeFollowups]);
+    // 발급서류 dedup + 활성 여부 계산 (해제된 강의에 연결된 서류는 회색 처리)
+    const docs = Array.from(new Set(documents)).map((name) => {
+      const courseId = DOC_TO_COURSE[name] ?? null;
+      const active = courseId == null || !disabledCourses.has(courseId);
+      return { name, active };
+    });
+    // 총액: 해제된 강의는 제외
+    const total = courses
+      .filter((c) => !disabledCourses.has(c.id))
+      .reduce((sum, c) => sum + c.price, 0);
+    const activeCourseCount = courses.length - disabledCourses.size;
+    return { courses, documents: docs, total, activeCourseCount };
+  }, [selected, answers, activeFollowups, disabledCourses]);
 
   function handleCheckout() {
+    if (recommendation.activeCourseCount === 0) return;
     if (!tokenStorage.getAccess()) {
       router.push(`/login?next=${encodeURIComponent("/sentencing")}`);
       return;
     }
-    // 첫 번째 추천 강의의 카테고리(있다면)로 강의 목록 진입.
     // 본 페이지는 추천/안내 용도 — 실제 결제는 /courses → 강의 상세 → 패키지 선택 흐름.
     router.push("/courses");
   }
@@ -237,7 +278,11 @@ export default function SentencingPage() {
               />
             ) : null}
             {step === 3 ? (
-              <Step3 recommendation={recommendation} />
+              <Step3
+                recommendation={recommendation}
+                disabledCourses={disabledCourses}
+                onToggleCourse={toggleCourse}
+              />
             ) : null}
 
             {/* 네비게이션 */}
@@ -268,6 +313,7 @@ export default function SentencingPage() {
             <div className="sticky top-24">
               <CartSummary
                 recommendation={recommendation}
+                disabledCourses={disabledCourses}
                 step={step}
                 onCheckout={handleCheckout}
               />
@@ -289,7 +335,8 @@ export default function SentencingPage() {
             <button
               type="button"
               onClick={handleCheckout}
-              className="rounded-full bg-[#1C3461] px-5 py-3 text-sm font-bold text-white shadow-md hover:bg-[var(--color-primary-hover)]"
+              disabled={recommendation.activeCourseCount === 0}
+              className="rounded-full bg-[#1C3461] px-5 py-3 text-sm font-bold text-white shadow-md hover:bg-[var(--color-primary-hover)] disabled:opacity-40"
             >
               지금 바로 수강 신청 →
             </button>
@@ -416,6 +463,13 @@ function Step1({
 
 // ---------- Step 2: 추가 Y/N 질문 --------------------------------------------
 
+// 심리상담 의견서 관련 follow-up 키 — 해당 항목 아래에 설명 토글 노출.
+const COUNSELING_FOLLOWUP_KEYS = new Set([
+  "counseling_needed",
+  "drug_counseling",
+  "mental_health",
+]);
+
 function Step2({
   followups,
   answers,
@@ -425,6 +479,7 @@ function Step2({
   answers: Record<string, "Y" | "N" | "">;
   onAnswer: (key: string, val: "Y" | "N") => void;
 }) {
+  const [explainerOpen, setExplainerOpen] = useState(false);
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
       <h2 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
@@ -442,6 +497,7 @@ function Step2({
         <ul className="mt-6 space-y-4">
           {followups.map((f) => {
             const val = answers[f.key] ?? "";
+            const isCounseling = COUNSELING_FOLLOWUP_KEYS.has(f.key);
             return (
               <li key={f.key} className="rounded-xl border border-zinc-200 bg-slate-50/40 p-4">
                 <p className="text-sm font-bold text-slate-800">{f.question}</p>
@@ -461,6 +517,38 @@ function Step2({
                     </button>
                   ))}
                 </div>
+                {isCounseling ? (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setExplainerOpen((v) => !v)}
+                      className="text-sm font-medium text-[#1C3461] underline-offset-2 hover:underline"
+                    >
+                      심리상담 의견서란? {explainerOpen ? "▲" : "▼"}
+                    </button>
+                    {explainerOpen ? (
+                      <div className="mt-2 rounded-lg bg-blue-50 p-4 text-sm leading-relaxed text-slate-700">
+                        <p>
+                          심리상담 의견서는 전문 심리상담사가 작성하는 법원 제출용
+                          공식 문서입니다.
+                        </p>
+                        <ul className="mt-2 space-y-1.5 text-[13px]">
+                          <li>
+                            • 내담자의 심리 상태, 반성 정도, 재범 방지 계획을
+                            전문가 소견으로 기술
+                          </li>
+                          <li>
+                            • 판사에게 피고인의 변화 의지를 전달하는 핵심 양형자료
+                          </li>
+                          <li>
+                            • 작성 후 전문가 검토를 거쳐 발급 (AI 초안 + 전문가 검수)
+                          </li>
+                          <li>• 발급까지 1~2 영업일 소요</li>
+                        </ul>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </li>
             );
           })}
@@ -472,11 +560,23 @@ function Step2({
 
 // ---------- Step 3: 추천 결과 ------------------------------------------------
 
+type Recommendation = {
+  courses: CourseInfo[];
+  documents: { name: string; active: boolean }[];
+  total: number;
+  activeCourseCount: number;
+};
+
 function Step3({
   recommendation,
+  disabledCourses,
+  onToggleCourse,
 }: {
-  recommendation: { courses: CourseInfo[]; documents: string[]; total: number };
+  recommendation: Recommendation;
+  disabledCourses: Set<CourseId>;
+  onToggleCourse: (id: CourseId) => void;
 }) {
+  const hasDisabled = disabledCourses.size > 0;
   return (
     <section className="space-y-6">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
@@ -487,18 +587,43 @@ function Step3({
           </h2>
         </div>
         <ul className="divide-y divide-zinc-100">
-          {recommendation.courses.map((c) => (
-            <li key={c.id} className="flex items-center justify-between py-3">
-              <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                <Check className="h-4 w-4 text-emerald-500" />
-                {c.name}
-              </span>
-              <span className="font-mono text-sm font-bold text-slate-900">
-                {c.price.toLocaleString()}원
-              </span>
-            </li>
-          ))}
+          {recommendation.courses.map((c) => {
+            const active = !disabledCourses.has(c.id);
+            return (
+              <li key={c.id} className="py-3">
+                <label className="flex cursor-pointer items-center justify-between gap-3">
+                  <span className="flex min-w-0 items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      onChange={() => onToggleCourse(c.id)}
+                      className="h-4 w-4 shrink-0 accent-[#1C3461]"
+                    />
+                    <span
+                      className={`truncate text-sm font-semibold ${
+                        active ? "text-slate-900" : "text-slate-400 line-through"
+                      }`}
+                    >
+                      {c.name}
+                    </span>
+                  </span>
+                  <span
+                    className={`shrink-0 font-mono text-sm font-bold ${
+                      active ? "text-slate-900" : "text-slate-400 line-through"
+                    }`}
+                  >
+                    {c.price.toLocaleString()}원
+                  </span>
+                </label>
+              </li>
+            );
+          })}
         </ul>
+        {hasDisabled ? (
+          <p className="mt-3 text-xs font-medium text-amber-600">
+            추천 강의를 해제하면 해당 수료증이 발급되지 않습니다.
+          </p>
+        ) : null}
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
@@ -511,11 +636,17 @@ function Step3({
         <ul className="space-y-2">
           {recommendation.documents.map((d) => (
             <li
-              key={d}
-              className="flex items-center gap-2 text-sm font-medium text-slate-700"
+              key={d.name}
+              className={`flex items-center gap-2 text-sm font-medium ${
+                d.active ? "text-slate-700" : "text-slate-400 line-through"
+              }`}
             >
-              <Check className="h-4 w-4 text-emerald-500" />
-              {d}
+              <Check
+                className={`h-4 w-4 ${
+                  d.active ? "text-emerald-500" : "text-slate-300"
+                }`}
+              />
+              {d.name}
             </li>
           ))}
         </ul>
@@ -531,13 +662,16 @@ function Step3({
 
 function CartSummary({
   recommendation,
+  disabledCourses,
   step,
   onCheckout,
 }: {
-  recommendation: { courses: CourseInfo[]; documents: string[]; total: number };
+  recommendation: Recommendation;
+  disabledCourses: Set<CourseId>;
   step: 1 | 2 | 3;
   onCheckout: () => void;
 }) {
+  const noneSelected = recommendation.activeCourseCount === 0;
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
       <h3 className="font-sans text-sm font-extrabold tracking-wide text-slate-900">
@@ -551,14 +685,27 @@ function CartSummary({
         {recommendation.courses.length === 0 ? (
           <li className="text-xs text-slate-400">아직 선택된 과정이 없습니다.</li>
         ) : (
-          recommendation.courses.map((c) => (
-            <li key={c.id} className="flex items-center justify-between text-sm">
-              <span className="truncate pr-2 text-slate-700">{c.name}</span>
-              <span className="shrink-0 font-mono text-xs font-bold text-slate-700">
-                {c.price.toLocaleString()}원
-              </span>
-            </li>
-          ))
+          recommendation.courses.map((c) => {
+            const active = !disabledCourses.has(c.id);
+            return (
+              <li key={c.id} className="flex items-center justify-between text-sm">
+                <span
+                  className={`truncate pr-2 ${
+                    active ? "text-slate-700" : "text-slate-400 line-through"
+                  }`}
+                >
+                  {c.name}
+                </span>
+                <span
+                  className={`shrink-0 font-mono text-xs font-bold ${
+                    active ? "text-slate-700" : "text-slate-400 line-through"
+                  }`}
+                >
+                  {c.price.toLocaleString()}원
+                </span>
+              </li>
+            );
+          })
         )}
       </ul>
 
@@ -574,11 +721,16 @@ function CartSummary({
       <button
         type="button"
         onClick={onCheckout}
-        disabled={step !== 3 || recommendation.courses.length === 0}
+        disabled={step !== 3 || noneSelected}
         className="mt-4 w-full rounded-xl bg-[#1C3461] py-3 text-sm font-bold text-white shadow-md shadow-[#1C3461]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] disabled:translate-y-0 disabled:opacity-40 disabled:hover:translate-y-0"
       >
         지금 바로 수강 신청하기
       </button>
+      {step === 3 && noneSelected ? (
+        <p className="mt-2 text-center text-[11px] font-medium text-amber-600">
+          최소 1개 이상의 강의를 선택해 주세요.
+        </p>
+      ) : null}
       <Link
         href="/courses"
         className="mt-2 block w-full rounded-xl border border-zinc-200 bg-white py-2.5 text-center text-xs font-bold text-slate-700 hover:bg-slate-50"
