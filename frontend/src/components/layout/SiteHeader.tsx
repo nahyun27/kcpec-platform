@@ -8,6 +8,7 @@ import { Menu, X, ChevronRight } from "lucide-react";
 import { logout, tokenStorage } from "@/lib/api";
 
 const NAV = [
+  { href: "/sentencing", label: "양형자료 찾기" },
   { href: "/courses", label: "강의 목록" },
   { href: "/counseling", label: "전문가 심리상담" },
   { href: "/community", label: "커뮤니티" },

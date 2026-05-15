@@ -1,0 +1,590 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  BadgeCheck,
+  Check,
+  FileText,
+  Scale,
+} from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { tokenStorage } from "@/lib/api";
+
+// ---------- 사건 유형 (Step 1) ------------------------------------------------
+
+type CrimeKey =
+  | "sex"
+  | "drunk"
+  | "violence"
+  | "drug"
+  | "gambling"
+  | "fraud"
+  | "stalking"
+  | "school"
+  | "obstruct"
+  | "etc";
+
+type Crime = {
+  key: CrimeKey;
+  label: string;
+  description: string;
+};
+
+const CRIMES: Crime[] = [
+  { key: "sex", label: "성범죄", description: "성추행, 성폭력, 불법촬영 등" },
+  { key: "drunk", label: "음주운전", description: "음주·약물 운전 적발" },
+  { key: "violence", label: "폭행 / 상해", description: "단순 폭행, 상해 등" },
+  { key: "drug", label: "마약", description: "투약·소지·유통" },
+  { key: "gambling", label: "도박", description: "도박·도박개장·사설사이트" },
+  { key: "fraud", label: "사기 / 횡령 / 배임", description: "재산범죄 일반" },
+  { key: "stalking", label: "스토킹", description: "스토킹·접근금지 위반" },
+  { key: "school", label: "학교폭력", description: "교내 폭력·따돌림" },
+  { key: "obstruct", label: "공무집행방해", description: "공무원 폭행·협박" },
+  { key: "etc", label: "기타", description: "위 항목에 해당하지 않는 사건" },
+];
+
+// ---------- 강의 카탈로그 -----------------------------------------------------
+
+type CourseId =
+  | "law"           // 준법의식 강화 (모든 경우 기본 포함)
+  | "drunk"         // 음주운전 예방
+  | "sex"           // 성범죄 예방
+  | "digital_sex"   // 디지털 성범죄 예방
+  | "drug"          // 마약 예방
+  | "gambling"      // 도박 및 도박개장 예방
+  | "fraud"         // 사기횡령배임 등 재산범죄 예방
+  | "stalking"      // 스토킹범죄 예방
+  | "school"        // 학교폭력 예방
+  | "counseling";   // 심리상담 의견서 (별도)
+
+type CourseInfo = {
+  id: CourseId;
+  name: string;
+  price: number;
+};
+
+// 카탈로그 가격은 KCPEC 표준 패키지 가격(과정당 55,000 / 심리상담 143,000)
+// 으로 페이지 내 표시 전용. 실제 결제는 /courses → 패키지 선택 → checkout 흐름.
+const COURSES: Record<CourseId, CourseInfo> = {
+  law: { id: "law", name: "준법의식 강화", price: 55_000 },
+  drunk: { id: "drunk", name: "음주운전 예방", price: 55_000 },
+  sex: { id: "sex", name: "성범죄 예방", price: 55_000 },
+  digital_sex: { id: "digital_sex", name: "디지털 성범죄 예방", price: 55_000 },
+  drug: { id: "drug", name: "마약 예방", price: 55_000 },
+  gambling: { id: "gambling", name: "도박 및 도박개장 예방", price: 55_000 },
+  fraud: { id: "fraud", name: "사기·횡령·배임 예방", price: 55_000 },
+  stalking: { id: "stalking", name: "스토킹범죄 예방", price: 55_000 },
+  school: { id: "school", name: "학교폭력 예방", price: 55_000 },
+  counseling: { id: "counseling", name: "심리상담 의견서", price: 143_000 },
+};
+
+// 죄명 → 추천 강의 매핑
+const CRIME_TO_COURSES: Record<CrimeKey, CourseId[]> = {
+  sex: ["sex", "digital_sex"],
+  drunk: ["drunk"],
+  violence: [],            // 직접 매칭 강의 없음 — 준법의식만 추천
+  drug: ["drug"],
+  gambling: ["gambling"],
+  fraud: ["fraud"],
+  stalking: ["stalking"],
+  school: ["school"],
+  obstruct: [],            // 매칭 강의 없음 — 준법의식만
+  etc: [],
+};
+
+// 죄명 → 발급 가능 서류 텍스트 (표시용)
+const CRIME_TO_DOCUMENTS: Record<CrimeKey, string[]> = {
+  sex: ["성범죄 예방 수료증", "디지털 성범죄 예방 수료증"],
+  drunk: ["음주운전 예방 수료증"],
+  violence: [],
+  drug: ["마약 예방 수료증"],
+  gambling: ["도박 예방 수료증"],
+  fraud: ["재산범죄 예방 수료증"],
+  stalking: ["스토킹범죄 예방 수료증"],
+  school: ["학교폭력 예방 수료증"],
+  obstruct: [],
+  etc: [],
+};
+
+// ---------- Y/N 추가 질문 (Step 2) -------------------------------------------
+
+type FollowUp = {
+  key: string;
+  question: string;
+  // 어떤 죄명이 선택됐을 때 노출
+  trigger: (selected: Set<CrimeKey>) => boolean;
+  // 'Y' 응답 시 추가될 강의 (없으면 없음)
+  yesAddCourse?: CourseId;
+};
+
+const FOLLOWUPS: FollowUp[] = [
+  {
+    key: "drunk_habit",
+    question: "음주 습관 개선을 위한 추가 교육이 필요하신가요?",
+    trigger: (s) => s.has("drunk"),
+    // 별도 추가 강의는 없음 — 음주운전 예방으로 충분 (안내만)
+  },
+  {
+    key: "counseling_needed",
+    question: "심리상담 의견서가 필요하신가요?",
+    trigger: (s) =>
+      s.has("violence") || s.has("sex") || s.has("stalking") || s.has("school"),
+    yesAddCourse: "counseling",
+  },
+  {
+    key: "drug_counseling",
+    question: "약물 중독 관련 상담이 필요하신가요?",
+    trigger: (s) => s.has("drug"),
+    yesAddCourse: "counseling",
+  },
+  {
+    key: "mental_health",
+    question: "정신건강 관련 문제가 개입되어 있나요?",
+    trigger: (s) => s.has("etc"),
+    yesAddCourse: "counseling",
+  },
+];
+
+// ---------- 페이지 ------------------------------------------------------------
+
+export default function SentencingPage() {
+  const router = useRouter();
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [selected, setSelected] = useState<Set<CrimeKey>>(new Set());
+  const [answers, setAnswers] = useState<Record<string, "Y" | "N" | "">>({});
+
+  function toggleCrime(key: CrimeKey) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function setAnswer(key: string, val: "Y" | "N") {
+    setAnswers((prev) => ({ ...prev, [key]: val }));
+  }
+
+  // 노출되어야 할 follow-up 만 필터
+  const activeFollowups = FOLLOWUPS.filter((f) => f.trigger(selected));
+
+  // 추천 결과 계산
+  const recommendation = useMemo(() => {
+    const courseIds = new Set<CourseId>(["law"]); // 준법의식 항상 포함
+    selected.forEach((k) => CRIME_TO_COURSES[k].forEach((c) => courseIds.add(c)));
+    activeFollowups.forEach((f) => {
+      if (f.yesAddCourse && answers[f.key] === "Y") {
+        courseIds.add(f.yesAddCourse);
+      }
+    });
+    const courses = Array.from(courseIds).map((id) => COURSES[id]);
+    const documents = ["준법의식 수료증", "서약서"];
+    selected.forEach((k) => documents.push(...CRIME_TO_DOCUMENTS[k]));
+    if (answers["counseling_needed"] === "Y" || answers["drug_counseling"] === "Y" || answers["mental_health"] === "Y") {
+      documents.push("심리상담 의견서");
+    }
+    const total = courses.reduce((sum, c) => sum + c.price, 0);
+    // 발급서류 dedup
+    return { courses, documents: Array.from(new Set(documents)), total };
+  }, [selected, answers, activeFollowups]);
+
+  function handleCheckout() {
+    if (!tokenStorage.getAccess()) {
+      router.push(`/login?next=${encodeURIComponent("/sentencing")}`);
+      return;
+    }
+    // 첫 번째 추천 강의의 카테고리(있다면)로 강의 목록 진입.
+    // 본 페이지는 추천/안내 용도 — 실제 결제는 /courses → 강의 상세 → 패키지 선택 흐름.
+    router.push("/courses");
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50/50 pb-32 sm:pb-24">
+      <div className="bg-white pt-12 relative z-10">
+        <div className="mx-auto max-w-5xl px-6">
+          <PageHeader
+            title="양형자료 추천"
+            subtitle="Find your sentencing material"
+            icon={<Scale className="h-3.5 w-3.5" />}
+            description="사건 유형을 선택하시면 필요한 강의와 발급 가능한 서류를 자동으로 안내해 드립니다."
+          />
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 pt-8">
+        {/* 진행 표시 */}
+        <StepIndicator step={step} />
+
+        {/* Step 본문 */}
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_320px]">
+          <div className="space-y-6">
+            {step === 1 ? (
+              <Step1
+                selected={selected}
+                onToggle={toggleCrime}
+              />
+            ) : null}
+            {step === 2 ? (
+              <Step2
+                followups={activeFollowups}
+                answers={answers}
+                onAnswer={setAnswer}
+              />
+            ) : null}
+            {step === 3 ? (
+              <Step3 recommendation={recommendation} />
+            ) : null}
+
+            {/* 네비게이션 */}
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s))}
+                disabled={step === 1}
+                className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-40"
+              >
+                <ArrowLeft className="h-4 w-4" /> 이전
+              </button>
+              {step < 3 ? (
+                <button
+                  type="button"
+                  onClick={() => setStep((s) => ((s + 1) as 1 | 2 | 3))}
+                  disabled={step === 1 && selected.size === 0}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#1C3461] px-6 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] disabled:translate-y-0 disabled:opacity-40 disabled:hover:translate-y-0"
+                >
+                  다음 <ArrowRight className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* 우측 sticky 카트 (Step 3 에서 의미 있음 — 1/2 에서는 미리보기 가이드) */}
+          <aside className="hidden lg:block">
+            <div className="sticky top-24">
+              <CartSummary
+                recommendation={recommendation}
+                step={step}
+                onCheckout={handleCheckout}
+              />
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      {/* 모바일: 하단 fixed 카트 (Step 3 에서만) */}
+      {step === 3 ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white p-4 shadow-2xl lg:hidden">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-bold text-slate-500">합계</p>
+              <p className="text-lg font-extrabold text-[#1C3461]">
+                {recommendation.total.toLocaleString()}원
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleCheckout}
+              className="rounded-full bg-[#1C3461] px-5 py-3 text-sm font-bold text-white shadow-md hover:bg-[var(--color-primary-hover)]"
+            >
+              지금 바로 수강 신청 →
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ---------- 진행 표시 --------------------------------------------------------
+
+function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
+  const items = [
+    { n: 1, label: "사건 유형" },
+    { n: 2, label: "추가 질문" },
+    { n: 3, label: "추천 결과" },
+  ];
+  return (
+    <div className="flex items-center justify-center gap-2 sm:gap-4">
+      {items.map((it, i) => {
+        const active = step === it.n;
+        const done = step > it.n;
+        return (
+          <div key={it.n} className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-2">
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                  done
+                    ? "bg-emerald-500 text-white"
+                    : active
+                      ? "bg-[#1C3461] text-white shadow-md"
+                      : "bg-slate-200 text-slate-500"
+                }`}
+              >
+                {done ? <Check className="h-4 w-4" /> : it.n}
+              </div>
+              <span
+                className={`hidden text-sm font-bold sm:inline ${
+                  active ? "text-[#1C3461]" : done ? "text-slate-600" : "text-slate-400"
+                }`}
+              >
+                {it.label}
+              </span>
+            </div>
+            {i < items.length - 1 ? (
+              <div
+                className={`h-0.5 w-6 sm:w-16 ${
+                  step > it.n ? "bg-emerald-400" : "bg-slate-200"
+                }`}
+              />
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------- Step 1: 사건 유형 선택 -------------------------------------------
+
+function Step1({
+  selected,
+  onToggle,
+}: {
+  selected: Set<CrimeKey>;
+  onToggle: (key: CrimeKey) => void;
+}) {
+  return (
+    <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
+      <h2 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
+        어떤 사건으로 오셨나요?
+      </h2>
+      <p className="mt-1.5 text-sm text-slate-500">
+        해당되는 항목을 모두 선택해 주세요. (복수 선택 가능)
+      </p>
+
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {CRIMES.map((c) => {
+          const active = selected.has(c.key);
+          return (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => onToggle(c.key)}
+              className={`relative flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+                active
+                  ? "border-[#1C3461] bg-[#1C3461]/5 shadow-sm"
+                  : "border-zinc-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+              }`}
+            >
+              <div
+                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${
+                  active
+                    ? "border-[#1C3461] bg-[#1C3461]"
+                    : "border-slate-300 bg-white"
+                }`}
+              >
+                {active ? <Check className="h-3 w-3 text-white" /> : null}
+              </div>
+              <div className="min-w-0">
+                <p
+                  className={`font-sans text-base font-bold ${
+                    active ? "text-[#1C3461]" : "text-slate-900"
+                  }`}
+                >
+                  {c.label}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-500">{c.description}</p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {selected.size === 0 ? (
+        <p className="mt-4 text-xs text-slate-400">
+          1개 이상 선택하시면 다음 단계로 진행할 수 있습니다.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+// ---------- Step 2: 추가 Y/N 질문 --------------------------------------------
+
+function Step2({
+  followups,
+  answers,
+  onAnswer,
+}: {
+  followups: FollowUp[];
+  answers: Record<string, "Y" | "N" | "">;
+  onAnswer: (key: string, val: "Y" | "N") => void;
+}) {
+  return (
+    <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
+      <h2 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
+        몇 가지만 더 확인할게요
+      </h2>
+      <p className="mt-1.5 text-sm text-slate-500">
+        선택하신 사건 유형에 따라 추가로 필요한 정보를 확인합니다.
+      </p>
+
+      {followups.length === 0 ? (
+        <p className="mt-6 rounded-xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+          선택하신 사건 유형에 대한 추가 질문은 없습니다. 다음 단계로 진행해 주세요.
+        </p>
+      ) : (
+        <ul className="mt-6 space-y-4">
+          {followups.map((f) => {
+            const val = answers[f.key] ?? "";
+            return (
+              <li key={f.key} className="rounded-xl border border-zinc-200 bg-slate-50/40 p-4">
+                <p className="text-sm font-bold text-slate-800">{f.question}</p>
+                <div className="mt-3 flex gap-2">
+                  {(["Y", "N"] as const).map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => onAnswer(f.key, opt)}
+                      className={`min-w-[80px] rounded-lg px-6 py-2 text-sm font-bold transition-all ${
+                        val === opt
+                          ? "bg-[#1C3461] text-white shadow-sm"
+                          : "border border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50"
+                      }`}
+                    >
+                      {opt === "Y" ? "예" : "아니오"}
+                    </button>
+                  ))}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+// ---------- Step 3: 추천 결과 ------------------------------------------------
+
+function Step3({
+  recommendation,
+}: {
+  recommendation: { courses: CourseInfo[]; documents: string[]; total: number };
+}) {
+  return (
+    <section className="space-y-6">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="mb-4 flex items-center gap-2">
+          <BadgeCheck className="h-5 w-5 text-[var(--color-accent)]" />
+          <h2 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
+            추천 교육 과정
+          </h2>
+        </div>
+        <ul className="divide-y divide-zinc-100">
+          {recommendation.courses.map((c) => (
+            <li key={c.id} className="flex items-center justify-between py-3">
+              <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                <Check className="h-4 w-4 text-emerald-500" />
+                {c.name}
+              </span>
+              <span className="font-mono text-sm font-bold text-slate-900">
+                {c.price.toLocaleString()}원
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="mb-4 flex items-center gap-2">
+          <FileText className="h-5 w-5 text-[var(--color-accent)]" />
+          <h2 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
+            발급 가능 서류
+          </h2>
+        </div>
+        <ul className="space-y-2">
+          {recommendation.documents.map((d) => (
+            <li
+              key={d}
+              className="flex items-center gap-2 text-sm font-medium text-slate-700"
+            >
+              <Check className="h-4 w-4 text-emerald-500" />
+              {d}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-4 text-xs text-slate-500">
+          * 실제 발급은 강의 수료 후 결제 흐름에서 패키지를 선택하면 진행됩니다.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+// ---------- 우측 카트 카드 ----------------------------------------------------
+
+function CartSummary({
+  recommendation,
+  step,
+  onCheckout,
+}: {
+  recommendation: { courses: CourseInfo[]; documents: string[]; total: number };
+  step: 1 | 2 | 3;
+  onCheckout: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <h3 className="font-sans text-sm font-extrabold tracking-wide text-slate-900">
+        선택하신 과정
+      </h3>
+      <p className="mt-0.5 text-[11px] text-slate-500">
+        선택에 따라 실시간 갱신
+      </p>
+
+      <ul className="mt-4 space-y-2">
+        {recommendation.courses.length === 0 ? (
+          <li className="text-xs text-slate-400">아직 선택된 과정이 없습니다.</li>
+        ) : (
+          recommendation.courses.map((c) => (
+            <li key={c.id} className="flex items-center justify-between text-sm">
+              <span className="truncate pr-2 text-slate-700">{c.name}</span>
+              <span className="shrink-0 font-mono text-xs font-bold text-slate-700">
+                {c.price.toLocaleString()}원
+              </span>
+            </li>
+          ))
+        )}
+      </ul>
+
+      <div className="my-4 border-t border-zinc-100" />
+
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-bold text-slate-700">합계</span>
+        <span className="font-sans text-lg font-extrabold text-[#1C3461]">
+          {recommendation.total.toLocaleString()}원
+        </span>
+      </div>
+
+      <button
+        type="button"
+        onClick={onCheckout}
+        disabled={step !== 3 || recommendation.courses.length === 0}
+        className="mt-4 w-full rounded-xl bg-[#1C3461] py-3 text-sm font-bold text-white shadow-md shadow-[#1C3461]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] disabled:translate-y-0 disabled:opacity-40 disabled:hover:translate-y-0"
+      >
+        지금 바로 수강 신청하기
+      </button>
+      <Link
+        href="/courses"
+        className="mt-2 block w-full rounded-xl border border-zinc-200 bg-white py-2.5 text-center text-xs font-bold text-slate-700 hover:bg-slate-50"
+      >
+        강의 목록에서 직접 선택
+      </Link>
+    </div>
+  );
+}

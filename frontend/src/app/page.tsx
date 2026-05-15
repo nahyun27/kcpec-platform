@@ -167,25 +167,36 @@ function Hero() {
             전문 교육으로 시작하세요
           </span>
         </h1>
-        <p className="mb-10 max-w-2xl text-lg leading-relaxed text-slate-300 sm:text-xl">
+        <p className="mb-4 max-w-2xl text-lg leading-relaxed text-slate-300 sm:text-xl">
           가장 확실한 양형 자료를 준비하세요. 법원이 인정하는 심리·준법 교육 수료증을
           무료로 수강하고 즉시 발급받을 수 있습니다.
         </p>
+        <p className="mb-10 max-w-2xl text-sm leading-relaxed text-blue-100/80 sm:text-base">
+          사건 유형을 선택하면 필요한 강의와 서류를 자동으로 안내해 드립니다.
+        </p>
 
-        <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="flex flex-col items-center gap-4">
           <Link
-            href="/courses"
-            className="group flex items-center justify-center gap-2 rounded-full bg-white px-8 py-4 text-base font-bold text-slate-900 shadow-lg transition-all hover:-translate-y-1 hover:bg-slate-50 hover:shadow-xl"
+            href="/sentencing"
+            className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#1C3461] px-8 py-4 text-lg font-semibold text-white ring-2 ring-white/40 shadow-xl shadow-black/20 transition-all hover:-translate-y-1 hover:bg-[var(--color-primary-hover)] hover:shadow-2xl"
           >
-            <span>무료 수강 시작하기</span>
+            <span>양형자료 바로가기</span>
             <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </Link>
-          <Link
-            href="#guide"
-            className="flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 px-8 py-4 text-base font-bold text-white backdrop-blur-sm transition-all hover:bg-white/10"
-          >
-            이용 안내 보기
-          </Link>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/courses"
+              className="flex items-center justify-center gap-2 rounded-full bg-white/10 px-6 py-2.5 text-sm font-bold text-white backdrop-blur-sm transition-all hover:bg-white/20"
+            >
+              강의 목록 보기
+            </Link>
+            <Link
+              href="#guide"
+              className="flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-2.5 text-sm font-bold text-white backdrop-blur-sm transition-all hover:bg-white/10"
+            >
+              이용 안내 보기
+            </Link>
+          </div>
         </div>
       </div>
     </section>
