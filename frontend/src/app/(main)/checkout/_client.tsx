@@ -21,12 +21,13 @@ import {
 import { CheckCircle2, ChevronLeft, CreditCard, Award, ChevronRight, ShieldCheck, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 
-// 패키지 가격 (백엔드 packages.price 가 null 인 정책이라 프론트에서 결정)
-// 운영 시에는 어드민 페이지에서 수정 가능하도록 옮길 예정.
+// 패키지 가격 — alembic 0016 부터 DB(packages.price) 가 단일 진실이지만,
+// 프런트 결제 분기/표시 일관성을 위해 동일한 값을 fallback 으로 유지.
+// 백엔드 응답에 price 가 채워져 오면 그 값을 우선 사용한다.
 const PACKAGE_PRICE: Record<string, number> = {
-  basic: 110_000,
-  standard: 220_000,
-  premium: 550_000,
+  basic: 100_000,
+  standard: 199_000,
+  premium: 299_000,
 };
 
 const PAYMENT_METHODS: PaymentMethod[] = ["card", "kakaopay", "naverpay", "bank_transfer"];
@@ -91,7 +92,9 @@ export default function CheckoutPage() {
     [packages, selectedPkgId],
   );
 
-  const amount = selectedPackage ? PACKAGE_PRICE[selectedPackage.tier] ?? 0 : 0;
+  const amount = selectedPackage
+    ? selectedPackage.price ?? PACKAGE_PRICE[selectedPackage.tier] ?? 0
+    : 0;
 
   async function handleCheckout() {
     if (!selectedPackage || !course) return;
@@ -197,7 +200,7 @@ export default function CheckoutPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 {packages.map((pkg) => {
                   const selected = selectedPkgId === pkg.id;
-                  const price = PACKAGE_PRICE[pkg.tier] ?? 0;
+                  const price = pkg.price ?? PACKAGE_PRICE[pkg.tier] ?? 0;
                   return (
                     <button
                       key={pkg.id}

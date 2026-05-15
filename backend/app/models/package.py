@@ -13,11 +13,16 @@ class PackageTier(str, enum.Enum):
 
 
 class DocumentType(str, enum.Enum):
-    CERTIFICATE = "certificate"     # 수료증
-    GUIDE = "guide"                 # 양형자료 가이드
-    COUNSELING = "counseling"       # 심리상담 의견서
-    CBT = "cbt"                     # 인지행동치료(CBT) 자료
-    CONSULTATION = "consultation"   # 1:1 상담
+    CERTIFICATE = "certificate"                  # 수료증
+    GUIDE = "guide"                              # 양형자료 가이드
+    COUNSELING = "counseling"                    # 심리상담 의견서
+    CBT = "cbt"                                  # 인지행동치료(CBT) 자료
+    # alembic 0016: Premium 패키지 신규 서류 3종 추가
+    PETITION_SAMPLE = "petition_sample"          # 탄원서 샘플
+    REFLECTION_ESSAY = "reflection_essay"        # 교육이수 소감문
+    SELF_REFLECTION_REPORT = "self_reflection_report"  # 자기성찰리포트
+    # (legacy) 0016 이후 어떤 패키지에도 포함되지 않음 — enum 만 유지.
+    CONSULTATION = "consultation"                # 1:1 상담
 
 
 class Package(Base):

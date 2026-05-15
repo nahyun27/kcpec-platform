@@ -5,6 +5,9 @@ export type DocumentType =
   | "guide"
   | "counseling"
   | "cbt"
+  | "petition_sample"
+  | "reflection_essay"
+  | "self_reflection_report"
   | "consultation";
 
 export const DOCUMENT_TYPE_LABEL: Record<DocumentType, string> = {
@@ -12,6 +15,10 @@ export const DOCUMENT_TYPE_LABEL: Record<DocumentType, string> = {
   guide: "양형자료 가이드",
   counseling: "심리상담 의견서",
   cbt: "CBT 자료",
+  petition_sample: "탄원서 샘플",
+  reflection_essay: "교육이수 소감문",
+  self_reflection_report: "자기성찰리포트",
+  // alembic 0016 이후 패키지에 포함되지 않음 — 레거시 데이터 표시용 라벨 유지.
   consultation: "1:1 상담",
 };
 
