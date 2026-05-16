@@ -40,6 +40,18 @@ class Settings(BaseSettings):
     SMTP_FROM: str | None = None  # 미설정 시 SMTP_USER 사용
     STAFF_EMAIL: str | None = None
 
+    # 프런트/백엔드 베이스 URL (소셜 OAuth callback 구성에 사용)
+    FRONTEND_BASE_URL: str = "http://localhost:3000"
+    BACKEND_BASE_URL: str = "http://localhost:8000"
+
+    # 소셜 로그인 OAuth (B-flow: 백엔드 주도). 미설정 provider 는 자동 비활성.
+    KAKAO_CLIENT_ID: str | None = None
+    KAKAO_CLIENT_SECRET: str | None = None
+    NAVER_CLIENT_ID: str | None = None
+    NAVER_CLIENT_SECRET: str | None = None
+    GOOGLE_CLIENT_ID: str | None = None
+    GOOGLE_CLIENT_SECRET: str | None = None
+
     AWS_REGION: str | None = None
     AWS_ACCESS_KEY_ID: str | None = None
     AWS_SECRET_ACCESS_KEY: str | None = None

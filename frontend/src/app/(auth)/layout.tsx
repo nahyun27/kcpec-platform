@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ShieldCheck, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { CheckCircle2, ArrowLeft } from "lucide-react";
+import { Logo } from "@/components/ui/Logo";
 
 export default function AuthLayout({
   children,
@@ -21,13 +22,7 @@ export default function AuthLayout({
         <div className="absolute -bottom-32 -right-32 h-[500px] w-[500px] rounded-full bg-blue-600 opacity-20 blur-[120px]"></div>
 
         <div className="relative z-10">
-          <Link
-            href="/"
-            className="flex items-center gap-2 font-sans text-2xl font-extrabold tracking-tight text-white transition-opacity hover:opacity-90"
-          >
-            <ShieldCheck className="h-8 w-8 text-[var(--color-accent)]" />
-            <span>KCPEC</span>
-          </Link>
+          <Logo variant="white" imgClassName="h-10 w-auto" className="transition-opacity hover:opacity-90" />
         </div>
 
         <div className="relative z-10 mb-20 space-y-8">
@@ -55,25 +50,20 @@ export default function AuthLayout({
       </div>
 
       {/* Right Column - Auth Form */}
-      <div className="flex w-full flex-col items-center justify-center bg-slate-50 px-6 py-12 lg:w-1/2 lg:bg-white">
+      {/* Right Column - Auth Form */}
+      <div className="flex w-full flex-col items-center justify-start bg-slate-50 px-4 py-8 lg:justify-center lg:w-1/2 lg:bg-white lg:px-6 lg:py-12">
         {/* Mobile Header (Visible only on mobile) */}
-        <div className="mb-10 flex w-full max-w-md items-center justify-between lg:hidden">
-          <Link
-            href="/"
-            className="flex items-center gap-2 font-sans text-2xl font-extrabold tracking-tight text-[var(--color-primary)]"
-          >
-            <ShieldCheck className="h-7 w-7 text-[var(--color-accent)]" />
-            <span>KCPEC</span>
-          </Link>
+        <div className="mb-6 flex w-full max-w-md items-center justify-between lg:hidden">
+          <Logo variant="default" imgClassName="h-7 w-auto" />
         </div>
 
         <div className="w-full max-w-md">
-          <Link href="/" className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-[var(--color-primary)] lg:hidden">
+          <Link href="/" className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-[var(--color-primary)] lg:hidden">
             <ArrowLeft className="h-4 w-4" />
             홈으로 돌아가기
           </Link>
           
-          <div className="rounded-3xl border border-zinc-200 bg-white p-8 shadow-xl shadow-slate-200/50 sm:p-10 lg:border-none lg:bg-transparent lg:p-0 lg:shadow-none">
+          <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-10 lg:border-none lg:bg-transparent lg:p-0 lg:shadow-none">
             {children}
           </div>
         </div>

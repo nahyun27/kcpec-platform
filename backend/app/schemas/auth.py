@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -23,6 +24,21 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+
+SocialProvider = Literal["kakao", "naver", "google"]
+
+
+class SocialLoginRequest(BaseModel):
+    """B-flow 내부 helper. 백엔드 callback 에서 토큰/유저 교환을 끝낸 후
+    동일 로직을 외부에서도 호출할 수 있도록 노출 — 신규면 자동 가입, 기존
+    이면 로그인 후 JWT 반환.
+    """
+
+    provider: SocialProvider
+    provider_id: str = Field(min_length=1, max_length=255)
+    email: EmailStr
+    name: str = Field(min_length=1, max_length=100)
 
 
 class DeleteMeRequest(BaseModel):

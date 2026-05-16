@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 import { isAxiosError } from "axios";
 import { login } from "@/lib/api";
 import { Loader2 } from "lucide-react";
+import { SocialLoginButtons } from "../_social";
 
 // `?next=` 는 같은 origin 의 절대경로만 허용 (open-redirect 방지).
 function safeNext(raw: string | null): string {
@@ -40,19 +41,20 @@ export default function LoginPage() {
     }
   }
 
-  function handleSocial(provider: "kakao" | "naver") {
-    alert(`${provider === "kakao" ? "카카오" : "네이버"} 로그인은 준비 중입니다.`);
-  }
-
   return (
     <div className="w-full">
-      <div className="mb-10 text-center lg:text-left">
+      <div className="mb-8 text-center lg:text-left">
         <h1 className="font-sans text-3xl font-extrabold tracking-tight text-slate-900">
           로그인
         </h1>
         <p className="mt-3 text-sm text-slate-500">
           서비스 이용을 위해 아이디와 비밀번호를 입력해 주세요.
         </p>
+      </div>
+
+      {/* 소셜 로그인 — 위에 배치 */}
+      <div className="mb-6">
+        <SocialLoginButtons />
       </div>
 
       <form className="space-y-5" onSubmit={handleSubmit}>
@@ -67,7 +69,7 @@ export default function LoginPage() {
             autoComplete="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full rounded-xl border border-zinc-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 transition-all placeholder:text-zinc-400 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--color-primary)]/10"
+            className="w-full rounded-xl border border-zinc-200 bg-slate-50/50 px-4 py-2.5 text-sm text-slate-900 transition-all placeholder:text-zinc-400 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--color-primary)]/10"
             placeholder="아이디를 입력하세요"
           />
         </div>
@@ -88,7 +90,7 @@ export default function LoginPage() {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-xl border border-zinc-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 transition-all placeholder:text-zinc-400 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--color-primary)]/10"
+            className="w-full rounded-xl border border-zinc-200 bg-slate-50/50 px-4 py-2.5 text-sm text-slate-900 transition-all placeholder:text-zinc-400 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--color-primary)]/10"
             placeholder="비밀번호를 입력하세요"
           />
         </div>
@@ -115,30 +117,7 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <div className="my-8 flex items-center gap-4 text-xs font-medium text-slate-400">
-        <span className="h-px flex-1 bg-zinc-200" />
-        간편 로그인
-        <span className="h-px flex-1 bg-zinc-200" />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <button
-          type="button"
-          onClick={() => handleSocial("kakao")}
-          className="flex w-full items-center justify-center rounded-xl bg-[#FEE500] py-3.5 text-sm font-bold text-[#3C1E1E] shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md"
-        >
-          카카오 로그인
-        </button>
-        <button
-          type="button"
-          onClick={() => handleSocial("naver")}
-          className="flex w-full items-center justify-center rounded-xl bg-[#03C75A] py-3.5 text-sm font-bold text-white shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md"
-        >
-          네이버 로그인
-        </button>
-      </div>
-
-      <p className="mt-10 text-center text-sm font-medium text-slate-500 lg:text-left">
+      <p className="mt-8 text-center text-sm font-medium text-slate-500 lg:text-left">
         아직 계정이 없으신가요?{" "}
         <Link href="/signup" className="font-bold text-[var(--color-accent)] hover:underline">
           회원가입
