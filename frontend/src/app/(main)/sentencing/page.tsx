@@ -330,7 +330,7 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
               <div
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
                   done
-                    ? "bg-emerald-500 text-white"
+                    ? "bg-[#1C3461] text-white"
                     : active
                       ? "bg-[#1C3461] text-white shadow-md"
                       : "bg-slate-200 text-slate-500"
@@ -349,7 +349,7 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
             {i < items.length - 1 ? (
               <div
                 className={`h-0.5 w-6 sm:w-16 ${
-                  step > it.n ? "bg-emerald-400" : "bg-slate-200"
+                  step > it.n ? "bg-[#1C3461]" : "bg-slate-200"
                 }`}
               />
             ) : null}
@@ -677,7 +677,7 @@ function CartSummary({
               >
                 <Check
                   className={`mt-0.5 h-3 w-3 shrink-0 ${
-                    d.active ? "text-emerald-500" : "text-slate-300"
+                    d.active ? "text-[#1C3461]" : "text-slate-300"
                   }`}
                 />
                 {d.name}
