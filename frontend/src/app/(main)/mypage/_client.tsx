@@ -148,7 +148,7 @@ export default function MyPageClient() {
             {enrollments.length === 0 ? (
               <EmptyState
                 text="현재 수강 중인 강의가 없습니다."
-                cta={{ href: "/courses", label: "무료 강의 둘러보기" }}
+                cta={{ href: "/courses", label: "강의 둘러보기" }}
               />
             ) : (
               <ul className="space-y-4">

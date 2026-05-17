@@ -96,34 +96,8 @@ const CRIME_TO_COURSES: Record<CrimeKey, CourseId[]> = {
   etc: [],
 };
 
-// 죄명 → 발급 가능 서류 텍스트 (표시용)
-const CRIME_TO_DOCUMENTS: Record<CrimeKey, string[]> = {
-  sex: ["성범죄 예방 수료증", "디지털 성범죄 예방 수료증"],
-  drunk: ["음주운전 예방 수료증"],
-  violence: [],
-  drug: ["마약 예방 수료증"],
-  gambling: ["도박 예방 수료증"],
-  fraud: ["재산범죄 예방 수료증"],
-  stalking: ["스토킹범죄 예방 수료증"],
-  school: ["학교폭력 예방 수료증"],
-  obstruct: [],
-  etc: [],
-};
-
-// 발급서류 → 연관 강의 ID (null 이면 강의와 무관, 항상 활성)
-const DOC_TO_COURSE: Record<string, CourseId | null> = {
-  "준법의식 수료증": "law",
-  서약서: null,
-  "성범죄 예방 수료증": "sex",
-  "디지털 성범죄 예방 수료증": "digital_sex",
-  "음주운전 예방 수료증": "drunk",
-  "마약 예방 수료증": "drug",
-  "도박 예방 수료증": "gambling",
-  "재산범죄 예방 수료증": "fraud",
-  "스토킹범죄 예방 수료증": "stalking",
-  "학교폭력 예방 수료증": "school",
-  "심리상담 의견서": "counseling",
-};
+// 발급 서류 표시는 단순 규칙: 선택된 강의마다 "{name} 수료증 + 서약서".
+// 심리상담 의견서만 별도 항목으로 노출 (수료증 형식이 아님).
 
 // ---------- Y/N 추가 질문 (Step 2) -------------------------------------------
 
@@ -211,22 +185,12 @@ export default function SentencingPage() {
       }
     });
     const courses = Array.from(courseIds).map((id) => COURSES[id]);
-    const documents = ["준법의식 수료증", "서약서"];
-    selected.forEach((k) => documents.push(...CRIME_TO_DOCUMENTS[k]));
-    if (
-      answers["counseling_needed"] === "Y" ||
-      answers["drug_counseling"] === "Y" ||
-      answers["mental_health"] === "Y"
-    ) {
-      documents.push("심리상담 의견서");
-    }
-    // 발급서류 dedup + 활성 여부 계산 (해제된 강의에 연결된 서류는 회색 처리)
-    const docs = Array.from(new Set(documents)).map((name) => {
-      const courseId = DOC_TO_COURSE[name] ?? null;
-      const active = courseId == null || !disabledCourses.has(courseId);
-      return { name, active };
-    });
-    // 총액: 해제된 강의는 제외
+    // 강의당 "수료증 + 서약서" 1세트 생성. 심리상담 의견서만 별도 표기.
+    const docs = courses.map((c) => ({
+      name:
+        c.id === "counseling" ? c.name : `${c.name} 수료증 + 서약서`,
+      active: !disabledCourses.has(c.id),
+    }));
     const total = courses
       .filter((c) => !disabledCourses.has(c.id))
       .reduce((sum, c) => sum + c.price, 0);
@@ -624,32 +588,6 @@ function Step3({
             추천 강의를 해제하면 해당 수료증이 발급되지 않습니다.
           </p>
         ) : null}
-      </div>
-
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
-        <div className="mb-4 flex items-center gap-2">
-          <FileText className="h-5 w-5 text-[var(--color-accent)]" />
-          <h2 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
-            발급 가능 서류
-          </h2>
-        </div>
-        <ul className="space-y-2">
-          {recommendation.documents.map((d) => (
-            <li
-              key={d.name}
-              className={`flex items-center gap-2 text-sm font-medium ${
-                d.active ? "text-slate-700" : "text-slate-400 line-through"
-              }`}
-            >
-              <Check
-                className={`h-4 w-4 ${
-                  d.active ? "text-emerald-500" : "text-slate-300"
-                }`}
-              />
-              {d.name}
-            </li>
-          ))}
-        </ul>
         <p className="mt-4 text-xs text-slate-500">
           * 실제 발급은 강의 수료 후 결제 흐름에서 패키지를 선택하면 진행됩니다.
         </p>
@@ -718,11 +656,42 @@ function CartSummary({
         </span>
       </div>
 
+      {/* 발급 가능 서류 — 강의 선택 전엔 안내문 */}
+      <div className="mt-5 border-t border-zinc-100 pt-4">
+        <p className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+          <FileText className="h-3.5 w-3.5 text-[var(--color-accent)]" />
+          발급 가능 서류
+        </p>
+        {recommendation.documents.length === 0 ? (
+          <p className="mt-2 text-[11px] text-slate-400">
+            강의를 선택하면 발급 서류가 표시됩니다.
+          </p>
+        ) : (
+          <ul className="mt-2.5 space-y-1.5">
+            {recommendation.documents.map((d) => (
+              <li
+                key={d.name}
+                className={`flex items-start gap-1.5 text-[12px] leading-snug ${
+                  d.active ? "text-slate-700" : "text-slate-400 line-through"
+                }`}
+              >
+                <Check
+                  className={`mt-0.5 h-3 w-3 shrink-0 ${
+                    d.active ? "text-emerald-500" : "text-slate-300"
+                  }`}
+                />
+                {d.name}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <button
         type="button"
         onClick={onCheckout}
         disabled={step !== 3 || noneSelected}
-        className="mt-4 w-full rounded-xl bg-[#1C3461] py-3 text-sm font-bold text-white shadow-md shadow-[#1C3461]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] disabled:translate-y-0 disabled:opacity-40 disabled:hover:translate-y-0"
+        className="mt-5 w-full rounded-xl bg-[#1C3461] py-3 text-sm font-bold text-white shadow-md shadow-[#1C3461]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] disabled:translate-y-0 disabled:opacity-40 disabled:hover:translate-y-0"
       >
         지금 바로 수강 신청하기
       </button>

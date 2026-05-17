@@ -93,11 +93,6 @@ export function CourseThumbnail({
         </div>
       )}
 
-      {/* 좌상단 무료 수강 뱃지 */}
-      <span className="absolute top-2.5 left-3 rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium text-white backdrop-blur">
-        무료 수강
-      </span>
-
       {/* 우상단 KCPEC 로고마크 */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img

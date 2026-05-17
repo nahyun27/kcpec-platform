@@ -69,7 +69,7 @@ export default function SignupPage() {
           회원가입
         </h1>
         <p className="mt-2 text-sm text-slate-500">
-          간단한 정보 입력으로 무료 교육을 시작하세요.
+          간단한 정보 입력으로 교육을 시작하세요.
         </p>
       </div>
 

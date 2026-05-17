@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import ApplyButton from "./ApplyButton";
 import type { CounselingType } from "@/types/counseling";
-import { CheckCircle2, PhoneCall, Users, FileSignature, ShieldCheck, Award } from "lucide-react";
+import { CheckCircle2, FileSignature, ShieldCheck, Award } from "lucide-react";
 
 export const metadata = {
   title: "전문가 심리상담 | KCPEC",
@@ -37,51 +37,32 @@ const CERTIFICATES: { slug: string; title: string; issuer: string }[] = [
   },
 ];
 
-const PROGRAMS: {
-  name: string;
+// 심리상담은 alembic 0017 부터 단일 상품(기본 프로그램) 으로 운영.
+// 전화/대면 심화상담은 비활성화 (기존 주문 데이터는 그대로 유지).
+// 가격은 backend courses.price (id=12) 와 동기화 필요 — TODO: 클라이언트
+// 확정가 변경 시 함께 갱신.
+const COUNSELING_PRODUCT: {
   type: CounselingType;
-  price: number | null;
+  price: number;
   composition: string;
   goals: string[];
-  session: string[];
-  highlight?: boolean;
-}[] = [
-  {
-    name: "기본 프로그램",
-    type: "basic",
-    price: 143_000,
-    composition: "범죄심리상담",
-    goals: [
-      "내담자 개인 경험 분석을 통한 범죄심리 분석",
-      "내담자 맞춤형 재범 방지 솔루션의 확립",
-    ],
-    session: ["서면질의상담", "비대면", "비용 143,000원"],
-  },
-  {
-    name: "전화 심화상담",
-    type: "phone",
-    price: null,
-    composition: "범죄심리상담 + 정신분석상담",
-    goals: [
-      "'무의식의 의식화'를 통한 내담자의 완전한 자기객관화",
-      "자아의 통제 하에서 발생하는 정신적 어려움을 해결하고 다양한 신경증적인 증상을 해결",
-    ],
-    session: ["4회 과정", "비대면", "비용 별도문의"],
-    highlight: true,
-  },
-  {
-    name: "대면 심화상담",
-    type: "inperson",
-    price: null,
-    composition: "범죄심리상담 + 정신분석상담 + 합리적 정서행동치료",
-    goals: [
-      "내담자의 긍정적 변화를 위한 내면적 동기와 잠재력의 확인",
-      "스스로 변화를 모색하고 문제를 해결할 수 있는 능력의 함양",
-      "단순 이슈해결을 넘어 내담자 인생 전반의 삶의 방향성 확립",
-    ],
-    session: ["8회 과정", "대면(비대면 불가)", "비용 별도문의"],
-  },
-];
+  process: string[];
+} = {
+  type: "basic",
+  price: 143_000,
+  composition: "범죄심리상담",
+  goals: [
+    "내담자 개인 경험 분석을 통한 범죄심리 분석",
+    "내담자 맞춤형 재범 방지 솔루션 확립",
+    "법원 제출용 의견서 작성을 위한 심리 평가 및 정리",
+  ],
+  process: [
+    "온라인 설문지 작성",
+    "전문 심리상담사 검토",
+    "AI 초안 + 전문가 검수",
+    "심리상담 의견서 PDF 발급 (1~2 영업일)",
+  ],
+};
 
 export default function CounselingPage() {
   return (
@@ -174,86 +155,84 @@ export default function CounselingPage() {
         </div>
       </section>
 
-      {/* 3) Programs */}
+      {/* 3) 단일 상품 — 심리상담 의견서 */}
       <section className="bg-slate-50 py-24 sm:py-32">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <header className="mb-12 text-center sm:mb-16">
-            <h2 className="font-sans text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-              심리상담 프로그램
+        <div className="mx-auto max-w-3xl px-4 sm:px-6">
+          <header className="mb-10 text-center sm:mb-12">
+            <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-accent)]">
+              Product
+            </p>
+            <h2 className="mt-3 font-sans text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+              심리상담 의견서
             </h2>
             <p className="mt-4 text-[15px] text-slate-500 sm:text-lg">
-              내담자의 상황과 필요에 맞춘 최적의 상담 방식을 선택하세요.
+              온라인 설문을 작성하시면 전문 심리상담사가 검토 후 법원 제출용
+              의견서를 발급해 드립니다.
             </p>
           </header>
 
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-            {PROGRAMS.map((p) => {
-              const Icon = p.type === "basic" ? FileSignature : p.type === "phone" ? PhoneCall : Users;
-              
-              return (
-                <article
-                  key={p.name}
-                  className={`group relative flex flex-col overflow-hidden rounded-[2rem] bg-white transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl sm:rounded-[2.5rem] ${
-                    p.highlight
-                      ? "border-2 border-[var(--color-primary)] shadow-xl shadow-[var(--color-primary)]/15"
-                      : "border border-slate-200/80 shadow-md hover:border-[var(--color-primary)]/50"
-                  }`}
-                >
-                  {p.highlight && (
-                    <div className="absolute top-0 left-0 right-0 bg-[var(--color-primary)] py-1.5 text-center text-[11px] font-bold uppercase tracking-widest text-white">
-                      가장 많이 선택하는 프로그램
-                    </div>
-                  )}
-                  
-                  <div className={`p-8 sm:p-10 flex flex-col flex-1 ${p.highlight ? 'pt-12 sm:pt-14' : ''}`}>
-                    <div className="mb-6 flex items-center justify-between">
-                      <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${p.highlight ? 'bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/30' : 'bg-slate-50 text-slate-600 ring-1 ring-inset ring-slate-200/60 group-hover:bg-[var(--color-primary)]/10 group-hover:text-[var(--color-primary)] group-hover:ring-[var(--color-primary)]/20'} transition-colors`}>
-                        <Icon className="h-7 w-7" />
-                      </div>
-                    </div>
+          <article className="relative overflow-hidden rounded-[2rem] border-2 border-[var(--color-primary)] bg-white p-8 shadow-xl shadow-[var(--color-primary)]/10 sm:p-10">
+            <div className="mb-6 flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/30">
+                <FileSignature className="h-7 w-7" />
+              </div>
+              <div>
+                <h3 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
+                  심리상담 의견서
+                </h3>
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  {COUNSELING_PRODUCT.composition}
+                </p>
+              </div>
+              <div className="ml-auto text-right">
+                <p className="font-sans text-xl font-extrabold text-[var(--color-primary)] sm:text-2xl">
+                  {COUNSELING_PRODUCT.price.toLocaleString()}원
+                </p>
+              </div>
+            </div>
 
-                    <h3 className="font-sans text-2xl font-extrabold text-slate-900">
-                      {p.name}
-                    </h3>
-                    
-                    <div className="mt-4 mb-8">
-                      <p className="text-[13px] font-bold text-[var(--color-accent)]">구성</p>
-                      <p className="mt-1 text-[16px] font-semibold text-slate-700">
-                        {p.composition}
-                      </p>
-                    </div>
+            <div className="grid grid-cols-1 gap-6 border-t border-slate-100 pt-6 sm:grid-cols-2">
+              <div>
+                <p className="text-[12px] font-bold uppercase tracking-wider text-slate-400">
+                  상담 목적 및 기대효과
+                </p>
+                <ul className="mt-3 space-y-2.5">
+                  {COUNSELING_PRODUCT.goals.map((g) => (
+                    <li key={g} className="flex items-start gap-2.5">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-primary)]" />
+                      <span className="text-[13px] leading-relaxed text-slate-700">
+                        {g}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p className="text-[12px] font-bold uppercase tracking-wider text-slate-400">
+                  진행 절차
+                </p>
+                <ul className="mt-3 space-y-2.5">
+                  {COUNSELING_PRODUCT.process.map((s, i) => (
+                    <li key={s} className="flex items-start gap-2.5">
+                      <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-600">
+                        {i + 1}
+                      </span>
+                      <span className="text-[13px] leading-relaxed text-slate-700">
+                        {s}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
 
-                    <div className="mb-8 flex-1 space-y-4">
-                      <p className="text-[12px] font-bold text-slate-400">상담 목적 및 기대효과</p>
-                      <ul className="space-y-3">
-                        {p.goals.map((g) => (
-                          <li key={g} className="flex items-start gap-3">
-                            <CheckCircle2 className={`mt-0.5 h-5 w-5 shrink-0 ${p.highlight ? 'text-[var(--color-primary)]' : 'text-slate-400 group-hover:text-[var(--color-accent)]'} transition-colors`} />
-                            <span className="text-[14px] leading-relaxed text-slate-600 font-medium">{g}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="mb-8 rounded-2xl bg-slate-50/80 p-5 ring-1 ring-inset ring-slate-200/50">
-                      <ul className="space-y-2">
-                        {p.session.map((s) => (
-                          <li key={s} className="flex items-center gap-2.5 text-[14px] font-bold text-slate-700">
-                            <span className={`h-1.5 w-1.5 rounded-full ${p.highlight ? 'bg-[var(--color-primary)]' : 'bg-slate-400'}`} />
-                            {s}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="mt-auto">
-                      <ApplyButton counselingType={p.type} price={p.price} />
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+            <div className="mt-8">
+              <ApplyButton
+                counselingType={COUNSELING_PRODUCT.type}
+                price={COUNSELING_PRODUCT.price}
+              />
+            </div>
+          </article>
         </div>
       </section>
 

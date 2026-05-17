@@ -86,7 +86,7 @@ const PACKAGES = [
 
 const STEPS = [
   { n: "01", title: "강의 선택", desc: "내 사건과 관련된 교육 과정을 선택합니다." },
-  { n: "02", title: "무료 수강", desc: "전 과정 무료. 진도와 퀴즈로 수료 처리." },
+  { n: "02", title: "강의 수강", desc: "진도와 퀴즈로 수료 처리." },
   { n: "03", title: "패키지 결제", desc: "필요한 발급 자료에 맞춰 패키지 선택." },
   { n: "04", title: "자료 수령", desc: "수료증·의견서를 PDF 로 즉시/빠르게 수령." },
 ];
@@ -176,8 +176,8 @@ function Hero() {
           </span>
         </h1>
         <p className="mb-4 max-w-2xl text-lg leading-relaxed text-slate-300 sm:text-xl">
-          가장 확실한 양형 자료를 준비하세요. 법원이 인정하는 심리·준법 교육 수료증을
-          무료로 수강하고 즉시 발급받을 수 있습니다.
+          가장 확실한 양형 자료를 준비하세요. 법원이 인정하는 심리·준법 교육
+          수료증을 신속하게 발급받을 수 있습니다.
         </p>
         <p className="mb-10 max-w-2xl text-sm leading-relaxed text-blue-100/80 sm:text-base">
           사건 유형을 선택하면 필요한 강의와 서류를 자동으로 안내해 드립니다.
@@ -250,7 +250,7 @@ function CoursesSection({ courses }: { courses: CourseListItem[] }) {
               맞춤형 교육 과정
             </h2>
             <p className="mt-4 text-lg text-slate-600">
-              사건에 가장 적합한 교육을 선택하세요. 모든 수강은 무료입니다.
+              사건에 가장 적합한 교육을 선택하세요.
             </p>
           </div>
           <Link
@@ -283,7 +283,7 @@ function CoursesSection({ courses }: { courses: CourseListItem[] }) {
                 </h3>
                 <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4">
                   <span className="flex items-center gap-1 text-sm font-medium text-slate-500">
-                    <PlayCircle className="h-4 w-4" /> 무료 수강
+                    <PlayCircle className="h-4 w-4" /> 수강하기
                   </span>
                   <span className="font-bold text-[var(--color-primary)]">
                     {c.price.toLocaleString()}원~

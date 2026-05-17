@@ -370,8 +370,8 @@ export default function CourseDetailPage({
               }`}
             >
               <div className="bg-slate-50/50 p-6 border-b border-slate-100">
-                <h3 className="font-sans text-xl font-extrabold text-slate-900 mb-2">무료 수강 신청</h3>
-                <p className="text-[13px] font-medium text-slate-500">강의 수강은 전액 무료입니다.</p>
+                <h3 className="font-sans text-xl font-extrabold text-slate-900 mb-2">수강 신청</h3>
+                <p className="text-[13px] font-medium text-slate-500">바로 학습을 시작할 수 있습니다.</p>
               </div>
               
               <div className="p-6">
