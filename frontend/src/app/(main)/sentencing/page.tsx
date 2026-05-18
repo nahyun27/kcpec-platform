@@ -209,9 +209,9 @@ export default function SentencingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-32 sm:pb-24">
-      <div className="bg-white pt-12 relative z-10">
-        <div className="mx-auto max-w-5xl px-6">
+    <div className="min-h-screen bg-slate-50/50 pb-32 sm:pb-24 animate-in fade-in duration-300">
+      <div className="bg-white pt-6 md:pt-10 relative z-10 border-b border-slate-100">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
           <PageHeader
             title="양형자료 추천"
             subtitle="Find your sentencing material"
@@ -248,6 +248,16 @@ export default function SentencingPage() {
                 onToggleCourse={toggleCourse}
               />
             ) : null}
+
+            {/* 모바일: 우측 카트가 모바일에서 가려지지 않도록 아래에 추가 */}
+            <div className="lg:hidden">
+              <CartSummary
+                recommendation={recommendation}
+                disabledCourses={disabledCourses}
+                step={step}
+                onCheckout={handleCheckout}
+              />
+            </div>
 
             {/* 네비게이션 */}
             <div className="flex items-center justify-between gap-3 pt-2">
@@ -370,15 +380,15 @@ function Step1({
   onToggle: (key: CrimeKey) => void;
 }) {
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
-      <h2 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
+    <section className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm md:p-7">
+      <h2 className="font-sans text-lg font-extrabold text-slate-900 sm:text-xl">
         어떤 사건으로 오셨나요?
       </h2>
-      <p className="mt-1.5 text-sm text-slate-500">
+      <p className="mt-1 text-xs text-slate-500">
         해당되는 항목을 모두 선택해 주세요. (복수 선택 가능)
       </p>
 
-      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
         {CRIMES.map((c) => {
           const active = selected.has(c.key);
           return (
@@ -386,30 +396,30 @@ function Step1({
               key={c.key}
               type="button"
               onClick={() => onToggle(c.key)}
-              className={`relative flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+              className={`relative flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
                 active
                   ? "border-[#1C3461] bg-[#1C3461]/5 shadow-sm"
                   : "border-zinc-200 bg-white hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
               <div
-                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
                   active
                     ? "border-[#1C3461] bg-[#1C3461]"
                     : "border-slate-300 bg-white"
                 }`}
               >
-                {active ? <Check className="h-3 w-3 text-white" /> : null}
+                {active ? <Check className="h-2.5 w-2.5 text-white" /> : null}
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p
-                  className={`font-sans text-base font-bold ${
+                  className={`font-sans text-[14px] font-bold ${
                     active ? "text-[#1C3461]" : "text-slate-900"
                   }`}
                 >
                   {c.label}
                 </p>
-                <p className="mt-0.5 text-xs text-slate-500">{c.description}</p>
+                <p className="mt-0.5 text-[11px] text-slate-500 truncate">{c.description}</p>
               </div>
             </button>
           );
@@ -445,33 +455,33 @@ function Step2({
 }) {
   const [explainerOpen, setExplainerOpen] = useState(false);
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
-      <h2 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
+    <section className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm md:p-7">
+      <h2 className="font-sans text-lg font-extrabold text-slate-900 sm:text-xl">
         몇 가지만 더 확인할게요
       </h2>
-      <p className="mt-1.5 text-sm text-slate-500">
+      <p className="mt-1 text-xs text-slate-500">
         선택하신 사건 유형에 따라 추가로 필요한 정보를 확인합니다.
       </p>
 
       {followups.length === 0 ? (
-        <p className="mt-6 rounded-xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+        <p className="mt-5 rounded-xl bg-slate-50 px-4 py-6 text-center text-xs text-slate-500">
           선택하신 사건 유형에 대한 추가 질문은 없습니다. 다음 단계로 진행해 주세요.
         </p>
       ) : (
-        <ul className="mt-6 space-y-4">
+        <ul className="mt-5 space-y-3">
           {followups.map((f) => {
             const val = answers[f.key] ?? "";
             const isCounseling = COUNSELING_FOLLOWUP_KEYS.has(f.key);
             return (
-              <li key={f.key} className="rounded-xl border border-zinc-200 bg-slate-50/40 p-4">
-                <p className="text-sm font-bold text-slate-800">{f.question}</p>
-                <div className="mt-3 flex gap-2">
+              <li key={f.key} className="rounded-xl border border-zinc-100 bg-slate-50/40 p-3.5">
+                <p className="text-xs sm:text-sm font-bold text-slate-800">{f.question}</p>
+                <div className="mt-2.5 flex gap-2">
                   {(["Y", "N"] as const).map((opt) => (
                     <button
                       key={opt}
                       type="button"
                       onClick={() => onAnswer(f.key, opt)}
-                      className={`min-w-[80px] rounded-lg px-6 py-2 text-sm font-bold transition-all ${
+                      className={`min-w-[70px] rounded-lg px-4 py-1.5 text-xs font-bold transition-all ${
                         val === opt
                           ? "bg-[#1C3461] text-white shadow-sm"
                           : "border border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50"
