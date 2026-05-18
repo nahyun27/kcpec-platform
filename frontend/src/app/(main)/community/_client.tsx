@@ -22,7 +22,8 @@ import {
   Inbox,
   Download,
   Star,
-  HelpCircle
+  HelpCircle,
+  Lock
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 
@@ -73,9 +74,9 @@ export default function CommunityClient() {
 
       <div className="mx-auto max-w-5xl px-4 sm:px-6 pt-6 md:pt-10 pb-12 md:pb-24">
 
-      {/* Pill Tabs — 모바일에선 가로 스크롤(절대 줄바꿈 X), 데스크톱에선 일반 배치 */}
-      <div className="hide-scrollbar -mx-4 mb-6 overflow-x-auto px-4 pb-2 sm:mx-0 sm:mb-8 sm:px-0">
-        <div className="inline-flex w-max gap-1.5 rounded-2xl bg-slate-100 p-1.5 sm:w-auto sm:gap-2">
+      {/* Segmented Control / Pill Navigation */}
+      <div className="hide-scrollbar -mx-4 mb-8 overflow-x-auto px-4 pb-2 sm:mx-0 sm:mb-10 sm:px-0">
+        <div className="inline-flex w-max gap-1 rounded-full bg-slate-100/80 p-1 shadow-inner sm:w-auto sm:gap-1.5 border border-slate-200/60">
           {TABS.map((t) => {
             const active = tab === t.key;
             return (
@@ -83,10 +84,10 @@ export default function CommunityClient() {
                 key={t.key}
                 type="button"
                 onClick={() => setTab(t.key)}
-                className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold transition-all duration-300 sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm ${
+                className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 sm:gap-2 sm:px-6 sm:py-2.5 ${
                   active
-                    ? "bg-white text-[var(--color-primary)] shadow-sm ring-1 ring-slate-200"
-                    : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"
+                    ? "bg-white text-[var(--color-primary)] shadow-md ring-1 ring-black/5 scale-[1.02]"
+                    : "text-slate-500 hover:bg-slate-200/60 hover:text-slate-800"
                 }`}
               >
                 {t.icon}
@@ -136,16 +137,16 @@ function AccordionRow({
   children: React.ReactNode;
 }) {
   return (
-    <li className="overflow-hidden border-b border-slate-100 last:border-b-0 transition-colors duration-300 bg-white">
+    <li className="overflow-hidden border-b border-slate-100 last:border-b-0 bg-white transition-all duration-300">
       <button
         type="button"
         onClick={onToggle}
-        className={`flex w-full items-center justify-between px-6 py-5 text-left transition-all duration-300 outline-none ${
-          open ? "bg-slate-50/50" : "hover:bg-slate-50/80"
+        className={`flex w-full items-center justify-between px-4 sm:px-6 py-5 text-left transition-all duration-300 outline-none hover:bg-slate-50/50 ${
+          open ? "bg-slate-50/30" : ""
         }`}
       >
         <div className="flex-1 overflow-hidden pr-4">{header}</div>
-        <div className={`flex shrink-0 items-center justify-center h-8 w-8 rounded-full transition-transform duration-300 ${open ? 'rotate-180 bg-slate-200 text-slate-700' : 'bg-slate-50 text-slate-400'}`}>
+        <div className={`flex shrink-0 items-center justify-center h-8 w-8 rounded-full transition-transform duration-300 ${open ? 'rotate-180 bg-slate-100 text-slate-700' : 'text-slate-300 hover:bg-slate-50'}`}>
           <ChevronDown className="h-5 w-5" />
         </div>
       </button>
@@ -155,7 +156,7 @@ function AccordionRow({
         }`}
       >
         <div className="overflow-hidden">
-          <div className="border-t border-slate-100 bg-slate-50/30 px-6 py-6 text-sm sm:px-8">
+          <div className="bg-slate-50/50 px-4 sm:px-6 py-6 text-sm shadow-inner sm:text-base border-t border-slate-100/50">
             {children}
           </div>
         </div>
@@ -189,14 +190,6 @@ function NoticeTab() {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <div className="hidden bg-slate-50 px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200 md:grid md:grid-cols-[60px_80px_1fr_100px_80px_40px] md:gap-4 items-center">
-        <span className="text-center">번호</span>
-        <span className="text-center">구분</span>
-        <span>제목</span>
-        <span className="text-center">날짜</span>
-        <span className="text-center">조회수</span>
-        <span></span>
-      </div>
       <ul className="divide-y divide-zinc-100">
         {items.map((n) => (
           <NoticeAccordion
@@ -247,13 +240,10 @@ function NoticeAccordion({
       open={open}
       onToggle={onToggle}
       header={
-        <div className="grid w-full grid-cols-1 items-center gap-2 md:grid-cols-[60px_80px_1fr_100px_80px] md:gap-4">
-          <span className="hidden text-center text-sm font-medium text-slate-400 md:block">
-            {notice.id}
-          </span>
-          <div className="flex justify-start md:justify-center">
+        <div className="flex w-full flex-col gap-2.5">
+          <div className="flex items-start gap-3">
             <span
-              className={`inline-flex items-center justify-center rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide ${
+              className={`mt-0.5 shrink-0 inline-flex items-center justify-center rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide ${
                 notice.category === "notice"
                   ? "bg-slate-100 text-slate-600"
                   : "bg-blue-50 text-[var(--color-accent)] ring-1 ring-blue-500/20"
@@ -261,27 +251,21 @@ function NoticeAccordion({
             >
               {notice.category === "notice" ? "공지" : "자료"}
             </span>
+            <span className="flex-1 text-base font-bold text-slate-800 leading-snug text-left break-words line-clamp-2">
+              {notice.is_pinned && <Pin className="mr-1.5 inline-block h-4 w-4 text-rose-500" />}
+              {notice.title}
+            </span>
           </div>
-          <span className="flex items-center gap-2 truncate text-base font-bold text-slate-800">
-            {notice.is_pinned && <Pin className="h-4 w-4 text-rose-500 shrink-0" />}
-            <span className="truncate">{notice.title}</span>
-          </span>
-          <span className="hidden md:block text-xs font-medium text-slate-400 text-center mt-1 md:mt-0">
-            {new Date(notice.created_at).toLocaleDateString("ko-KR")}
-          </span>
-          <span className="hidden text-center text-xs font-medium text-slate-400 md:block">
-            {notice.view_count.toLocaleString()}
-          </span>
+          <div className="flex flex-wrap items-center gap-2.5 text-[12px] font-medium text-slate-400 sm:text-[13px]">
+            <span className="font-semibold text-slate-500">{notice.author_name}</span>
+            <span className="h-3 w-px bg-slate-200"></span>
+            <span>{new Date(notice.created_at).toLocaleDateString("ko-KR")}</span>
+            <span className="h-3 w-px bg-slate-200"></span>
+            <span>조회 {notice.view_count.toLocaleString()}</span>
+          </div>
         </div>
       }
     >
-      <div className="mb-6 flex flex-wrap gap-4 text-xs font-medium text-slate-400 border-b border-slate-200/50 pb-4">
-        <span className="text-slate-600">작성자: <strong className="text-slate-800">{notice.author_name}</strong></span>
-        <span>|</span>
-        <span>{new Date(notice.created_at).toLocaleString("ko-KR")}</span>
-        <span>|</span>
-        <span>조회 {notice.view_count.toLocaleString()}</span>
-      </div>
       
       {detail ? (
         <div className="space-y-6">
@@ -313,18 +297,7 @@ function NoticeAccordion({
   );
 }
 
-// 공지사항/Q&A/칼럼 공용 — 표 헤더 (md+ 에서만 노출, 모바일은 카드형 row 가 처리)
-function PostTableHeader() {
-  return (
-    <div className="hidden bg-slate-50 px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200 md:grid md:grid-cols-[60px_1fr_100px_80px_40px] md:gap-4 items-center">
-      <span className="text-center">번호</span>
-      <span>제목</span>
-      <span className="text-center">날짜</span>
-      <span className="text-center">조회수</span>
-      <span></span>
-    </div>
-  );
-}
+
 
 // ---------- Q&A --------------------------------------------------------------
 
@@ -406,7 +379,6 @@ function QnaTab() {
         <EmptyMessage text="등록된 질문이 없습니다. 첫 번째 질문을 남겨보세요!" icon={<MessageSquare className="h-10 w-10 text-slate-300" />} />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-          <PostTableHeader />
           <ul className="divide-y divide-zinc-100">
             {items.map((p) => (
               <PostAccordion
@@ -445,7 +417,6 @@ function ColumnTab() {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <PostTableHeader />
       <ul className="divide-y divide-zinc-100">
         {items.map((p) => (
           <PostAccordion
@@ -496,29 +467,27 @@ function PostAccordion({
       open={open}
       onToggle={onToggle}
       header={
-        <div className="grid w-full grid-cols-1 items-center gap-2 md:grid-cols-[60px_1fr_100px_80px] md:gap-4">
-          <span className="hidden text-center text-sm font-medium text-slate-400 md:block">
-            {post.id}
-          </span>
-          <span className="truncate text-base font-bold text-slate-800">
-            {post.title}
-          </span>
-          <span className="text-xs font-medium text-slate-400 md:text-center mt-1 md:mt-0">
-            {new Date(post.created_at).toLocaleDateString("ko-KR")}
-          </span>
-          <span className="hidden text-center text-xs font-medium text-slate-400 md:block">
-            {post.view_count.toLocaleString()}
-          </span>
+        <div className="flex w-full flex-col gap-2.5">
+          <div className="flex items-start gap-3">
+            {post.category === "qna" && (
+              <span className={`mt-0.5 shrink-0 inline-flex items-center justify-center rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide ${post.admin_reply ? "bg-slate-100 text-slate-600" : "bg-[var(--color-primary)]/10 text-[var(--color-primary)] ring-1 ring-[var(--color-primary)]/20"}`}>
+                {post.admin_reply ? "답변완료" : "답변대기"}
+              </span>
+            )}
+            <span className="flex-1 text-base font-bold text-slate-800 leading-snug text-left break-words line-clamp-2">
+              {post.title}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2.5 text-[12px] font-medium text-slate-400 sm:text-[13px]">
+            <span className="font-semibold text-slate-500">{post.author_name}</span>
+            <span className="h-3 w-px bg-slate-200"></span>
+            <span>{new Date(post.created_at).toLocaleDateString("ko-KR")}</span>
+            <span className="h-3 w-px bg-slate-200"></span>
+            <span>조회 {post.view_count.toLocaleString()}</span>
+          </div>
         </div>
       }
     >
-      <div className="mb-6 flex flex-wrap gap-4 text-xs font-medium text-slate-400 border-b border-slate-200/50 pb-4">
-        <span className="text-slate-600">작성자: <strong className="text-slate-800">{post.author_name}</strong></span>
-        <span>|</span>
-        <span>{new Date(post.created_at).toLocaleString("ko-KR")}</span>
-        <span>|</span>
-        <span>조회 {post.view_count.toLocaleString()}</span>
-      </div>
       
       {content === null ? (
         <div className="flex items-center gap-2 text-slate-400 py-4">
@@ -699,27 +668,29 @@ function StarRow({ rating }: { rating: number }) {
 function ReviewListItem({ post }: { post: PostListItem }) {
   const body = post.content ?? post.title;
   return (
-    <li className="flex flex-col rounded-2xl border border-zinc-200 bg-white p-4 md:p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <StarRow rating={post.rating} />
-        <span
-          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${badgeClassFor(post.course_category)}`}
-        >
+    <li className="flex flex-col rounded-3xl border border-slate-200 bg-white p-5 md:p-7 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-50 to-slate-100 font-bold text-[var(--color-primary)] ring-1 ring-slate-200/50">
+            {post.author_name ? post.author_name.charAt(0) : "익"}
+          </div>
+          <div>
+            <div className="text-sm font-bold text-slate-800">{post.author_name || "익명"}</div>
+            <div className="text-[11px] text-slate-400">{new Date(post.created_at).toLocaleDateString("ko-KR")}</div>
+          </div>
+        </div>
+        <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide ring-1 ${badgeClassFor(post.course_category)}`}>
           {post.course_category ?? "기타"}
         </span>
       </div>
-      <p className="flex-1 whitespace-pre-wrap text-[15px] leading-relaxed text-slate-700">
+      
+      <div className="mb-3">
+        <StarRow rating={post.rating} />
+      </div>
+
+      <p className="flex-1 whitespace-pre-wrap text-[15px] leading-relaxed text-slate-700 font-medium line-clamp-4">
         "{body}"
       </p>
-      <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4 text-xs font-medium text-slate-400">
-        <div className="flex items-center gap-2">
-          <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 uppercase">
-            {post.author_name ? post.author_name.charAt(0) : "익"}
-          </div>
-          <span className="text-slate-600">{post.author_name || "익명"}</span>
-        </div>
-        <span>{new Date(post.created_at).toLocaleDateString("ko-KR")}</span>
-      </div>
     </li>
   );
 }
@@ -816,33 +787,43 @@ function FaqTab() {
           icon={<HelpCircle className="h-10 w-10 text-slate-300" />}
         />
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {visible.map((item, idx) => {
             const open = openIdx === idx;
             return (
               <li
                 key={item.q}
-                className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm"
+                className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-300 ${open ? "border-[var(--color-primary)]/20 ring-1 ring-[var(--color-primary)]/10" : "border-slate-200"}`}
               >
                 <button
                   type="button"
                   onClick={() => setOpenIdx(open ? null : idx)}
-                  className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+                  className={`flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors ${open ? "bg-slate-50/50" : "hover:bg-slate-50/80"}`}
                 >
-                  <span className="font-sans text-sm font-semibold text-slate-900 sm:text-base">
-                    Q. {item.q}
-                  </span>
-                  <ChevronDown
-                    className={`h-4 w-4 shrink-0 text-[var(--color-primary)] transition-transform ${
-                      open ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-                {open ? (
-                  <div className="whitespace-pre-line border-t border-zinc-200 bg-slate-50/50 px-5 py-4 text-sm leading-relaxed text-slate-700">
-                    A. {item.a}
+                  <div className="flex items-start gap-3">
+                    <span className="font-bold text-[var(--color-primary)] mt-0.5">Q.</span>
+                    <span className="font-sans text-[15px] font-bold text-slate-800 leading-snug">
+                      {item.q}
+                    </span>
                   </div>
-                ) : null}
+                  <div className={`flex shrink-0 items-center justify-center h-8 w-8 rounded-full transition-transform duration-300 ${open ? 'rotate-180 bg-[var(--color-primary)]/10 text-[var(--color-primary)]' : 'bg-slate-100 text-slate-400'}`}>
+                    <ChevronDown className="h-4 w-4" />
+                  </div>
+                </button>
+                <div
+                  className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+                    open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="flex gap-3 border-t border-slate-100 bg-slate-50/50 px-5 py-5">
+                      <span className="font-bold text-[var(--color-accent)]">A.</span>
+                      <div className="whitespace-pre-line text-sm leading-relaxed text-slate-600">
+                        {item.a}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </li>
             );
           })}
