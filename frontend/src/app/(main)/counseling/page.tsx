@@ -68,7 +68,7 @@ export default function CounselingPage() {
   return (
     <div className="bg-white">
       {/* 1) Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#0f1d3a] via-[var(--color-primary)] to-[#2A4B8D] py-24 text-white">
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#0f1d3a] via-[var(--color-primary)] to-[#2A4B8D] pt-32 pb-24 md:pt-44 md:pb-24 -mt-16 md:-mt-20 text-white">
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.05]"
           style={{
