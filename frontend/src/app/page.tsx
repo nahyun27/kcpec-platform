@@ -423,6 +423,8 @@ const SAMPLES = [
 ];
 
 function SamplesSection() {
+  const [selectedImg, setSelectedImg] = useState<{ src: string; caption: string } | null>(null);
+
   return (
     <section id="samples" className="bg-[#F8F9FA] py-8 md:py-24">
       <div className="mx-auto max-w-6xl px-4 md:px-6 text-center">
@@ -431,11 +433,14 @@ function SamplesSection() {
           <br />
           건전한 사회구성원으로 복귀할 수 있습니다.
         </h2>
-        <div className="mt-8 md:mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
+        
+        {/* Horizontal scroll container on mobile, 3-column grid on desktop */}
+        <div className="hide-scrollbar -mx-4 mt-8 flex snap-x gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:mt-12 sm:grid sm:grid-cols-3 sm:gap-6 sm:px-0 sm:pb-0">
           {SAMPLES.map((s) => (
             <figure
               key={s.src}
-              className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-transform hover:-translate-y-1"
+              onClick={() => setSelectedImg(s)}
+              className="w-[180px] shrink-0 snap-center overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-transform duration-300 hover:-translate-y-1 sm:w-auto cursor-pointer hover:shadow-md"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -443,16 +448,46 @@ function SamplesSection() {
                 alt={s.caption}
                 className="aspect-[3/4] w-full object-cover"
               />
-              <figcaption className="border-t border-zinc-100 py-4 text-sm font-semibold text-slate-700">
+              <figcaption className="border-t border-zinc-100 py-3.5 text-xs sm:text-sm font-semibold text-slate-700">
                 {s.caption}
               </figcaption>
             </figure>
           ))}
         </div>
         <p className="mt-6 text-xs text-slate-500">
-          ※ 위 이미지는 샘플로, 실제 발급 양식과 다를 수 있습니다.
+          ※ 위 이미지는 샘플로, 실제 발급 양식과 다를 수 있습니다. (클릭 시 확대)
         </p>
       </div>
+
+      {/* Image Modal for Zoom */}
+      {selectedImg && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm transition-opacity duration-300 p-4"
+          onClick={() => setSelectedImg(null)}
+        >
+          <div 
+            className="relative max-h-[90vh] max-w-[95vw] sm:max-w-md overflow-hidden rounded-3xl bg-white p-2 shadow-2xl animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={selectedImg.src}
+              alt={selectedImg.caption}
+              className="max-h-[70vh] w-auto rounded-2xl object-contain mx-auto"
+            />
+            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 mt-2">
+              <span className="text-sm font-bold text-slate-800">{selectedImg.caption}</span>
+              <button 
+                type="button"
+                onClick={() => setSelectedImg(null)}
+                className="rounded-full bg-slate-100 px-4 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
