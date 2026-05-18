@@ -152,7 +152,7 @@ export default function SiteHeader() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="flex items-center justify-between rounded-xl px-4 py-4 text-[17px] font-bold text-zinc-900 transition-colors active:bg-zinc-100"
+                  className="flex items-center justify-between rounded-xl px-4 py-3 text-[17px] font-bold text-zinc-900 transition-colors active:bg-zinc-100"
                 >
                   <span>{item.label}</span>
                   <ChevronRight className="h-4 w-4 text-zinc-300" />
@@ -160,19 +160,19 @@ export default function SiteHeader() {
               ))}
             </nav>
 
-            <div className="mt-auto border-t border-zinc-100 pt-6 pb-10">
+            <div className="mt-auto border-t border-zinc-100 pt-6 pb-8">
               <div className="grid grid-cols-1 gap-3">
                 {authed ? (
                   <>
                     <Link
                       href="/mypage"
-                      className="flex items-center justify-center rounded-xl bg-zinc-100 py-4 font-bold text-zinc-700"
+                      className="flex items-center justify-center rounded-xl bg-zinc-100 py-3 font-bold text-zinc-700"
                     >
                       마이페이지
                     </Link>
                     <button
                       onClick={handleLogout}
-                      className="flex items-center justify-center rounded-xl bg-zinc-900 py-4 font-bold text-white shadow-lg"
+                      className="flex items-center justify-center rounded-xl bg-zinc-900 py-3 font-bold text-white shadow-lg"
                     >
                       로그아웃
                     </button>
@@ -181,13 +181,13 @@ export default function SiteHeader() {
                   <>
                     <Link
                       href="/login"
-                      className="flex items-center justify-center rounded-xl bg-zinc-100 py-4 font-bold text-zinc-700"
+                      className="flex items-center justify-center rounded-xl bg-zinc-100 py-3 font-bold text-zinc-700"
                     >
                       로그인
                     </Link>
                     <Link
                       href="/signup"
-                      className="flex items-center justify-center rounded-xl bg-[var(--color-primary)] py-4 font-bold text-white shadow-lg shadow-blue-900/20"
+                      className="flex items-center justify-center rounded-xl bg-[var(--color-primary)] py-3 font-bold text-white shadow-lg shadow-blue-900/20"
                     >
                       회원가입
                     </Link>

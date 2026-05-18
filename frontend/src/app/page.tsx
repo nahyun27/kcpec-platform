@@ -132,7 +132,7 @@ export default function HomePage() {
 function CurationBanner({ onOpen }: { onOpen: () => void }) {
   return (
     <div className="bg-[#1C3461] text-white">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-6 py-2.5">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 md:px-6 py-2.5">
         <p className="text-sm font-medium text-white/90">
           어떤 교육이 필요한지 모르겠다면?
         </p>
@@ -153,7 +153,7 @@ function CurationBanner({ onOpen }: { onOpen: () => void }) {
 
 function Hero() {
   return (
-    <section className="relative flex items-center justify-center overflow-hidden bg-[var(--color-primary)] pb-28 pt-20 text-white sm:pb-36 sm:pt-24">
+    <section className="relative flex items-center justify-center overflow-hidden bg-[var(--color-primary)] py-10 pb-20 md:pb-36 md:pt-24 text-white">
       {/* Noise Texture Overlay */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.03]"
@@ -165,7 +165,7 @@ function Hero() {
       <div className="pointer-events-none absolute -left-[10%] top-0 h-[500px] w-[500px] rounded-full bg-[var(--color-accent)] opacity-20 blur-[120px]"></div>
       <div className="pointer-events-none absolute -right-[10%] bottom-0 h-[600px] w-[600px] rounded-full bg-blue-600 opacity-10 blur-[150px]"></div>
 
-      <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center px-6 text-center">
+      <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center px-4 md:px-6 text-center">
         <div className="mb-6 inline-flex items-center rounded-full border border-white bg-white/5 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-md">
           <span>법원 및 수사기관 제출용 신뢰할 수 있는 교육</span>
         </div>
@@ -183,24 +183,24 @@ function Hero() {
           사건 유형을 선택하면 필요한 강의와 서류를 자동으로 안내해 드립니다.
         </p>
 
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex w-full flex-col items-center gap-4 md:w-auto px-4 md:px-0">
           <Link
             href="/sentencing"
-            className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#1C3461] px-8 py-4 text-lg font-semibold text-white ring-2 ring-white/40 shadow-xl shadow-black/20 transition-all hover:-translate-y-1 hover:bg-[var(--color-primary-hover)] hover:shadow-2xl"
+            className="group flex w-full items-center justify-center gap-2 rounded-full bg-[#1C3461] px-8 py-3 text-base font-semibold text-white ring-2 ring-white/40 shadow-xl shadow-black/20 transition-all hover:-translate-y-1 hover:bg-[var(--color-primary-hover)] hover:shadow-2xl md:w-auto md:py-4 md:text-lg"
           >
             <span>양형자료 바로가기</span>
             <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </Link>
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:gap-3">
             <Link
               href="/courses"
-              className="flex items-center justify-center gap-2 rounded-full bg-white/10 px-6 py-2.5 text-sm font-bold text-white backdrop-blur-sm transition-all hover:bg-white/20"
+              className="flex items-center justify-center gap-2 rounded-full bg-white/10 px-4 md:px-6 py-2.5 text-sm font-bold text-white backdrop-blur-sm transition-all hover:bg-white/20"
             >
               강의 목록 보기
             </Link>
             <Link
               href="#guide"
-              className="flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-2.5 text-sm font-bold text-white backdrop-blur-sm transition-all hover:bg-white/10"
+              className="flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 md:px-6 py-2.5 text-sm font-bold text-white backdrop-blur-sm transition-all hover:bg-white/10 whitespace-nowrap"
             >
               이용 안내 보기
             </Link>
@@ -215,7 +215,7 @@ function Hero() {
 
 function TrustSection() {
   return (
-    <section className="relative z-20 -mt-16 px-6">
+    <section className="relative z-20 -mt-16 px-4 md:px-6">
       <div className="mx-auto max-w-5xl rounded-2xl border border-white/20 bg-white/80 p-8 shadow-2xl backdrop-blur-xl sm:p-12">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
           <TrustStat icon={<Users className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="누적 수강생" value="10,000+" />
@@ -232,8 +232,8 @@ function TrustStat({ icon, label, value }: { icon: React.ReactNode; label: strin
   return (
     <div className="flex flex-col items-center text-center">
       {icon}
-      <dd className="font-sans text-2xl font-extrabold text-[var(--color-primary)] sm:text-3xl">{value}</dd>
-      <dt className="mt-1 text-sm font-medium text-slate-500">{label}</dt>
+      <dd className="font-sans text-xl font-extrabold text-[var(--color-primary)] md:text-3xl whitespace-nowrap">{value}</dd>
+      <dt className="mt-1 text-xs font-medium text-slate-500 md:text-sm whitespace-nowrap">{label}</dt>
     </div>
   );
 }
@@ -242,9 +242,9 @@ function TrustStat({ icon, label, value }: { icon: React.ReactNode; label: strin
 
 function CoursesSection({ courses }: { courses: CourseListItem[] }) {
   return (
-    <section className="py-24">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="mb-12 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
+    <section className="py-12 md:py-24">
+      <div className="mx-auto max-w-7xl px-4 md:px-6">
+        <div className="mb-8 md:mb-12 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <div>
             <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
               맞춤형 교육 과정
@@ -304,9 +304,9 @@ function StepsSection() {
   const stepIcons = [Search, PlayCircle, CreditCard, FileDown];
 
   return (
-    <section id="guide" className="bg-white py-24">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="mb-16 text-center">
+    <section id="guide" className="bg-white py-12 md:py-24">
+      <div className="mx-auto max-w-7xl px-4 md:px-6">
+        <div className="mb-8 md:mb-16 text-center">
           <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
             쉽고 빠른 이용 절차
           </h2>
@@ -359,9 +359,9 @@ function StepsSection() {
 
 function PackagesSection() {
   return (
-    <section className="py-24">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="mb-16 text-center">
+    <section className="py-12 md:py-24">
+      <div className="mx-auto max-w-7xl px-4 md:px-6">
+        <div className="mb-8 md:mb-16 text-center">
           <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
             합리적인 패키지
           </h2>
@@ -424,8 +424,8 @@ const SAMPLES = [
 
 function SamplesSection() {
   return (
-    <section id="samples" className="bg-[#F8F9FA] py-24">
-      <div className="mx-auto max-w-6xl px-6 text-center">
+    <section id="samples" className="bg-[#F8F9FA] py-12 md:py-24">
+      <div className="mx-auto max-w-6xl px-4 md:px-6 text-center">
         <h2 className="font-sans text-2xl font-extrabold leading-snug tracking-tight text-[var(--color-primary)] sm:text-3xl">
           교육과 상담을 통해 변화된 자신을 발견하고
           <br />
@@ -463,9 +463,9 @@ function FaqSection() {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
   
   return (
-    <section id="faq" className="bg-white py-24">
-      <div className="mx-auto max-w-4xl px-6">
-        <div className="mb-12 text-center">
+    <section id="faq" className="bg-white py-12 md:py-24">
+      <div className="mx-auto max-w-4xl px-4 md:px-6">
+        <div className="mb-8 md:mb-12 text-center">
           <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
             자주 묻는 질문
           </h2>
@@ -482,7 +482,7 @@ function FaqSection() {
                 <button
                   type="button"
                   onClick={() => setOpenIdx(isOpen ? null : idx)}
-                  className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
+                  className="flex w-full items-center justify-between gap-4 px-4 md:px-6 py-5 text-left"
                 >
                   <span className={`font-sans text-base font-bold sm:text-lg ${isOpen ? 'text-[var(--color-primary)]' : 'text-slate-800'}`}>
                     Q. {item.q}
@@ -499,7 +499,7 @@ function FaqSection() {
                   }`}
                 >
                   <div className="overflow-hidden">
-                    <div className="whitespace-pre-line px-6 pb-6 pt-2 text-base leading-relaxed text-slate-600">
+                    <div className="whitespace-pre-line px-4 md:px-6 pb-6 pt-2 text-base leading-relaxed text-slate-600">
                       <span className="font-bold text-[var(--color-accent)] mr-2">A.</span>
                       {item.a}
                     </div>
@@ -529,7 +529,7 @@ function FaqSection() {
 function Footer() {
   return (
     <footer className="border-t border-slate-200 bg-[var(--color-primary)] pt-16 text-white">
-      <div className="mx-auto grid max-w-7xl gap-12 px-6 pb-12 md:grid-cols-12">
+      <div className="mx-auto grid max-w-7xl gap-12 px-4 md:px-6 pb-12 md:grid-cols-12">
         <div className="space-y-6 md:col-span-5 lg:col-span-4">
           <Logo variant="white" />
           <p className="text-sm leading-relaxed text-slate-400">
@@ -577,7 +577,7 @@ function Footer() {
       </div>
       
       <div className="border-t border-white/10 bg-black/20">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-6 sm:flex-row">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 md:px-6 py-6 sm:flex-row">
           <p className="text-sm text-slate-500">
             ⓒ {new Date().getFullYear()} 한국범죄예방교육센터. All rights reserved.
           </p>

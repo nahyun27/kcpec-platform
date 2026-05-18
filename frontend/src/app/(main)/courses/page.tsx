@@ -109,7 +109,7 @@ function CoursesListInner() {
     <div className="min-h-screen bg-slate-50/50 pb-24">
       {/* Page Header */}
       <div className="bg-white pt-12 relative z-10">
-        <div className="mx-auto max-w-6xl px-6">
+        <div className="mx-auto max-w-6xl px-4 md:px-6">
           <PageHeader
             title="교육 강의"
             subtitle="Courses"
@@ -119,7 +119,7 @@ function CoursesListInner() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-6 pt-0 pb-12">
+      <div className="mx-auto max-w-6xl px-4 md:px-6 pt-0 pb-12">
         {/* Controls: Search & Filter */}
         <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full max-w-md">
@@ -133,7 +133,7 @@ function CoursesListInner() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-1.5 md:gap-2.5">
             <CategoryTab active={category === null} onClick={() => setCategory(null)}>
               전체
             </CategoryTab>
@@ -210,7 +210,7 @@ function CategoryTab({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-5 py-2.5 text-[14px] font-bold transition-all duration-300 ${
+      className={`rounded-full px-3 py-1.5 text-xs md:px-5 md:py-2.5 md:text-[14px] font-bold transition-all duration-300 ${
         active
           ? "bg-[var(--color-primary)] text-white shadow-md shadow-[var(--color-primary)]/25 ring-1 ring-inset ring-[var(--color-primary)] scale-105"
           : "bg-white text-slate-600 shadow-sm ring-1 ring-inset ring-slate-200 hover:bg-slate-50 hover:text-slate-900 hover:ring-slate-300"
@@ -239,13 +239,13 @@ function CourseCard({ course, eager = false }: { course: CourseListItem; eager?:
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 p-6">
+      <div className="flex flex-1 flex-col gap-3 p-3 md:p-6">
         <div className="flex items-center gap-2">
           <span className="inline-flex w-fit items-center rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold tracking-wide text-blue-700 ring-1 ring-inset ring-blue-600/20">
             {course.category}
           </span>
         </div>
-        <h2 className="font-sans text-[17px] font-extrabold leading-snug text-slate-900 transition-colors group-hover:text-[var(--color-primary)] line-clamp-2">
+        <h2 className="font-sans text-sm md:text-[17px] font-extrabold leading-snug text-slate-900 transition-colors group-hover:text-[var(--color-primary)] line-clamp-2">
           {course.title}
         </h2>
         <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-5 text-sm">

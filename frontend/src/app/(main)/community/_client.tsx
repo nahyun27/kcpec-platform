@@ -60,7 +60,7 @@ export default function CommunityClient() {
 
   return (
     <div className="min-h-screen bg-slate-50/50">
-      <div className="bg-white pt-12 relative z-10">
+      <div className="bg-white pt-6 md:pt-12 relative z-10">
         <div className="mx-auto max-w-5xl px-6">
           <PageHeader
             title="커뮤니티"
@@ -266,7 +266,7 @@ function NoticeAccordion({
             {notice.is_pinned && <Pin className="h-4 w-4 text-rose-500 shrink-0" />}
             <span className="truncate">{notice.title}</span>
           </span>
-          <span className="text-xs font-medium text-slate-400 md:text-center mt-1 md:mt-0">
+          <span className="hidden md:block text-xs font-medium text-slate-400 text-center mt-1 md:mt-0">
             {new Date(notice.created_at).toLocaleDateString("ko-KR")}
           </span>
           <span className="hidden text-center text-xs font-medium text-slate-400 md:block">
@@ -699,7 +699,7 @@ function StarRow({ rating }: { rating: number }) {
 function ReviewListItem({ post }: { post: PostListItem }) {
   const body = post.content ?? post.title;
   return (
-    <li className="flex flex-col rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md">
+    <li className="flex flex-col rounded-2xl border border-zinc-200 bg-white p-4 md:p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <StarRow rating={post.rating} />
         <span

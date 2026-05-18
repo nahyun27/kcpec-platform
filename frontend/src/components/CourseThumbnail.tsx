@@ -59,15 +59,7 @@ export function CourseThumbnail({
   const slug = (title && titleSlugMap[title]) ?? categorySlugMap[category];
 
   return (
-    <div
-      style={{
-        position: "relative",
-        aspectRatio: "16 / 9",
-        overflow: "hidden",
-        borderRadius: 8,
-        backgroundColor: "#1C3461",
-      }}
-    >
+    <div className="relative overflow-hidden rounded-lg bg-[#1C3461] aspect-[2/1] md:aspect-video">
       {slug ? (
         <Image
           src={`/thumbnails/${slug}.png`}
