@@ -71,7 +71,7 @@ export default function CommunityClient() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 pt-10 pb-24">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 pt-6 md:pt-10 pb-12 md:pb-24">
 
       {/* Pill Tabs — 모바일에선 가로 스크롤(절대 줄바꿈 X), 데스크톱에선 일반 배치 */}
       <div className="hide-scrollbar -mx-4 mb-6 overflow-x-auto px-4 pb-2 sm:mx-0 sm:mb-8 sm:px-0">

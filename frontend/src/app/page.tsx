@@ -242,9 +242,9 @@ function TrustStat({ icon, label, value }: { icon: React.ReactNode; label: strin
 
 function CoursesSection({ courses }: { courses: CourseListItem[] }) {
   return (
-    <section className="py-12 md:py-24">
+    <section className="py-8 md:py-24">
       <div className="mx-auto max-w-7xl px-4 md:px-6">
-        <div className="mb-8 md:mb-12 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
+        <div className="mb-6 md:mb-12 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <div>
             <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
               맞춤형 교육 과정
@@ -273,12 +273,12 @@ function CoursesSection({ courses }: { courses: CourseListItem[] }) {
               <Link
                 key={c.id}
                 href={`/courses/${c.id}`}
-                className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/5"
+                className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 md:p-6 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/5"
               >
                 <div className="mb-4 inline-flex w-fit items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-[var(--color-accent)]">
                   {c.category}
                 </div>
-                <h3 className="mb-4 font-sans text-xl font-bold leading-snug text-slate-900 group-hover:text-[var(--color-primary)]">
+                <h3 className="mb-4 font-sans text-lg md:text-xl font-bold leading-snug text-slate-900 group-hover:text-[var(--color-primary)]">
                   {c.title}
                 </h3>
                 <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4">
@@ -304,9 +304,9 @@ function StepsSection() {
   const stepIcons = [Search, PlayCircle, CreditCard, FileDown];
 
   return (
-    <section id="guide" className="bg-white py-12 md:py-24">
+    <section id="guide" className="bg-white py-8 md:py-24">
       <div className="mx-auto max-w-7xl px-4 md:px-6">
-        <div className="mb-8 md:mb-16 text-center">
+        <div className="mb-6 md:mb-16 text-center">
           <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
             쉽고 빠른 이용 절차
           </h2>
@@ -320,17 +320,17 @@ function StepsSection() {
             {STEPS.map((s, idx) => {
               const Icon = stepIcons[idx];
               return (
-                <div key={s.n} className="group relative flex flex-col items-center rounded-2xl border border-zinc-100 bg-white p-8 text-center shadow-md transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/5">
+                <div key={s.n} className="group relative flex flex-col items-center rounded-2xl border border-zinc-100 bg-white p-5 md:p-8 text-center shadow-md transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/5">
                   {/* 단계 번호 뱃지 */}
-                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-lg font-bold text-[var(--color-accent)] ring-4 ring-white transition-colors group-hover:bg-blue-100">
+                  <div className="mb-5 md:mb-6 flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-full bg-blue-50 text-lg font-bold text-[var(--color-accent)] ring-4 ring-white transition-colors group-hover:bg-blue-100">
                     {s.n}
                   </div>
                   
                   {/* 아이콘 */}
-                  <Icon className="mb-5 h-10 w-10 text-slate-300 transition-colors group-hover:text-[var(--color-accent)]" />
+                  <Icon className="mb-4 md:mb-5 h-8 w-8 md:h-10 md:w-10 text-slate-300 transition-colors group-hover:text-[var(--color-accent)]" />
                   
                   {/* 제목 */}
-                  <h3 className="mb-3 font-sans text-xl font-bold text-slate-900 group-hover:text-[var(--color-primary)]">
+                  <h3 className="mb-2 md:mb-3 font-sans text-lg md:text-xl font-bold text-slate-900 group-hover:text-[var(--color-primary)]">
                     {s.title}
                   </h3>
                   
@@ -359,9 +359,9 @@ function StepsSection() {
 
 function PackagesSection() {
   return (
-    <section className="py-12 md:py-24">
+    <section className="py-8 md:py-24">
       <div className="mx-auto max-w-7xl px-4 md:px-6">
-        <div className="mb-8 md:mb-16 text-center">
+        <div className="mb-6 md:mb-16 text-center">
           <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
             합리적인 패키지
           </h2>
@@ -374,7 +374,7 @@ function PackagesSection() {
           {PACKAGES.map((p) => (
             <div
               key={p.tier}
-              className={`relative flex flex-col rounded-3xl bg-white p-8 transition-all duration-300 hover:-translate-y-2 ${
+              className={`relative flex flex-col rounded-3xl bg-white p-5 md:p-8 transition-all duration-300 hover:-translate-y-2 ${
                 p.highlight
                   ? "border-2 border-[var(--color-accent)] shadow-2xl shadow-blue-900/10 scale-105 z-10"
                   : "border border-zinc-200 shadow-lg mt-4 mb-4"
@@ -385,8 +385,8 @@ function PackagesSection() {
                   Most Popular
                 </div>
               )}
-              <div className="mb-6">
-                <h3 className="font-sans text-2xl font-bold text-[var(--color-primary)]">
+              <div className="mb-5 md:mb-6">
+                <h3 className="font-sans text-xl md:text-2xl font-bold text-[var(--color-primary)]">
                   {p.tier}
                 </h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
@@ -424,14 +424,14 @@ const SAMPLES = [
 
 function SamplesSection() {
   return (
-    <section id="samples" className="bg-[#F8F9FA] py-12 md:py-24">
+    <section id="samples" className="bg-[#F8F9FA] py-8 md:py-24">
       <div className="mx-auto max-w-6xl px-4 md:px-6 text-center">
-        <h2 className="font-sans text-2xl font-extrabold leading-snug tracking-tight text-[var(--color-primary)] sm:text-3xl">
+        <h2 className="font-sans text-xl font-extrabold leading-snug tracking-tight text-[var(--color-primary)] md:text-2xl sm:text-3xl">
           교육과 상담을 통해 변화된 자신을 발견하고
           <br />
           건전한 사회구성원으로 복귀할 수 있습니다.
         </h2>
-        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
+        <div className="mt-8 md:mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
           {SAMPLES.map((s) => (
             <figure
               key={s.src}
