@@ -18,25 +18,25 @@ export function PageHeader({
   centered = false,
 }: PageHeaderProps) {
   return (
-    <header className={`mb-6 pb-2 md:mb-8 md:pb-4 flex flex-col gap-3 md:gap-4 sm:flex-row ${rightContent ? "sm:items-end sm:justify-between" : ""} ${centered ? "text-center sm:text-center" : "text-center sm:text-left"}`}>
-      <div className={centered ? "mx-auto" : ""}>
+    <header className={`mb-8 md:mb-12 flex flex-col gap-4 md:gap-6 sm:flex-row animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out ${rightContent ? "sm:items-end sm:justify-between" : ""} ${centered ? "items-center text-center" : "items-center sm:items-start text-center sm:text-left"}`}>
+      <div className={`flex flex-col ${centered ? "items-center" : "items-center sm:items-start"} max-w-3xl`}>
         {subtitle && (
-          <div className="mb-3 md:mb-4 inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-[10px] md:text-xs font-bold uppercase tracking-widest text-[var(--color-accent)] ring-1 ring-blue-500/20">
-            {icon}
+          <div className="mb-3 md:mb-4 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-1.5 text-[11px] md:text-xs font-extrabold uppercase tracking-widest text-[var(--color-primary)] ring-1 ring-blue-500/20 shadow-sm">
+            {icon && <span className="text-[var(--color-accent)]">{icon}</span>}
             {subtitle}
           </div>
         )}
-        <h1 className="font-sans text-2xl font-extrabold tracking-tight text-slate-900 md:text-4xl">
+        <h1 className="font-sans text-3xl font-extrabold tracking-tight text-slate-900 md:text-[40px] md:leading-[1.2]">
           {title}
         </h1>
         {description && (
-          <p className="mt-2 md:mt-3 text-sm text-slate-500 md:text-lg">
+          <p className="mt-3 md:mt-4 text-[15px] text-slate-500 md:text-[17px] leading-relaxed">
             {description}
           </p>
         )}
       </div>
       {rightContent && (
-        <div className="shrink-0">
+        <div className="shrink-0 mt-2 sm:mt-0 w-full sm:w-auto">
           {rightContent}
         </div>
       )}

@@ -46,10 +46,12 @@ export default function SiteHeader() {
 
   return (
     <header className="sticky top-0 md:top-4 z-50 transition-all px-0 md:px-6 pointer-events-none">
-      <div className="mx-auto flex h-16 max-w-5xl items-center justify-between bg-white/80 backdrop-blur-lg border-b border-zinc-200 md:border md:border-zinc-200/50 md:rounded-full md:shadow-lg md:shadow-slate-900/5 px-4 md:px-6 pointer-events-auto">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between bg-white/80 backdrop-blur-lg border-b border-zinc-200 md:border md:border-zinc-200/50 md:rounded-full md:shadow-lg md:shadow-slate-900/5 px-4 md:px-6 pointer-events-auto">
         {/* 좌: 로고 */}
         <div className="flex flex-1 items-center justify-start">
-          <Logo />
+          {/* 모바일과 넓은 화면에서는 가로 로고, 애매한 중간 너비(md~lg)에서는 심볼 로고 */}
+          <Logo className="md:hidden lg:flex" />
+          <Logo kind="mark" className="hidden md:flex lg:hidden" />
         </div>
 
         {/* 중: 메뉴 */}
@@ -117,7 +119,7 @@ export default function SiteHeader() {
 
       {/* 모바일 메뉴 사이드 드로어 */}
       <div
-        className={`fixed inset-0 z-[100] transition-all duration-300 md:hidden ${
+        className={`fixed inset-0 z-[100] transition-all duration-300 md:hidden pointer-events-auto ${
           isMenuOpen ? "visible" : "invisible"
         }`}
       >
