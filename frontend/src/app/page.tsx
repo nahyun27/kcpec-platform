@@ -304,47 +304,49 @@ function StepsSection() {
   const stepIcons = [Search, PlayCircle, CreditCard, FileDown];
 
   return (
-    <section id="guide" className="bg-white py-8 md:py-24">
-      <div className="mx-auto max-w-7xl px-4 md:px-6">
-        <div className="mb-6 md:mb-16 text-center">
-          <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
+    <section id="guide" className="bg-[#FAFBFD] py-12 md:py-20">
+      <div className="mx-auto max-w-5xl px-4 md:px-6">
+        <div className="mb-10 md:mb-16 text-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[var(--color-primary)] ring-1 ring-blue-500/20">
+            Guide
+          </span>
+          <h2 className="mt-3 font-sans text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
             쉽고 빠른 이용 절차
           </h2>
-          <p className="mt-4 text-lg text-slate-600">
+          <p className="mt-2 text-sm text-slate-500 md:text-base">
             복잡한 과정 없이 꼭 필요한 서류만 빠르게 준비하세요.
           </p>
         </div>
 
+        {/* Desktop: Horizontal Flow / Mobile: Compact Horizontal List */}
         <div className="relative">
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-4 md:gap-8">
+          <div className="flex flex-col gap-4 md:flex-row md:justify-between md:gap-5 relative z-10">
             {STEPS.map((s, idx) => {
               const Icon = stepIcons[idx];
               return (
-                <div key={s.n} className="group relative flex flex-col items-center rounded-2xl border border-zinc-100 bg-white p-5 md:p-8 text-center shadow-md transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/5">
-                  {/* 단계 번호 뱃지 */}
-                  <div className="mb-5 md:mb-6 flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-full bg-blue-50 text-lg font-bold text-[var(--color-accent)] ring-4 ring-white transition-colors group-hover:bg-blue-100">
-                    {s.n}
-                  </div>
-                  
-                  {/* 아이콘 */}
-                  <Icon className="mb-4 md:mb-5 h-8 w-8 md:h-10 md:w-10 text-slate-300 transition-colors group-hover:text-[var(--color-accent)]" />
-                  
-                  {/* 제목 */}
-                  <h3 className="mb-2 md:mb-3 font-sans text-lg md:text-xl font-bold text-slate-900 group-hover:text-[var(--color-primary)]">
-                    {s.title}
-                  </h3>
-                  
-                  {/* 설명 */}
-                  <p className="text-sm leading-relaxed text-slate-600">
-                    {s.desc}
-                  </p>
-
-                  {/* 화살표 (마지막 카드 제외, 데스크톱에서만 보임) */}
-                  {idx < STEPS.length - 1 && (
-                    <div className="absolute -right-6 top-1/2 z-10 hidden -translate-y-1/2 md:block lg:-right-7">
-                      <ChevronRight className="h-10 w-10 text-slate-200" />
+                <div 
+                  key={s.n} 
+                  className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm md:flex-col md:items-center md:text-center md:p-6 md:flex-1 md:rounded-3xl md:shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+                >
+                  {/* Left (Mobile) / Top (Desktop) - Icon & Number Badge */}
+                  <div className="relative shrink-0 flex items-center justify-center">
+                    <div className="flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 text-[var(--color-primary)] ring-1 ring-slate-200/50">
+                      <Icon className="h-6 w-6 md:h-7 md:w-7" />
                     </div>
-                  )}
+                    <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-accent)] text-[10px] font-extrabold text-white ring-2 ring-white">
+                      {s.n}
+                    </span>
+                  </div>
+
+                  {/* Right (Mobile) / Bottom (Desktop) - Text Content */}
+                  <div className="flex-1 md:mt-2 text-left md:text-center">
+                    <h3 className="font-sans text-base font-bold text-slate-800 md:text-lg">
+                      {s.title}
+                    </h3>
+                    <p className="mt-1 text-xs sm:text-sm leading-relaxed text-slate-500">
+                      {s.desc}
+                    </p>
+                  </div>
                 </div>
               );
             })}
