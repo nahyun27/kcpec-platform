@@ -133,7 +133,7 @@ export default function MyPageClient() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-12 px-6 py-12 pb-24">
+    <div className="mx-auto max-w-5xl space-y-8 md:space-y-12 px-4 md:px-6 py-6 md:py-12 pb-24 animate-in fade-in duration-300">
       <PageHeader
         title="마이페이지"
         subtitle="My Page"
@@ -141,9 +141,9 @@ export default function MyPageClient() {
         description="수강 중인 강의와 결제·발급 내역, 계정 정보를 관리하세요."
       />
 
-      <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
+      <div className="grid grid-cols-1 gap-6 md:gap-8 lg:grid-cols-12 lg:gap-12">
         {/* Left Column (Main Content) */}
-        <div className="space-y-12 lg:col-span-8">
+        <div className="space-y-8 md:space-y-12 lg:col-span-8">
           <Section icon={<BookOpen className="h-6 w-6 text-[var(--color-accent)]" />} title="수강 현황">
             {enrollments.length === 0 ? (
               <EmptyState
@@ -203,7 +203,7 @@ export default function MyPageClient() {
           <Section icon={<User className="h-6 w-6 text-[var(--color-accent)]" />} title="계정 정보">
             {me ? (
               <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-                <div className="bg-slate-50 px-6 py-4 border-b border-zinc-200">
+                <div className="bg-slate-50 px-4 sm:px-6 py-3.5 sm:py-4 border-b border-zinc-200">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-primary)] text-white font-bold">
                       {me.username.charAt(0).toUpperCase()}
@@ -218,14 +218,14 @@ export default function MyPageClient() {
                     </div>
                   </div>
                 </div>
-                <dl className="divide-y divide-zinc-100 p-6">
+                <dl className="divide-y divide-zinc-100 p-4 sm:p-6">
                   <Field label="이메일" value={me.email} />
                   <Field
                     label="가입일"
                     value={new Date(me.created_at).toLocaleDateString("ko-KR")}
                   />
                 </dl>
-                <div className="border-t border-zinc-100 px-6 py-3 text-right">
+                <div className="border-t border-zinc-100 px-4 sm:px-6 py-3 text-right">
                   <button
                     type="button"
                     onClick={() => setEditOpen(true)}
@@ -290,10 +290,10 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-6">
+    <section className="space-y-4 md:space-y-6">
       <div className="flex items-center gap-2">
-        {icon}
-        <h2 className="font-sans text-2xl font-bold text-slate-900">{title}</h2>
+        {icon && <span className="shrink-0">{icon}</span>}
+        <h2 className="font-sans text-xl font-bold text-slate-900 sm:text-2xl">{title}</h2>
       </div>
       {children}
     </section>
@@ -329,10 +329,10 @@ function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
   const progressPct = enrollment.overall_progress_pct;
 
   return (
-    <li className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-all hover:border-[var(--color-primary)]/30 hover:shadow-md">
-      <div className="flex gap-4">
-        {/* 좌측 썸네일 (16:9 — w-28 ~ sm:w-32 폭) */}
-        <div className="w-28 shrink-0 self-start overflow-hidden rounded-lg sm:w-32">
+    <li className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-all hover:border-[var(--color-primary)]/30 hover:shadow-md sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row">
+        {/* 썸네일 (모바일에서는 가로 100%, 태블릿 이상 w-32) */}
+        <div className="w-full shrink-0 overflow-hidden rounded-xl sm:w-32 sm:self-start">
           <CourseThumbnail
             category={enrollment.category}
             title={enrollment.course_title}
@@ -340,10 +340,10 @@ function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
         </div>
 
         {/* 우측 내용 */}
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
             <div className="min-w-0 space-y-1.5">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-[var(--color-accent)] ring-1 ring-blue-500/20">
                   {enrollment.category}
                 </span>
@@ -357,22 +357,22 @@ function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
                   </span>
                 )}
               </div>
-              <h3 className="font-sans text-base font-bold text-slate-900 line-clamp-2 sm:text-lg">
+              <h3 className="font-sans text-base font-bold text-slate-900 leading-snug sm:text-lg">
                 {enrollment.course_title}
               </h3>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex items-center gap-2 mt-1 sm:mt-0 flex-wrap sm:shrink-0">
               <Link
                 href={`/courses/${enrollment.course_id}/watch`}
-                className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:border-[var(--color-primary)] hover:bg-slate-50 hover:text-[var(--color-primary)]"
+                className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition-colors hover:border-[var(--color-primary)] hover:bg-slate-50 hover:text-[var(--color-primary)] shadow-sm"
               >
                 <PlayCircle className="h-3.5 w-3.5" /> 이어보기
               </Link>
               {isComplete ? (
                 <Link
                   href={`/checkout?course_id=${enrollment.course_id}`}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary)] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[var(--color-primary-hover)]"
+                  className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-900/10 transition-colors hover:from-blue-700 hover:to-blue-800"
                 >
                   수료증 결제
                 </Link>
@@ -380,14 +380,14 @@ function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
                 progressPct >= 100 ? (
                   <Link
                     href={`/courses/${enrollment.course_id}/quiz`}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-accent)] bg-blue-50 px-3 py-1.5 text-xs font-bold text-[var(--color-accent)] transition-colors hover:bg-[var(--color-accent)] hover:text-white"
+                    className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl border border-[var(--color-accent)] bg-blue-50 px-4 py-2 text-xs font-bold text-[var(--color-accent)] transition-colors hover:bg-[var(--color-accent)] hover:text-white shadow-sm"
                   >
                     퀴즈 응시
                   </Link>
                 ) : (
                   <span
                     title="모든 강의를 완료해야 응시 가능합니다"
-                    className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-bold text-zinc-400"
+                    className="inline-flex flex-1 sm:flex-none cursor-not-allowed items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-xs font-bold text-zinc-400"
                   >
                     퀴즈 응시
                   </span>
@@ -397,14 +397,14 @@ function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
           </div>
 
           {/* 진도율 한 줄: 라벨 | 바 | 퍼센트 */}
-          <div className="mt-1 flex items-center gap-3">
-            <span className="shrink-0 text-xs text-slate-500">진도율</span>
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+          <div className="mt-1.5 flex items-center gap-3">
+            <span className="shrink-0 text-xs font-medium text-slate-500">진도율</span>
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
               <div
                 className={`h-full rounded-full transition-all duration-700 ease-out ${
                   isComplete
                     ? "bg-emerald-500"
-                    : "bg-[var(--color-primary)]"
+                    : "bg-gradient-to-r from-[var(--color-primary)] to-blue-500"
                 }`}
                 style={{ width: `${progressPct}%` }}
               />
