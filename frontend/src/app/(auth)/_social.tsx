@@ -56,10 +56,10 @@ export function SocialLoginButtons() {
       }`
     : null;
 
-  function go(p: Provider) {
-    // 백엔드가 redirect 까지 모두 처리. 상대 경로 X — 절대 URL 사용.
-    window.location.href = `${API_BASE_URL}/auth/social/${p}/login`;
-  }
+  // bfcache(뒤로가기 캐시) 로 페이지가 복원될 때 React hydration 이 일시적
+  // 으로 끊겨 onClick 이 안 먹는 케이스가 있어, 풀-페이지 navigation 은
+  // <button onClick=window.location> 대신 <a href> 로 처리한다. (anchor 는
+  // JS 의존 없이 항상 동작.)
 
   return (
     <div className="space-y-4">
@@ -71,16 +71,15 @@ export function SocialLoginButtons() {
 
       <div className="space-y-3">
         {PROVIDERS.map((p) => (
-          <button
+          <a
             key={p.key}
-            type="button"
-            onClick={() => go(p.key)}
+            href={`${API_BASE_URL}/auth/social/${p.key}/login`}
             className={`flex w-full items-center justify-center gap-3 rounded-xl py-3 text-sm font-bold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${p.cls}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.icon} alt="" className="h-5 w-5" />
             {p.label}
-          </button>
+          </a>
         ))}
       </div>
 
