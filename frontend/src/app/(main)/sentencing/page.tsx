@@ -8,6 +8,7 @@ import {
   ArrowRight,
   BadgeCheck,
   Check,
+  ChevronUp,
   FileText,
   Scale,
 } from "lucide-react";
@@ -168,6 +169,7 @@ export default function SentencingPage() {
   }
   const [selected, setSelected] = useState<Set<CrimeKey>>(new Set());
   const [answers, setAnswers] = useState<Record<string, "Y" | "N" | "">>({});
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
   // Step3 에서 사용자가 개별 해제한 강의 — 추천에서 빠지진 않고 회색 처리.
   const [disabledCourses, setDisabledCourses] = useState<Set<CourseId>>(
     new Set(),
@@ -232,21 +234,34 @@ export default function SentencingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-32 sm:pb-24 animate-in fade-in duration-300">
-      <div className="bg-white pt-6 md:pt-10 relative z-10 border-b border-slate-100">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6">
-          <PageHeader
-            title="양형자료 추천"
-            subtitle="Find your sentencing material"
-            icon={<Scale className="h-3.5 w-3.5" />}
-            description="사건 유형을 선택하시면 필요한 강의와 발급 가능한 서류를 자동으로 안내해 드립니다."
-          />
+    <div className="min-h-screen bg-slate-50/50 pb-24 animate-in fade-in duration-300">
+      {/* 모바일: 제목만 간결하게 / 데스크톱: 풀 헤더 */}
+      <div className="bg-white relative z-10 border-b border-slate-100">
+        {/* 모바일 컴팩트 헤더 */}
+        <div className="flex items-center justify-between px-4 py-3 md:hidden">
+          <h1 className="font-sans text-lg font-extrabold text-slate-900">
+            양형자료 추천
+          </h1>
+          <StepIndicator step={step} compact />
+        </div>
+        {/* 데스크톱 풀 헤더 */}
+        <div className="hidden md:block pt-10">
+          <div className="mx-auto max-w-5xl px-6">
+            <PageHeader
+              title="양형자료 추천"
+              subtitle="Find your sentencing material"
+              icon={<Scale className="h-3.5 w-3.5" />}
+              description="사건 유형을 선택하시면 필요한 강의와 발급 가능한 서류를 자동으로 안내해 드립니다."
+            />
+          </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 pt-8">
-        {/* 진행 표시 */}
-        <StepIndicator step={step} />
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 pt-4 md:pt-8">
+        {/* 데스크톱 전용 진행 표시 (모바일은 헤더에 inline) */}
+        <div className="hidden md:block">
+          <StepIndicator step={step} />
+        </div>
 
         {/* Step 본문 */}
         <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -320,49 +335,104 @@ export default function SentencingPage() {
         </div>
       </div>
 
-      {/* 모바일: 하단 fixed 네비 + (Step 3 에서는 합계/결제) */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white px-4 py-3 shadow-2xl lg:hidden">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() =>
-              setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s))
-            }
-            disabled={step === 1}
-            className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm disabled:opacity-30"
-          >
-            <ArrowLeft className="h-4 w-4" /> 이전
-          </button>
+      {/* 모바일: 하단 fixed 네비 + 펼침 가능 선택 과정 패널 */}
+      <div className="fixed inset-x-0 bottom-0 z-30 lg:hidden">
+        {/* 펼침 패널 — Step 1/2 에서 선택 과정이 있을 때만 */}
+        {step < 3 && mobileCartOpen && recommendation.courses.length > 0 ? (
+          <div className="border-t border-zinc-200 bg-slate-50 px-4 py-3">
+            <div className="mx-auto max-w-5xl">
+              <p className="mb-2 text-[11px] font-bold text-slate-500">
+                선택된 과정
+              </p>
+              <ul className="space-y-1">
+                {recommendation.courses.map((c) => (
+                  <li
+                    key={c.id}
+                    className="flex items-center justify-between text-xs"
+                  >
+                    <span className="text-slate-700">{c.name}</span>
+                    <span className="font-mono font-bold text-slate-700">
+                      {c.price.toLocaleString()}원
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2 flex items-center justify-between border-t border-zinc-200 pt-2 text-xs">
+                <span className="font-bold text-slate-700">합계</span>
+                <span className="font-mono font-bold text-[#1C3461]">
+                  {recommendation.total.toLocaleString()}원
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
-          {step < 3 ? (
+        {/* 메인 바 */}
+        <div className="border-t border-zinc-200 bg-white px-4 py-3 shadow-2xl">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-2">
             <button
               type="button"
               onClick={() =>
-                setStep((s) => ((s + 1) as 1 | 2 | 3))
+                setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s))
               }
-              disabled={step === 1 && selected.size === 0}
-              className="inline-flex items-center gap-1 rounded-full bg-[#1C3461] px-5 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-40"
+              disabled={step === 1}
+              className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm disabled:opacity-30"
             >
-              다음 <ArrowRight className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" /> 이전
             </button>
-          ) : (
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-[10px] font-bold text-slate-500">합계</p>
-                <p className="text-base font-extrabold text-[#1C3461]">
-                  {recommendation.total.toLocaleString()}원
-                </p>
+
+            {/* Step 1/2: 선택 과정 토글 + 다음 */}
+            {step < 3 ? (
+              <div className="flex items-center gap-2">
+                {recommendation.courses.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setMobileCartOpen((o) => !o)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600"
+                  >
+                    {recommendation.courses.length}개 선택
+                    <span className="font-mono text-[#1C3461]">
+                      {recommendation.total.toLocaleString()}원
+                    </span>
+                    <ChevronUp
+                      className={`h-3.5 w-3.5 transition-transform ${
+                        mobileCartOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileCartOpen(false);
+                    setStep((s) => ((s + 1) as 1 | 2 | 3));
+                  }}
+                  disabled={step === 1 && selected.size === 0}
+                  className="inline-flex items-center gap-1 rounded-full bg-[#1C3461] px-4 py-2 text-sm font-bold text-white shadow-md disabled:opacity-40"
+                >
+                  다음 <ArrowRight className="h-4 w-4" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleCheckout}
-                disabled={recommendation.activeCourseCount === 0}
-                className="rounded-full bg-[#1C3461] px-4 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-40"
-              >
-                수강 신청 →
-              </button>
-            </div>
-          )}
+            ) : (
+              /* Step 3: 합계 + 수강 신청 */
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-[10px] font-bold text-slate-500">합계</p>
+                  <p className="text-base font-extrabold text-[#1C3461]">
+                    {recommendation.total.toLocaleString()}원
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCheckout}
+                  disabled={recommendation.activeCourseCount === 0}
+                  className="rounded-full bg-[#1C3461] px-4 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-40"
+                >
+                  수강 신청 →
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -371,12 +441,51 @@ export default function SentencingPage() {
 
 // ---------- 진행 표시 --------------------------------------------------------
 
-function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
+function StepIndicator({
+  step,
+  compact = false,
+}: {
+  step: 1 | 2 | 3;
+  compact?: boolean;
+}) {
   const items = [
     { n: 1, label: "사건 유형" },
     { n: 2, label: "추가 질문" },
     { n: 3, label: "추천 결과" },
   ];
+
+  // compact: 모바일 헤더 인라인용 — 작은 원 + 짧은 연결선, 라벨 없음
+  if (compact) {
+    return (
+      <div className="flex items-center gap-1.5">
+        {items.map((it, i) => {
+          const active = step === it.n;
+          const done = step > it.n;
+          return (
+            <div key={it.n} className="flex items-center gap-1.5">
+              <div
+                className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${
+                  done || active
+                    ? "bg-[#1C3461] text-white"
+                    : "bg-slate-200 text-slate-500"
+                }`}
+              >
+                {done ? <Check className="h-3 w-3" /> : it.n}
+              </div>
+              {i < items.length - 1 ? (
+                <div
+                  className={`h-0.5 w-3 ${
+                    step > it.n ? "bg-[#1C3461]" : "bg-slate-200"
+                  }`}
+                />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center justify-center gap-2 sm:gap-4">
       {items.map((it, i) => {
