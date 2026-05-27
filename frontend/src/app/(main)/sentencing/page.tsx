@@ -279,7 +279,8 @@ export default function SentencingPage() {
             </div>
 
             {/* 네비게이션 */}
-            <div className="flex items-center justify-between gap-3 pt-2">
+            {/* 네비 — 데스크톱만 (모바일은 하단 fixed bar) */}
+            <div className="hidden items-center justify-between gap-3 pt-2 lg:flex">
               <button
                 type="button"
                 onClick={() => setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s))}
@@ -315,27 +316,51 @@ export default function SentencingPage() {
         </div>
       </div>
 
-      {/* 모바일: 하단 fixed 카트 (Step 3 에서만) */}
-      {step === 3 ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white p-4 shadow-2xl lg:hidden">
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-bold text-slate-500">합계</p>
-              <p className="text-lg font-extrabold text-[#1C3461]">
-                {recommendation.total.toLocaleString()}원
-              </p>
-            </div>
+      {/* 모바일: 하단 fixed 네비 + (Step 3 에서는 합계/결제) */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white px-4 py-3 shadow-2xl lg:hidden">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() =>
+              setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s))
+            }
+            disabled={step === 1}
+            className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm disabled:opacity-30"
+          >
+            <ArrowLeft className="h-4 w-4" /> 이전
+          </button>
+
+          {step < 3 ? (
             <button
               type="button"
-              onClick={handleCheckout}
-              disabled={recommendation.activeCourseCount === 0}
-              className="rounded-full bg-[#1C3461] px-5 py-3 text-sm font-bold text-white shadow-md hover:bg-[var(--color-primary-hover)] disabled:opacity-40"
+              onClick={() =>
+                setStep((s) => ((s + 1) as 1 | 2 | 3))
+              }
+              disabled={step === 1 && selected.size === 0}
+              className="inline-flex items-center gap-1 rounded-full bg-[#1C3461] px-5 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-40"
             >
-              지금 바로 수강 신청 →
+              다음 <ArrowRight className="h-4 w-4" />
             </button>
-          </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="text-[10px] font-bold text-slate-500">합계</p>
+                <p className="text-base font-extrabold text-[#1C3461]">
+                  {recommendation.total.toLocaleString()}원
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCheckout}
+                disabled={recommendation.activeCourseCount === 0}
+                className="rounded-full bg-[#1C3461] px-4 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-40"
+              >
+                수강 신청 →
+              </button>
+            </div>
+          )}
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
