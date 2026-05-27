@@ -161,7 +161,11 @@ const FOLLOWUPS: FollowUp[] = [
 
 export default function SentencingPage() {
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, _setStep] = useState<1 | 2 | 3>(1);
+  function setStep(next: 1 | 2 | 3 | ((s: 1 | 2 | 3) => 1 | 2 | 3)) {
+    _setStep(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
   const [selected, setSelected] = useState<Set<CrimeKey>>(new Set());
   const [answers, setAnswers] = useState<Record<string, "Y" | "N" | "">>({});
   // Step3 에서 사용자가 개별 해제한 강의 — 추천에서 빠지진 않고 회색 처리.
