@@ -59,7 +59,16 @@ type CourseId =
   | "fraud"         // 사기횡령배임 등 재산범죄 예방
   | "stalking"      // 스토킹범죄 예방
   | "school"        // 학교폭력 예방
-  | "counseling";   // 심리상담 의견서 (별도)
+  | "counseling"    // 심리상담 의견서 (별도)
+  // 신규 강의 8종 (alembic 0018, is_active=false — 영상 미등록)
+  | "anger"         // 분노 조절·감정 통제 교육
+  | "alcohol"       // 알코올·중독 습관 교정 교육
+  | "workplace"     // 비즈니스·직장 내 윤리 교육
+  | "economy"       // 경제 관념·사행성 방지 교육
+  | "digital_ethics"// 디지털 저작권·정보통신 윤리 교육
+  | "privacy"       // 개인정보 보호·사이버 금융 범죄 예방
+  | "youth"         // 청소년 경제·법률 교육
+  | "parenting";    // 보호자 양육 윤리·예방 교육
 
 type CourseInfo = {
   id: CourseId;
@@ -67,10 +76,8 @@ type CourseInfo = {
   price: number;
 };
 
-// 카탈로그 가격은 KCPEC 표준 패키지 가격(과정당 55,000 / 심리상담 143,000)
-// 으로 페이지 내 표시 전용. 실제 결제는 /courses → 패키지 선택 → checkout 흐름.
 const COURSES: Record<CourseId, CourseInfo> = {
-  law: { id: "law", name: "준법의식 강화", price: 55_000 },
+  law: { id: "law", name: "준법의식 강화", price: 22_000 },
   drunk: { id: "drunk", name: "음주운전 예방", price: 55_000 },
   sex: { id: "sex", name: "성범죄 예방", price: 55_000 },
   digital_sex: { id: "digital_sex", name: "디지털 성범죄 예방", price: 55_000 },
@@ -80,24 +87,29 @@ const COURSES: Record<CourseId, CourseInfo> = {
   stalking: { id: "stalking", name: "스토킹범죄 예방", price: 55_000 },
   school: { id: "school", name: "학교폭력 예방", price: 55_000 },
   counseling: { id: "counseling", name: "심리상담 의견서", price: 143_000 },
+  anger: { id: "anger", name: "분노 조절·감정 통제 교육", price: 55_000 },
+  alcohol: { id: "alcohol", name: "알코올·중독 습관 교정 교육", price: 55_000 },
+  workplace: { id: "workplace", name: "비즈니스·직장 내 윤리 교육", price: 55_000 },
+  economy: { id: "economy", name: "경제 관념·사행성 방지 교육", price: 55_000 },
+  digital_ethics: { id: "digital_ethics", name: "디지털 저작권·정보통신 윤리 교육", price: 55_000 },
+  privacy: { id: "privacy", name: "개인정보 보호·사이버 금융 범죄 예방", price: 55_000 },
+  youth: { id: "youth", name: "청소년 경제·법률 교육", price: 55_000 },
+  parenting: { id: "parenting", name: "보호자 양육 윤리·예방 교육", price: 55_000 },
 };
 
 // 죄명 → 추천 강의 매핑
 const CRIME_TO_COURSES: Record<CrimeKey, CourseId[]> = {
-  sex: ["sex", "digital_sex"],
+  sex: ["sex", "digital_sex", "digital_ethics"],
   drunk: ["drunk"],
-  violence: [],            // 직접 매칭 강의 없음 — 준법의식만 추천
+  violence: ["anger"],
   drug: ["drug"],
-  gambling: ["gambling"],
-  fraud: ["fraud"],
+  gambling: ["gambling", "economy"],
+  fraud: ["fraud", "economy", "privacy"],
   stalking: ["stalking"],
-  school: ["school"],
-  obstruct: [],            // 매칭 강의 없음 — 준법의식만
+  school: ["school", "youth"],
+  obstruct: ["anger"],
   etc: [],
 };
-
-// 발급 서류 표시는 단순 규칙: 선택된 강의마다 "{name} 수료증 + 서약서".
-// 심리상담 의견서만 별도 항목으로 노출 (수료증 형식이 아님).
 
 // ---------- Y/N 추가 질문 (Step 2) -------------------------------------------
 
@@ -115,7 +127,14 @@ const FOLLOWUPS: FollowUp[] = [
     key: "drunk_habit",
     question: "음주 습관 개선을 위한 추가 교육이 필요하신가요?",
     trigger: (s) => s.has("drunk"),
-    // 별도 추가 강의는 없음 — 음주운전 예방으로 충분 (안내만)
+    yesAddCourse: "alcohol",
+  },
+  {
+    key: "workplace",
+    question: "직장 또는 회사 관련 사건인가요?",
+    trigger: (s) =>
+      s.has("fraud") || s.has("obstruct") || s.has("violence") || s.has("etc"),
+    yesAddCourse: "workplace",
   },
   {
     key: "counseling_needed",
@@ -695,6 +714,23 @@ function CartSummary({
             ))}
           </ul>
         )}
+
+        {/* 심리상담 의견서 포함 시 추가 서류 안내 */}
+        {recommendation.courses.some(
+          (c) => c.id === "counseling" && !disabledCourses.has("counseling"),
+        ) ? (
+          <div className="mt-3 rounded-lg bg-blue-50 p-3 text-sm">
+            <p className="font-medium text-blue-800">
+              ✓ 심리상담 의견서 구매 시 함께 제공
+            </p>
+            <ul className="mt-2 space-y-1 text-blue-700">
+              <li>• 자기성찰 리포트</li>
+              <li>• 교육이수 소감문</li>
+              <li>• CBT 기반 재범방지 자가진단 검사지</li>
+              <li>• 맞춤형 양형자료 준비 가이드북</li>
+            </ul>
+          </div>
+        ) : null}
       </div>
 
       <button
