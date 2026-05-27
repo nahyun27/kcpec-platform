@@ -102,8 +102,8 @@ export default function HomePage() {
       <SiteHeader />
       <Hero />
       <TrustSection />
-      <CoursesSection courses={courses} />
       <StepsSection />
+      <CoursesSection courses={courses} />
       <PackagesSection />
       <SamplesSection />
       <FaqSection />
