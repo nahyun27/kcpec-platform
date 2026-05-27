@@ -116,7 +116,7 @@ export default function HomePage() {
 
 function Hero() {
   return (
-    <section className="relative flex items-center justify-center overflow-hidden bg-[var(--color-primary)] py-10 pb-20 md:pb-36 md:pt-24 text-white">
+    <section className="relative flex items-center justify-center overflow-hidden bg-[var(--color-primary)] -mt-16 pt-24 pb-20 md:pb-36 md:pt-32 text-white">
       {/* Noise Texture Overlay */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.03]"
