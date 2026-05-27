@@ -4,10 +4,9 @@ import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
 import { Spinner } from "@/components/ui/Spinner";
 import { useEffect, useState } from "react";
-import { getCourses, tokenStorage } from "@/lib/api";
+import { getCourses } from "@/lib/api";
 import type { CourseListItem } from "@/types/course";
 import SiteHeader from "@/components/layout/SiteHeader";
-import { CurationModal } from "@/components/CurationModal";
 import {
   ArrowRight,
   CheckCircle2,
@@ -93,24 +92,14 @@ const STEPS = [
 
 export default function HomePage() {
   const [courses, setCourses] = useState<CourseListItem[]>([]);
-  const [curationOpen, setCurationOpen] = useState(false);
 
   useEffect(() => {
     getCourses().then(setCourses).catch(() => setCourses([]));
   }, []);
 
-  // 비로그인 + 첫 방문 자동 노출. localStorage 는 모달의 markSeen 에서 기록.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (tokenStorage.getAccess()) return;
-    if (window.localStorage.getItem("curation_seen")) return;
-    setCurationOpen(true);
-  }, []);
-
   return (
     <div className="flex min-h-full flex-1 flex-col bg-[var(--color-muted)]">
       <SiteHeader />
-      <CurationBanner onOpen={() => setCurationOpen(true)} />
       <Hero />
       <TrustSection />
       <CoursesSection courses={courses} />
@@ -119,32 +108,6 @@ export default function HomePage() {
       <SamplesSection />
       <FaqSection />
       <Footer />
-      <CurationModal
-        isOpen={curationOpen}
-        onClose={() => setCurationOpen(false)}
-      />
-    </div>
-  );
-}
-
-// ---------- curation banner -----------------------------------------------
-
-function CurationBanner({ onOpen }: { onOpen: () => void }) {
-  return (
-    <div className="bg-[#1C3461] text-white">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 md:px-6 py-2.5">
-        <p className="text-sm font-medium text-white/90">
-          어떤 교육이 필요한지 모르겠다면?
-        </p>
-        <button
-          type="button"
-          onClick={onOpen}
-          className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#1C3461] shadow-sm transition-transform hover:-translate-y-0.5 hover:bg-slate-50"
-        >
-          강의 추천받기
-          <ArrowRight className="h-3.5 w-3.5" />
-        </button>
-      </div>
     </div>
   );
 }
@@ -175,36 +138,24 @@ function Hero() {
             전문 교육으로 시작하세요
           </span>
         </h1>
-        <p className="mb-4 max-w-2xl text-lg leading-relaxed text-slate-300 sm:text-xl">
-          가장 확실한 양형 자료를 준비하세요. 법원이 인정하는 심리·준법 교육
-          수료증을 신속하게 발급받을 수 있습니다.
-        </p>
-        <p className="mb-10 max-w-2xl text-sm leading-relaxed text-blue-100/80 sm:text-base">
+        <p className="mb-10 max-w-2xl text-lg leading-relaxed text-slate-300 sm:text-xl">
           사건 유형을 선택하면 필요한 강의와 서류를 자동으로 안내해 드립니다.
         </p>
 
-        <div className="flex w-full flex-col items-center gap-4 md:w-auto px-4 md:px-0">
+        <div className="flex flex-col items-center gap-4">
           <Link
             href="/sentencing"
-            className="group flex w-full items-center justify-center gap-2 rounded-full bg-[#1C3461] px-8 py-3 text-base font-semibold text-white ring-2 ring-white/40 shadow-xl shadow-black/20 transition-all hover:-translate-y-1 hover:bg-[var(--color-primary-hover)] hover:shadow-2xl md:w-auto md:py-4 md:text-lg"
+            className="group flex items-center justify-center gap-2 rounded-full bg-[#1C3461] px-8 py-4 text-lg font-semibold text-white ring-2 ring-white/40 shadow-xl shadow-black/20 transition-all hover:-translate-y-1 hover:bg-[var(--color-primary-hover)] hover:shadow-2xl"
           >
             <span>양형자료 바로가기</span>
             <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </Link>
-          <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:gap-3">
-            <Link
-              href="/courses"
-              className="flex items-center justify-center gap-2 rounded-full bg-white/10 px-4 md:px-6 py-2.5 text-sm font-bold text-white backdrop-blur-sm transition-all hover:bg-white/20"
-            >
-              강의 목록 보기
-            </Link>
-            <Link
-              href="#guide"
-              className="flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 md:px-6 py-2.5 text-sm font-bold text-white backdrop-blur-sm transition-all hover:bg-white/10 whitespace-nowrap"
-            >
-              이용 안내 보기
-            </Link>
-          </div>
+          <Link
+            href="/courses"
+            className="text-sm font-medium text-slate-300 transition-colors hover:text-white"
+          >
+            강의 목록에서 직접 선택 →
+          </Link>
         </div>
       </div>
     </section>
