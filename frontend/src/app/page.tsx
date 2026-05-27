@@ -139,7 +139,8 @@ function Hero() {
           </span>
         </h1>
         <p className="mb-10 max-w-2xl text-lg leading-relaxed text-slate-300 sm:text-xl">
-          사건 유형을 선택하면 필요한 강의와 서류를 자동으로 안내해 드립니다.
+          가장 확실한 양형 자료를 준비하세요. 법원이 인정하는 심리·준법 교육
+          수료증을 무료로 수강하고 즉시 발급받을 수 있습니다.
         </p>
 
         <div className="flex flex-col items-center gap-4">
@@ -147,7 +148,7 @@ function Hero() {
             href="/sentencing"
             className="group flex items-center justify-center gap-2 rounded-full bg-[#1C3461] px-8 py-4 text-lg font-semibold text-white ring-2 ring-white/40 shadow-xl shadow-black/20 transition-all hover:-translate-y-1 hover:bg-[var(--color-primary-hover)] hover:shadow-2xl"
           >
-            <span>양형자료 바로가기</span>
+            <span>내 사건에 맞는 양형자료 추천받기</span>
             <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </Link>
           <Link
