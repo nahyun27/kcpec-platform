@@ -437,10 +437,17 @@ def social_callback(
             "/login", social_error="invalid_state", provider=provider
         )
 
-    access = _exchange_token(provider, code, client_id, client_secret)
-    pid, email, _name = _fetch_profile(provider, access)
+    try:
+        access = _exchange_token(provider, code, client_id, client_secret)
+        pid, email, _name = _fetch_profile(provider, access)
+        user = _find_or_create_social_user(db, provider, pid, email)
+    except HTTPException as exc:
+        # JSON 을 브라우저에 그대로 노출하지 않고 프런트 /login 으로 친절하게 redirect.
+        msg = exc.detail if isinstance(exc.detail, str) else "소셜 로그인에 실패했습니다."
+        return _frontend_redirect(
+            "/login", social_error="fail", provider=provider, social_message=msg
+        )
 
-    user = _find_or_create_social_user(db, provider, pid, email)
     tokens = _issue_tokens(user.id)
 
     # 토큰을 fragment 로 넘김 — SPA 가 hash 에서 꺼내고 location.replace 로 정리.

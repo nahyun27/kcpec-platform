@@ -50,9 +50,11 @@ export function SocialLoginButtons() {
   const searchParams = useSearchParams();
   const errKey = searchParams.get("social_error");
   const provider = searchParams.get("provider");
+  // 백엔드가 상세 메시지를 보내주면 그걸 우선 노출, 아니면 코드별 기본 메시지.
+  const customMsg = searchParams.get("social_message");
   const errorMsg = errKey
     ? `${provider ? PROVIDER_LABEL(provider) + " — " : ""}${
-        ERROR_MESSAGES[errKey] ?? "소셜 로그인에 실패했습니다."
+        customMsg || ERROR_MESSAGES[errKey] || "소셜 로그인에 실패했습니다."
       }`
     : null;
 
