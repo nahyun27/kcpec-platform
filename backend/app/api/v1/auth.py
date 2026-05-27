@@ -446,7 +446,7 @@ def social_callback(
     # 토큰을 fragment 로 넘김 — SPA 가 hash 에서 꺼내고 location.replace 로 정리.
     redirect = RedirectResponse(
         url=(
-            f"{settings.FRONTEND_BASE_URL}/auth/social-callback"
+            f"{settings.FRONTEND_BASE_URL}/social-callback"
             f"#access_token={tokens.access_token}"
             f"&refresh_token={tokens.refresh_token}"
         ),
