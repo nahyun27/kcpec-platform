@@ -701,17 +701,8 @@ function CartSummary({
         )}
       </ul>
 
-      <div className="my-4 border-t border-zinc-100" />
-
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-bold text-slate-700">합계</span>
-        <span className="font-sans text-lg font-extrabold text-[#1C3461]">
-          {recommendation.total.toLocaleString()}원
-        </span>
-      </div>
-
-      {/* 발급 가능 서류 — 강의 선택 전엔 안내문 */}
-      <div className="mt-5 border-t border-zinc-100 pt-4">
+      {/* 발급 가능 서류 — 가격보다 위에 배치 */}
+      <div className="my-4 border-t border-zinc-100 pt-4">
         <p className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
           <FileText className="h-3.5 w-3.5 text-[var(--color-accent)]" />
           발급 가능 서류
@@ -756,6 +747,15 @@ function CartSummary({
             </ul>
           </div>
         ) : null}
+      </div>
+
+      <div className="border-t border-zinc-100 pt-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold text-slate-700">합계</span>
+          <span className="font-sans text-lg font-extrabold text-[#1C3461]">
+            {recommendation.total.toLocaleString()}원
+          </span>
+        </div>
       </div>
 
       <button
