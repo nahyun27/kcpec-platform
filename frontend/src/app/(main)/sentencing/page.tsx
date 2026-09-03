@@ -147,6 +147,15 @@ const RECOMMENDATIONS: Partial<Record<CourseId, CourseId[]>> = {
 
 const COUNSELING_QUESTION = "심리상담 의견서가 필요하신가요?";
 
+// 심리상담 의견서 구매 시 "함께 제공"되는 부가 자료 — 결제 전이라 다운로드
+// 링크는 없고, 어떤 게 포함되는지 안내용 목록으로만 노출.
+const COUNSELING_BONUS_ITEMS = [
+  "자기성찰 리포트",
+  "교육이수 소감문",
+  "CBT 기반 재범방지 자가진단 검사지",
+  "맞춤형 양형자료 준비 가이드북",
+];
+
 // ---------- 준비 서류 체크리스트 (양형자료 준비 가이드북 Ⅶ장 기준) -----------
 
 type ChecklistGroup = {
@@ -570,7 +579,14 @@ export default function SentencingPage() {
               발급 가능 서류
               {recommendation.documents.length > 0 ? (
                 <span className="font-mono text-slate-500">
-                  ({recommendation.documents.filter((d) => d.active).length}개)
+                  (
+                  {recommendation.documents.filter((d) => d.active).length +
+                    (recommendation.courses.some(
+                      (c) => c.id === "counseling" && !disabledCourses.has("counseling"),
+                    )
+                      ? COUNSELING_BONUS_ITEMS.length
+                      : 0)}
+                  개)
                 </span>
               ) : null}
             </div>
@@ -1096,6 +1112,9 @@ function CartSummary({
   onCheckout: () => void;
 }) {
   const noneSelected = recommendation.activeCourseCount === 0;
+  const counselingActive = recommendation.courses.some(
+    (c) => c.id === "counseling" && !disabledCourses.has("counseling"),
+  );
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
       <h3 className="font-sans text-sm font-extrabold tracking-wide text-slate-900">
@@ -1142,7 +1161,10 @@ function CartSummary({
           발급 가능 서류
           {recommendation.documents.length > 0 ? (
             <span className="font-mono font-medium text-slate-500">
-              ({recommendation.documents.filter((d) => d.active).length}개)
+              (
+              {recommendation.documents.filter((d) => d.active).length +
+                (counselingActive ? COUNSELING_BONUS_ITEMS.length : 0)}
+              개)
             </span>
           ) : null}
         </p>
@@ -1170,18 +1192,17 @@ function CartSummary({
           </ul>
         )}
 
-        {/* 심리상담 의견서 포함 시 추가 서류 안내 */}
-        {recommendation.courses.some(
-          (c) => c.id === "counseling" && !disabledCourses.has("counseling"),
-        ) ? (
+        {/* 심리상담 의견서 포함 시 추가 서류 안내 — 결제 전이라 카드/다운로드
+            링크 없이, 발급 가능 서류 목록에 포함될 항목만 안내 */}
+        {counselingActive ? (
           <div className="mt-3 rounded-lg bg-blue-50 p-3 text-sm">
             <p className="font-medium text-blue-800">
               ✓ 심리상담 의견서 구매 시 함께 제공
             </p>
             <ul className="mt-2 space-y-1 text-blue-700">
-              <li>• 자기성찰 리포트</li>
-              <li>• 교육이수 소감문</li>
-              <li>• CBT 기반 재범방지 자가진단 검사지</li>
+              {COUNSELING_BONUS_ITEMS.map((item) => (
+                <li key={item}>• {item}</li>
+              ))}
             </ul>
           </div>
         ) : null}
