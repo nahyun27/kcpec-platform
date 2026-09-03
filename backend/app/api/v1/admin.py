@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Literal
@@ -604,17 +605,21 @@ async def upload_final(
             detail="PDF 파일만 업로드 가능합니다.",
         )
 
+    # /static 은 인증 없이 공개 서빙되므로 파일명은 survey.id 가 아니라
+    # 추측 불가능한 access_token 을 사용 (2026-09 발견·수정).
+    token = survey.access_token or secrets.token_urlsafe(24)
+    survey.access_token = token
+
     FINALS_DIR.mkdir(parents=True, exist_ok=True)
-    target = FINALS_DIR / f"{survey.id}.pdf"
+    target = FINALS_DIR / f"{token}.pdf"
     target.write_bytes(await file.read())
 
-    pdf_url = f"/static/finals/{survey.id}.pdf"
+    pdf_url = f"/static/finals/{token}.pdf"
     survey.final_pdf_url = pdf_url
     survey.status = CounselingStatus.COMPLETED
     survey.completed_at = _now()
 
     # IssuedDocument 레코드 생성 (counseling 타입 — 별도 issue_number 발급)
-    import secrets
     issue_number = (
         f"KCPEC-CNSL-{datetime.now(timezone.utc).strftime('%Y%m%d')}-"
         f"{secrets.token_hex(3).upper()}"
@@ -630,6 +635,7 @@ async def upload_final(
             recipient_birth=user.birth_date or datetime(2000, 1, 1).date(),
             pdf_url=pdf_url,
             issue_number=issue_number,
+            access_token=token,
             status=IssuedDocumentStatus.READY,
             issued_at=_now(),
         )
@@ -689,8 +695,14 @@ def export_counseling_doc(
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="설문 작성자를 찾을 수 없습니다.")
 
+    # exports 도 /static 하위(공개 서빙)라 survey.id 대신 토큰 기반 파일명 사용.
+    token = survey.access_token or secrets.token_urlsafe(24)
+    if survey.access_token != token:
+        survey.access_token = token
+        db.commit()
+
     EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    docx_path = EXPORTS_DIR / f"counseling_{survey.id}.docx"
+    docx_path = EXPORTS_DIR / f"counseling_{token}.docx"
 
     try:
         fill_counseling_template(survey, user, payload.draft_text, docx_path)
@@ -771,11 +783,14 @@ def regenerate_draft(
             detail=f"초안 재생성 실패: {e}",
         )
 
+    token = survey.access_token or secrets.token_urlsafe(24)
+    survey.access_token = token
+
     DRAFTS_DIR.mkdir(parents=True, exist_ok=True)
-    draft_path = DRAFTS_DIR / f"{survey.id}.txt"
+    draft_path = DRAFTS_DIR / f"{token}.txt"
     draft_path.write_text(draft, encoding="utf-8")
 
-    draft_url = f"/static/drafts/{survey.id}.txt"
+    draft_url = f"/static/drafts/{token}.txt"
     survey.ai_draft_url = draft_url
     # 상태가 SUBMITTED 였다면 DRAFT_GENERATED 로 끌어올림 (이미 더 진행된 상태면 유지).
     if survey.status == CounselingStatus.SUBMITTED:

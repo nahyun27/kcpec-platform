@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -63,7 +64,8 @@ def issue_document(
 
     issued_date = (order.paid_at or datetime.now(timezone.utc)).date()
 
-    # IssuedDocument 를 먼저 flush 해 doc.id 확보 — 증서번호 / PDF 파일명에 사용.
+    # IssuedDocument 를 먼저 flush 해 doc.id 확보 — 증서번호에 사용.
+    # pdf 파일명은 doc.id 가 아니라 별도 랜덤 access_token 사용 (아래 참고).
     doc = IssuedDocument(
         order_id=order.id,
         user_id=current_user.id,
@@ -72,6 +74,7 @@ def issue_document(
         recipient_birth=payload.recipient_birth,
         pdf_url="",
         issue_number="",
+        access_token=secrets.token_urlsafe(24),
         status=IssuedDocumentStatus.READY,
         issued_at=datetime.now(timezone.utc),
     )
@@ -81,6 +84,7 @@ def issue_document(
     pdf_path, issue_number = generate_certificate_pdf(
         course_id=course.id,
         doc_id=doc.id,
+        file_token=doc.access_token,
         recipient_name=payload.recipient_name,
         birth_date=payload.recipient_birth,
         issued_date=issued_date,

@@ -163,11 +163,17 @@ def generate_certificate_pdf(
     *,
     course_id: int,
     doc_id: int,
+    file_token: str,
     recipient_name: str,
     birth_date: date,
     issued_date: date,
 ) -> tuple[Path, str]:
-    """수료증 PDF 를 생성하고 (저장 경로, 증서번호) 를 반환."""
+    """수료증 PDF 를 생성하고 (저장 경로, 증서번호) 를 반환.
+
+    file_token: 저장 파일명에 쓰는 랜덤 토큰. /static 이 인증 없이 공개
+    서빙되므로 doc_id(순차 정수)를 파일명에 쓰면 정수를 늘려가며 전체
+    발급 문서를 스캔당할 수 있어, 반드시 추측 불가능한 값을 넘겨야 함.
+    """
     cfg = get_cert_template(course_id)
     if cfg is None:
         raise ValueError(f"등록된 수료증 템플릿이 없습니다: course_id={course_id}")
@@ -179,7 +185,7 @@ def generate_certificate_pdf(
     cert_number = build_issue_number(course_id, doc_id, issued_date)
 
     PDF_DIR.mkdir(parents=True, exist_ok=True)
-    final_path = PDF_DIR / f"cert_{doc_id}.pdf"
+    final_path = PDF_DIR / f"cert_{file_token}.pdf"
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)

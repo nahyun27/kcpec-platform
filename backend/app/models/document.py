@@ -39,6 +39,10 @@ class IssuedDocument(Base):
     )
     recipient_name: Mapped[str] = mapped_column(String(100), nullable=False)
     recipient_birth: Mapped[date] = mapped_column(Date, nullable=False)
+    # PDF 파일명에 쓰이는 추측 불가능한 랜덤 토큰. /static 은 인증 없이 공개
+    # 서빙되므로, id 처럼 순차적인 값으로 파일명을 지으면 누구나 정수를 늘려가며
+    # 전체 발급 문서를 스캔/다운로드할 수 있게 된다(2026-09 발견·수정).
+    access_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     pdf_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     issue_number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     status: Mapped[IssuedDocumentStatus] = mapped_column(

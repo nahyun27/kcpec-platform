@@ -33,6 +33,10 @@ class CounselingSurvey(Base):
     ai_draft_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     draft_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     final_pdf_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # 초안/최종본 파일명에 쓰이는 추측 불가능한 랜덤 토큰. /static 은 인증 없이
+    # 공개 서빙되므로, id 처럼 순차적인 값으로 파일명을 지으면 누구나 심리상담
+    # 설문·의견서 원문을 정수 스캔만으로 열람할 수 있게 된다(2026-09 발견·수정).
+    access_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
 
     status: Mapped[CounselingStatus] = mapped_column(
         Enum(

@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -43,11 +44,14 @@ def _process_draft(survey_id: int, course_title: str, user_info: dict[str, str])
         except Exception:  # noqa: BLE001 — 초안 생성 실패는 상태로만 표현
             return
 
+        token = survey.access_token or secrets.token_urlsafe(24)
+        survey.access_token = token
+
         DRAFTS_DIR.mkdir(parents=True, exist_ok=True)
-        draft_path = DRAFTS_DIR / f"{survey.id}.txt"
+        draft_path = DRAFTS_DIR / f"{token}.txt"
         draft_path.write_text(draft, encoding="utf-8")
 
-        survey.ai_draft_url = f"/static/drafts/{survey.id}.txt"
+        survey.ai_draft_url = f"/static/drafts/{token}.txt"
         survey.status = CounselingStatus.DRAFT_GENERATED
         db.commit()
 
@@ -106,6 +110,7 @@ def submit_survey(
         user_id=current_user.id,
         responses=payload.responses,
         status=CounselingStatus.SUBMITTED,
+        access_token=secrets.token_urlsafe(24),
     )
     db.add(survey)
     db.commit()
