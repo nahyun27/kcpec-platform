@@ -44,6 +44,8 @@ export type EnrollmentWithProgress = {
   course_title: string;
   category: string;
   is_completed: boolean;
+  // null 이면 수강기간 제한 없음(레거시 enrollment).
+  expires_at: string | null;
   overall_progress_pct: number;
   has_quiz: boolean;
 };

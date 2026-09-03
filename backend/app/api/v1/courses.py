@@ -97,6 +97,21 @@ def _get_enrollment(db: Session, user_id: int, course_id: int) -> Enrollment | N
     )
 
 
+def _check_enrollment_access(enrollment: Enrollment) -> None:
+    """수강기간(expires_at) 만료 시 영상 재생/진도갱신/퀴즈 응시를 차단.
+
+    expires_at 이 None 이면(레거시 enrollment) 기간 제한 없이 허용.
+    """
+    if enrollment.expires_at is not None and datetime.now(timezone.utc) > enrollment.expires_at:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail=(
+                "수강 기간이 만료되었습니다. 연장이 필요하시면 "
+                "admin@kcpec.co.kr 로 문의해 주세요."
+            ),
+        )
+
+
 def _calc_overall_progress(course: Course, progresses: list[LectureProgress]) -> int:
     active_lectures = [lec for lec in course.lectures if lec.is_active]
     if not active_lectures:
@@ -185,6 +200,7 @@ def list_my_enrollments(
                 course_title=course.title,
                 category=course.category,
                 is_completed=e.is_completed,
+                expires_at=e.expires_at,
                 overall_progress_pct=_calc_overall_progress(course, e.progresses),
                 has_quiz=course.id in quiz_course_ids,
             )
@@ -301,6 +317,7 @@ def _to_status(course: Course, enrollment: Enrollment) -> EnrollmentStatus:
         course_id=course.id,
         is_completed=enrollment.is_completed,
         completed_at=enrollment.completed_at,
+        expires_at=enrollment.expires_at,
         overall_progress_pct=_calc_overall_progress(course, enrollment.progresses),
         lecture_progresses=[LectureProgressItem.model_validate(p) for p in enrollment.progresses],
     )
@@ -322,6 +339,7 @@ def update_lecture_progress(
     enrollment = _get_enrollment(db, current_user.id, course.id)
     if enrollment is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="수강 등록이 필요합니다.")
+    _check_enrollment_access(enrollment)
 
     progress = next((p for p in enrollment.progresses if p.lecture_id == lecture_id), None)
     if progress is None:
@@ -367,14 +385,10 @@ def get_stream_url(
     if lecture is None or not lecture.is_active:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="강의를 찾을 수 없습니다.")
 
-    enrollment_exists = db.scalar(
-        select(func.count(Enrollment.id)).where(
-            Enrollment.user_id == current_user.id,
-            Enrollment.course_id == lecture.course_id,
-        )
-    )
-    if not enrollment_exists:
+    enrollment = _get_enrollment(db, current_user.id, lecture.course_id)
+    if enrollment is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="수강 등록이 필요합니다.")
+    _check_enrollment_access(enrollment)
 
     url, expires = issue_stream_url(lecture.video_url, lecture.id)
     return StreamUrlResponse(url=url, expires_in=expires)
@@ -430,6 +444,7 @@ def submit_quiz(
     enrollment = _get_enrollment(db, current_user.id, course.id)
     if enrollment is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="수강 등록이 필요합니다.")
+    _check_enrollment_access(enrollment)
 
     quiz = _get_course_quiz(db, course.id)
     questions = quiz.questions

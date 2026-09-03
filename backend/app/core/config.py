@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     CLOUDFRONT_DOMAIN: str | None = None
     STREAM_URL_EXPIRE_SECONDS: int = 3600
 
+    # 결제 후 강의 수강 가능 기간(일) — 강의 상세 페이지 "배송 및 수강기간" 안내와 일치해야 함.
+    ENROLLMENT_ACCESS_DAYS: int = 7
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

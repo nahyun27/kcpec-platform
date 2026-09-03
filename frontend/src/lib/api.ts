@@ -562,6 +562,16 @@ export async function getAdminUserEnrollments(
   return data;
 }
 
+// 수강기간 만료로 강의를 못 보게 된 사용자를 위한 연장(오늘부터 다시 7일).
+export async function extendEnrollmentAccess(
+  enrollmentId: number,
+): Promise<AdminUserEnrollmentRow> {
+  const { data } = await api.post<AdminUserEnrollmentRow>(
+    `/admin/enrollments/${enrollmentId}/extend-access`,
+  );
+  return data;
+}
+
 // ---------- 어드민 강의/영상 관리 -----------------------------------------------
 
 export async function getAdminCourses(): Promise<CourseListItem[]> {

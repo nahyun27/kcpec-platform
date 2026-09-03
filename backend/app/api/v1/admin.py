@@ -18,6 +18,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.admin import require_admin
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.document_generator import fill_counseling_template
 from app.core.email import send_final_to_user
@@ -251,16 +252,39 @@ def admin_user_enrollments(
         )
         out.append(
             AdminUserEnrollmentRow(
+                enrollment_id=e.id,
                 course_id=course.id,
                 course_title=course.title,
                 category=course.category,
                 overall_progress_pct=pct,
                 is_completed=e.is_completed,
                 quiz_passed=quiz_passed,
+                expires_at=e.expires_at,
                 lectures=lecture_rows,
             )
         )
     return out
+
+
+@router.post("/enrollments/{enrollment_id}/extend-access", response_model=AdminUserEnrollmentRow)
+def extend_enrollment_access(enrollment_id: int, db: Session = Depends(get_db)):
+    """수강기간(expires_at) 을 지금부터 ENROLLMENT_ACCESS_DAYS 일 뒤로 재설정.
+
+    기간 만료로 강의를 못 보게 된 사용자의 문의 응대용 — 고객센터에서
+    수동으로 연장해줄 수 있는 유일한 경로.
+    """
+    enrollment = db.get(Enrollment, enrollment_id)
+    if enrollment is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="수강 등록을 찾을 수 없습니다.")
+    enrollment.expires_at = _now() + timedelta(days=settings.ENROLLMENT_ACCESS_DAYS)
+    db.commit()
+
+    # 응답은 admin_user_enrollments 와 동일한 형태로 재사용을 위해 재조회.
+    rows = admin_user_enrollments(enrollment.user_id, db)
+    row = next((r for r in rows if r.enrollment_id == enrollment_id), None)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="수강 등록을 찾을 수 없습니다.")
+    return row
 
 
 # ---------- courses -----------------------------------------------------------

@@ -327,9 +327,32 @@ function EmptyState({
   );
 }
 
+function expiryBadge(
+  expiresAt: string | null,
+): { label: string; className: string } | null {
+  if (!expiresAt) return null;
+  const diffDays = Math.ceil(
+    (new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+  );
+  if (diffDays <= 0) {
+    return {
+      label: "수강기간 만료",
+      className: "bg-red-50 text-red-600 ring-1 ring-red-500/20",
+    };
+  }
+  if (diffDays <= 2) {
+    return {
+      label: `수강기간 D-${diffDays}`,
+      className: "bg-amber-50 text-amber-600 ring-1 ring-amber-500/20",
+    };
+  }
+  return null;
+}
+
 function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
   const isComplete = enrollment.is_completed;
   const progressPct = enrollment.overall_progress_pct;
+  const expiry = expiryBadge(enrollment.expires_at);
 
   return (
     <li className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-all hover:border-[var(--color-primary)]/30 hover:shadow-md sm:p-5">
@@ -359,6 +382,13 @@ function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
                     수강 중
                   </span>
                 )}
+                {expiry ? (
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${expiry.className}`}
+                  >
+                    {expiry.label}
+                  </span>
+                ) : null}
               </div>
               <h3 className="font-sans text-base font-bold text-slate-900 leading-snug sm:text-lg">
                 {enrollment.course_title}
@@ -368,6 +398,15 @@ function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
             <div className="flex items-center gap-2 mt-1 sm:mt-0 flex-wrap sm:shrink-0">
               <Link
                 href={`/courses/${enrollment.course_id}/watch`}
+                aria-disabled={expiry?.label === "수강기간 만료"}
+                onClick={(e) => {
+                  if (expiry?.label === "수강기간 만료") {
+                    e.preventDefault();
+                    alert(
+                      "수강 기간이 만료되었습니다. 연장이 필요하시면 admin@kcpec.co.kr 로 문의해 주세요.",
+                    );
+                  }
+                }}
                 className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition-colors hover:border-[var(--color-primary)] hover:bg-slate-50 hover:text-[var(--color-primary)] shadow-sm"
               >
                 <PlayCircle className="h-3.5 w-3.5" /> 이어보기

@@ -20,6 +20,9 @@ class Enrollment(Base):
     enrolled_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    # 결제 시점(_ensure_enrollment)에 enrolled_at + ENROLLMENT_ACCESS_DAYS 로 설정.
+    # None 이면 기간 제한 없음(레거시 데이터 등) — 신규 enrollment 는 항상 채워짐.
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 

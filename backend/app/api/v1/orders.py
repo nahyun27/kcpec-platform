@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -36,7 +36,13 @@ def _ensure_enrollment(db: Session, user_id: int, course_id: int) -> None:
         )
     )
     if existing is None:
-        db.add(Enrollment(user_id=user_id, course_id=course_id))
+        db.add(
+            Enrollment(
+                user_id=user_id,
+                course_id=course_id,
+                expires_at=_now() + timedelta(days=settings.ENROLLMENT_ACCESS_DAYS),
+            )
+        )
 
 
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)

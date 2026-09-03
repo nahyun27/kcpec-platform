@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  extendEnrollmentAccess,
   getAdminUserEnrollments,
   getAdminUsers,
   getCourseEnrollmentCounts,
@@ -165,12 +166,27 @@ function UserEnrollmentsModal({
   const [rows, setRows] = useState<AdminUserEnrollmentRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedCourseId, setExpandedCourseId] = useState<number | null>(null);
+  const [extendingId, setExtendingId] = useState<number | null>(null);
 
   useEffect(() => {
     getAdminUserEnrollments(user.id)
       .then(setRows)
       .catch(() => setError("수강 목록을 불러오지 못했습니다."));
   }, [user.id]);
+
+  async function handleExtend(enrollmentId: number) {
+    setExtendingId(enrollmentId);
+    try {
+      const updated = await extendEnrollmentAccess(enrollmentId);
+      setRows((prev) =>
+        prev?.map((r) => (r.enrollment_id === enrollmentId ? updated : r)) ?? prev,
+      );
+    } catch {
+      alert("연장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setExtendingId(null);
+    }
+  }
 
   return (
     <div
@@ -272,6 +288,27 @@ function UserEnrollmentsModal({
                     </button>
                     {isExpanded ? (
                       <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-3">
+                        <div className="mb-3 flex items-center justify-between rounded-lg bg-white px-3 py-2 text-[12px] shadow-sm ring-1 ring-slate-200/50">
+                          <span className="font-medium text-slate-600">
+                            {r.expires_at == null ? (
+                              "수강기간 제한 없음"
+                            ) : new Date(r.expires_at).getTime() < Date.now() ? (
+                              <span className="font-bold text-red-600">
+                                수강기간 만료됨 ({new Date(r.expires_at).toLocaleDateString("ko-KR")})
+                              </span>
+                            ) : (
+                              <>수강기간 만료일: {new Date(r.expires_at).toLocaleDateString("ko-KR")}</>
+                            )}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleExtend(r.enrollment_id)}
+                            disabled={extendingId === r.enrollment_id}
+                            className="rounded-md bg-[var(--color-primary)] px-2.5 py-1 text-[11px] font-bold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-50"
+                          >
+                            {extendingId === r.enrollment_id ? "연장 중..." : "7일 연장"}
+                          </button>
+                        </div>
                         {r.lectures.length === 0 ? (
                           <p className="py-2 text-center text-xs text-slate-400">
                             등록된 차시가 없습니다.

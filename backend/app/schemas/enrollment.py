@@ -19,6 +19,8 @@ class EnrollmentStatus(BaseModel):
     course_id: int
     is_completed: bool
     completed_at: datetime | None
+    # None 이면 수강기간 제한 없음(레거시 enrollment).
+    expires_at: datetime | None = None
     overall_progress_pct: int
     lecture_progresses: list[LectureProgressItem]
 
@@ -37,5 +39,6 @@ class EnrollmentWithProgress(BaseModel):
     course_title: str
     category: CourseCategory
     is_completed: bool
+    expires_at: datetime | None = None
     overall_progress_pct: int
     has_quiz: bool = False

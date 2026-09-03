@@ -96,12 +96,15 @@ export type AdminLectureProgressDetail = {
 };
 
 export type AdminUserEnrollmentRow = {
+  enrollment_id: number;
   course_id: number;
   course_title: string;
   category: CourseCategory;
   overall_progress_pct: number;
   is_completed: boolean;
   quiz_passed: boolean;
+  // null 이면 수강기간 제한 없음(레거시 enrollment).
+  expires_at: string | null;
   lectures: AdminLectureProgressDetail[];
 };
 

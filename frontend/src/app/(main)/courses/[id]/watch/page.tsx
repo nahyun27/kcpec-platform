@@ -48,8 +48,11 @@ export default function WatchPage({
   // 에러 원인을 분류해 사용자에게 다른 메시지 표시.
   // - inactive: 강의가 비공개(준비 중)
   // - not_enrolled: 결제/수강 신청 안 한 상태로 직접 접근
+  // - expired: 수강기간(7일) 만료
   // - server: 일시적 서버/네트워크 오류
-  const [errKind, setErrKind] = useState<"inactive" | "not_enrolled" | "server" | null>(null);
+  const [errKind, setErrKind] = useState<
+    "inactive" | "not_enrolled" | "expired" | "server" | null
+  >(null);
 
   // 실시간 누적 시청 시간 (초). 서버 watched_seconds 로 초기화 후 timeupdate 마다 증가.
   const [liveWatched, setLiveWatched] = useState(0);
@@ -159,8 +162,13 @@ export default function WatchPage({
       .then((res) => {
         if (!cancelled) setStreamUrl(res.url);
       })
-      .catch(() => {
-        if (!cancelled) setErrKind("server");
+      .catch((err) => {
+        if (cancelled) return;
+        if (isAxiosError(err) && err.response?.status === 403) {
+          setErrKind("expired");
+          return;
+        }
+        setErrKind("server");
       });
 
     return () => {
@@ -531,7 +539,7 @@ function WatchErrorPanel({
   kind,
   courseId,
 }: {
-  kind: "inactive" | "not_enrolled" | "server";
+  kind: "inactive" | "not_enrolled" | "expired" | "server";
   courseId: number;
 }) {
   const config: Record<typeof kind, { title: string; desc: string; cta?: { label: string; href: string } }> = {
@@ -543,6 +551,10 @@ function WatchErrorPanel({
       title: "수강 신청 후 이용하실 수 있습니다.",
       desc: "결제 완료 후에 강의를 시청하실 수 있습니다.",
       cta: { label: "강의 상세로 이동", href: `/courses/${courseId}` },
+    },
+    expired: {
+      title: "수강 기간이 만료되었습니다.",
+      desc: "결제일로부터 7일 동안 수강하실 수 있습니다. 연장이 필요하시면 admin@kcpec.co.kr 로 문의해 주세요.",
     },
     server: {
       title: "일시적인 오류가 발생했습니다.",

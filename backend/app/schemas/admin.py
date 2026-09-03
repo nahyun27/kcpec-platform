@@ -248,12 +248,15 @@ class LectureProgressDetail(BaseModel):
 
 
 class AdminUserEnrollmentRow(BaseModel):
+    enrollment_id: int
     course_id: int
     course_title: str
     category: CourseCategory
     overall_progress_pct: int
     is_completed: bool
     quiz_passed: bool
+    # None 이면 수강기간 제한 없음(레거시 enrollment).
+    expires_at: datetime | None = None
     lectures: list[LectureProgressDetail] = []
 
 
