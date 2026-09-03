@@ -504,6 +504,7 @@ export default function SentencingPage() {
                 selectedAddon={selectedAddon}
                 recommendedIds={recommendedAddonIds}
                 onToggleAddon={toggleAddon}
+                etcOnly={etcSelected && selectedMain.size === 0}
               />
             ) : null}
             {step === 3 ? (
@@ -847,18 +848,25 @@ function Step2({
   selectedAddon,
   recommendedIds,
   onToggleAddon,
+  etcOnly,
 }: {
   selectedAddon: Set<CourseId>;
   recommendedIds: Set<CourseId>;
   onToggleAddon: (id: CourseId) => void;
+  // Page1 에서 "기타"만 선택(메인 강의는 하나도 안 고름) — 이 경우 여기가
+  // "추가 교육"이 아니라 사실상 본인 사건에 맞는 강의를 직접 고르는
+  // 자리이므로 문구를 다르게 안내한다.
+  etcOnly: boolean;
 }) {
   return (
     <section className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm md:p-7">
       <h2 className="font-sans text-lg font-extrabold text-slate-900 sm:text-xl">
-        추가로 필요한 교육이 있어요
+        {etcOnly ? "해당하는 교육을 선택해 주세요" : "추가로 필요한 교육이 있어요"}
       </h2>
       <p className="mt-1 text-xs text-slate-500">
-        {recommendedIds.size > 0 ? (
+        {etcOnly ? (
+          "메인 강의 목록에 해당하는 사건이 없으셨군요. 아래 강의 중 사건과 관련 있는 항목을 자유롭게 선택해 주세요."
+        ) : recommendedIds.size > 0 ? (
           <>
             선택하신 사건에 따라{" "}
             <span className="font-semibold text-[#1C3461]">추천</span> 배지가
