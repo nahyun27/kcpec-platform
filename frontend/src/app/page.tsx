@@ -113,7 +113,7 @@ function Hero() {
             href="/sentencing"
             className="group flex items-center justify-center gap-2 rounded-full bg-[#1C3461] px-8 py-4 text-lg font-semibold text-white ring-2 ring-white/40 shadow-xl shadow-black/20 transition-all hover:-translate-y-1 hover:bg-[var(--color-primary-hover)] hover:shadow-2xl"
           >
-            <span>내 사건에 맞는 양형자료 추천받기</span>
+            <span>내 사건에 맞는 강의 추천받기</span>
             <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>

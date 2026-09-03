@@ -470,7 +470,7 @@ export default function SentencingPage() {
         <div className="px-4 py-3 md:hidden">
           <div className="flex items-center justify-between gap-3">
             <h1 className="font-sans text-lg font-extrabold text-slate-900">
-              양형자료 추천
+              맞춤 강의 찾기
             </h1>
             <StepIndicator step={step} compact />
           </div>
@@ -482,8 +482,8 @@ export default function SentencingPage() {
         <div className="hidden md:block pt-10">
           <div className="mx-auto max-w-5xl px-6">
             <PageHeader
-              title="양형자료 추천"
-              subtitle="Find your sentencing material"
+              title="맞춤 강의 찾기"
+              subtitle="Find your course"
               icon={<Scale className="h-3.5 w-3.5" />}
               description="사건 유형을 선택하시면 필요한 강의와 발급 가능한 서류를 자동으로 안내해 드립니다."
             />
@@ -1240,7 +1240,7 @@ function CartSummary({
         href="/courses"
         className="mt-2 block w-full rounded-xl border border-zinc-200 bg-white py-2.5 text-center text-xs font-bold text-slate-700 hover:bg-slate-50"
       >
-        강의 목록에서 직접 선택
+        강의 전체보기에서 직접 선택
       </Link>
     </div>
   );
