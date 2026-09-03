@@ -281,21 +281,29 @@ COLUMNS: list[dict] = [
 
 # ---------- 수강 후기 ---------------------------------------------------------
 
-REVIEWS: list[dict] = [
-    ("음주운전의 위험성을 다시 깨닫게 됐습니다.", "음주운전 예방"),
-    ("좋은 강의 잘 들었습니다. 늘 명심하겠습니다.", "디지털 성범죄 예방"),
-    ("좋은 강의였습니다. 앞으로는 열심히 살겠습니다.", "준법의식 강화"),
-    ("성범죄에 관한 깊이를 되새겼습니다. 감사합니다.", "성범죄 예방"),
+# 예전 사이트에서 실제로 받은 구매평(익명, 실사용자 작성) 그대로 이전.
+# (content, course_title, created_at) — 날짜는 예전 사이트 캡처에 남아있던 것만
+# 반영(준법의식 2건), 나머지는 캡처에 안 보여서 임의 배치.
+REVIEWS: list[tuple[str, str, datetime]] = [
+    ("도움됩니다..", "준법의식 강화", _utc(2026, 7, 30)),
+    ("준법의식 교육을 받고 정말 도움이 되었습니다.", "준법의식 강화", _utc(2025, 1, 27)),
+    ("음주운전에 대한 심각성 및 재범 예방에 대하여 알차게 구성되어 있습니다.", "음주운전 예방", _utc(2025, 3, 14)),
+    ("음주운전의 위험성을 다시 깨닫게 됐습니다.", "음주운전 예방", _utc(2025, 5, 9)),
+    ("핵심내용이 명확하여 이해에 도움이 되었습니다.", "음주운전 예방", _utc(2025, 8, 2)),
     (
-        "아무생각없이 성적호기심에 갖고 있을수 있는 사진한장 이라도 법적으로 크게 잘못될수 있음을 항상 깊이 맘속으로 생각하면서 살겠습니다.",
-        "디지털 성범죄 예방",
-    ),
-    (
-        "중간 법적용어에 있어서는 익숙하지 않았지만 많이 배웠습니다. 이런 교육을 받고 아는 것이 많아질수록 유익합니다.",
+        "올바른 교육을 통해서 성에 대해서 자세히 배울 수 있었고 앞으로 저의 과오를 잊지 않고 "
+        "성숙한 사회 구성원으로 거듭나도록 하겠습니다.",
         "성범죄 예방",
+        _utc(2025, 2, 18),
     ),
-    ("음주운전예방에 많은 도움이 되었고, 다시금 절대 하지 말아야 하는 죄라는걸 알게됐습니다.", "음주운전 예방"),
-    ("디지털 성범죄를 평소에 크게 생각해본적 없었는데 이번 계기로 인해 많은걸 깨달았습니다.", "디지털 성범죄 예방"),
+    (
+        "강의를 들으며 제 잘못을 다시한번 느끼고 다시는 이런일이 발생하지 않도록 평생 다짐하겠습니다 "
+        "행동 하나하나 조심하며 행동하기전 수백번 생각하고 행동해 다시는 이런일이 없도록 행동할것입니다 "
+        "정말 죄송합니다 좋은강의 보여주셔서 감사합니다",
+        "성범죄 예방",
+        _utc(2025, 6, 21),
+    ),
+    ("ㅎ", "성범죄 예방", _utc(2025, 9, 30)),
 ]
 
 
@@ -387,8 +395,12 @@ def seed_columns() -> int:
 def seed_reviews() -> int:
     inserted = 0
     with SessionLocal() as db:
-        for content, course_name in REVIEWS:
+        for content, course_title, created_at in REVIEWS:
             if db.scalar(select(Post).where(Post.title == content[:80])) is not None:
+                continue
+            course = db.scalar(select(Course).where(Course.title == course_title))
+            if course is None:
+                print(f"  ✗ 후기 대상 강의를 찾을 수 없습니다: {course_title!r} — 건너뜀")
                 continue
             db.add(
                 Post(
@@ -396,8 +408,10 @@ def seed_reviews() -> int:
                     content=content,
                     category=PostCategory.REVIEW,
                     author_name="익명",
-                    course_category=course_name,
+                    course_id=course.id,
+                    course_category=course.category.value,
                     rating=5,
+                    created_at=created_at,
                 )
             )
             inserted += 1

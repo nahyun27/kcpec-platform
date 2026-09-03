@@ -6,6 +6,7 @@ from app.core.admin import require_admin
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.community import Notice, NoticeCategory, Post, PostCategory
+from app.models.order import Order, OrderStatus
 from app.models.user import User
 from app.schemas.community import (
     NoticeCreate,
@@ -143,6 +144,25 @@ def create_post(
             status.HTTP_403_FORBIDDEN,
             detail="전문가 칼럼은 관리자만 작성할 수 있습니다.",
         )
+    # 후기는 실제 결제 완료한 강의에 대해서만 작성 가능 — course_id 만 있으면
+    # 아무 강의에나 별점을 남길 수 있던 문제를 막는다.
+    if payload.category == PostCategory.REVIEW:
+        if payload.course_id is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, detail="후기를 작성할 강의를 선택해 주세요."
+            )
+        purchased = db.scalar(
+            select(func.count(Order.id)).where(
+                Order.user_id == current_user.id,
+                Order.course_id == payload.course_id,
+                Order.status == OrderStatus.PAID,
+            )
+        )
+        if not purchased:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                detail="결제 완료한 강의에 대해서만 후기를 작성할 수 있습니다.",
+            )
     # author_name 우선순위:
     # - 칼럼: payload (관리자가 지정한 전문가명) 우선, 없으면 "관리자"
     # - 그 외(QNA, REVIEW): 항상 current_user.username — 사용자가 임의로 "익명"
