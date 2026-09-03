@@ -100,7 +100,7 @@ export default function MyPageClient() {
         setEnrollments(e);
         setCounselingOrders(co);
 
-        // 패키지 주문(course) 만 documents/survey enrich. 심리상담 독립 주문은 별도 섹션.
+        // 강의 주문(course)만 documents/survey enrich. 심리상담 독립 주문은 별도 섹션.
         const enriched = await Promise.all(
           o
             .filter((order) => order.order_type !== "counseling")

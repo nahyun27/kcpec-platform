@@ -109,7 +109,7 @@ export default function AdminSurveysPage() {
                           : "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/10"
                       }`}
                     >
-                      {r.order_type === "counseling" ? "독립 구매" : "패키지 포함"}
+                      {r.order_type === "counseling" ? "독립 구매" : "강의 결제"}
                     </span>
                   </td>
                   <td className="px-4 py-3 font-semibold text-slate-900">{r.username}</td>
