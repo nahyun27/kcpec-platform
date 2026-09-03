@@ -15,6 +15,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import {
   ArrowLeft,
   BookOpen,
+  ChevronDown,
   Clock,
   FileText,
   MessageSquare,
@@ -349,6 +350,8 @@ export default function CourseDetailPage({
                 </ul>
               )}
             </section>
+
+            <PurchaseInfoSection />
           </div>
 
           {/* Sticky Sidebar (Right) */}
@@ -430,5 +433,64 @@ function Stat({ icon, label, value, highlight = false }: { icon: React.ReactNode
       </div>
       <span className={`font-bold tracking-tight ${highlight ? 'text-[var(--color-primary)] text-lg' : 'text-slate-900 text-base'}`}>{value}</span>
     </div>
+  );
+}
+
+// ---------- 구매 안내 (배송/환불/저작권) --------------------------------------
+
+const PURCHASE_INFO_ITEMS: { title: string; body: string }[] = [
+  {
+    title: "배송 및 수강기간",
+    body: "본 서비스는 배송 상품이 아닌 한국범죄예방교육센터 홈페이지에서 수강 가능한 디지털 상품입니다. 수강 기간은 7일입니다.",
+  },
+  {
+    title: "교환 및 환불 정책",
+    body: "단순 변심으로 인한 환불: 결제 오류에 대한 환불이나 취소 또는 결제 후 3일 이내(단, 강의를 수강하지 않은 상태, 상담 의뢰 진행하지 않은 상태)에는 전액 환불이 가능합니다.\n환불 불가 사유: 강의 수강 시작 후 또는 상담 의뢰 후 환불이나 취소는 불가합니다.",
+  },
+  {
+    title: "저작권 보호 안내",
+    body: "클래스를 구성하는 영상 및 자료 일체는 저작권이 인정되는 저작물로서 관련 법령에 따라 보호됩니다.\n저작권자의 허락 없이 영상 또는 자료를 복제·배포 또는 전송하거나 변경·편집하는 경우 관련 법령에 따라 처벌받을 수 있습니다.",
+  },
+];
+
+function PurchaseInfoSection() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  return (
+    <section className="space-y-4">
+      <h2 className="font-sans text-xl font-extrabold text-slate-900">구매 안내</h2>
+      <div className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-sm">
+        {PURCHASE_INFO_ITEMS.map((item, idx) => {
+          const open = openIndex === idx;
+          return (
+            <div key={item.title} className={idx > 0 ? "border-t border-slate-100" : ""}>
+              <button
+                type="button"
+                onClick={() => setOpenIndex(open ? null : idx)}
+                className="flex w-full items-center justify-between px-5 py-4 text-left"
+              >
+                <span className="text-sm font-bold text-slate-800">{item.title}</span>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${
+                    open ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+              {open ? (
+                <p className="whitespace-pre-wrap px-5 pb-4 text-[13px] leading-relaxed text-slate-600">
+                  {item.body}
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+      <Link
+        href="/#faq"
+        className="inline-flex items-center gap-1.5 text-sm font-bold text-[var(--color-primary)] hover:underline"
+      >
+        자주 묻는 질문 더 보기
+      </Link>
+    </section>
   );
 }
