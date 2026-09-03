@@ -4,8 +4,8 @@ import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
 import { Spinner } from "@/components/ui/Spinner";
 import { useEffect, useState } from "react";
-import { getCourses } from "@/lib/api";
-import type { CourseListItem } from "@/types/course";
+import { getPosts } from "@/lib/api";
+import type { PostListItem } from "@/types/community";
 import SiteHeader from "@/components/layout/SiteHeader";
 import {
   ArrowRight,
@@ -16,6 +16,7 @@ import {
   PlayCircle,
   Search,
   ShieldCheck,
+  Star,
   Users,
 } from "lucide-react";
 
@@ -62,19 +63,13 @@ const STEPS = [
 ];
 
 export default function HomePage() {
-  const [courses, setCourses] = useState<CourseListItem[]>([]);
-
-  useEffect(() => {
-    getCourses().then(setCourses).catch(() => setCourses([]));
-  }, []);
-
   return (
     <div className="flex min-h-full flex-1 flex-col bg-[var(--color-muted)]">
       <SiteHeader />
       <Hero />
       <TrustSection />
       <StepsSection />
-      <CoursesSection courses={courses} />
+      <ReviewsSection />
       <SamplesSection />
       <FaqSection />
       <Footer />
@@ -121,12 +116,6 @@ function Hero() {
             <span>내 사건에 맞는 양형자료 추천받기</span>
             <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </Link>
-          <Link
-            href="/courses"
-            className="text-sm font-medium text-slate-300 transition-colors hover:text-white"
-          >
-            강의 목록에서 직접 선택 →
-          </Link>
         </div>
       </div>
     </section>
@@ -140,9 +129,9 @@ function TrustSection() {
     <section className="relative z-20 -mt-16 px-4 md:px-6">
       <div className="mx-auto max-w-5xl rounded-2xl border border-white/20 bg-white/80 p-8 shadow-2xl backdrop-blur-xl sm:p-12">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-          <TrustStat icon={<Users className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="누적 수강생" value="10,000+" />
-          <TrustStat icon={<PlayCircle className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="교육 종류" value="11개 과정" />
-          <TrustStat icon={<FileText className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="수료증 발급" value="당일 즉시" />
+          <TrustStat icon={<Users className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="누적 발급 건수" value="15,000+" />
+          <TrustStat icon={<PlayCircle className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="교육 종류" value="25개 과정" />
+          <TrustStat icon={<FileText className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="수료증 발급" value="수강완료 즉시" />
           <TrustStat icon={<ShieldCheck className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="전문가 감수" value="100% 검증" />
         </div>
       </div>
@@ -160,58 +149,80 @@ function TrustStat({ icon, label, value }: { icon: React.ReactNode; label: strin
   );
 }
 
-// ---------- courses --------------------------------------------------------
+// ---------- reviews ---------------------------------------------------------
 
-function CoursesSection({ courses }: { courses: CourseListItem[] }) {
+function ReviewsSection() {
+  const [reviews, setReviews] = useState<PostListItem[] | null>(null);
+
+  useEffect(() => {
+    getPosts("review", 1, 6)
+      .then((res) => setReviews(res.items))
+      .catch(() => setReviews([]));
+  }, []);
+
   return (
     <section className="py-8 md:py-24">
       <div className="mx-auto max-w-7xl px-4 md:px-6">
         <div className="mb-6 md:mb-12 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <div>
             <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
-              맞춤형 교육 과정
+              수강생 후기
             </h2>
             <p className="mt-4 text-lg text-slate-600">
-              사건에 가장 적합한 교육을 선택하세요.
+              실제로 교육을 이수하신 분들의 이야기입니다.
             </p>
           </div>
           <Link
-            href="/courses"
+            href="/community?tab=review"
             className="group flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm transition-all hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
           >
-            <span>전체 강의 보기</span>
+            <span>전체 후기 보기</span>
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>
 
-        {courses.length === 0 ? (
+        {reviews == null ? (
           <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white/50 p-8 text-center text-zinc-500">
             <Spinner size="sm" tone="accent" />
-            <p className="mt-4 font-medium">강의 정보를 불러오는 중입니다...</p>
+            <p className="mt-4 font-medium">후기를 불러오는 중입니다...</p>
+          </div>
+        ) : reviews.length === 0 ? (
+          <div className="flex min-h-[200px] flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white/50 p-8 text-center text-zinc-500">
+            <p className="font-medium">아직 등록된 후기가 없습니다.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {courses.slice(0, 6).map((c) => (
-              <Link
-                key={c.id}
-                href={`/courses/${c.id}`}
-                className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 md:p-6 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/5"
+            {reviews.map((r) => (
+              <div
+                key={r.id}
+                className="flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 md:p-6 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/5"
               >
-                <div className="mb-4 inline-flex w-fit items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-[var(--color-accent)]">
-                  {c.category}
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`h-4 w-4 ${
+                          i < r.rating
+                            ? "fill-amber-400 text-amber-400"
+                            : "fill-slate-100 text-slate-200"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  {r.course_category ? (
+                    <span className="inline-flex w-fit items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-[var(--color-accent)]">
+                      {r.course_category}
+                    </span>
+                  ) : null}
                 </div>
-                <h3 className="mb-4 font-sans text-lg md:text-xl font-bold leading-snug text-slate-900 group-hover:text-[var(--color-primary)]">
-                  {c.title}
-                </h3>
-                <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4">
-                  <span className="flex items-center gap-1 text-sm font-medium text-slate-500">
-                    <PlayCircle className="h-4 w-4" /> 수강하기
-                  </span>
-                  <span className="font-bold text-[var(--color-primary)]">
-                    {c.price.toLocaleString()}원~
-                  </span>
-                </div>
-              </Link>
+                <p className="line-clamp-4 flex-1 text-sm leading-relaxed text-slate-700">
+                  {r.content}
+                </p>
+                <p className="mt-4 border-t border-slate-100 pt-3 text-xs font-medium text-slate-400">
+                  {r.author_name}
+                </p>
+              </div>
             ))}
           </div>
         )}
