@@ -49,7 +49,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 export default function GuidePage() {
   return (
     <div className="min-h-screen bg-slate-50/50">
-      <div className="bg-white pt-12 relative z-10">
+      <div className="bg-white pt-6 md:pt-12 relative z-10">
         <div className="mx-auto max-w-4xl px-6">
           <PageHeader
             title="서비스 이용 안내"
@@ -59,7 +59,7 @@ export default function GuidePage() {
           />
         </div>
       </div>
-      <div className="mx-auto max-w-4xl px-6 pt-10 pb-24 space-y-12">
+      <div className="mx-auto max-w-4xl px-6 pt-6 md:pt-10 pb-24 space-y-12">
 
       <Section title="서비스 소개">
         <p>

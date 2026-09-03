@@ -479,7 +479,7 @@ export default function SentencingPage() {
           </p>
         </div>
         {/* 데스크톱 풀 헤더 */}
-        <div className="hidden md:block pt-10">
+        <div className="hidden md:block pt-12">
           <div className="mx-auto max-w-5xl px-6">
             <PageHeader
               title="맞춤 강의 찾기"
