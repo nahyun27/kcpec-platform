@@ -9,12 +9,11 @@ import {
   BadgeCheck,
   Check,
   ClipboardList,
-  Download,
   FileText,
   Scale,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { absUrl, tokenStorage } from "@/lib/api";
+import { tokenStorage } from "@/lib/api";
 
 // ---------- 사건 유형 (Step 1) ------------------------------------------------
 
@@ -272,16 +271,6 @@ function PrepChecklist({ selected }: { selected: Set<CrimeKey> }) {
         사건 유형에 맞춰 본인이 직접 모아야 하는 양형자료입니다. 준비되는
         대로 체크해 보세요 — 이 진행 상황은 이 브라우저에만 저장됩니다.
       </p>
-
-      <a
-        href={absUrl("/static/resources/sentencing_materials_guidebook.pdf")}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-[#1C3461]/20 bg-[#1C3461]/5 px-4 py-2 text-xs font-bold text-[#1C3461] hover:bg-[#1C3461]/10"
-      >
-        <Download className="h-3.5 w-3.5" />
-        양형자료 준비 가이드북 PDF 다운로드
-      </a>
 
       <div className="mt-6 space-y-6">
         {groups.map((g) => {
@@ -964,13 +953,15 @@ function CartSummary({
                 >
                   {c.name}
                 </span>
-                <span
-                  className={`shrink-0 font-mono text-xs font-bold ${
-                    active ? "text-slate-700" : "text-slate-400 line-through"
-                  }`}
-                >
-                  {c.price.toLocaleString()}원
-                </span>
+                {step === 3 ? (
+                  <span
+                    className={`shrink-0 font-mono text-xs font-bold ${
+                      active ? "text-slate-700" : "text-slate-400 line-through"
+                    }`}
+                  >
+                    {c.price.toLocaleString()}원
+                  </span>
+                ) : null}
               </li>
             );
           })
@@ -982,6 +973,11 @@ function CartSummary({
         <p className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
           <FileText className="h-3.5 w-3.5 text-[var(--color-accent)]" />
           발급 가능 서류
+          {recommendation.documents.length > 0 ? (
+            <span className="font-mono font-medium text-slate-500">
+              ({recommendation.documents.filter((d) => d.active).length}개)
+            </span>
+          ) : null}
         </p>
         {recommendation.documents.length === 0 ? (
           <p className="mt-2 text-[11px] text-slate-400">
@@ -1026,12 +1022,18 @@ function CartSummary({
       </div>
 
       <div className="border-t border-zinc-100 pt-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-bold text-slate-700">합계</span>
-          <span className="font-sans text-lg font-extrabold text-[#1C3461]">
-            {recommendation.total.toLocaleString()}원
-          </span>
-        </div>
+        {step === 3 ? (
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-slate-700">합계</span>
+            <span className="font-sans text-lg font-extrabold text-[#1C3461]">
+              {recommendation.total.toLocaleString()}원
+            </span>
+          </div>
+        ) : (
+          <p className="text-center text-[11px] text-slate-400">
+            마지막 단계(추천 결과)에서 금액을 확인하실 수 있습니다.
+          </p>
+        )}
       </div>
 
       <button

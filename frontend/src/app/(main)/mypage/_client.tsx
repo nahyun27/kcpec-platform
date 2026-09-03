@@ -153,7 +153,11 @@ export default function MyPageClient() {
             ) : (
               <ul className="space-y-4">
                 {enrollments.map((e) => (
-                  <EnrollmentRow key={e.course_id} enrollment={e} />
+                  <EnrollmentRow
+                    key={e.course_id}
+                    enrollment={e}
+                    order={orders.find((o) => o.course_id === e.course_id)}
+                  />
                 ))}
               </ul>
             )}
@@ -349,8 +353,15 @@ function expiryBadge(
   return null;
 }
 
-function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
+function EnrollmentRow({
+  enrollment,
+  order,
+}: {
+  enrollment: EnrollmentWithProgress;
+  order?: OrderWithExtras;
+}) {
   const isComplete = enrollment.is_completed;
+  const issuedDoc = order?.documents?.[0];
   const progressPct = enrollment.overall_progress_pct;
   const expiry = expiryBadge(enrollment.expires_at);
 
@@ -411,12 +422,21 @@ function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
               >
                 <PlayCircle className="h-3.5 w-3.5" /> 이어보기
               </Link>
-              {isComplete ? (
-                <Link
-                  href={`/checkout?course_id=${enrollment.course_id}`}
+              {isComplete && issuedDoc ? (
+                <a
+                  href={absUrl(issuedDoc.pdf_url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-900/10 transition-colors hover:from-blue-700 hover:to-blue-800"
                 >
-                  수료증 결제
+                  <Download className="h-3.5 w-3.5" /> 수료증 다운로드
+                </a>
+              ) : isComplete && order ? (
+                <Link
+                  href={`/issue?order_id=${order.id}`}
+                  className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-900/10 transition-colors hover:from-blue-700 hover:to-blue-800"
+                >
+                  수료증 발급받기
                 </Link>
               ) : enrollment.has_quiz ? (
                 progressPct >= 100 ? (

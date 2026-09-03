@@ -7,7 +7,8 @@
    - Shape 88 : 발급일자 텍스트박스
    - Shape 92 : 메인 표 (이수과정/이수일자/성명/생년월일 셀)
 3. soffice --headless --convert-to pdf 로 PDF 변환
-4. backend/static/pdfs/cert_{doc_id}.pdf 로 복사
+4. backend/static/pdfs/cert_{file_token}.pdf 로 복사 (file_token: 추측 불가능한
+   랜덤 값 — /static 이 인증 없이 공개 서빙되므로 doc_id 를 그대로 쓰면 안 됨)
 5. (Path, issue_number) 반환
 
 run.text 만 교체하므로 폰트/크기/색상 등 기존 서식은 보존된다.
