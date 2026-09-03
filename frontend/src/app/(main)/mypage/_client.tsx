@@ -163,25 +163,6 @@ export default function MyPageClient() {
             )}
           </Section>
 
-          <Section icon={<CreditCard className="h-6 w-6 text-[var(--color-accent)]" />} title="결제 · 발급 내역">
-            {orders.length === 0 ? (
-              <EmptyState text="결제 내역이 존재하지 않습니다." />
-            ) : (
-              <ul className="space-y-4">
-                {orders.map((o) => (
-                  <OrderRow
-                    key={o.id}
-                    order={o}
-                    isCourseCompleted={
-                      enrollments.find((e) => e.course_id === o.course_id)?.is_completed ?? false
-                    }
-                    onViewAnswers={(id) => setAnswersSurveyId(id)}
-                  />
-                ))}
-              </ul>
-            )}
-          </Section>
-
           <Section
             icon={<FileText className="h-6 w-6 text-[var(--color-accent)]" />}
             title="심리상담 내역"
@@ -197,6 +178,25 @@ export default function MyPageClient() {
                   <CounselingOrderCard
                     key={co.order_id}
                     order={co}
+                    onViewAnswers={(id) => setAnswersSurveyId(id)}
+                  />
+                ))}
+              </ul>
+            )}
+          </Section>
+
+          <Section icon={<CreditCard className="h-6 w-6 text-[var(--color-accent)]" />} title="결제 · 발급 내역">
+            {orders.length === 0 ? (
+              <EmptyState text="결제 내역이 존재하지 않습니다." />
+            ) : (
+              <ul className="space-y-4">
+                {orders.map((o) => (
+                  <OrderRow
+                    key={o.id}
+                    order={o}
+                    isCourseCompleted={
+                      enrollments.find((e) => e.course_id === o.course_id)?.is_completed ?? false
+                    }
                     onViewAnswers={(id) => setAnswersSurveyId(id)}
                   />
                 ))}
