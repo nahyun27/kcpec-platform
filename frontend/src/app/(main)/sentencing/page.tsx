@@ -858,10 +858,16 @@ function Step2({
         추가로 필요한 교육이 있어요
       </h2>
       <p className="mt-1 text-xs text-slate-500">
-        선택하신 사건에 따라{" "}
-        <span className="font-semibold text-[#1C3461]">추천</span> 배지가
-        표시됩니다. 필요한 항목을 자유롭게 선택해 주세요. (복수 선택 가능,
-        선택하지 않아도 다음 단계로 진행 가능)
+        {recommendedIds.size > 0 ? (
+          <>
+            선택하신 사건에 따라{" "}
+            <span className="font-semibold text-[#1C3461]">추천</span> 배지가
+            표시됩니다. 필요한 항목을 자유롭게 선택해 주세요.
+          </>
+        ) : (
+          "해당하는 사건에 맞는 추천 항목은 없지만, 필요하신 항목을 자유롭게 선택해 주세요."
+        )}{" "}
+        (복수 선택 가능, 선택하지 않아도 다음 단계로 진행 가능)
       </p>
 
       <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
