@@ -355,11 +355,28 @@ export default function SentencingPage() {
     new Set(),
   );
 
+  // 강의가 선택 목록에서 완전히 빠질 때, Page4 에서 남아있던 개별 해제
+  // 기록도 같이 지운다. 안 지우면: (1)해제 → (2)Page1/2 에서 그 강의를
+  // 선택 해제했다가 다시 선택 → (3)방금 새로 고른 강의인데 사이드바엔
+  // 예전 해제 기록 때문에 비활성으로 나오는 버그가 생김.
+  function pruneDisabled(id: CourseId) {
+    setDisabledCourses((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
   function toggleMain(id: CourseId) {
     setSelectedMain((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+        pruneDisabled(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   }
@@ -367,10 +384,19 @@ export default function SentencingPage() {
   function toggleAddon(id: CourseId) {
     setSelectedAddon((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+        pruneDisabled(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
+  }
+
+  function answerCounseling(val: "Y" | "N") {
+    setCounselingAnswer(val);
+    if (val === "N") pruneDisabled("counseling");
   }
 
   function toggleCourse(id: CourseId) {
@@ -389,24 +415,32 @@ export default function SentencingPage() {
     return s;
   }, [selectedMain]);
 
+  // 지금 선택 상태 기준으로 실제 포함되는 강의 id 집합.
+  const currentCourseIds = useMemo(() => {
+    const s = new Set<CourseId>(["law"]); // 준법의식 항상 포함
+    selectedMain.forEach((k) => s.add(k));
+    selectedAddon.forEach((k) => s.add(k));
+    if (counselingAnswer === "Y") s.add("counseling");
+    return s;
+  }, [selectedMain, selectedAddon, counselingAnswer]);
+
   // 추천 결과 계산
   const recommendation = useMemo(() => {
-    const courseIds = new Set<CourseId>(["law"]); // 준법의식 항상 포함
-    selectedMain.forEach((k) => courseIds.add(k));
-    selectedAddon.forEach((k) => courseIds.add(k));
-    if (counselingAnswer === "Y") courseIds.add("counseling");
-    const courses = Array.from(courseIds).map((id) => COURSES[id]);
+    const courses = Array.from(currentCourseIds).map((id) => COURSES[id]);
+    const activeCourses = courses.filter((c) => !disabledCourses.has(c.id));
     // 강의당 "수료증 + 서약서" 1세트 생성. 심리상담 의견서만 별도 표기.
     const docs = courses.map((c) => ({
       name: c.id === "counseling" ? c.name : `${c.name} 수료증 + 서약서`,
       active: !disabledCourses.has(c.id),
     }));
-    const total = courses
-      .filter((c) => !disabledCourses.has(c.id))
-      .reduce((sum, c) => sum + c.price, 0);
-    const activeCourseCount = courses.length - disabledCourses.size;
-    return { courses, documents: docs, total, activeCourseCount };
-  }, [selectedMain, selectedAddon, counselingAnswer, disabledCourses]);
+    const total = activeCourses.reduce((sum, c) => sum + c.price, 0);
+    return {
+      courses,
+      documents: docs,
+      total,
+      activeCourseCount: activeCourses.length,
+    };
+  }, [currentCourseIds, disabledCourses]);
 
   function handleCheckout() {
     if (recommendation.activeCourseCount === 0) return;
@@ -475,7 +509,7 @@ export default function SentencingPage() {
             {step === 3 ? (
               <Step3Counseling
                 answer={counselingAnswer}
-                onAnswer={setCounselingAnswer}
+                onAnswer={answerCounseling}
               />
             ) : null}
             {step === 4 ? (
