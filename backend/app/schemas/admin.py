@@ -112,7 +112,6 @@ class AdminOrderRow(BaseModel):
     username: str
     email: EmailStr | None = None
     course_title: str
-    package_name: str
     amount: int
     payment_method: PaymentMethod
     status: OrderStatus
@@ -161,7 +160,6 @@ class SalesStatsDaily(BaseModel):
 
 class SalesStatsByCourse(BaseModel):
     course_title: str
-    package_name: str
     count: int
     revenue: int
 

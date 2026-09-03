@@ -3,16 +3,15 @@ from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app.core.gemini_client import generate_counseling_draft
 from app.core.database import SessionLocal, get_db
 from app.core.deps import get_current_user
 from app.core.email import send_draft_to_staff
 from app.models.counseling import CounselingStatus, CounselingSurvey
-from app.models.course import Course
+from app.models.course import Course, CourseCategory
 from app.models.order import Order, OrderStatus, OrderType
-from app.models.package import DocumentType, Package
 from app.models.user import User
 from app.schemas.counseling import (
     SurveyResponse,
@@ -86,24 +85,14 @@ def submit_survey(
             detail="결제 완료된 주문에 한해 설문을 제출할 수 있습니다.",
         )
 
-    # 심리상담 독립 구매 주문은 패키지 검사 없이 통과.
-    # 일반 강의 주문은 패키지에 counseling 문서 타입이 포함되어야 함.
+    # 심리상담 독립 구매(COUNSELING) 또는 "심리상담 의견서" 강의 주문만 통과.
+    # 일반 강의 주문은 심리상담 설문 대상이 아님.
     if order.order_type == OrderType.COURSE:
-        pkg = (
-            db.scalar(
-                select(Package)
-                .where(Package.id == order.package_id)
-                .options(selectinload(Package.documents))
-            )
-            if order.package_id is not None
-            else None
-        )
-        if pkg is None or not any(
-            d.document_type == DocumentType.COUNSELING for d in pkg.documents
-        ):
+        course = db.get(Course, order.course_id)
+        if course is None or course.category != CourseCategory.COUNSELING:
             raise HTTPException(
                 status.HTTP_403_FORBIDDEN,
-                detail="심리상담 의견서가 포함된 패키지(Standard/Premium)에서만 사용할 수 있습니다.",
+                detail="심리상담 의견서 구매 주문에서만 사용할 수 있습니다.",
             )
 
     if db.scalar(select(CounselingSurvey).where(CounselingSurvey.order_id == order_id)):

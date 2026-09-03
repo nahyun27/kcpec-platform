@@ -3,9 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useEffect, useRef, useState } from "react";
-import { isAxiosError } from "axios";
 import {
-  enrollCourse,
   getCourseDetail,
   getCourseProgress,
   getCourseReviews,
@@ -46,7 +44,6 @@ export default function CourseDetailPage({
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [enrolling, setEnrolling] = useState(false);
   // null = 미확정 (로딩 또는 비로그인 판정 전)
   const [isEnrolled, setIsEnrolled] = useState<boolean | null>(null);
   const [reviews, setReviews] = useState<CourseReview[]>([]);
@@ -115,7 +112,7 @@ export default function CourseDetailPage({
       router.push(`/login?next=/courses/${courseId}`);
       return;
     }
-    // 등록 상태 미확정이면 안전하게 사이드바 강조 (네트워크 race)
+    // 결제 완료(=enrollment 생성) 사용자면 바로 수강. 아니면 사이드바 강조.
     if (isEnrolled) {
       router.push(`/courses/${courseId}/watch`);
       return;
@@ -125,23 +122,18 @@ export default function CourseDetailPage({
     setTimeout(() => setSidebarFlash(false), 1500);
   }
 
-  async function handleStart() {
+  function handleStart() {
     if (!tokenStorage.getAccess()) {
-      router.push(`/login?next=/courses/${courseId}`);
+      router.push(`/login?next=/checkout?course_id=${courseId}`);
       return;
     }
-    setEnrolling(true);
-    try {
-      await enrollCourse(courseId);
+    // 이미 결제한 사용자는 바로 수강 페이지로.
+    if (isEnrolled) {
       router.push(`/courses/${courseId}/watch`);
-    } catch (err) {
-      const detail = isAxiosError(err)
-        ? (err.response?.data as { detail?: string } | undefined)?.detail
-        : null;
-      alert(detail ?? "수강 등록에 실패했습니다.");
-    } finally {
-      setEnrolling(false);
+      return;
     }
+    // 사전결제 — 결제 완료 시 백엔드가 자동으로 enrollment 생성.
+    router.push(`/checkout?course_id=${courseId}`);
   }
 
   function toggleReview(id: number) {
@@ -371,37 +363,35 @@ export default function CourseDetailPage({
             >
               <div className="bg-slate-50/50 p-6 border-b border-slate-100">
                 <h3 className="font-sans text-xl font-extrabold text-slate-900 mb-2">수강 신청</h3>
-                <p className="text-[13px] font-medium text-slate-500">바로 학습을 시작할 수 있습니다.</p>
+                <p className="text-[13px] font-medium text-slate-500">
+                  {isEnrolled
+                    ? "결제 완료 — 바로 학습을 시작할 수 있습니다."
+                    : "결제 즉시 학습을 시작할 수 있습니다."}
+                </p>
               </div>
-              
+
               <div className="p-6">
                 <div className="space-y-4 mb-8">
                   <Stat icon={<BookOpen className="h-5 w-5" />} label="총 강의 수" value={`${course.lectures.length}강`} />
                   <Stat icon={<Clock className="h-5 w-5" />} label="총 학습 시간" value={formatDuration(totalDuration)} />
                   <div className="my-4 h-px w-full bg-slate-100"></div>
-                  <Stat icon={<FileText className="h-5 w-5" />} label="수료증 연계 가능" value={`${course.price.toLocaleString()}원~`} highlight />
+                  <Stat icon={<FileText className="h-5 w-5" />} label="수강 금액" value={`${course.price.toLocaleString()}원`} highlight />
                   <p className="text-[11px] font-medium text-slate-400 mt-1 pl-7">
-                    * 수료증 및 양형자료는 수강 완료 후 결제를 통해 발급받으실 수 있습니다.
+                    * 결제 완료 시 즉시 수강 가능하며, 진도와 퀴즈를 모두 완료(수료)하면 수료증 PDF를 발급받으실 수 있습니다.
                   </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleStart}
-                  disabled={enrolling}
-                  className="group relative flex w-full items-center justify-center overflow-hidden rounded-2xl bg-[var(--color-primary)] px-8 py-4 font-bold text-white shadow-lg shadow-[var(--color-primary)]/25 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-[var(--color-primary)]/40 disabled:pointer-events-none disabled:opacity-60"
+                  className="group relative flex w-full items-center justify-center overflow-hidden rounded-2xl bg-[var(--color-primary)] px-8 py-4 font-bold text-white shadow-lg shadow-[var(--color-primary)]/25 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-[var(--color-primary)]/40"
                 >
                   <div className="absolute inset-0 flex h-full w-full justify-center [transform:skew(-12deg)_translateX(-150%)] group-hover:duration-1000 group-hover:[transform:skew(-12deg)_translateX(150%)]">
                     <div className="relative h-full w-8 bg-white/20"></div>
                   </div>
-                  {enrolling ? (
-                    <span className="flex items-center gap-2">
-                      <Spinner size="xs" tone="white" />
-                      등록 중...
-                    </span>
-                  ) : (
-                    <span className="text-[15px]">수강 시작하기</span>
-                  )}
+                  <span className="text-[15px]">
+                    {isEnrolled ? "수강하러 가기" : "결제하고 수강 시작"}
+                  </span>
                 </button>
               </div>
             </div>

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app.core.admin import require_admin
 from app.core.config import settings
@@ -12,7 +12,6 @@ from app.core.deps import get_current_user
 from app.models.course import Course
 from app.models.enrollment import Enrollment
 from app.models.order import Order, OrderStatus, PaymentMethod
-from app.models.package import Package
 from app.models.user import User
 from app.schemas.order import (
     BankTransferConfirm,
@@ -28,52 +27,45 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _ensure_enrollment(db: Session, user_id: int, course_id: int) -> None:
+    """결제 완료 시 자동으로 수강 등록(enrollment) 생성. 이미 있으면 no-op."""
+    existing = db.scalar(
+        select(Enrollment).where(
+            Enrollment.user_id == user_id,
+            Enrollment.course_id == course_id,
+        )
+    )
+    if existing is None:
+        db.add(Enrollment(user_id=user_id, course_id=course_id))
+
+
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 def create_order(
     payload: OrderCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Order:
-    # 강의/패키지 유효성
     course = db.get(Course, payload.course_id)
     if course is None or not course.is_active:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="강의를 찾을 수 없습니다.")
-    pkg = db.get(Package, payload.package_id)
-    if pkg is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="패키지를 찾을 수 없습니다.")
 
-    # 수료 완료 검증
-    enrollment = db.scalar(
-        select(Enrollment).where(
-            Enrollment.user_id == current_user.id,
-            Enrollment.course_id == course.id,
-        )
-    )
-    if enrollment is None or not enrollment.is_completed:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            detail="강의 수료(진도+퀴즈) 후에 결제할 수 있습니다.",
-        )
-
-    # 동일 course+package 의 PAID 주문이 이미 있으면 중복 차단
+    # 사전결제 — 동일 강의의 PAID 주문이 이미 있으면 중복 차단.
     duplicate = db.scalar(
         select(Order).where(
             Order.user_id == current_user.id,
             Order.course_id == course.id,
-            Order.package_id == pkg.id,
             Order.status == OrderStatus.PAID,
         )
     )
     if duplicate is not None:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            detail="이미 결제 완료된 주문이 있습니다.",
+            detail="이미 결제 완료된 강의입니다.",
         )
 
     order = Order(
         user_id=current_user.id,
         course_id=course.id,
-        package_id=pkg.id,
         payment_method=payload.payment_method,
         amount=payload.amount,
         status=OrderStatus.PENDING,
@@ -99,45 +91,26 @@ def list_my_orders(
     if not orders:
         return []
 
-    # 한 번의 쿼리로 모든 패키지(+문서 타입) prefetch
-    pkg_ids = {o.package_id for o in orders if o.package_id is not None}
-    pkg_doc_types: dict[int, list] = {}
-    pkg_names: dict[int, str] = {}
-    if pkg_ids:
-        for pkg in db.scalars(
-            select(Package)
-            .where(Package.id.in_(pkg_ids))
-            .options(selectinload(Package.documents))
-        ).all():
-            pkg_doc_types[pkg.id] = [d.document_type for d in pkg.documents]
-            pkg_names[pkg.id] = pkg.name
-
-    # 강의 제목도 한 번에 prefetch
     course_ids = {o.course_id for o in orders}
     course_titles: dict[int, str] = {
         c.id: c.title
         for c in db.scalars(select(Course).where(Course.id.in_(course_ids))).all()
     }
 
-    out: list[OrderResponse] = []
-    for o in orders:
-        out.append(
-            OrderResponse(
-                id=o.id,
-                course_id=o.course_id,
-                package_id=o.package_id,
-                order_type=o.order_type,
-                status=o.status,
-                amount=o.amount,
-                payment_method=o.payment_method,
-                created_at=o.created_at,
-                paid_at=o.paid_at,
-                package_document_types=pkg_doc_types.get(o.package_id or -1, []),
-                course_title=course_titles.get(o.course_id),
-                package_name=pkg_names.get(o.package_id) if o.package_id else None,
-            )
+    return [
+        OrderResponse(
+            id=o.id,
+            course_id=o.course_id,
+            order_type=o.order_type,
+            status=o.status,
+            amount=o.amount,
+            payment_method=o.payment_method,
+            created_at=o.created_at,
+            paid_at=o.paid_at,
+            course_title=course_titles.get(o.course_id),
         )
-    return out
+        for o in orders
+    ]
 
 
 def _mark_paid(order: Order, payment_key: str | None) -> None:
@@ -166,6 +139,7 @@ def toss_confirm(
         # 트리거: TOSS_SECRET_KEY 미설정 OR 프론트가 명시적으로 is_simulated=true.
         # 위젯 호출 자체가 없으므로 amount 변조 방어 의미 없음 → 검증 스킵.
         _mark_paid(order, payment_key=payload.payment_key or "SIMULATED")
+        _ensure_enrollment(db, order.user_id, order.course_id)
         db.commit()
         db.refresh(order)
         return order
@@ -199,6 +173,7 @@ def toss_confirm(
         )
 
     _mark_paid(order, payment_key=payload.payment_key)
+    _ensure_enrollment(db, order.user_id, order.course_id)
     db.commit()
     db.refresh(order)
     return order
@@ -219,6 +194,7 @@ def bank_confirm(
         return order
     _mark_paid(order, payment_key=None)
     order.bank_confirmed_at = _now()
+    _ensure_enrollment(db, order.user_id, order.course_id)
     db.commit()
     db.refresh(order)
     return order

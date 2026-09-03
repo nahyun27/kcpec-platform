@@ -36,10 +36,6 @@ class Order(Base):
     course_id: Mapped[int] = mapped_column(
         ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    # 심리상담 독립 구매 (order_type=counseling) 의 경우 package 와 무관.
-    package_id: Mapped[int | None] = mapped_column(
-        ForeignKey("packages.id", ondelete="RESTRICT"), nullable=True, index=True
-    )
     order_type: Mapped[OrderType] = mapped_column(
         Enum(OrderType, name="order_type", values_callable=lambda e: [m.value for m in e]),
         nullable=False,

@@ -13,7 +13,8 @@ from app.models.document import (
     IssuedDocumentStatus,
     IssuedDocumentType,
 )
-from app.models.order import Order, OrderStatus
+from app.models.enrollment import Enrollment
+from app.models.order import Order, OrderStatus, OrderType
 from app.models.user import User
 from app.schemas.document import DocumentIssueRequest, DocumentResponse
 
@@ -44,6 +45,21 @@ def issue_document(
     course = db.get(Course, order.course_id)
     if course is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="강의 정보를 찾을 수 없습니다.")
+
+    # 일반 강의 주문(COURSE)은 결제만으로 발급 불가 — 진도+퀴즈를 완주(enrollment.is_completed)
+    # 해야만 수료증 발급 가능. (심리상담 독립 구매(COUNSELING)는 강의 개념이 없어 제외.)
+    if order.order_type == OrderType.COURSE:
+        enrollment = db.scalar(
+            select(Enrollment).where(
+                Enrollment.user_id == current_user.id,
+                Enrollment.course_id == order.course_id,
+            )
+        )
+        if enrollment is None or not enrollment.is_completed:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                detail="강의 수료(진도+퀴즈 통과) 후에 수료증을 발급할 수 있습니다.",
+            )
 
     issued_date = (order.paid_at or datetime.now(timezone.utc)).date()
 

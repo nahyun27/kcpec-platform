@@ -9,9 +9,7 @@ import type { CourseListItem } from "@/types/course";
 import SiteHeader from "@/components/layout/SiteHeader";
 import {
   ArrowRight,
-  CheckCircle2,
   ChevronDown,
-  ChevronRight,
   CreditCard,
   FileDown,
   FileText,
@@ -56,38 +54,11 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
   },
 ];
 
-const PACKAGES = [
-  {
-    tier: "Basic",
-    description: "수료증 단건 발급",
-    items: ["수료증 PDF 발급"],
-  },
-  {
-    tier: "Standard",
-    description: "수료증 + 심리상담 의견서 + 양형자료 가이드",
-    items: ["수료증", "심리상담 의견서", "양형자료 가이드"],
-    highlight: true,
-  },
-  {
-    tier: "Premium",
-    description: "수료증 + 심리상담 의견서 + 양형자료 가이드 외 모든 양형 자료",
-    items: [
-      "수료증",
-      "심리상담 의견서",
-      "양형자료 가이드",
-      "CBT 자료",
-      "탄원서 샘플",
-      "교육이수 소감문",
-      "자기성찰리포트",
-    ],
-  },
-];
-
 const STEPS = [
   { n: "01", title: "강의 선택", desc: "내 사건과 관련된 교육 과정을 선택합니다." },
-  { n: "02", title: "강의 수강", desc: "진도와 퀴즈로 수료 처리." },
-  { n: "03", title: "패키지 결제", desc: "필요한 발급 자료에 맞춰 패키지 선택." },
-  { n: "04", title: "자료 수령", desc: "수료증·의견서를 PDF 로 즉시/빠르게 수령." },
+  { n: "02", title: "수강 신청·결제", desc: "강의를 수강 신청하고 결제합니다." },
+  { n: "03", title: "강의 수강", desc: "진도와 퀴즈로 수료 처리." },
+  { n: "04", title: "자료 수령", desc: "수료증을 PDF 로 즉시 수령." },
 ];
 
 export default function HomePage() {
@@ -104,7 +75,6 @@ export default function HomePage() {
       <TrustSection />
       <StepsSection />
       <CoursesSection courses={courses} />
-      <PackagesSection />
       <SamplesSection />
       <FaqSection />
       <Footer />
@@ -116,7 +86,7 @@ export default function HomePage() {
 
 function Hero() {
   return (
-    <section className="relative flex items-center justify-center overflow-hidden bg-[var(--color-primary)] -mt-16 pt-24 pb-20 md:pb-36 md:pt-32 text-white">
+    <section className="relative flex items-center justify-center overflow-hidden bg-[var(--color-primary)] -mt-16 pt-28 pb-24 md:pb-36 md:pt-32 text-white">
       {/* Noise Texture Overlay */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.03]"
@@ -132,13 +102,13 @@ function Hero() {
         <div className="mb-6 inline-flex items-center rounded-full border border-white bg-white/5 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-md">
           <span>법원 및 수사기관 제출용 신뢰할 수 있는 교육</span>
         </div>
-        <h1 className="mb-6 font-sans text-5xl font-extrabold leading-[1.15] tracking-tight sm:text-6xl md:text-7xl">
+        <h1 className="mb-6 font-sans text-4xl font-extrabold leading-[1.15] tracking-tight sm:text-6xl md:text-7xl">
           재판 준비, <br className="md:hidden" />
           <span className="bg-gradient-to-r from-blue-200 via-white to-blue-100 bg-clip-text text-transparent">
             전문 교육으로 시작하세요
           </span>
         </h1>
-        <p className="mb-10 max-w-2xl text-lg leading-relaxed text-slate-300 sm:text-xl">
+        <p className="mb-10 max-w-2xl text-[13px] leading-relaxed text-slate-300 sm:text-lg md:text-xl">
           가장 확실한 양형 자료를 준비하세요. 법원이 인정하는 심리·준법 교육
           수료증을 무료로 수강하고 즉시 발급받을 수 있습니다.
         </p>
@@ -303,65 +273,6 @@ function StepsSection() {
               );
             })}
           </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ---------- packages -------------------------------------------------------
-
-function PackagesSection() {
-  return (
-    <section className="py-8 md:py-24">
-      <div className="mx-auto max-w-7xl px-4 md:px-6">
-        <div className="mb-6 md:mb-16 text-center">
-          <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
-            합리적인 패키지
-          </h2>
-          <p className="mt-4 text-lg text-slate-600">
-            자신의 상황에 맞는 맞춤형 자료 패키지를 선택하세요.
-          </p>
-        </div>
-
-        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-3">
-          {PACKAGES.map((p) => (
-            <div
-              key={p.tier}
-              className={`relative flex flex-col rounded-3xl bg-white p-5 md:p-8 transition-all duration-300 hover:-translate-y-2 ${
-                p.highlight
-                  ? "border-2 border-[var(--color-accent)] shadow-2xl shadow-blue-900/10 scale-105 z-10"
-                  : "border border-zinc-200 shadow-lg mt-4 mb-4"
-              }`}
-            >
-              {p.highlight && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-[var(--color-accent)] px-4 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-sm">
-                  Most Popular
-                </div>
-              )}
-              <div className="mb-5 md:mb-6">
-                <h3 className="font-sans text-xl md:text-2xl font-bold text-[var(--color-primary)]">
-                  {p.tier}
-                </h3>
-                <p className="mt-2 text-sm text-slate-500">{p.description}</p>
-              </div>
-              
-              <ul className="mb-8 mt-2 flex-1 space-y-4 text-slate-700">
-                {p.items.map((it) => (
-                  <li key={it} className="flex items-start gap-3">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-accent)]" />
-                    <span className="font-medium">{it}</span>
-                  </li>
-                ))}
-              </ul>
-              
-              <div className="mt-auto">
-                <div className={`w-full rounded-xl py-3 text-center text-sm font-bold transition-colors ${p.highlight ? 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)]' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
-                  결제 시 가격 확인
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     </section>

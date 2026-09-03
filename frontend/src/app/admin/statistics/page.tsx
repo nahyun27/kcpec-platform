@@ -282,7 +282,6 @@ function SalesStatsView({
               <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
                 <tr>
                   <th className="px-4 py-3">강의</th>
-                  <th className="px-4 py-3">패키지</th>
                   <th className="px-4 py-3 text-right">건수</th>
                   <th className="px-4 py-3 text-right">매출액</th>
                   <th className="w-32 px-4 py-3 text-right">비율</th>
@@ -291,7 +290,7 @@ function SalesStatsView({
               <tbody className="divide-y divide-slate-100">
                 {data.by_course.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-12 text-center text-zinc-500">
+                    <td colSpan={4} className="px-3 py-12 text-center text-zinc-500">
                       판매 내역이 없습니다.
                     </td>
                   </tr>
@@ -302,12 +301,9 @@ function SalesStatsView({
                         ? (row.revenue / totalByCourseRevenue) * 100
                         : 0;
                     return (
-                      <tr key={`${row.course_title}|${row.package_name}`} className="transition-colors hover:bg-slate-50/80">
+                      <tr key={row.course_title} className="transition-colors hover:bg-slate-50/80">
                         <td className="px-4 py-3 font-semibold text-slate-900">
                           {row.course_title}
-                        </td>
-                        <td className="px-4 py-3 text-slate-500">
-                          {row.package_name}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-slate-700">
                           {row.count.toLocaleString()}

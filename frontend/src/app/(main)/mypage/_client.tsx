@@ -168,6 +168,9 @@ export default function MyPageClient() {
                   <OrderRow
                     key={o.id}
                     order={o}
+                    isCourseCompleted={
+                      enrollments.find((e) => e.course_id === o.course_id)?.is_completed ?? false
+                    }
                     onViewAnswers={(id) => setAnswersSurveyId(id)}
                   />
                 ))}
@@ -245,7 +248,7 @@ export default function MyPageClient() {
               <FileText className="h-4 w-4" /> 문서 발급 안내
             </h3>
             <p className="text-sm text-slate-600 leading-relaxed mb-4">
-              수료증 및 상담 의견서는 결제 후 해당 내역에서 직접 다운로드하실 수 있습니다. 법원 제출용으로 바로 사용 가능합니다.
+              수료증은 강의 수료(진도+퀴즈 통과) 후, 상담 의견서는 결제 후 해당 내역에서 직접 다운로드하실 수 있습니다. 법원 제출용으로 바로 사용 가능합니다.
             </p>
             <Link href="/#faq" className="text-sm font-semibold text-[var(--color-accent)] hover:underline inline-flex items-center">
               자주 묻는 질문 보기 <ChevronRight className="h-4 w-4 ml-0.5" />
@@ -425,9 +428,11 @@ function EnrollmentRow({ enrollment }: { enrollment: EnrollmentWithProgress }) {
 
 function OrderRow({
   order,
+  isCourseCompleted,
   onViewAnswers,
 }: {
   order: OrderWithExtras;
+  isCourseCompleted: boolean;
   onViewAnswers: (surveyId: number) => void;
 }) {
   const isPaid = order.status === "paid";
@@ -446,11 +451,6 @@ function OrderRow({
               <span className="font-sans text-base font-semibold text-slate-900">
                 {order.course_title}
               </span>
-              {order.package_name ? (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
-                  {order.package_name}
-                </span>
-              ) : null}
             </div>
           ) : null}
           <p className="font-sans text-lg font-bold text-slate-900">
@@ -494,14 +494,26 @@ function OrderRow({
                   </li>
                 ))}
               </ul>
-            ) : (
+            ) : isCourseCompleted ? (
               <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
-                <p className="text-xs text-slate-500 mb-3">아직 발급된 수료증이 없습니다.</p>
+                <p className="text-xs text-slate-500 mb-3">수료 완료 — 수료증을 발급받을 수 있습니다.</p>
                 <Link
                   href={`/issue?order_id=${order.id}`}
                   className="inline-flex items-center justify-center rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[var(--color-primary-hover)] transition-colors"
                 >
-                  수료증 즉시 발급하기
+                  수료증 발급하기
+                </Link>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
+                <p className="text-xs text-slate-500 mb-3">
+                  강의를 완주(진도+퀴즈 통과)하면 수료증을 발급받을 수 있습니다.
+                </p>
+                <Link
+                  href={`/courses/${order.course_id}/watch`}
+                  className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-sm hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+                >
+                  이어서 수강하기
                 </Link>
               </div>
             )}
@@ -524,12 +536,12 @@ function CounselingRow({
   order: OrderWithExtras;
   onViewAnswers: (surveyId: number) => void;
 }) {
-  // 패키지에 심리상담 의견서가 포함되어야 설문 작성 의미가 있음.
-  const hasCounseling = (order.package_document_types ?? []).includes(
-    "counseling",
-  );
+  // 심리상담 설문 대상: 독립 구매(order_type=counseling) 또는 "심리상담 의견서" 강의 주문.
+  const hasCounseling =
+    order.order_type === "counseling" ||
+    (order.course_title?.includes("심리상담") ?? false);
 
-  // 패키지에 심리상담 미포함 → 별도 구매 유도 (매출 기회 + 명확한 안내)
+  // 심리상담 대상이 아닌 일반 강의 주문 → 별도 구매 유도.
   if (!hasCounseling) {
     return (
       <div className="rounded-xl border border-dashed border-zinc-300 p-4 text-center bg-slate-50/60">

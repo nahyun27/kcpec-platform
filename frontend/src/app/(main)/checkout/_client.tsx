@@ -2,33 +2,20 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
 import {
   createOrder,
   getCourseDetail,
-  getCourseProgress,
-  getPackages,
   tokenStorage,
 } from "@/lib/api";
 import type { CourseDetail } from "@/types/course";
 import {
-  DOCUMENT_TYPE_LABEL,
   PAYMENT_METHOD_LABEL,
-  type PackageWithDocuments,
   type PaymentMethod,
 } from "@/types/order";
 import { CheckCircle2, ChevronLeft, CreditCard, Award, ChevronRight, ShieldCheck, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
-
-// 패키지 가격 — alembic 0016 부터 DB(packages.price) 가 단일 진실이지만,
-// 프런트 결제 분기/표시 일관성을 위해 동일한 값을 fallback 으로 유지.
-// 백엔드 응답에 price 가 채워져 오면 그 값을 우선 사용한다.
-const PACKAGE_PRICE: Record<string, number> = {
-  basic: 100_000,
-  standard: 199_000,
-  premium: 299_000,
-};
 
 const PAYMENT_METHODS: PaymentMethod[] = ["card", "kakaopay", "naverpay", "bank_transfer"];
 
@@ -39,8 +26,6 @@ export default function CheckoutPage() {
   const courseId = courseIdParam ? Number(courseIdParam) : NaN;
 
   const [course, setCourse] = useState<CourseDetail | null>(null);
-  const [packages, setPackages] = useState<PackageWithDocuments[]>([]);
-  const [selectedPkgId, setSelectedPkgId] = useState<number | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,16 +43,10 @@ export default function CheckoutPage() {
     }
 
     let cancelled = false;
-    Promise.all([getCourseDetail(courseId), getCourseProgress(courseId), getPackages()])
-      .then(([c, status, pkgs]) => {
+    getCourseDetail(courseId)
+      .then((c) => {
         if (cancelled) return;
-        if (!status.is_completed) {
-          router.replace(`/courses/${courseId}/watch`);
-          return;
-        }
         setCourse(c);
-        setPackages(pkgs);
-        if (pkgs.length > 0) setSelectedPkgId(pkgs[0].id);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -87,22 +66,14 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId]);
 
-  const selectedPackage = useMemo(
-    () => packages.find((p) => p.id === selectedPkgId) ?? null,
-    [packages, selectedPkgId],
-  );
-
-  const amount = selectedPackage
-    ? selectedPackage.price ?? PACKAGE_PRICE[selectedPackage.tier] ?? 0
-    : 0;
+  const amount = course?.price ?? 0;
 
   async function handleCheckout() {
-    if (!selectedPackage || !course) return;
+    if (!course) return;
     setSubmitting(true);
     try {
       const order = await createOrder({
         course_id: course.id,
-        package_id: selectedPackage.id,
         payment_method: paymentMethod,
         amount,
       });
@@ -137,7 +108,7 @@ export default function CheckoutPage() {
         method: tossMethod,
         amount: { currency: "KRW", value: amount },
         orderId: `KCPEC-${order.id}`,
-        orderName: `${course.title} (${selectedPackage.name})`,
+        orderName: course.title,
         successUrl: `${window.location.origin}/checkout/success`,
         failUrl: `${window.location.origin}/checkout?course_id=${course.id}`,
         ...(easyPay ? { easyPay } : {}),
@@ -183,10 +154,10 @@ export default function CheckoutPage() {
         </Link>
 
         <PageHeader
-          title="수료증 및 양형자료 발급"
-          subtitle="수료 완료"
+          title="수강 신청·결제"
+          subtitle="Enroll & Pay"
           icon={<Award className="h-3.5 w-3.5" />}
-          description={<><span className="font-semibold text-slate-700">{course.title}</span> 과정을 수료하셨습니다. 필요한 패키지를 선택해 주세요.</>}
+          description={<><span className="font-semibold text-slate-700">{course.title}</span> 강의를 수강 신청합니다. 결제 완료 즉시 수강을 시작할 수 있습니다.</>}
         />
 
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
@@ -195,55 +166,6 @@ export default function CheckoutPage() {
             <section>
               <div className="mb-6 flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">1</div>
-                <h2 className="font-sans text-xl font-bold text-slate-900">패키지 선택</h2>
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                {packages.map((pkg) => {
-                  const selected = selectedPkgId === pkg.id;
-                  const price = pkg.price ?? PACKAGE_PRICE[pkg.tier] ?? 0;
-                  return (
-                    <button
-                      key={pkg.id}
-                      type="button"
-                      onClick={() => setSelectedPkgId(pkg.id)}
-                      className={`relative flex h-full flex-col items-stretch overflow-hidden rounded-2xl border-2 p-5 text-left transition-all duration-300 ${
-                        selected
-                          ? "border-[var(--color-primary)] bg-white shadow-xl shadow-slate-900/10 ring-1 ring-[var(--color-primary)]/10 scale-[1.02] z-10"
-                          : "border-zinc-200 bg-white hover:border-slate-300 hover:shadow-md"
-                      }`}
-                    >
-                      {selected && (
-                        <div className="absolute top-0 right-0 rounded-bl-xl bg-[var(--color-primary)] px-3 py-1 text-xs font-bold text-white">
-                          선택됨
-                        </div>
-                      )}
-                      <h3 className={`font-sans text-xl font-extrabold ${selected ? 'text-[var(--color-primary)]' : 'text-slate-700'}`}>
-                        {pkg.name}
-                      </h3>
-                      <div className="my-2 border-b border-zinc-100 pb-2">
-                        <span className="text-xl font-black text-slate-900">
-                          {price.toLocaleString()}
-                        </span>
-                        <span className="text-xs font-medium text-slate-500 ml-0.5">원</span>
-                      </div>
-                      
-                      <ul className="flex-1 space-y-2 mt-2">
-                        {pkg.document_types.map((dt) => (
-                          <li key={dt} className="flex items-start gap-1.5 text-xs font-medium text-slate-600">
-                            <CheckCircle2 className={`h-4 w-4 shrink-0 ${selected ? 'text-[var(--color-accent)]' : 'text-slate-300'}`} />
-                            <span className="mt-0.5 leading-snug">{DOCUMENT_TYPE_LABEL[dt]}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section>
-              <div className="mb-6 flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">2</div>
                 <h2 className="font-sans text-xl font-bold text-slate-900">결제 수단</h2>
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -288,16 +210,12 @@ export default function CheckoutPage() {
                   <ShieldCheck className="h-5 w-5 text-[var(--color-accent)]" /> 결제 요약
                 </h3>
               </div>
-              
+
               <div className="p-6">
                 <div className="mb-6 space-y-4 text-sm text-slate-600">
                   <div className="flex justify-between border-b border-zinc-100 pb-4">
-                    <span className="font-medium text-slate-500">선택 과정</span>
+                    <span className="font-medium text-slate-500">선택 강의</span>
                     <span className="font-bold text-slate-900 text-right max-w-[200px] truncate">{course.title}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-zinc-100 pb-4">
-                    <span className="font-medium text-slate-500">선택 패키지</span>
-                    <span className="font-bold text-[var(--color-primary)]">{selectedPackage?.name ?? "-"}</span>
                   </div>
                   <div className="flex justify-between pb-2">
                     <span className="font-medium text-slate-500">결제 수단</span>
@@ -318,7 +236,7 @@ export default function CheckoutPage() {
                 <button
                   type="button"
                   onClick={handleCheckout}
-                  disabled={submitting || !selectedPackage}
+                  disabled={submitting}
                   className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[var(--color-primary)] py-4 font-bold text-white shadow-lg shadow-[var(--color-primary)]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-xl hover:shadow-[var(--color-primary)]/30 disabled:opacity-60 disabled:hover:translate-y-0"
                 >
                   {submitting ? (
@@ -333,7 +251,7 @@ export default function CheckoutPage() {
                     </>
                   )}
                 </button>
-                
+
                 {!process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY && paymentMethod !== "bank_transfer" ? (
                   <p className="mt-4 text-center text-xs font-medium text-amber-600 bg-amber-50 rounded-lg py-2">
                     개발 모드 (토스 클라이언트 키 미설정)

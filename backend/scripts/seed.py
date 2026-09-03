@@ -1,6 +1,6 @@
 """초기 시드 데이터.
 
-강의 11개 + 패키지 3개 + 커뮤니티(공지/자료실/Q&A/칼럼/후기).
+강의 11개 + 커뮤니티(공지/자료실/Q&A/칼럼/후기).
 멱등(idempotent) — 제목으로 중복 검사 후 없을 때만 insert.
 
 실행: `cd backend && venv/bin/python scripts/seed.py`
@@ -24,28 +24,25 @@ from app.models.course import Course, CourseCategory  # noqa: E402
 from app.models.enrollment import Enrollment, LectureProgress  # noqa: E402
 from app.models.lecture import Lecture  # noqa: E402
 from app.models.order import Order, OrderStatus, PaymentMethod  # noqa: E402
-from app.models.package import (  # noqa: E402
-    DocumentType,
-    Package,
-    PackageDocument,
-    PackageTier,
-)
 from app.models.quiz import Quiz, QuizAttempt  # noqa: E402
 from app.models.user import User  # noqa: E402
 
 
 COURSES: list[tuple[str, CourseCategory, int]] = [
+    # alembic 0015 에서 11개 카테고리가 6개로 통합됨 (course.py CourseCategory 주석 참고).
+    # 구 카테고리 → 신 카테고리: 음주→교통, 성매매/디지털성범죄→성범죄,
+    # 마약/도박→약물·도박, 피싱→재산범죄, 스토킹/학교폭력→폭력.
     ("준법의식 강화", CourseCategory.LAW_COMPLIANCE, 55_000),
-    ("음주운전 예방", CourseCategory.DRUNK_DRIVING, 110_000),
+    ("음주운전 예방", CourseCategory.TRAFFIC, 110_000),
     ("성범죄 예방", CourseCategory.SEX_OFFENSE, 110_000),
-    ("성매매 예방", CourseCategory.PROSTITUTION, 110_000),
-    ("디지털 성범죄 예방", CourseCategory.DIGITAL_SEX_OFFENSE, 110_000),
-    ("마약 예방", CourseCategory.DRUG, 110_000),
-    ("도박 및 도박개장 예방", CourseCategory.GAMBLING, 110_000),
-    ("피싱범죄 예방", CourseCategory.PHISHING, 110_000),
+    ("성매매 예방", CourseCategory.SEX_OFFENSE, 110_000),
+    ("디지털 성범죄 예방", CourseCategory.SEX_OFFENSE, 110_000),
+    ("마약 예방", CourseCategory.DRUG_GAMBLING, 110_000),
+    ("도박 및 도박개장 예방", CourseCategory.DRUG_GAMBLING, 110_000),
+    ("피싱범죄 예방", CourseCategory.PROPERTY_CRIME, 110_000),
     ("사기횡령배임 등 재산범죄 예방", CourseCategory.PROPERTY_CRIME, 110_000),
-    ("스토킹범죄 예방", CourseCategory.STALKING, 110_000),
-    ("학교폭력 예방", CourseCategory.SCHOOL_VIOLENCE, 110_000),
+    ("스토킹범죄 예방", CourseCategory.VIOLENCE, 110_000),
+    ("학교폭력 예방", CourseCategory.VIOLENCE, 110_000),
 ]
 
 # 전문가 심리상담 — 강의가 아닌 상담 상품. /counseling 페이지에서 독립 구매.
@@ -55,34 +52,6 @@ COUNSELING_PROGRAMS: list[tuple[str, int | None]] = [
     ("전화 심화상담", None),
     ("대면 심화상담", None),
 ]
-
-PACKAGES: list[tuple[str, PackageTier, str, list[DocumentType]]] = [
-    (
-        "Basic",
-        PackageTier.BASIC,
-        "수료증 단건 발급",
-        [DocumentType.CERTIFICATE],
-    ),
-    (
-        "Standard",
-        PackageTier.STANDARD,
-        "수료증 + 양형자료 가이드 + 심리상담 의견서",
-        [DocumentType.CERTIFICATE, DocumentType.GUIDE, DocumentType.COUNSELING],
-    ),
-    (
-        "Premium",
-        PackageTier.PREMIUM,
-        "수료증 + 가이드 + 심리상담 의견서 + CBT 자료 + 1:1 상담",
-        [
-            DocumentType.CERTIFICATE,
-            DocumentType.GUIDE,
-            DocumentType.COUNSELING,
-            DocumentType.CBT,
-            DocumentType.CONSULTATION,
-        ],
-    ),
-]
-
 
 def _utc(year: int, month: int, day: int) -> datetime:
     return datetime(year, month, day, 9, 0, tzinfo=timezone.utc)
@@ -336,33 +305,6 @@ def seed_courses() -> int:
     return inserted
 
 
-def seed_packages() -> int:
-    """Insert missing packages, and reconcile document_types if PACKAGES list changed."""
-    inserted = 0
-    with SessionLocal() as db:
-        for name, tier, description, doc_types in PACKAGES:
-            existing = db.scalar(select(Package).where(Package.tier == tier))
-            if existing is None:
-                pkg = Package(name=name, tier=tier, price=None, description=description)
-                pkg.documents = [PackageDocument(document_type=dt) for dt in doc_types]
-                db.add(pkg)
-                inserted += 1
-                continue
-            # 기존 패키지 — document_type set 이 PACKAGES 와 다르면 동기화.
-            current = {d.document_type for d in existing.documents}
-            desired = set(doc_types)
-            if current != desired:
-                for d in list(existing.documents):
-                    if d.document_type not in desired:
-                        db.delete(d)
-                for dt in desired - current:
-                    db.add(PackageDocument(package_id=existing.id, document_type=dt))
-                # 설명 문구도 함께 갱신.
-                existing.description = description
-        db.commit()
-    return inserted
-
-
 def seed_notices() -> int:
     inserted = 0
     with SessionLocal() as db:
@@ -449,17 +391,14 @@ TEST_USERNAME = "test_user"
 TEST_PASSWORD = "test1234"
 TEST_EMAIL = "test_user@kcpec.co.kr"
 TEST_COURSE_TITLE = "음주운전 예방"
-TEST_PACKAGE_TIER = PackageTier.STANDARD
-TEST_PACKAGE_AMOUNT = 220_000
 
 
 def create_test_flow() -> None:
     """결제까지 끝난 상태의 테스트 사용자 1명을 만든다 (멱등).
 
     1) test_user / test1234 계정 (없으면 생성, 있으면 비번/활성 갱신)
-    2) '음주운전 예방' 강의 enrollment + 모든 LectureProgress 완료
+    2) '음주운전 예방' 강의 사전결제(PAID) + enrollment + 모든 LectureProgress 완료
     3) 퀴즈 합격 QuizAttempt
-    4) Standard 패키지 PAID 주문
     이렇게 하면 곧장 /mypage 에서 수료증 발급/심리상담 설문 흐름을 테스트 가능.
     """
     now = datetime.now(timezone.utc)
@@ -562,33 +501,26 @@ def create_test_flow() -> None:
                     )
                 )
 
-        # 4) Standard package paid order
-        pkg = db.scalar(select(Package).where(Package.tier == TEST_PACKAGE_TIER))
-        if pkg is None:
-            print(f"  ✗ Standard 패키지가 없습니다. seed 먼저 실행해 주세요.")
-            db.commit()
-            return
-
+        # 4) 사전결제(PAID) 주문 — 강의 가격 기준.
+        amount = course.price or 0
         order = db.scalar(
             select(Order).where(
                 Order.user_id == user.id,
                 Order.course_id == course.id,
-                Order.package_id == pkg.id,
             )
         )
         if order is None:
             order = Order(
                 user_id=user.id,
                 course_id=course.id,
-                package_id=pkg.id,
                 payment_method=PaymentMethod.CARD,
-                amount=TEST_PACKAGE_AMOUNT,
+                amount=amount,
                 status=OrderStatus.PAID,
                 paid_at=now,
                 toss_payment_key="SEED_TEST_FLOW",
             )
             db.add(order)
-            print(f"  ✓ Standard 결제 주문 생성 (amount={TEST_PACKAGE_AMOUNT})")
+            print(f"  ✓ 사전결제 주문 생성 (amount={amount})")
         else:
             order.status = OrderStatus.PAID
             order.paid_at = order.paid_at or now
@@ -600,7 +532,7 @@ def create_test_flow() -> None:
             f"\n=== 테스트 플로우 준비 완료 ===\n"
             f"  로그인 : {TEST_USERNAME} / {TEST_PASSWORD}\n"
             f"  강의   : {course.title}\n"
-            f"  주문   : #{order.id} (Standard, paid)\n"
+            f"  주문   : #{order.id} (paid)\n"
             f"\n→ /login 으로 들어가서 /mypage 에서 발급 흐름 테스트 가능."
         )
 
@@ -646,7 +578,6 @@ def main() -> None:
     args = parser.parse_args()
 
     print(f"강의 추가: {seed_courses()}개")
-    print(f"패키지 추가: {seed_packages()}개")
     print(f"심리상담 프로그램 추가: {seed_counseling_programs()}개")
     print(f"공지/자료실 추가: {seed_notices()}개")
     print(f"Q&A 추가: {seed_qna()}개")

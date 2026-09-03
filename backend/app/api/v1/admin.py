@@ -30,7 +30,6 @@ from app.models.document import IssuedDocument, IssuedDocumentStatus, IssuedDocu
 from app.models.enrollment import Enrollment
 from app.models.lecture import Lecture
 from app.models.order import Order, OrderStatus, PaymentMethod
-from app.models.package import Package
 from app.models.quiz import Quiz, QuizOption, QuizQuestion
 from app.models.user import User
 from app.schemas.admin import (
@@ -79,14 +78,13 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _row_from_order(o: Order, user: User, course: Course, package: Package) -> AdminOrderRow:
+def _row_from_order(o: Order, user: User, course: Course) -> AdminOrderRow:
     return AdminOrderRow(
         id=o.id,
         user_id=user.id,
         username=user.username,
         email=user.email,
         course_title=course.title,
-        package_name=package.name,
         amount=o.amount,
         payment_method=o.payment_method,
         status=o.status,
@@ -448,10 +446,9 @@ def set_quiz(course_id: int, payload: QuizSet, db: Session = Depends(get_db)) ->
 
 def _order_query_for_admin(db: Session, *, status_filter: OrderStatus | None):
     base = (
-        select(Order, User, Course, Package)
+        select(Order, User, Course)
         .join(User, User.id == Order.user_id)
         .join(Course, Course.id == Order.course_id)
-        .join(Package, Package.id == Order.package_id)
     )
     if status_filter is not None:
         base = base.where(Order.status == status_filter)
@@ -477,7 +474,7 @@ def list_orders(
         .limit(size)
     ).all()
 
-    items = [_row_from_order(o, u, c, p) for (o, u, c, p) in rows]
+    items = [_row_from_order(o, u, c) for (o, u, c) in rows]
     return AdminOrdersResponse(items=items, total=total, page=page, size=size)
 
 
@@ -841,7 +838,7 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
         .order_by(Order.created_at.desc())
         .limit(5)
     ).all()
-    recent = [_row_from_order(o, u, c, p) for (o, u, c, p) in recent_rows]
+    recent = [_row_from_order(o, u, c) for (o, u, c) in recent_rows]
 
     # 인기 강의 top 5 (paid 매출 기준)
     top_rows = db.execute(
@@ -879,19 +876,18 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
     activities: list[AdminActivity] = []
     # 1) 결제
     paid_acts = db.execute(
-        select(Order, User, Course, Package)
+        select(Order, User, Course)
         .join(User, User.id == Order.user_id)
         .join(Course, Course.id == Order.course_id)
-        .join(Package, Package.id == Order.package_id)
         .where(Order.status == OrderStatus.PAID, Order.paid_at.is_not(None))
         .order_by(Order.paid_at.desc())
         .limit(5)
     ).all()
-    for o, u, c, p in paid_acts:
+    for o, u, c in paid_acts:
         activities.append(
             AdminActivity(
                 type="order_paid",
-                message=f"{u.username}님이 {c.title} {p.name} 결제 완료",
+                message=f"{u.username}님이 {c.title} 결제 완료",
                 created_at=o.paid_at or o.created_at,
             )
         )
@@ -1025,25 +1021,21 @@ def admin_sales_stats(db: Session = Depends(get_db)) -> SalesStats:
         b = daily.get(d, {"revenue": 0, "orders": 0})
         daily_revenue.append(SalesStatsDaily(date=d, revenue=b["revenue"], orders=b["orders"]))
 
-    # 상품(강의 + 패키지) 별
+    # 상품(강의) 별
     by_course_rows = db.execute(
         select(
             Course.title,
-            Package.name,
             func.count(Order.id),
             func.coalesce(func.sum(Order.amount), 0),
         )
         .join(Course, Course.id == Order.course_id)
-        .join(Package, Package.id == Order.package_id)
         .where(Order.status == OrderStatus.PAID)
-        .group_by(Course.title, Package.name)
+        .group_by(Course.title)
         .order_by(func.coalesce(func.sum(Order.amount), 0).desc())
     ).all()
     by_course = [
-        SalesStatsByCourse(
-            course_title=ct, package_name=pn, count=cnt, revenue=rev
-        )
-        for (ct, pn, cnt, rev) in by_course_rows
+        SalesStatsByCourse(course_title=ct, count=cnt, revenue=rev)
+        for (ct, cnt, rev) in by_course_rows
     ]
 
     # 결제수단 별

@@ -17,7 +17,6 @@ import type {
 import type {
   DocumentResponse,
   OrderResponse,
-  PackageWithDocuments,
   PaymentMethod,
 } from "@/types/order";
 import type {
@@ -318,16 +317,10 @@ export async function submitQuiz(
   return data;
 }
 
-// ---------- packages / orders / documents -----------------------------------
-
-export async function getPackages(): Promise<PackageWithDocuments[]> {
-  const { data } = await api.get<PackageWithDocuments[]>("/packages");
-  return data;
-}
+// ---------- orders / documents -----------------------------------
 
 export async function createOrder(payload: {
   course_id: number;
-  package_id: number;
   payment_method: PaymentMethod;
   amount: number;
 }): Promise<OrderResponse> {

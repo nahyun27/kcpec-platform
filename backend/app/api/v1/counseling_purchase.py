@@ -1,7 +1,7 @@
 """전문가 심리상담 독립 구매 흐름.
 
 상담 프로그램 자체는 Course 테이블에 category=COUNSELING 으로 저장.
-주문은 order_type=COUNSELING, package_id=NULL 로 만들어진다.
+주문은 order_type=COUNSELING 로 만들어진다.
 """
 
 from datetime import datetime, timezone
@@ -80,7 +80,6 @@ def purchase(
     order = Order(
         user_id=current_user.id,
         course_id=course.id,
-        package_id=None,
         order_type=OrderType.COUNSELING,
         payment_method=PaymentMethod.CARD,
         amount=amount,

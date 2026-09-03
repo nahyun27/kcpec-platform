@@ -393,7 +393,6 @@ function RecentOrdersTable({ rows }: { rows: AdminOrderRow[] }) {
             <th className="px-4 py-3">주문일시</th>
             <th className="px-4 py-3">고객명</th>
             <th className="px-4 py-3">강의명</th>
-            <th className="px-4 py-3">패키지</th>
             <th className="px-4 py-3">결제수단</th>
             <th className="px-4 py-3 text-right">금액</th>
             <th className="px-4 py-3">상태</th>
@@ -410,7 +409,6 @@ function RecentOrdersTable({ rows }: { rows: AdminOrderRow[] }) {
                 </td>
                 <td className="px-4 py-3 font-semibold text-slate-900">{r.username}</td>
                 <td className="px-4 py-3 text-slate-700">{r.course_title}</td>
-                <td className="px-4 py-3 text-slate-700">{r.package_name}</td>
                 <td className="px-4 py-3 text-slate-500">{PAYMENT_METHOD_LABEL[r.payment_method]}</td>
                 <td className="px-4 py-3 text-right font-bold text-slate-900">
                   {r.amount.toLocaleString()}원

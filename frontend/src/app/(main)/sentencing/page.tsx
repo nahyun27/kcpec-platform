@@ -8,7 +8,6 @@ import {
   ArrowRight,
   BadgeCheck,
   Check,
-  ChevronUp,
   FileText,
   Scale,
 } from "lucide-react";
@@ -68,7 +67,7 @@ type CourseId =
   | "economy"       // 경제 관념·사행성 방지 교육
   | "digital_ethics"// 디지털 저작권·정보통신 윤리 교육
   | "privacy"       // 개인정보 보호·사이버 금융 범죄 예방
-  | "youth"         // 청소년 경제·법률 교육
+  | "youth"         // 청소년범죄예방교육
   | "parenting";    // 보호자 양육 윤리·예방 교육
 
 type CourseInfo = {
@@ -94,7 +93,7 @@ const COURSES: Record<CourseId, CourseInfo> = {
   economy: { id: "economy", name: "경제 관념·사행성 방지 교육", price: 55_000 },
   digital_ethics: { id: "digital_ethics", name: "디지털 저작권·정보통신 윤리 교육", price: 55_000 },
   privacy: { id: "privacy", name: "개인정보 보호·사이버 금융 범죄 예방", price: 55_000 },
-  youth: { id: "youth", name: "청소년 경제·법률 교육", price: 55_000 },
+  youth: { id: "youth", name: "청소년범죄예방교육", price: 55_000 },
   parenting: { id: "parenting", name: "보호자 양육 윤리·예방 교육", price: 55_000 },
 };
 
@@ -140,20 +139,8 @@ const FOLLOWUPS: FollowUp[] = [
   {
     key: "counseling_needed",
     question: "심리상담 의견서가 필요하신가요?",
-    trigger: (s) =>
-      s.has("violence") || s.has("sex") || s.has("stalking") || s.has("school"),
-    yesAddCourse: "counseling",
-  },
-  {
-    key: "drug_counseling",
-    question: "약물 중독 관련 상담이 필요하신가요?",
-    trigger: (s) => s.has("drug"),
-    yesAddCourse: "counseling",
-  },
-  {
-    key: "mental_health",
-    question: "정신건강 관련 문제가 개입되어 있나요?",
-    trigger: (s) => s.has("etc"),
+    // 심리상담 의견서는 사건 유형과 무관하게 모든 경우에 노출.
+    trigger: () => true,
     yesAddCourse: "counseling",
   },
 ];
@@ -169,7 +156,6 @@ export default function SentencingPage() {
   }
   const [selected, setSelected] = useState<Set<CrimeKey>>(new Set());
   const [answers, setAnswers] = useState<Record<string, "Y" | "N" | "">>({});
-  const [mobileCartOpen, setMobileCartOpen] = useState(false);
   // Step3 에서 사용자가 개별 해제한 강의 — 추천에서 빠지진 않고 회색 처리.
   const [disabledCourses, setDisabledCourses] = useState<Set<CourseId>>(
     new Set(),
@@ -226,23 +212,28 @@ export default function SentencingPage() {
   function handleCheckout() {
     if (recommendation.activeCourseCount === 0) return;
     if (!tokenStorage.getAccess()) {
-      router.push(`/login?next=${encodeURIComponent("/sentencing")}`);
+      router.push(`/login?next=${encodeURIComponent("/mypage")}`);
       return;
     }
-    // 본 페이지는 추천/안내 용도 — 실제 결제는 /courses → 강의 상세 → 패키지 선택 흐름.
-    router.push("/courses");
+    // 실제 결제는 강의 수료 후 가능 — 일단 마이페이지로 이동시켜 진행 상황을 확인하게 한다.
+    router.push("/mypage");
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-24 animate-in fade-in duration-300">
+    <div className="min-h-screen bg-slate-50/50 pb-48 lg:pb-24 animate-in fade-in duration-300">
       {/* 모바일: 제목만 간결하게 / 데스크톱: 풀 헤더 */}
       <div className="bg-white relative z-10 border-b border-slate-100">
         {/* 모바일 컴팩트 헤더 */}
-        <div className="flex items-center justify-between px-4 py-3 md:hidden">
-          <h1 className="font-sans text-lg font-extrabold text-slate-900">
-            양형자료 추천
-          </h1>
-          <StepIndicator step={step} compact />
+        <div className="px-4 py-3 md:hidden">
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="font-sans text-lg font-extrabold text-slate-900">
+              양형자료 추천
+            </h1>
+            <StepIndicator step={step} compact />
+          </div>
+          <p className="mt-1 text-[11px] leading-snug text-slate-500">
+            사건 유형을 선택하시면 필요한 강의와 발급 가능한 서류를 안내해 드립니다.
+          </p>
         </div>
         {/* 데스크톱 풀 헤더 */}
         <div className="hidden md:block pt-10">
@@ -257,14 +248,14 @@ export default function SentencingPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 pt-4 md:pt-8">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 pt-3 md:pt-8">
         {/* 데스크톱 전용 진행 표시 (모바일은 헤더에 inline) */}
         <div className="hidden md:block">
           <StepIndicator step={step} />
         </div>
 
         {/* Step 본문 */}
-        <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="mt-3 md:mt-8 grid gap-6 lg:grid-cols-[1fr_320px]">
           <div className="space-y-6">
             {step === 1 ? (
               <Step1
@@ -286,16 +277,6 @@ export default function SentencingPage() {
                 onToggleCourse={toggleCourse}
               />
             ) : null}
-
-            {/* 모바일: 우측 카트가 모바일에서 가려지지 않도록 아래에 추가 */}
-            <div className="lg:hidden">
-              <CartSummary
-                recommendation={recommendation}
-                disabledCourses={disabledCourses}
-                step={step}
-                onCheckout={handleCheckout}
-              />
-            </div>
 
             {/* 네비게이션 */}
             {/* 네비 — 데스크톱만 (모바일은 하단 fixed bar) */}
@@ -335,39 +316,47 @@ export default function SentencingPage() {
         </div>
       </div>
 
-      {/* 모바일: 하단 fixed 네비 + 펼침 가능 선택 과정 패널 */}
+      {/* 모바일: 하단 고정 — 발급 가능 서류 패널 + 네비/체크아웃 바 */}
       <div className="fixed inset-x-0 bottom-0 z-30 lg:hidden">
-        {/* 펼침 패널 — Step 1/2 에서 선택 과정이 있을 때만 */}
-        {step < 3 && mobileCartOpen && recommendation.courses.length > 0 ? (
-          <div className="border-t border-zinc-200 bg-slate-50 px-4 py-3">
-            <div className="mx-auto max-w-5xl">
-              <p className="mb-2 text-[11px] font-bold text-slate-500">
-                선택된 과정
+        {/* 발급 가능 서류 패널 — 항상 노출 (선택 전엔 안내 문구) */}
+        <div className="border-t border-zinc-200 bg-slate-50/95 px-4 py-2.5 backdrop-blur">
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+              <FileText className="h-3 w-3 text-[#1C3461]" />
+              발급 가능 서류
+              {recommendation.documents.length > 0 ? (
+                <span className="font-mono text-slate-500">
+                  ({recommendation.documents.filter((d) => d.active).length}개)
+                </span>
+              ) : null}
+            </div>
+            {recommendation.documents.length === 0 ? (
+              <p className="text-[11px] text-slate-400">
+                사건 유형을 선택하시면 발급 가능한 서류가 표시됩니다.
               </p>
-              <ul className="space-y-1">
-                {recommendation.courses.map((c) => (
+            ) : (
+              <ul className="flex max-h-20 flex-col gap-1 overflow-y-auto pr-1">
+                {recommendation.documents.map((d) => (
                   <li
-                    key={c.id}
-                    className="flex items-center justify-between text-xs"
+                    key={d.name}
+                    className={`flex items-start gap-1.5 text-[11px] leading-snug ${
+                      d.active ? "text-slate-700" : "text-slate-400 line-through"
+                    }`}
                   >
-                    <span className="text-slate-700">{c.name}</span>
-                    <span className="font-mono font-bold text-slate-700">
-                      {c.price.toLocaleString()}원
-                    </span>
+                    <Check
+                      className={`mt-0.5 h-3 w-3 shrink-0 ${
+                        d.active ? "text-[#1C3461]" : "text-slate-300"
+                      }`}
+                    />
+                    <span className="truncate">{d.name}</span>
                   </li>
                 ))}
               </ul>
-              <div className="mt-2 flex items-center justify-between border-t border-zinc-200 pt-2 text-xs">
-                <span className="font-bold text-slate-700">합계</span>
-                <span className="font-mono font-bold text-[#1C3461]">
-                  {recommendation.total.toLocaleString()}원
-                </span>
-              </div>
-            </div>
+            )}
           </div>
-        ) : null}
+        </div>
 
-        {/* 메인 바 */}
+        {/* 네비/체크아웃 바 */}
         <div className="border-t border-zinc-200 bg-white px-4 py-3 shadow-2xl">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-2">
             <button
@@ -376,45 +365,21 @@ export default function SentencingPage() {
                 setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s))
               }
               disabled={step === 1}
-              className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm disabled:opacity-30"
+              className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm disabled:opacity-30"
             >
               <ArrowLeft className="h-4 w-4" /> 이전
             </button>
 
-            {/* Step 1/2: 선택 과정 토글 + 다음 */}
             {step < 3 ? (
-              <div className="flex items-center gap-2">
-                {recommendation.courses.length > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => setMobileCartOpen((o) => !o)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600"
-                  >
-                    {recommendation.courses.length}개 선택
-                    <span className="font-mono text-[#1C3461]">
-                      {recommendation.total.toLocaleString()}원
-                    </span>
-                    <ChevronUp
-                      className={`h-3.5 w-3.5 transition-transform ${
-                        mobileCartOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileCartOpen(false);
-                    setStep((s) => ((s + 1) as 1 | 2 | 3));
-                  }}
-                  disabled={step === 1 && selected.size === 0}
-                  className="inline-flex items-center gap-1 rounded-full bg-[#1C3461] px-4 py-2 text-sm font-bold text-white shadow-md disabled:opacity-40"
-                >
-                  다음 <ArrowRight className="h-4 w-4" />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setStep((s) => ((s + 1) as 1 | 2 | 3))}
+                disabled={step === 1 && selected.size === 0}
+                className="inline-flex items-center gap-1 rounded-full bg-[#1C3461] px-5 py-2 text-sm font-bold text-white shadow-md disabled:opacity-40"
+              >
+                다음 <ArrowRight className="h-4 w-4" />
+              </button>
             ) : (
-              /* Step 3: 합계 + 수강 신청 */
               <div className="flex items-center gap-3">
                 <div className="text-right">
                   <p className="text-[10px] font-bold text-slate-500">합계</p>
@@ -595,11 +560,7 @@ function Step1({
 // ---------- Step 2: 추가 Y/N 질문 --------------------------------------------
 
 // 심리상담 의견서 관련 follow-up 키 — 해당 항목 아래에 설명 토글 노출.
-const COUNSELING_FOLLOWUP_KEYS = new Set([
-  "counseling_needed",
-  "drug_counseling",
-  "mental_health",
-]);
+const COUNSELING_FOLLOWUP_KEYS = new Set(["counseling_needed"]);
 
 function Step2({
   followups,

@@ -5,7 +5,6 @@ from app.models.document import IssuedDocument, IssuedDocumentStatus, IssuedDocu
 from app.models.enrollment import Enrollment, LectureProgress
 from app.models.lecture import Lecture
 from app.models.order import Order, OrderStatus, OrderType, PaymentMethod
-from app.models.package import DocumentType, Package, PackageDocument, PackageTier
 from app.models.quiz import Quiz, QuizAttempt, QuizOption, QuizQuestion
 from app.models.user import User
 
@@ -18,7 +17,6 @@ __all__ = [
     "PostCategory",
     "Course",
     "CourseCategory",
-    "DocumentType",
     "Enrollment",
     "IssuedDocument",
     "IssuedDocumentStatus",
@@ -28,9 +26,6 @@ __all__ = [
     "Order",
     "OrderStatus",
     "OrderType",
-    "Package",
-    "PackageDocument",
-    "PackageTier",
     "PaymentMethod",
     "Quiz",
     "QuizAttempt",

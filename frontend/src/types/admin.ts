@@ -28,7 +28,6 @@ export type AdminOrderRow = {
   username: string;
   email: string | null;
   course_title: string;
-  package_name: string;
   amount: number;
   payment_method: PaymentMethod;
   status: OrderStatus;
@@ -197,7 +196,6 @@ export type SalesStatsDaily = {
 
 export type SalesStatsByCourse = {
   course_title: string;
-  package_name: string;
   count: number;
   revenue: number;
 };
