@@ -14,6 +14,7 @@ import {
   FileDown,
   FileText,
   PlayCircle,
+  Quote,
   Search,
   ShieldCheck,
   Star,
@@ -151,6 +152,17 @@ function TrustStat({ icon, label, value }: { icon: React.ReactNode; label: strin
 
 // ---------- reviews ---------------------------------------------------------
 
+// 카드마다 조금씩 다른 아바타 톤을 순환시켜 밋밋함을 덜어냄 (실명 대신
+// "익명" 이니셜만 있어서 색으로라도 개별감을 줌). 브랜드 블루 계열 안에서만.
+const REVIEW_AVATAR_TONES = [
+  "from-[var(--color-primary)] to-blue-600",
+  "from-blue-500 to-indigo-500",
+  "from-indigo-500 to-[var(--color-primary)]",
+  "from-sky-500 to-blue-600",
+  "from-[var(--color-accent)] to-blue-500",
+  "from-blue-600 to-indigo-600",
+];
+
 function ReviewsSection() {
   const [reviews, setReviews] = useState<PostListItem[] | null>(null);
 
@@ -161,11 +173,18 @@ function ReviewsSection() {
   }, []);
 
   return (
-    <section className="py-8 md:py-24">
-      <div className="mx-auto max-w-7xl px-4 md:px-6">
-        <div className="mb-6 md:mb-12 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
+    <section className="relative overflow-hidden py-14 md:py-28">
+      {/* 은은한 배경 글로우 — 히어로와 같은 톤으로 페이지 전체 통일감 */}
+      <div className="pointer-events-none absolute -left-32 top-10 h-72 w-72 rounded-full bg-blue-100/50 blur-[110px]" />
+      <div className="pointer-events-none absolute -right-32 bottom-0 h-80 w-80 rounded-full bg-indigo-100/40 blur-[120px]" />
+
+      <div className="relative mx-auto max-w-7xl px-4 md:px-6">
+        <div className="mb-8 md:mb-14 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <div>
-            <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[var(--color-primary)] ring-1 ring-blue-500/20">
+              Testimonials
+            </span>
+            <h2 className="mt-3 font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
               수강생 후기
             </h2>
             <p className="mt-4 text-lg text-slate-600">
@@ -192,12 +211,18 @@ function ReviewsSection() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {reviews.map((r) => (
+            {reviews.map((r, idx) => (
               <div
                 key={r.id}
-                className="flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 md:p-6 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/5"
+                className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 md:p-7 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--color-primary)]/20 hover:shadow-xl hover:shadow-[var(--color-primary)]/10"
               >
-                <div className="mb-3 flex items-center justify-between gap-2">
+                <Quote
+                  className="pointer-events-none absolute -right-1 -top-1 h-16 w-16 -rotate-6 text-blue-50 transition-colors duration-300 group-hover:text-blue-100"
+                  strokeWidth={1.5}
+                  aria-hidden
+                />
+
+                <div className="relative mb-4 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-0.5">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star
@@ -216,12 +241,26 @@ function ReviewsSection() {
                     </span>
                   ) : null}
                 </div>
-                <p className="line-clamp-4 flex-1 text-sm leading-relaxed text-slate-700">
-                  {r.content}
+
+                <p className="relative line-clamp-4 flex-1 text-[15px] leading-relaxed text-slate-700">
+                  &ldquo;{r.content}&rdquo;
                 </p>
-                <p className="mt-4 border-t border-slate-100 pt-3 text-xs font-medium text-slate-400">
-                  {r.author_name}
-                </p>
+
+                <div className="relative mt-5 flex items-center gap-3 border-t border-slate-100 pt-4">
+                  <div
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-sm font-bold text-white shadow-sm ${
+                      REVIEW_AVATAR_TONES[idx % REVIEW_AVATAR_TONES.length]
+                    }`}
+                  >
+                    {r.author_name.charAt(0)}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-slate-800">
+                      {r.author_name}
+                    </p>
+                    <p className="text-xs text-slate-400">수강생</p>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
