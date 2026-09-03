@@ -40,17 +40,6 @@ router = APIRouter(tags=["courses"])
 # ---------- internal helpers ---------------------------------------------------
 
 
-def _get_active_course(db: Session, course_id: int) -> Course:
-    course = db.scalar(
-        select(Course)
-        .where(Course.id == course_id, Course.is_active.is_(True))
-        .options(selectinload(Course.lectures))
-    )
-    if course is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="강의를 찾을 수 없습니다.")
-    return course
-
-
 def _get_course_visible_to(
     db: Session, course_id: int, viewer: User | None
 ) -> Course:
@@ -277,25 +266,11 @@ def list_course_reviews(
 
 # ---------- enrollment + progress ---------------------------------------------
 
-
-@router.post(
-    "/courses/{course_id}/enroll",
-    response_model=EnrollmentStatus,
-    status_code=status.HTTP_200_OK,
-)
-def enroll(
-    course_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> EnrollmentStatus:
-    course = _get_active_course(db, course_id)
-    enrollment = _get_enrollment(db, current_user.id, course_id)
-    if enrollment is None:
-        enrollment = Enrollment(user_id=current_user.id, course_id=course.id)
-        db.add(enrollment)
-        db.commit()
-        db.refresh(enrollment)
-    return _to_status(course, enrollment)
+# 주의: 예전(수료 후 결제) 모델의 무료 셀프 등록용 POST /courses/{id}/enroll
+# 엔드포인트는 사전결제 모델 전환 후 제거됨 — 결제 없이 누구나 호출해
+# enrollment 를 만들 수 있어 영상 스트리밍/진도/퀴즈 접근 전체를 무료로
+# 우회할 수 있었다. enrollment 는 이제 orders.py 의 _ensure_enrollment
+# (결제 승인 시점)에서만 생성된다.
 
 
 @router.get("/courses/{course_id}/progress", response_model=EnrollmentStatus)

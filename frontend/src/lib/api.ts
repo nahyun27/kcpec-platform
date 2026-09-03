@@ -276,11 +276,6 @@ export async function getCourseReviews(courseId: number): Promise<CourseReview[]
   return data;
 }
 
-export async function enrollCourse(courseId: number): Promise<EnrollmentStatus> {
-  const { data } = await api.post<EnrollmentStatus>(`/courses/${courseId}/enroll`);
-  return data;
-}
-
 export async function getCourseProgress(courseId: number): Promise<EnrollmentStatus> {
   const { data } = await api.get<EnrollmentStatus>(`/courses/${courseId}/progress`);
   return data;
