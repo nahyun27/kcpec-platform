@@ -375,7 +375,23 @@ export default function CourseDetailPage({
                   <Stat icon={<BookOpen className="h-5 w-5" />} label="총 강의 수" value={`${course.lectures.length}강`} />
                   <Stat icon={<Clock className="h-5 w-5" />} label="총 학습 시간" value={formatDuration(totalDuration)} />
                   <div className="my-4 h-px w-full bg-slate-100"></div>
-                  <Stat icon={<FileText className="h-5 w-5" />} label="수강 금액" value={`${course.price.toLocaleString()}원`} highlight />
+                  <Stat
+                    icon={<FileText className="h-5 w-5" />}
+                    label="수강 금액"
+                    highlight
+                    value={
+                      course.original_price != null && course.original_price > course.price ? (
+                        <span className="flex items-baseline gap-1.5">
+                          <span className="text-sm font-medium text-slate-400 line-through">
+                            {course.original_price.toLocaleString()}원
+                          </span>
+                          {course.price.toLocaleString()}원
+                        </span>
+                      ) : (
+                        `${course.price.toLocaleString()}원`
+                      )
+                    }
+                  />
                   <p className="text-[11px] font-medium text-slate-400 mt-1 pl-7">
                     * 결제 완료 시 즉시 수강 가능하며, 진도와 퀴즈를 모두 완료(수료)하면 수료증 PDF를 발급받으실 수 있습니다.
                   </p>
@@ -403,7 +419,7 @@ export default function CourseDetailPage({
   );
 }
 
-function Stat({ icon, label, value, highlight = false }: { icon: React.ReactNode; label: string; value: string; highlight?: boolean }) {
+function Stat({ icon, label, value, highlight = false }: { icon: React.ReactNode; label: string; value: React.ReactNode; highlight?: boolean }) {
   return (
     <div className="flex items-center justify-between py-1.5">
       <div className="flex items-center gap-3 text-slate-500">

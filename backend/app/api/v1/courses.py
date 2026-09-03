@@ -208,6 +208,7 @@ def get_course(
         category=course.category,
         thumbnail_url=course.thumbnail_url,
         price=course.price,
+        original_price=course.original_price,
         is_active=course.is_active,
         description=course.description,
         min_progress_pct=course.min_progress_pct,

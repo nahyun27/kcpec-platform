@@ -142,6 +142,8 @@ export type AdminCourseCreate = {
   description?: string;
   category: CourseCategory;
   price: number;
+  // 할인 전 정가 — 지정 시 price 보다 커야 함.
+  original_price?: number | null;
   thumbnail_url?: string;
   min_progress_pct?: number;
   quiz_pass_score?: number;
@@ -177,6 +179,7 @@ export type AdminCoursePatch = {
   description?: string;
   category?: string;
   price?: number;
+  original_price?: number | null;
   thumbnail_url?: string;
   min_progress_pct?: number;
   quiz_pass_score?: number;

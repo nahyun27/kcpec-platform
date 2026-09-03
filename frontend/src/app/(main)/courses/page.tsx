@@ -253,8 +253,15 @@ function CourseCard({ course, eager = false }: { course: CourseListItem; eager?:
             <BadgeCheck className="h-4 w-4 text-[var(--color-accent)]" />
             수료증 연계
           </span>
-          <span className="text-[15px] font-extrabold text-[var(--color-primary)]">
-            {course.price.toLocaleString()}원~
+          <span className="flex items-baseline gap-1.5">
+            {course.original_price != null && course.original_price > course.price ? (
+              <span className="text-[12px] font-medium text-slate-400 line-through">
+                {course.original_price.toLocaleString()}원
+              </span>
+            ) : null}
+            <span className="text-[15px] font-extrabold text-[var(--color-primary)]">
+              {course.price.toLocaleString()}원~
+            </span>
           </span>
         </div>
       </div>

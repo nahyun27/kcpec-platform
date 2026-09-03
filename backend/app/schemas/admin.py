@@ -28,6 +28,8 @@ class CourseCreate(BaseModel):
     description: str | None = None
     category: CourseCategory
     price: int = Field(ge=0, default=0)
+    # 할인 전 정가 — 입력 시 price 보다 커야 함 (create_course 에서 검증).
+    original_price: int | None = Field(default=None, ge=0)
     thumbnail_url: str | None = None
     min_progress_pct: int = Field(ge=0, le=100, default=90)
     quiz_pass_score: int = Field(ge=0, le=100, default=70)
@@ -38,6 +40,7 @@ class CoursePatch(BaseModel):
     description: str | None = None
     category: CourseCategory | None = None
     price: int | None = Field(default=None, ge=0)
+    original_price: int | None = Field(default=None, ge=0)
     thumbnail_url: str | None = None
     min_progress_pct: int | None = Field(default=None, ge=0, le=100)
     quiz_pass_score: int | None = Field(default=None, ge=0, le=100)

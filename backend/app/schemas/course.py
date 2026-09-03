@@ -21,6 +21,8 @@ class CourseListItem(BaseModel):
     category: CourseCategory
     thumbnail_url: str | None
     price: int
+    # 할인 전 정가 — None 이거나 price 이하면 할인 아님(프론트에서 미노출).
+    original_price: int | None = None
     is_active: bool
 
     model_config = ConfigDict(from_attributes=True)

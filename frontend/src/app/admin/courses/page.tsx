@@ -181,6 +181,11 @@ export default function AdminCoursesPage() {
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500">{c.category}</td>
                     <td className="px-4 py-3 text-right font-medium text-slate-700">
+                      {c.original_price != null && c.original_price > (c.price ?? 0) ? (
+                        <span className="mr-1.5 text-slate-400 line-through">
+                          {c.original_price.toLocaleString()}원
+                        </span>
+                      ) : null}
                       {c.price != null ? `${c.price.toLocaleString()}원` : "—"}
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -719,6 +724,8 @@ function NewCourseModal({
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<CourseCategory>(COURSE_CATEGORIES[0]);
   const [price, setPrice] = useState(110_000);
+  const [hasDiscount, setHasDiscount] = useState(false);
+  const [originalPrice, setOriginalPrice] = useState(110_000);
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -729,12 +736,17 @@ function NewCourseModal({
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setErr(null);
+    if (hasDiscount && originalPrice <= price) {
+      setErr("정가(할인 전)는 판매가보다 커야 합니다.");
+      return;
+    }
     setSubmitting(true);
     try {
       await createCourse({
         title: title.trim(),
         category,
         price,
+        original_price: hasDiscount ? originalPrice : null,
         description: description.trim() || undefined,
       });
       onCreated();
@@ -783,6 +795,26 @@ function NewCourseModal({
             className={inputCls}
           />
         </Field>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={hasDiscount}
+            onChange={(e) => setHasDiscount(e.target.checked)}
+            className="accent-[var(--color-primary)]"
+          />
+          할인가로 표시 (정가에 취소선 + 판매가 노출)
+        </label>
+        {hasDiscount ? (
+          <Field label="정가(할인 전, 원)">
+            <input
+              type="number"
+              min={0}
+              value={originalPrice}
+              onChange={(e) => setOriginalPrice(Number(e.target.value))}
+              className={inputCls}
+            />
+          </Field>
+        ) : null}
         <Field label="설명">
           <textarea
             rows={4}
@@ -810,6 +842,10 @@ function EditCourseModal({
   const [title, setTitle] = useState(course.title);
   const [category, setCategory] = useState<CourseCategory>(course.category);
   const [price, setPrice] = useState<number>(course.price ?? 0);
+  const [hasDiscount, setHasDiscount] = useState(course.original_price != null);
+  const [originalPrice, setOriginalPrice] = useState<number>(
+    course.original_price ?? course.price ?? 0,
+  );
   const [isActive, setIsActive] = useState(course.is_active);
   // description 은 list 응답에 없어 detail 을 별도 fetch.
   const [description, setDescription] = useState<string>("");
@@ -838,6 +874,8 @@ function EditCourseModal({
     title !== course.title ||
     category !== course.category ||
     price !== (course.price ?? 0) ||
+    hasDiscount !== (course.original_price != null) ||
+    (hasDiscount && originalPrice !== (course.original_price ?? 0)) ||
     isActive !== course.is_active ||
     description !== originalDescription;
   const safeClose = () => confirmClose(isDirty, onClose);
@@ -845,6 +883,10 @@ function EditCourseModal({
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setErr(null);
+    if (hasDiscount && originalPrice <= price) {
+      setErr("정가(할인 전)는 판매가보다 커야 합니다.");
+      return;
+    }
     setSubmitting(true);
     try {
       const trimmed = description.trim();
@@ -852,6 +894,7 @@ function EditCourseModal({
         title: title.trim(),
         category,
         price,
+        original_price: hasDiscount ? originalPrice : null,
         is_active: isActive,
         description: trimmed === "" ? undefined : trimmed,
       });
@@ -901,6 +944,26 @@ function EditCourseModal({
             className={inputCls}
           />
         </Field>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={hasDiscount}
+            onChange={(e) => setHasDiscount(e.target.checked)}
+            className="accent-[var(--color-primary)]"
+          />
+          할인가로 표시 (정가에 취소선 + 판매가 노출)
+        </label>
+        {hasDiscount ? (
+          <Field label="정가(할인 전, 원)">
+            <input
+              type="number"
+              min={0}
+              value={originalPrice}
+              onChange={(e) => setOriginalPrice(Number(e.target.value))}
+              className={inputCls}
+            />
+          </Field>
+        ) : null}
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"

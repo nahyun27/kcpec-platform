@@ -38,6 +38,9 @@ class Course(Base):
     thumbnail_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # 심리상담 "별도 문의" 프로그램의 경우 None.
     price: Mapped[int | None] = mapped_column(Integer, nullable=True, default=0)
+    # 할인 전 정가 — None 이면 할인 표시 안 함. price 보다 클 때만 의미 있음
+    # (프론트에서 취소선 정가 + price 로 노출).
+    original_price: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     min_progress_pct: Mapped[int] = mapped_column(Integer, nullable=False, default=90)
     quiz_pass_score: Mapped[int] = mapped_column(Integer, nullable=False, default=70)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

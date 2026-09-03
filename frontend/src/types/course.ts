@@ -18,6 +18,8 @@ export type CourseListItem = {
   category: CourseCategory;
   thumbnail_url: string | null;
   price: number;
+  // 할인 전 정가 — null 이거나 price 이하면 할인 아님(표시 안 함).
+  original_price: number | null;
   is_active: boolean;
 };
 

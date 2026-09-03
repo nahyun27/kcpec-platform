@@ -268,11 +268,17 @@ def admin_user_enrollments(
 
 @router.post("/courses", response_model=CourseListItem, status_code=status.HTTP_201_CREATED)
 def create_course(payload: CourseCreate, db: Session = Depends(get_db)) -> Course:
+    if payload.original_price is not None and payload.original_price <= payload.price:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="정가(할인 전)는 판매가보다 커야 합니다.",
+        )
     course = Course(
         title=payload.title,
         description=payload.description,
         category=payload.category,
         price=payload.price,
+        original_price=payload.original_price,
         thumbnail_url=payload.thumbnail_url,
         min_progress_pct=payload.min_progress_pct,
         quiz_pass_score=payload.quiz_pass_score,
@@ -296,6 +302,11 @@ def patch_course(
 
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(course, field, value)
+    if course.original_price is not None and course.original_price <= (course.price or 0):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="정가(할인 전)는 판매가보다 커야 합니다.",
+        )
     db.commit()
     db.refresh(course)
     return CourseDetail(
@@ -304,6 +315,7 @@ def patch_course(
         category=course.category,
         thumbnail_url=course.thumbnail_url,
         price=course.price,
+        original_price=course.original_price,
         is_active=course.is_active,
         description=course.description,
         min_progress_pct=course.min_progress_pct,
