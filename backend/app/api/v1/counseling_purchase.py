@@ -73,9 +73,10 @@ def purchase(
 ) -> CounselingPurchaseResponse:
     course = _resolve_course(db, payload.counseling_type)
 
-    # basic 만 즉시 결제 흐름; phone/inperson 은 별도 문의 (status=pending 으로 남음)
-    requires_payment = payload.counseling_type == "basic" and (course.price or 0) > 0
-    amount = (course.price or 0) if requires_payment else 0
+    # 가격이 매겨진 상품만 즉시 결제 흐름 — price 가 없거나 0인 상품(예: 대면
+    # 심화상담)은 별도 문의로 남는다. type 을 하드코딩하지 않고 price 로만 판단.
+    requires_payment = (course.price or 0) > 0
+    amount = course.price or 0
 
     order = Order(
         user_id=current_user.id,

@@ -37,32 +37,56 @@ const CERTIFICATES: { slug: string; title: string; issuer: string }[] = [
   },
 ];
 
-// 심리상담은 alembic 0017 부터 단일 상품(기본 프로그램) 으로 운영.
-// 전화/대면 심화상담은 비활성화 (기존 주문 데이터는 그대로 유지).
-// 가격은 backend courses.price (id=12) 와 동기화 필요 — TODO: 클라이언트
-// 확정가 변경 시 함께 갱신.
-const COUNSELING_PRODUCT: {
+// 가격은 backend courses.price/original_price (category=심리상담) 와 동기화
+// 필요 — TODO: 클라이언트 확정가 변경 시 함께 갱신(backend/scripts/seed.py
+// COUNSELING_PROGRAMS 참고).
+type CounselingProduct = {
   type: CounselingType;
+  title: string;
   price: number;
+  originalPrice: number;
   composition: string;
   goals: string[];
   process: string[];
-} = {
-  type: "basic",
-  price: 143_000,
-  composition: "범죄심리상담",
-  goals: [
-    "내담자 개인 경험 분석을 통한 범죄심리 분석",
-    "내담자 맞춤형 재범 방지 솔루션 확립",
-    "법원 제출용 의견서 작성을 위한 심리 평가 및 정리",
-  ],
-  process: [
-    "온라인 설문지 작성",
-    "전문 심리상담사 검토",
-    "AI 초안 + 전문가 검수",
-    "심리상담 의견서 PDF 발급 (1~2 영업일)",
-  ],
 };
+
+const COUNSELING_PRODUCTS: CounselingProduct[] = [
+  {
+    type: "basic",
+    title: "심리상담 의견서",
+    price: 77_000,
+    originalPrice: 154_000,
+    composition: "범죄심리상담 · 서면상담",
+    goals: [
+      "내담자 개인 경험 분석을 통한 범죄심리 분석",
+      "내담자 맞춤형 재범 방지 솔루션 확립",
+      "법원 제출용 의견서 작성을 위한 심리 평가 및 정리",
+    ],
+    process: [
+      "온라인 설문지 작성",
+      "전문 심리상담사 검토 및 작성",
+      "심리상담 의견서 PDF 발급 (1~2 영업일)",
+    ],
+  },
+  {
+    type: "phone",
+    title: "전화 심화상담",
+    price: 440_000,
+    originalPrice: 880_000,
+    composition: "전화 상담 · 회당 20분 · 총 4회",
+    goals: [
+      "전화를 통한 1:1 심층 심리 상담 및 재범 방지 코칭",
+      "회당 20분씩 총 4회, 상담사와의 밀착 케어",
+      "상담 종료 후 심리상담 의견서 발급",
+    ],
+    process: [
+      "신청 및 결제",
+      "상담사와 일정 조율",
+      "전화 상담 진행 (회당 20분 × 4회)",
+      "심리상담 의견서 PDF 발급 (상담 종료 후 1~2 영업일)",
+    ],
+  },
+];
 
 export default function CounselingPage() {
   return (
@@ -155,7 +179,7 @@ export default function CounselingPage() {
         </div>
       </section>
 
-      {/* 3) 단일 상품 — 심리상담 의견서 */}
+      {/* 3) 상담 프로그램 — 서면(기본) / 전화 심화상담 */}
       <section className="bg-slate-50 py-24 sm:py-32">
         <div className="mx-auto max-w-3xl px-4 sm:px-6">
           <header className="mb-10 text-center sm:mb-12">
@@ -163,76 +187,87 @@ export default function CounselingPage() {
               Product
             </p>
             <h2 className="mt-3 font-sans text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-              심리상담 의견서
+              상담 프로그램
             </h2>
             <p className="mt-4 text-[15px] text-slate-500 sm:text-lg">
-              온라인 설문을 작성하시면 전문 심리상담사가 검토 후 법원 제출용
+              온라인 설문 또는 전화 상담을 통해 전문 심리상담사가 법원 제출용
               의견서를 발급해 드립니다.
             </p>
           </header>
 
-          <article className="relative overflow-hidden rounded-[2rem] border-2 border-[var(--color-primary)] bg-white p-8 shadow-xl shadow-[var(--color-primary)]/10 sm:p-10">
-            <div className="mb-6 flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/30">
-                <FileSignature className="h-7 w-7" />
-              </div>
-              <div>
-                <h3 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
-                  심리상담 의견서
-                </h3>
-                <p className="mt-1 text-sm font-semibold text-slate-500">
-                  {COUNSELING_PRODUCT.composition}
-                </p>
-              </div>
-              <div className="ml-auto text-right">
-                <p className="font-sans text-xl font-extrabold text-[var(--color-primary)] sm:text-2xl">
-                  {COUNSELING_PRODUCT.price.toLocaleString()}원
-                </p>
-              </div>
-            </div>
+          <div className="space-y-8">
+            {COUNSELING_PRODUCTS.map((product) => (
+              <article
+                key={product.type}
+                className="relative overflow-hidden rounded-[2rem] border-2 border-[var(--color-primary)] bg-white p-8 shadow-xl shadow-[var(--color-primary)]/10 sm:p-10"
+              >
+                <div className="mb-6 flex items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/30">
+                    <FileSignature className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <h3 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
+                      {product.title}
+                    </h3>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">
+                      {product.composition}
+                    </p>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <p className="text-xs font-medium text-slate-400 line-through">
+                      {product.originalPrice.toLocaleString()}원
+                    </p>
+                    <p className="font-sans text-xl font-extrabold text-[var(--color-primary)] sm:text-2xl">
+                      {product.price.toLocaleString()}원
+                    </p>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-1 gap-6 border-t border-slate-100 pt-6 sm:grid-cols-2">
-              <div>
-                <p className="text-[12px] font-bold uppercase tracking-wider text-slate-400">
-                  상담 목적 및 기대효과
-                </p>
-                <ul className="mt-3 space-y-2.5">
-                  {COUNSELING_PRODUCT.goals.map((g) => (
-                    <li key={g} className="flex items-start gap-2.5">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-primary)]" />
-                      <span className="text-[13px] leading-relaxed text-slate-700">
-                        {g}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <p className="text-[12px] font-bold uppercase tracking-wider text-slate-400">
-                  진행 절차
-                </p>
-                <ul className="mt-3 space-y-2.5">
-                  {COUNSELING_PRODUCT.process.map((s, i) => (
-                    <li key={s} className="flex items-start gap-2.5">
-                      <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-600">
-                        {i + 1}
-                      </span>
-                      <span className="text-[13px] leading-relaxed text-slate-700">
-                        {s}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+                <div className="grid grid-cols-1 gap-6 border-t border-slate-100 pt-6 sm:grid-cols-2">
+                  <div>
+                    <p className="text-[12px] font-bold uppercase tracking-wider text-slate-400">
+                      상담 목적 및 기대효과
+                    </p>
+                    <ul className="mt-3 space-y-2.5">
+                      {product.goals.map((g) => (
+                        <li key={g} className="flex items-start gap-2.5">
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-primary)]" />
+                          <span className="text-[13px] leading-relaxed text-slate-700">
+                            {g}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-bold uppercase tracking-wider text-slate-400">
+                      진행 절차
+                    </p>
+                    <ul className="mt-3 space-y-2.5">
+                      {product.process.map((s, i) => (
+                        <li key={s} className="flex items-start gap-2.5">
+                          <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-600">
+                            {i + 1}
+                          </span>
+                          <span className="text-[13px] leading-relaxed text-slate-700">
+                            {s}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
 
-            <div className="mt-8">
-              <ApplyButton
-                counselingType={COUNSELING_PRODUCT.type}
-                price={COUNSELING_PRODUCT.price}
-              />
-            </div>
-          </article>
+                <div className="mt-8">
+                  <ApplyButton
+                    counselingType={product.type}
+                    price={product.price}
+                    programTitle={product.title}
+                  />
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 

@@ -9,15 +9,17 @@ import type { CounselingType } from "@/types/counseling";
 export default function ApplyButton({
   counselingType,
   price,
+  programTitle,
 }: {
   counselingType: CounselingType;
   price: number | null;
+  programTitle: string;
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
 
-  // basic 외 프로그램은 별도 문의 — tel 링크 버튼.
-  if (counselingType !== "basic" || price == null || price <= 0) {
+  // 가격이 없는 프로그램(예: 대면 심화상담)은 별도 문의 — tel 링크 버튼.
+  if (price == null || price <= 0) {
     return (
       <a
         href="tel:01063773325"
@@ -35,7 +37,7 @@ export default function ApplyButton({
     }
     setSubmitting(true);
     try {
-      const order = await purchaseCounseling("basic");
+      const order = await purchaseCounseling(counselingType);
       const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
 
       if (!tossClientKey) {
@@ -54,7 +56,7 @@ export default function ApplyButton({
         method: "CARD",
         amount: { currency: "KRW", value: order.amount },
         orderId: String(order.order_id),
-        orderName: "전문가 심리상담 - 기본 프로그램",
+        orderName: `전문가 심리상담 - ${programTitle}`,
         successUrl: `${window.location.origin}/checkout/success?next=/mypage?tab=counseling`,
         failUrl: `${window.location.origin}/counseling`,
         // 위 unknown 캐스트는 토스 SDK 의 discriminated union 회피용 (체크아웃 페이지와 동일)

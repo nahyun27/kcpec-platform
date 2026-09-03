@@ -28,29 +28,52 @@ from app.models.quiz import Quiz, QuizAttempt  # noqa: E402
 from app.models.user import User  # noqa: E402
 
 
-COURSES: list[tuple[str, CourseCategory, int]] = [
+# 가격 티어 (전부 정가 대비 50% 할인가 — original_price = price * 2):
+#   기본(22,000/44,000): 준법의식, 생활예절, 행동교정 3종(분노·알코올중독·경제관념)
+#   특수·단체(33,000/66,000): 디지털저작권/개인정보/보호자, 공무원/비즈니스/단체학교
+#   메인(55,000/110,000): 그 외 전부
+COURSES: list[tuple[str, CourseCategory, int, int]] = [
     # alembic 0015 에서 11개 카테고리가 6개로 통합됨 (course.py CourseCategory 주석 참고).
     # 구 카테고리 → 신 카테고리: 음주→교통, 성매매/디지털성범죄→성범죄,
     # 마약/도박→약물·도박, 피싱→재산범죄, 스토킹/학교폭력→폭력.
-    ("준법의식 강화", CourseCategory.LAW_COMPLIANCE, 55_000),
-    ("음주운전 예방", CourseCategory.TRAFFIC, 110_000),
-    ("성범죄 예방", CourseCategory.SEX_OFFENSE, 110_000),
-    ("성매매 예방", CourseCategory.SEX_OFFENSE, 110_000),
-    ("디지털 성범죄 예방", CourseCategory.SEX_OFFENSE, 110_000),
-    ("마약 예방", CourseCategory.DRUG_GAMBLING, 110_000),
-    ("도박 및 도박개장 예방", CourseCategory.DRUG_GAMBLING, 110_000),
-    ("피싱범죄 예방", CourseCategory.PROPERTY_CRIME, 110_000),
-    ("사기횡령배임 등 재산범죄 예방", CourseCategory.PROPERTY_CRIME, 110_000),
-    ("스토킹범죄 예방", CourseCategory.VIOLENCE, 110_000),
-    ("학교폭력 예방", CourseCategory.VIOLENCE, 110_000),
+    ("준법의식 강화", CourseCategory.LAW_COMPLIANCE, 22_000, 44_000),
+    ("음주운전 예방", CourseCategory.TRAFFIC, 55_000, 110_000),
+    ("성범죄 예방", CourseCategory.SEX_OFFENSE, 55_000, 110_000),
+    ("성매매 예방", CourseCategory.SEX_OFFENSE, 55_000, 110_000),
+    ("디지털 성범죄 예방", CourseCategory.SEX_OFFENSE, 55_000, 110_000),
+    ("마약 예방", CourseCategory.DRUG_GAMBLING, 55_000, 110_000),
+    ("도박 및 도박개장 예방", CourseCategory.DRUG_GAMBLING, 55_000, 110_000),
+    ("피싱범죄 예방", CourseCategory.PROPERTY_CRIME, 55_000, 110_000),
+    ("사기횡령배임 등 재산범죄 예방", CourseCategory.PROPERTY_CRIME, 55_000, 110_000),
+    ("스토킹범죄 예방", CourseCategory.VIOLENCE, 55_000, 110_000),
+    ("학교폭력 예방", CourseCategory.VIOLENCE, 55_000, 110_000),
+    # 아래 14개는 alembic 0018/0020 에서 강의 자체(제목·카테고리·is_active=false)를
+    # 만듦 — 여기선 신규 insert 안 되고 항상 "이미 있음" 분기로 가서 가격만
+    # 동기화된다. 가격 티어를 한 곳(seed.py)에서만 관리하기 위해 여기 둠.
+    ("분노 조절·감정 통제 교육", CourseCategory.VIOLENCE, 22_000, 44_000),
+    ("알코올·중독 습관 교정 교육", CourseCategory.TRAFFIC, 22_000, 44_000),
+    ("비즈니스·직장 내 윤리 교육", CourseCategory.LAW_COMPLIANCE, 33_000, 66_000),
+    ("경제 관념·사행성 방지 교육", CourseCategory.PROPERTY_CRIME, 22_000, 44_000),
+    ("디지털 저작권·정보통신 윤리 교육", CourseCategory.PROPERTY_CRIME, 33_000, 66_000),
+    ("개인정보 보호·사이버 금융 범죄 예방", CourseCategory.PROPERTY_CRIME, 33_000, 66_000),
+    ("청소년범죄예방교육", CourseCategory.VIOLENCE, 55_000, 110_000),
+    ("보호자 양육 윤리·예방 교육", CourseCategory.VIOLENCE, 33_000, 66_000),
+    ("폭력범죄 예방교육", CourseCategory.VIOLENCE, 55_000, 110_000),
+    ("운전습관·도로교통법 교육", CourseCategory.TRAFFIC, 55_000, 110_000),
+    ("생활예절교육", CourseCategory.LAW_COMPLIANCE, 22_000, 44_000),
+    ("공무원 윤리 교육", CourseCategory.LAW_COMPLIANCE, 33_000, 66_000),
+    ("단체·학교 내 윤리 교육", CourseCategory.LAW_COMPLIANCE, 33_000, 66_000),
+    ("명예훼손·모욕 예방 교육", CourseCategory.VIOLENCE, 55_000, 110_000),
 ]
 
 # 전문가 심리상담 — 강의가 아닌 상담 상품. /counseling 페이지에서 독립 구매.
 # price=None 은 "별도문의" 의미 (Course.price 가 nullable).
-COUNSELING_PROGRAMS: list[tuple[str, int | None]] = [
-    ("기본 프로그램", 143_000),
-    ("전화 심화상담", None),
-    ("대면 심화상담", None),
+# (title, price, original_price) — price=None 이면 "별도문의".
+# 전화 심화상담: 회당 20분 × 4회 구성.
+COUNSELING_PROGRAMS: list[tuple[str, int | None, int | None]] = [
+    ("기본 프로그램", 77_000, 154_000),
+    ("전화 심화상담", 440_000, 880_000),
+    ("대면 심화상담", None, None),
 ]
 
 def _utc(year: int, month: int, day: int) -> datetime:
@@ -311,21 +334,27 @@ REVIEWS: list[tuple[str, str, datetime]] = [
 
 
 def seed_courses() -> int:
+    """없는 강의는 새로 만들고, 있는 강의는 가격만 COURSES 기준으로 동기화."""
     inserted = 0
     with SessionLocal() as db:
-        for title, category, price in COURSES:
-            if db.scalar(select(Course).where(Course.title == title)) is not None:
-                continue
-            db.add(
-                Course(
-                    title=title,
-                    description=f"{title} 과정 — 자세한 설명은 추후 업데이트됩니다.",
-                    category=category,
-                    price=price,
-                    is_active=True,
+        for title, category, price, original_price in COURSES:
+            existing = db.scalar(select(Course).where(Course.title == title))
+            if existing is None:
+                db.add(
+                    Course(
+                        title=title,
+                        description=f"{title} 과정 — 자세한 설명은 추후 업데이트됩니다.",
+                        category=category,
+                        price=price,
+                        original_price=original_price,
+                        is_active=True,
+                    )
                 )
-            )
-            inserted += 1
+                inserted += 1
+                continue
+            if existing.price != price or existing.original_price != original_price:
+                existing.price = price
+                existing.original_price = original_price
         db.commit()
     return inserted
 
@@ -573,7 +602,7 @@ def seed_counseling_programs() -> int:
     """전문가 심리상담 프로그램 3종을 Course 테이블에 등록 (멱등)."""
     inserted = 0
     with SessionLocal() as db:
-        for title, price in COUNSELING_PROGRAMS:
+        for title, price, original_price in COUNSELING_PROGRAMS:
             existing = db.scalar(
                 select(Course).where(
                     Course.category == CourseCategory.COUNSELING, Course.title == title
@@ -581,8 +610,9 @@ def seed_counseling_programs() -> int:
             )
             if existing is not None:
                 # 가격 변동에 대비해 동기화
-                if existing.price != price:
+                if existing.price != price or existing.original_price != original_price:
                     existing.price = price
+                    existing.original_price = original_price
                 continue
             db.add(
                 Course(
@@ -590,6 +620,7 @@ def seed_counseling_programs() -> int:
                     description=f"{title} — 전문가 심리상담 프로그램",
                     category=CourseCategory.COUNSELING,
                     price=price,
+                    original_price=original_price,
                     is_active=True,
                 )
             )
