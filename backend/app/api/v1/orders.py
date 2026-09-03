@@ -55,6 +55,14 @@ def create_order(
     if course is None or not course.is_active:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="강의를 찾을 수 없습니다.")
 
+    # amount 는 클라이언트가 보내지만 반드시 course.price 와 일치해야 함 —
+    # 아니면 요청을 조작해 임의 금액(예: 100원)으로 주문을 만들고 그 금액만
+    # 실제로 결제한 뒤 정가 강의 수강권을 얻는 금액 위변조가 가능해짐.
+    if payload.amount != (course.price or 0):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail="결제 금액이 강의 가격과 일치하지 않습니다."
+        )
+
     # 사전결제 — 동일 강의의 PAID 주문이 이미 있으면 중복 차단.
     duplicate = db.scalar(
         select(Order).where(
