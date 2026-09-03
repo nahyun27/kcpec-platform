@@ -130,6 +130,23 @@ NOTICES: list[dict] = [
 4. 향후 재발 방지 대책 및 각오
 5. 마무리 사과 및 선처 탄원""",
     },
+    {
+        "title": "양형자료 준비 가이드북 (PDF 다운로드)",
+        "category": NoticeCategory.RESOURCE,
+        "author_name": "한국범죄예방교육센터",
+        "is_pinned": True,
+        "view_count": 0,
+        "created_at": _utc(2026, 9, 3),
+        "file_url": "/static/resources/sentencing_materials_guidebook.pdf",
+        "content": (
+            "무엇을, 왜, 어떻게 준비해야 하는지 — 사건일지부터 반성문·탄원서, "
+            "사건 유형별 추가 자료와 최종 제출 체크리스트까지 한 권에 정리한 "
+            "양형자료 준비 가이드북입니다. 첨부된 PDF를 다운로드해 참고하세요.\n\n"
+            "※ 본 자료는 일반적인 정보 제공을 목적으로 하며, 개별 사건에 대한 "
+            "법률 자문이 아닙니다. 구체적인 사안은 담당 변호사 등 전문가와 "
+            "상담하시기 바랍니다."
+        ),
+    },
 ]
 
 
@@ -320,6 +337,7 @@ def seed_notices() -> int:
                     is_pinned=n["is_pinned"],
                     view_count=n["view_count"],
                     created_at=n["created_at"],
+                    file_url=n.get("file_url"),
                 )
             )
             inserted += 1

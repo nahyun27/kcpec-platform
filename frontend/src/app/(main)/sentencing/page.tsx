@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
   BadgeCheck,
   Check,
+  ClipboardList,
+  Download,
   FileText,
   Scale,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { tokenStorage } from "@/lib/api";
+import { absUrl, tokenStorage } from "@/lib/api";
 
 // ---------- 사건 유형 (Step 1) ------------------------------------------------
 
@@ -145,6 +147,201 @@ const FOLLOWUPS: FollowUp[] = [
   },
 ];
 
+// ---------- 준비 서류 체크리스트 (양형자료 준비 가이드북 Ⅶ장 기준) -----------
+
+type ChecklistGroup = {
+  key: string;
+  label: string;
+  // 어떤 죄명이 선택됐을 때 노출 (공통은 항상 true)
+  trigger: (selected: Set<CrimeKey>) => boolean;
+  items: string[];
+};
+
+const CHECKLIST_GROUPS: ChecklistGroup[] = [
+  {
+    key: "common",
+    label: "공통",
+    trigger: () => true,
+    items: [
+      "사건일지",
+      "반성문(자필)",
+      "자기성찰 리포트·교육이수 소감문",
+      "탄원서(가족·지인 등)",
+      "합의서·처벌불원서·공탁 내역",
+      "가족관계증명서·주민등록등본",
+      "가족 구성원 모두가 나온 사진 2~3장",
+      "재직·사업·급여 등 직업 소명자료",
+      "학업·표창·상장 등",
+      "봉사활동 확인서·기부 내역",
+      "정신건강의학과 등 진료·상담 기록",
+      "기타 유리하다고 생각되는 모든 자료",
+    ],
+  },
+  {
+    key: "drunk",
+    label: "운전·음주 관련",
+    trigger: (s) => s.has("drunk"),
+    items: [
+      "운전 관련 교육 이수증",
+      "교통법규 위반사실 조회(무위반 캡처)",
+      "사건 당일 대리운전 호출·배차 내역",
+      "평소 대리기사 이용 기록",
+      "사건 이후 대중교통 이용내역",
+      "차량 처분(양도·매각·반환) 증빙",
+      "운전의 생계 영향 소명자료",
+      "CBT 기반 재범방지 자가진단 검사지",
+    ],
+  },
+  {
+    key: "violence_property",
+    label: "폭력·재산 등",
+    trigger: (s) =>
+      ["violence", "stalking", "school", "fraud", "gambling"].some((k) =>
+        s.has(k as CrimeKey),
+      ),
+    items: [
+      "분노조절·심리상담 이수/진행 기록",
+      "피해 변제·배상·공탁 내역",
+      "신용회복·금융교육 이수 내역",
+      "재발방지 서약 및 실천 계획",
+    ],
+  },
+];
+
+const CHECKLIST_STORAGE_KEY = "kcpec_sentencing_checklist_v1";
+
+function PrepChecklist({ selected }: { selected: Set<CrimeKey> }) {
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [hydrated, setHydrated] = useState(false);
+
+  // 로컬 저장값 복원 — 브라우저별 개인 체크 진행상황이라 서버 저장 없이 localStorage만 사용.
+  // (SSR 시 window 가 없으므로 마운트 후 useEffect 에서 읽어야 함)
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(CHECKLIST_STORAGE_KEY);
+      if (raw) setChecked(new Set(JSON.parse(raw) as string[]));
+    } catch {
+      // 프라이빗 브라우징 등으로 접근 불가 — 무시하고 빈 상태로 시작
+    } finally {
+      setHydrated(true);
+    }
+  }, []);
+
+  function toggleItem(itemKey: string) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemKey)) next.delete(itemKey);
+      else next.add(itemKey);
+      try {
+        window.localStorage.setItem(
+          CHECKLIST_STORAGE_KEY,
+          JSON.stringify(Array.from(next)),
+        );
+      } catch {
+        // 저장 실패해도 화면상 체크는 유지 — 새로고침 시에만 못 살아남음
+      }
+      return next;
+    });
+  }
+
+  const groups = CHECKLIST_GROUPS.filter((g) => g.trigger(selected));
+  const totalItems = groups.reduce((sum, g) => sum + g.items.length, 0);
+  const totalChecked = groups.reduce(
+    (sum, g) =>
+      sum + g.items.filter((item) => checked.has(`${g.key}:${item}`)).length,
+    0,
+  );
+
+  return (
+    <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <ClipboardList className="h-5 w-5 text-[var(--color-accent)]" />
+          <h2 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
+            내가 직접 준비할 서류
+          </h2>
+        </div>
+        {hydrated ? (
+          <span className="font-mono text-sm font-bold text-slate-500">
+            {totalChecked}/{totalItems}
+          </span>
+        ) : null}
+      </div>
+      <p className="mt-1 text-xs text-slate-500">
+        위 강의·상담은 KCPEC이 발급하는 자료이고, 아래 항목들은 선택하신
+        사건 유형에 맞춰 본인이 직접 모아야 하는 양형자료입니다. 준비되는
+        대로 체크해 보세요 — 이 진행 상황은 이 브라우저에만 저장됩니다.
+      </p>
+
+      <a
+        href={absUrl("/static/resources/sentencing_materials_guidebook.pdf")}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-[#1C3461]/20 bg-[#1C3461]/5 px-4 py-2 text-xs font-bold text-[#1C3461] hover:bg-[#1C3461]/10"
+      >
+        <Download className="h-3.5 w-3.5" />
+        양형자료 준비 가이드북 PDF 다운로드
+      </a>
+
+      <div className="mt-6 space-y-6">
+        {groups.map((g) => {
+          const groupChecked = g.items.filter((item) =>
+            checked.has(`${g.key}:${item}`),
+          ).length;
+          return (
+            <div key={g.key}>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-800">{g.label}</h3>
+                <span className="font-mono text-xs text-slate-400">
+                  {groupChecked}/{g.items.length}
+                </span>
+              </div>
+              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {g.items.map((item) => {
+                  const itemKey = `${g.key}:${item}`;
+                  const active = checked.has(itemKey);
+                  return (
+                    <li key={itemKey}>
+                      <button
+                        type="button"
+                        onClick={() => toggleItem(itemKey)}
+                        className={`flex w-full items-start gap-2 rounded-lg border p-2.5 text-left text-[13px] transition-colors ${
+                          active
+                            ? "border-[#1C3461]/30 bg-[#1C3461]/5 text-slate-500 line-through"
+                            : "border-zinc-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div
+                          className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                            active
+                              ? "border-[#1C3461] bg-[#1C3461]"
+                              : "border-slate-300 bg-white"
+                          }`}
+                        >
+                          {active ? (
+                            <Check className="h-2.5 w-2.5 text-white" />
+                          ) : null}
+                        </div>
+                        <span>{item}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="mt-6 text-[11px] leading-relaxed text-slate-400">
+        본 체크리스트는 일반적인 정보 제공을 목적으로 하며, 개별 사건에 대한
+        법률 자문이 아닙니다. 구체적인 사안은 담당 변호사 등 전문가와
+        상담하시기 바랍니다.
+      </p>
+    </section>
+  );
+}
+
 // ---------- 페이지 ------------------------------------------------------------
 
 export default function SentencingPage() {
@@ -275,6 +472,7 @@ export default function SentencingPage() {
                 recommendation={recommendation}
                 disabledCourses={disabledCourses}
                 onToggleCourse={toggleCourse}
+                selected={selected}
               />
             ) : null}
 
@@ -663,10 +861,12 @@ function Step3({
   recommendation,
   disabledCourses,
   onToggleCourse,
+  selected,
 }: {
   recommendation: Recommendation;
   disabledCourses: Set<CourseId>;
   onToggleCourse: (id: CourseId) => void;
+  selected: Set<CrimeKey>;
 }) {
   const hasDisabled = disabledCourses.size > 0;
   return (
@@ -717,9 +917,11 @@ function Step3({
           </p>
         ) : null}
         <p className="mt-4 text-xs text-slate-500">
-          * 실제 발급은 강의 수료 후 결제 흐름에서 패키지를 선택하면 진행됩니다.
+          * 수료증은 결제 후 강의를 수료(진도+퀴즈 통과)하면 발급됩니다.
         </p>
       </div>
+
+      <PrepChecklist selected={selected} />
     </section>
   );
 }
