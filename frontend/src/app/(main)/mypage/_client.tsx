@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
 import {
@@ -43,8 +43,28 @@ type OrderWithExtras = OrderResponse & {
   survey?: SurveyStatusResponse | null;
 };
 
+type TabKey = "courses" | "counseling" | "orders";
+
+const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
+  { key: "courses", label: "내 강의실", icon: <BookOpen className="h-4 w-4" /> },
+  { key: "counseling", label: "전문가 심리상담", icon: <FileText className="h-4 w-4" /> },
+  { key: "orders", label: "결제 내역", icon: <CreditCard className="h-4 w-4" /> },
+];
+
+function isTabKey(s: string | null): s is TabKey {
+  return s === "courses" || s === "counseling" || s === "orders";
+}
+
 export default function MyPageClient() {
   const router = useRouter();
+  const search = useSearchParams();
+  const tabParam = search.get("tab");
+  const tab: TabKey = isTabKey(tabParam) ? tabParam : "courses";
+  function setTab(next: TabKey) {
+    const params = new URLSearchParams(search.toString());
+    params.set("tab", next);
+    router.replace(`/mypage?${params.toString()}`, { scroll: false });
+  }
   const [me, setMe] = useState<UserResponse | null>(null);
   const [enrollments, setEnrollments] = useState<EnrollmentWithProgress[]>([]);
   const [orders, setOrders] = useState<OrderWithExtras[]>([]);
@@ -141,68 +161,98 @@ export default function MyPageClient() {
         description="수강 중인 강의와 결제·발급 내역, 계정 정보를 관리하세요."
       />
 
+      {/* 탭 네비게이션 */}
+      <div className="hide-scrollbar -mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+        <div className="inline-flex w-max gap-1 rounded-full bg-slate-100/80 p-1 shadow-inner sm:w-auto sm:gap-1.5 border border-slate-200/60">
+          {TABS.map((t) => {
+            const active = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTab(t.key)}
+                className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 sm:gap-2 sm:px-6 sm:py-2.5 ${
+                  active
+                    ? "bg-white text-[var(--color-primary)] shadow-md ring-1 ring-black/5 scale-[1.02]"
+                    : "text-slate-500 hover:bg-slate-200/60 hover:text-slate-800"
+                }`}
+              >
+                {t.icon}
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-6 md:gap-8 lg:grid-cols-12 lg:gap-12">
-        {/* Left Column (Main Content) */}
-        <div className="space-y-8 md:space-y-12 lg:col-span-8">
-          <Section icon={<BookOpen className="h-6 w-6 text-[var(--color-accent)]" />} title="수강 현황">
-            {enrollments.length === 0 ? (
-              <EmptyState
-                text="현재 수강 중인 강의가 없습니다."
-                cta={{ href: "/courses", label: "강의 둘러보기" }}
-              />
-            ) : (
-              <ul className="space-y-4">
-                {enrollments.map((e) => (
-                  <EnrollmentRow
-                    key={e.course_id}
-                    enrollment={e}
-                    order={orders.find((o) => o.course_id === e.course_id)}
-                  />
-                ))}
-              </ul>
-            )}
-          </Section>
+        {/* Left Column (Main Content) — 탭에 따라 섹션 하나만 노출 */}
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out lg:col-span-8">
+          {tab === "courses" ? (
+            <Section icon={<BookOpen className="h-6 w-6 text-[var(--color-accent)]" />} title="내 강의실">
+              {enrollments.length === 0 ? (
+                <EmptyState
+                  text="현재 수강 중인 강의가 없습니다."
+                  cta={{ href: "/courses", label: "강의 둘러보기" }}
+                />
+              ) : (
+                <ul className="space-y-4">
+                  {enrollments.map((e) => (
+                    <EnrollmentRow
+                      key={e.course_id}
+                      enrollment={e}
+                      order={orders.find((o) => o.course_id === e.course_id)}
+                    />
+                  ))}
+                </ul>
+              )}
+            </Section>
+          ) : null}
 
-          <Section
-            icon={<FileText className="h-6 w-6 text-[var(--color-accent)]" />}
-            title="심리상담 내역"
-          >
-            {counselingOrders.length === 0 ? (
-              <EmptyState
-                text="심리상담 신청 내역이 없습니다."
-                cta={{ href: "/counseling", label: "심리상담 알아보기" }}
-              />
-            ) : (
-              <ul className="space-y-4">
-                {counselingOrders.map((co) => (
-                  <CounselingOrderCard
-                    key={co.order_id}
-                    order={co}
-                    onViewAnswers={(id) => setAnswersSurveyId(id)}
-                  />
-                ))}
-              </ul>
-            )}
-          </Section>
+          {tab === "counseling" ? (
+            <Section
+              icon={<FileText className="h-6 w-6 text-[var(--color-accent)]" />}
+              title="전문가 심리상담"
+            >
+              {counselingOrders.length === 0 ? (
+                <EmptyState
+                  text="심리상담 신청 내역이 없습니다."
+                  cta={{ href: "/counseling", label: "심리상담 알아보기" }}
+                />
+              ) : (
+                <ul className="space-y-4">
+                  {counselingOrders.map((co) => (
+                    <CounselingOrderCard
+                      key={co.order_id}
+                      order={co}
+                      onViewAnswers={(id) => setAnswersSurveyId(id)}
+                    />
+                  ))}
+                </ul>
+              )}
+            </Section>
+          ) : null}
 
-          <Section icon={<CreditCard className="h-6 w-6 text-[var(--color-accent)]" />} title="결제 · 발급 내역">
-            {orders.length === 0 ? (
-              <EmptyState text="결제 내역이 존재하지 않습니다." />
-            ) : (
-              <ul className="space-y-4">
-                {orders.map((o) => (
-                  <OrderRow
-                    key={o.id}
-                    order={o}
-                    isCourseCompleted={
-                      enrollments.find((e) => e.course_id === o.course_id)?.is_completed ?? false
-                    }
-                    onViewAnswers={(id) => setAnswersSurveyId(id)}
-                  />
-                ))}
-              </ul>
-            )}
-          </Section>
+          {tab === "orders" ? (
+            <Section icon={<CreditCard className="h-6 w-6 text-[var(--color-accent)]" />} title="결제 내역">
+              {orders.length === 0 ? (
+                <EmptyState text="결제 내역이 존재하지 않습니다." />
+              ) : (
+                <ul className="space-y-4">
+                  {orders.map((o) => (
+                    <OrderRow
+                      key={o.id}
+                      order={o}
+                      isCourseCompleted={
+                        enrollments.find((e) => e.course_id === o.course_id)?.is_completed ?? false
+                      }
+                      onViewAnswers={(id) => setAnswersSurveyId(id)}
+                    />
+                  ))}
+                </ul>
+              )}
+            </Section>
+          ) : null}
         </div>
 
         {/* Right Column (Sidebar) */}
