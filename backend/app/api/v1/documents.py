@@ -96,7 +96,7 @@ def issue_document(
     db.flush()
 
     pdf_path, issue_number = generate_certificate_pdf(
-        course_id=course.id,
+        course_title=course.title,
         doc_id=doc.id,
         file_token=doc.access_token,
         recipient_name=payload.recipient_name,

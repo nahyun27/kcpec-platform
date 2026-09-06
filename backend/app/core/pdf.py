@@ -1,7 +1,7 @@
 """수료증 PDF 생성기 — PPTX 템플릿 + LibreOffice headless.
 
 흐름:
-1. course_id 로 CERT_TEMPLATE_MAP 조회 → PPTX 파일 경로 + 과정코드 + 강의명
+1. course.title 로 CERT_TEMPLATE_MAP 조회 → PPTX 파일 경로 + 과정코드 + 강의명
 2. PPTX 사본을 임시 디렉터리에 만들고 python-pptx 로 셀 텍스트 치환
    - Shape 90 : 증서번호 텍스트박스
    - Shape 88 : 발급일자 텍스트박스
@@ -57,9 +57,9 @@ def _find_soffice() -> str:
     )
 
 
-def build_issue_number(course_id: int, doc_id: int, issued: date) -> str:
+def build_issue_number(course_title: str, doc_id: int, issued: date) -> str:
     """{year}-kcpec-{과정코드}-{doc_id 5자리} 형식의 증서번호."""
-    cfg = get_cert_template(course_id)
+    cfg = get_cert_template(course_title)
     code = cfg["code"] if cfg else "00"
     return f"{issued.year}-kcpec-{code}-{doc_id:05d}"
 
@@ -162,7 +162,7 @@ _convert_to_pdf = convert_office_to_pdf
 
 def generate_certificate_pdf(
     *,
-    course_id: int,
+    course_title: str,
     doc_id: int,
     file_token: str,
     recipient_name: str,
@@ -171,19 +171,21 @@ def generate_certificate_pdf(
 ) -> tuple[Path, str]:
     """수료증 PDF 를 생성하고 (저장 경로, 증서번호) 를 반환.
 
+    course_title: DB course.title 원문 — 템플릿 조회 키(course_id 는 로컬/운영
+    DB마다 다른 강의를 가리킬 수 있어 쓰면 안 됨. cert_config.py 참고).
     file_token: 저장 파일명에 쓰는 랜덤 토큰. /static 이 인증 없이 공개
     서빙되므로 doc_id(순차 정수)를 파일명에 쓰면 정수를 늘려가며 전체
     발급 문서를 스캔당할 수 있어, 반드시 추측 불가능한 값을 넘겨야 함.
     """
-    cfg = get_cert_template(course_id)
+    cfg = get_cert_template(course_title)
     if cfg is None:
-        raise ValueError(f"등록된 수료증 템플릿이 없습니다: course_id={course_id}")
+        raise ValueError(f"등록된 수료증 템플릿이 없습니다: course_title={course_title!r}")
 
     src = TEMPLATES_DIR / cfg["file"]
     if not src.exists():
         raise RuntimeError(f"템플릿 파일 누락: {src}")
 
-    cert_number = build_issue_number(course_id, doc_id, issued_date)
+    cert_number = build_issue_number(course_title, doc_id, issued_date)
 
     PDF_DIR.mkdir(parents=True, exist_ok=True)
     final_path = PDF_DIR / f"cert_{file_token}.pdf"
