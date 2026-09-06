@@ -11,6 +11,7 @@ import {
 } from "@/lib/api";
 import type { CourseDetail, CourseReview } from "@/types/course";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
+import { ReviewWriteForm } from "@/components/features/ReviewWriteForm";
 import { Spinner } from "@/components/ui/Spinner";
 import {
   ArrowLeft,
@@ -50,6 +51,7 @@ export default function CourseDetailPage({
   const [reviews, setReviews] = useState<CourseReview[]>([]);
   const [reviewsLoaded, setReviewsLoaded] = useState(false);
   const [expandedReviews, setExpandedReviews] = useState<Set<number>>(new Set());
+  const [showReviewModal, setShowReviewModal] = useState(false);
   const [sidebarFlash, setSidebarFlash] = useState(false);
   const sidebarRef = useRef<HTMLDivElement | null>(null);
 
@@ -87,6 +89,22 @@ export default function CourseDetailPage({
       cancelled = true;
     };
   }, [courseId]);
+
+  async function reloadReviews() {
+    try {
+      setReviews(await getCourseReviews(courseId));
+    } catch {
+      /* 재조회 실패해도 기존 목록 유지 */
+    }
+  }
+
+  function handleOpenReviewModal() {
+    if (!tokenStorage.getAccess()) {
+      router.push(`/login?next=/courses/${courseId}`);
+      return;
+    }
+    setShowReviewModal(true);
+  }
 
   // 수강 등록 여부 — 비로그인이면 false, 로그인 + 미등록(404)도 false.
   useEffect(() => {
@@ -175,7 +193,7 @@ export default function CourseDetailPage({
     <div className="min-h-screen bg-slate-50/50 pb-24">
       {/* Top Navigation Bar */}
       <div className="border-b border-slate-200/60 bg-white/80 backdrop-blur-md sticky top-0 z-40">
-        <div className="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
+        <div className="mx-auto max-w-6xl px-6 pt-6 pb-4 flex items-center justify-between">
           <Link
             href="/courses"
             className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition-colors hover:text-[var(--color-primary)]"
@@ -220,7 +238,7 @@ export default function CourseDetailPage({
             <div className="relative mx-auto w-full max-w-lg lg:ml-auto lg:mr-0">
               <div className="absolute -inset-4 rounded-[2rem] bg-gradient-to-br from-[var(--color-primary)]/20 to-transparent blur-2xl"></div>
               <div className="relative overflow-hidden rounded-3xl border border-slate-200/60 bg-white shadow-2xl">
-                <CourseThumbnail category={course.category} title={course.title}>
+                <CourseThumbnail category={course.category} title={course.title} thumbnailUrl={course.thumbnail_url}>
                   <div
                     className="absolute inset-0 flex items-center justify-center bg-black/20 transition-all hover:bg-black/30 group cursor-pointer"
                     onClick={handlePlayClick}
@@ -286,12 +304,13 @@ export default function CourseDetailPage({
                     </span>
                   ) : null}
                 </div>
-                <Link
-                  href="/community?tab=review"
+                <button
+                  type="button"
+                  onClick={handleOpenReviewModal}
                   className="rounded-full bg-white px-4 py-2 text-[13px] font-bold text-slate-700 shadow-sm ring-1 ring-inset ring-slate-200 transition-colors hover:bg-slate-50"
                 >
                   후기 작성하기
-                </Link>
+                </button>
               </div>
               
               {!reviewsLoaded ? (
@@ -418,6 +437,29 @@ export default function CourseDetailPage({
 
         </div>
       </div>
+
+      {showReviewModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 py-10 backdrop-blur-sm"
+          onClick={() => setShowReviewModal(false)}
+        >
+          <div
+            className="w-full max-w-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ReviewWriteForm
+              fixedCourseId={courseId}
+              fixedCourseTitle={course.title}
+              fixedCourseCategory={course.category}
+              onCancel={() => setShowReviewModal(false)}
+              onCreated={async () => {
+                setShowReviewModal(false);
+                await reloadReviews();
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -441,7 +483,7 @@ function Stat({ icon, label, value, highlight = false }: { icon: React.ReactNode
 const PURCHASE_INFO_ITEMS: { title: string; body: string }[] = [
   {
     title: "배송 및 수강기간",
-    body: "본 서비스는 배송 상품이 아닌 한국범죄예방교육센터 홈페이지에서 수강 가능한 디지털 상품입니다. 수강 기간은 7일입니다.",
+    body: "본 서비스는 배송 상품이 아닌 한국범죄예방교육센터 홈페이지에서 수강 가능한 디지털 상품입니다. 수강 기간은 30일입니다.",
   },
   {
     title: "교환 및 환불 정책",

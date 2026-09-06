@@ -48,6 +48,11 @@ export type EnrollmentWithProgress = {
   expires_at: string | null;
   overall_progress_pct: number;
   has_quiz: boolean;
+  total_lectures: number;
+  completed_lectures: number;
+  // 다음에 이어볼 차시(아직 안 끝낸 첫 차시) 제목 — 다 끝났으면 null.
+  current_lecture_title: string | null;
+  current_lecture_order: number | null;
 };
 
 // 전문가 심리상담 독립 구매

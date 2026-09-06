@@ -48,7 +48,7 @@ export default function WatchPage({
   // 에러 원인을 분류해 사용자에게 다른 메시지 표시.
   // - inactive: 강의가 비공개(준비 중)
   // - not_enrolled: 결제/수강 신청 안 한 상태로 직접 접근
-  // - expired: 수강기간(7일) 만료
+  // - expired: 수강기간(30일) 만료
   // - server: 일시적 서버/네트워크 오류
   const [errKind, setErrKind] = useState<
     "inactive" | "not_enrolled" | "expired" | "server" | null
@@ -70,10 +70,20 @@ export default function WatchPage({
   const playerDurationRef = useRef(0);
   // 이미 완료 PATCH 를 보낸 강의 ID 집합 (중복 PATCH 방지)
   const completedRef = useRef<Set<number>>(new Set());
+  // 현재 활성 강의의 DB duration_seconds 미러 — 95% 자동완료 판정에서
+  // 플레이어의 순간적인 오측정치 대신 이 값을 우선 신뢰하기 위함.
+  const activeLectureDurationRef = useRef(0);
+  // 영상이 현재 재생 중인지 — 페이지 이탈 경고에 사용
+  const isPlayingRef = useRef(false);
 
   useEffect(() => {
     playerDurationRef.current = playerDuration;
   }, [playerDuration]);
+
+  useEffect(() => {
+    activeLectureDurationRef.current =
+      course?.lectures.find((l) => l.id === activeLectureId)?.duration_seconds ?? 0;
+  }, [course, activeLectureId]);
 
   useEffect(() => {
     if (!status) return;
@@ -81,6 +91,41 @@ export default function WatchPage({
       if (p.is_completed) completedRef.current.add(p.lecture_id);
     }
   }, [status]);
+
+  // 재생 중 탭 닫기/새로고침/주소창 이동 시 브라우저 기본 이탈 확인창 표시
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isPlayingRef.current) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
+  // 재생 중 다른 페이지로 이동하는 링크 클릭 시 이탈 확인 — capture 단계에서
+  // Next.js <Link> 의 클라이언트 라우팅보다 먼저 가로채 확인창을 띄운다.
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (!isPlayingRef.current) return;
+      const anchor = (e.target as HTMLElement | null)?.closest("a[href]") as
+        | HTMLAnchorElement
+        | null;
+      if (!anchor) return;
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (url.pathname === window.location.pathname) return;
+      const ok = window.confirm(
+        "영상이 재생 중입니다. 지금 이동하면 재생이 중단됩니다. 계속 이동하시겠습니까?",
+      );
+      if (!ok) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener("click", handleClick, true);
+    return () => document.removeEventListener("click", handleClick, true);
+  }, []);
 
   // 1) 강의 + 수강 상태 초기 로드
   useEffect(() => {
@@ -253,7 +298,11 @@ export default function WatchPage({
       // 일반 유저는 403 silent — 대신 진도 PATCH(/lectures/{id}/progress) 가
       // duration_seconds 를 함께 전달하므로 본인 수강 강의는 그쪽에서 갱신됨.
       const actualDuration = Math.round(duration);
-      if (actualDuration > 0) {
+      const existingDuration =
+        course?.lectures.find((l) => l.id === lectureId)?.duration_seconds ?? 0;
+      // 버퍼링 중 플레이어가 실제보다 짧은 duration 을 순간적으로 보고할 수 있어,
+      // 이미 저장된 값보다 큰 경우에만 백필 — 잘못된 값으로 덮어쓰는 것을 방지.
+      if (actualDuration > existingDuration) {
         patchAdminLecture(lectureId, { duration_seconds: actualDuration })
           .then(() => {
             setCourse((prev) =>
@@ -274,13 +323,14 @@ export default function WatchPage({
           });
       }
     },
-    [activeLectureId],
+    [activeLectureId, course],
   );
 
   const handleTimeUpdate = useCallback(
     (info: VideoPlayerTimeUpdate) => {
       const t = info.currentTime;
       lastCurrentTimeRef.current = t;
+      isPlayingRef.current = info.isPlaying;
       const delta = t - lastTimeRef.current;
       // 자연 재생인 경우만 watched_seconds 누적
       if (
@@ -295,19 +345,25 @@ export default function WatchPage({
       lastTimeRef.current = t;
 
       // 95% 이상 → 자동 완료
+      // duration 은 이미 검증된 DB 값(lecture.duration_seconds)을 우선 신뢰한다 —
+      // 플레이어가 버퍼링 중 순간적으로 실제보다 짧은 duration 을 보고하면
+      // (S3 range 스트리밍 초기 구간에서 발생 가능) info.duration 만으로는
+      // 재생 30~40초만에 "완료"로 오판정될 수 있기 때문.
+      const reliableDuration = activeLectureDurationRef.current || info.duration;
       if (
         activeLectureId != null &&
-        info.duration > 0 &&
-        t / info.duration >= 0.95 &&
+        reliableDuration > 0 &&
+        t / reliableDuration >= 0.95 &&
         !completedRef.current.has(activeLectureId)
       ) {
-        void markCompleted(activeLectureId, info.duration);
+        void markCompleted(activeLectureId, reliableDuration);
       }
     },
     [activeLectureId, markCompleted],
   );
 
   const handleEnded = useCallback(() => {
+    isPlayingRef.current = false;
     if (activeLectureId == null) return;
     void markCompleted(activeLectureId, playerDuration);
   }, [activeLectureId, markCompleted, playerDuration]);
@@ -374,8 +430,12 @@ export default function WatchPage({
   const activeLecture = course?.lectures.find((l) => l.id === activeLectureId);
   const activeIsCompleted =
     activeLectureId != null && completedIds.has(activeLectureId);
+  // DB duration_seconds(검증된 값)를 우선 신뢰 — 플레이어 실측치(playerDuration)는
+  // DB 에 아직 값이 없는 강의에 한해 보조로만 사용.
   const effectiveDuration =
-    playerDuration > 0 ? playerDuration : activeLecture?.duration_seconds ?? 0;
+    (activeLecture?.duration_seconds ?? 0) > 0
+      ? (activeLecture?.duration_seconds ?? 0)
+      : playerDuration;
   const currentPct =
     effectiveDuration > 0 ? Math.min(100, (liveWatched / effectiveDuration) * 100) : 0;
 
@@ -554,7 +614,7 @@ function WatchErrorPanel({
     },
     expired: {
       title: "수강 기간이 만료되었습니다.",
-      desc: "결제일로부터 7일 동안 수강하실 수 있습니다. 연장이 필요하시면 admin@kcpec.co.kr 로 문의해 주세요.",
+      desc: "결제일로부터 30일 동안 수강하실 수 있습니다. 연장이 필요하시면 admin@kcpec.co.kr 로 문의해 주세요.",
     },
     server: {
       title: "일시적인 오류가 발생했습니다.",

@@ -149,6 +149,27 @@ export default function VideoPlayer({
         });
       });
 
+      // play/pause 즉시 상위에 알림 — timeupdate 는 재생 중에만 계속 발생하므로
+      // pause 직후에는 다음 tick이 없어 상위의 "재생 중" 상태가 stale 하게 남는다
+      // (이탈 경고가 일시정지 후에도 계속 뜨는 원인이었음).
+      instance.on("pause", () => {
+        cbRef.current.onTimeUpdate?.({
+          currentTime: instance.currentTime,
+          duration: instance.duration,
+          isPlaying: false,
+          isSeeking: instance.seeking,
+        });
+      });
+
+      instance.on("play", () => {
+        cbRef.current.onTimeUpdate?.({
+          currentTime: instance.currentTime,
+          duration: instance.duration,
+          isPlaying: true,
+          isSeeking: instance.seeking,
+        });
+      });
+
       instance.on("seeking", () => {
         if (isProgrammaticSeek) {
           isProgrammaticSeek = false;

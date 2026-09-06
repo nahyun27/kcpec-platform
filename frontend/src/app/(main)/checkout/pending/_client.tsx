@@ -10,6 +10,7 @@ const BANK_ACCOUNT =
 export default function CheckoutPendingPage() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("order_id");
+  const bundleId = searchParams.get("bundle_id");
 
   return (
     <div className="mx-auto max-w-xl px-4 py-16">
@@ -17,7 +18,11 @@ export default function CheckoutPendingPage() {
         <p className="text-center font-sans text-2xl font-bold text-[var(--color-primary)]">
           무통장 입금 안내
         </p>
-        {orderId ? (
+        {bundleId ? (
+          <p className="mt-2 text-center text-xs text-zinc-500">
+            묶음 주문번호 #{bundleId} · 선택하신 강의 전체가 함께 확정됩니다.
+          </p>
+        ) : orderId ? (
           <p className="mt-2 text-center text-xs text-zinc-500">주문번호 #{orderId}</p>
         ) : null}
 

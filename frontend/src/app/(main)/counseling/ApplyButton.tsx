@@ -55,7 +55,12 @@ export default function ApplyButton({
       await widget.requestPayment({
         method: "CARD",
         amount: { currency: "KRW", value: order.amount },
-        orderId: String(order.order_id),
+        // 서버 /orders/toss/confirm 이 항상 `KCPEC-{order.id}` 형식으로
+        // Toss confirm API를 호출한다(체크아웃 페이지와 동일 규칙이어야 함).
+        // 여기서 bare order_id 만 보내면 위젯이 등록한 orderId 와 서버가
+        // confirm 시 보내는 orderId 가 달라 Toss 가 결제 승인을 거부해
+        // 심리상담 결제가 전부 실패하고 있었다(2026-09 발견).
+        orderId: `KCPEC-${order.order_id}`,
         orderName: `전문가 심리상담 - ${programTitle}`,
         successUrl: `${window.location.origin}/checkout/success?next=/mypage?tab=counseling`,
         failUrl: `${window.location.origin}/counseling`,

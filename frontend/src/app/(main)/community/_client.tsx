@@ -6,11 +6,12 @@ import { useEffect, useMemo, useState } from "react";
 import { isAxiosError } from "axios";
 import {
   createPost,
+  getFaqs,
   getNotices,
   getPosts,
   tokenStorage,
 } from "@/lib/api";
-import type { NoticeListItem, PostListItem } from "@/types/community";
+import type { Faq, NoticeListItem, PostListItem } from "@/types/community";
 import {
   ChevronDown,
   Pin,
@@ -26,6 +27,7 @@ import {
   Lock
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { ReviewWriteForm } from "@/components/features/ReviewWriteForm";
 
 type TabKey = "notice" | "qna" | "column" | "review" | "faq";
 
@@ -61,7 +63,7 @@ export default function CommunityClient() {
 
   return (
     <div className="min-h-screen bg-slate-50/50">
-      <div className="bg-white pt-6 md:pt-12 relative z-10">
+      <div className="bg-white pt-10 md:pt-16 relative z-10 border-b border-slate-100">
         <div className="mx-auto max-w-5xl px-6">
           <PageHeader
             title="커뮤니티"
@@ -72,7 +74,7 @@ export default function CommunityClient() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 pt-6 md:pt-10 pb-12 md:pb-24">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 pt-8 md:pt-12 pb-12 md:pb-24">
 
       {/* Segmented Control / Pill Navigation */}
       <div className="hide-scrollbar -mx-4 mb-8 overflow-x-auto px-4 pb-2 sm:mx-0 sm:mb-10 sm:px-0">
@@ -707,57 +709,35 @@ const FAQ_CATEGORY_TABS: { key: FaqCategory; label: string }[] = [
   { key: "etc", label: "기타" },
 ];
 
-const FAQ_ITEMS: { q: string; a: string; cat: Exclude<FaqCategory, "all"> }[] = [
-  {
-    cat: "docs",
-    q: "수료증 또는 상담의견서 등은 언제 어떻게 받을 수 있나요?",
-    a: "수강자가 강의를 수강한 내역이 확인되면 익일 24시까지 가입하신 이메일을 통해 pdf파일로 보내드립니다.\n상담의견서는 상담 후 24시간 이내에 가입하신 이메일을 통해 pdf파일로 보내드립니다.",
-  },
-  {
-    cat: "docs",
-    q: "수료증을 재발급 받을 수 있나요?",
-    a: "수료증을 재발급 받기 위해서는 법령에 따른 개인정보 보관 기간 내에 admin@kcpec.co.kr 이메일로 문의주시면 1회에 한하여 재발급해드립니다.",
-  },
-  {
-    cat: "refund",
-    q: "환불 및 취소가 가능한가요?",
-    a: "결제 오류에 대한 환불이나 취소는 가능하나, 강의 수강 시작 후 또는 상담 의뢰 후 환불이나 취소는 불가합니다.",
-  },
-  {
-    cat: "counseling",
-    q: "상담 절차는 어떻게 진행되나요?",
-    a: "기본 상담 절차는 이용자가 상담 설문지를 작성하여 제출하는 서면상담 방식으로 진행됩니다.\n심화상담은 의뢰를 하실 경우 상담사와 일정을 맞춘 후 상담사가 해당 시간에 이용자에게 전화를 드리거나 대면상담을 진행합니다.\n모든 상담이 종료된 후 24시간 이내에 상담의견서 등을 pdf파일로 가입하신 이메일로 보내드립니다.",
-  },
-  {
-    cat: "docs",
-    q: "발급받은 서류를 법원이나 수사기관에 제출해도 되나요?",
-    a: "네, 저희 센터에서 발급한 수료증, 상담 의견서, 서약서 등 자료는 법원이나 수사기관, 학교 등 공공기관에 제출하셔도 됩니다.",
-  },
-  {
-    cat: "etc",
-    q: "양형자료만 내면 무조건 감형이 되는 건가요?",
-    a: "그렇지 않습니다. 검찰이나 법원의 양형판단은 다양한 요소들을 바탕으로 종합적으로 이루어지기 때문입니다.\n다만 수료증, 상담 의견서 등 양형자료는 재범예방교육 또는 심리상담을 통해 피고인(또는 피의자)이 재범하지 않을 것을 굳게 다짐하고 있다는 사정을 경찰, 검찰이나 법원에 알리는 효과적인 방법이 될 수 있습니다.",
-  },
-  {
-    cat: "docs",
-    q: "발급받은 서류의 진위 확인이 가능한가요?",
-    a: "네 가능합니다. 저희 센터에서 발급하는 서류는 워터마크가 삽입되어 있으며 문서일련번호로 진위 확인이 가능합니다.\n서류의 진위확인을 원하시는 경우, 서류 사본과 문의하실 내용을 적어 admin@kcpec.co.kr로 이메일 문의를 주시면 답변드립니다.",
-  },
-  {
-    cat: "etc",
-    q: "사건에 대한 변호사 상담을 받을 수 있나요?",
-    a: "본 센터는 변호사 소개나 알선, 상담을 제공하지 않습니다.",
-  },
-];
-
 function FaqTab() {
   const [cat, setCat] = useState<FaqCategory>("all");
   const [openIdx, setOpenIdx] = useState<number | null>(0);
+  const [faqs, setFaqs] = useState<Faq[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getFaqs()
+      .then(setFaqs)
+      .catch(() => setError("자주 묻는 질문을 불러오지 못했습니다."));
+  }, []);
 
   const visible = useMemo(
-    () => (cat === "all" ? FAQ_ITEMS : FAQ_ITEMS.filter((it) => it.cat === cat)),
-    [cat],
+    () => (faqs == null ? [] : cat === "all" ? faqs : faqs.filter((it) => it.category === cat)),
+    [faqs, cat],
   );
+
+  if (error) {
+    return (
+      <EmptyMessage text={error} icon={<AlertCircle className="h-10 w-10 text-red-300" />} />
+    );
+  }
+  if (faqs == null) {
+    return (
+      <div className="flex min-h-[200px] items-center justify-center text-slate-400">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -792,7 +772,7 @@ function FaqTab() {
             const open = openIdx === idx;
             return (
               <li
-                key={item.q}
+                key={item.id}
                 className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-300 ${open ? "border-[var(--color-primary)]/20 ring-1 ring-[var(--color-primary)]/10" : "border-slate-200"}`}
               >
                 <button
@@ -803,7 +783,7 @@ function FaqTab() {
                   <div className="flex items-start gap-3">
                     <span className="font-bold text-[var(--color-primary)] mt-0.5">Q.</span>
                     <span className="font-sans text-[15px] font-bold text-slate-800 leading-snug">
-                      {item.q}
+                      {item.question}
                     </span>
                   </div>
                   <div className={`flex shrink-0 items-center justify-center h-8 w-8 rounded-full transition-transform duration-300 ${open ? 'rotate-180 bg-[var(--color-primary)]/10 text-[var(--color-primary)]' : 'bg-slate-100 text-slate-400'}`}>
@@ -819,7 +799,7 @@ function FaqTab() {
                     <div className="flex gap-3 border-t border-slate-100 bg-slate-50/50 px-5 py-5">
                       <span className="font-bold text-[var(--color-accent)]">A.</span>
                       <div className="whitespace-pre-line text-sm leading-relaxed text-slate-600">
-                        {item.a}
+                        {item.answer}
                       </div>
                     </div>
                   </div>
@@ -834,138 +814,6 @@ function FaqTab() {
 }
 
 // ---------- Write Forms ------------------------------------------------------
-
-function ReviewWriteForm({
-  onCancel,
-  onCreated,
-}: {
-  onCancel: () => void;
-  onCreated: () => void | Promise<void>;
-}) {
-  const [rating, setRating] = useState(5);
-  const [course, setCourse] = useState<string>(REVIEW_CATEGORIES[0]);
-  const [content, setContent] = useState("");
-  const [author, setAuthor] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit() {
-    if (!content.trim()) {
-      setError("후기 본문을 입력해 주세요.");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-    try {
-      await createPost({
-        category: "review",
-        title: content.trim().slice(0, 80),
-        content: content.trim(),
-        author_name: author.trim() || "익명",
-        course_category: course,
-        rating,
-      });
-      await onCreated();
-    } catch (err) {
-      const detail = isAxiosError(err)
-        ? (err.response?.data as { detail?: string } | undefined)?.detail
-        : null;
-      setError(detail ?? "후기 등록에 실패했습니다.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div className="space-y-6 rounded-3xl border border-blue-100 bg-white p-6 sm:p-8 shadow-xl shadow-slate-200/50 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-accent)]" />
-      
-      <div className="flex items-center gap-2 mb-2">
-        <Edit3 className="h-5 w-5 text-[var(--color-primary)]" />
-        <h3 className="font-sans text-xl font-bold text-slate-900">새로운 후기 작성</h3>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-        <div className="space-y-2">
-          <label className="block text-sm font-bold text-slate-700">별점</label>
-          <div className="flex items-center gap-1.5 h-11">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setRating(n)}
-                className="transition-transform hover:scale-110 focus:outline-none"
-              >
-                <Star className={`h-7 w-7 ${n <= rating ? "fill-amber-400 text-amber-400" : "fill-slate-100 text-slate-200"}`} />
-              </button>
-            ))}
-          </div>
-        </div>
-        
-        <div className="space-y-2">
-          <label className="block text-sm font-bold text-slate-700">수강 과정</label>
-          <select
-            value={course}
-            onChange={(e) => setCourse(e.target.value)}
-            className="w-full h-11 rounded-xl border border-zinc-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
-          >
-            {REVIEW_CATEGORIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </div>
-        
-        <div className="space-y-2">
-          <label className="block text-sm font-bold text-slate-700">작성자 <span className="text-slate-400 font-normal">(선택)</span></label>
-          <input
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-            maxLength={50}
-            placeholder="비워두면 '익명'"
-            className="w-full h-11 rounded-xl border border-zinc-200 bg-slate-50 px-4 text-sm font-medium placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <label className="block text-sm font-bold text-slate-700">후기 본문</label>
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          rows={5}
-          maxLength={2000}
-          placeholder="강의를 들으신 소감이나 다른 분들께 도움이 될 만한 내용을 남겨주세요."
-          className="w-full resize-y rounded-xl border border-zinc-200 bg-slate-50 p-4 text-sm font-medium leading-relaxed placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 custom-scrollbar"
-        />
-      </div>
-
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-600 flex items-center gap-2">
-          <AlertCircle className="h-4 w-4" /> {error}
-        </div>
-      )}
-
-      <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-xl border border-zinc-200 px-6 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
-        >
-          취소
-        </button>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={submitting}
-          className="flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-8 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-lg disabled:opacity-60 disabled:hover:translate-y-0"
-        >
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          {submitting ? "등록 중..." : "등록하기"}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 function InlinePostForm({
   category,

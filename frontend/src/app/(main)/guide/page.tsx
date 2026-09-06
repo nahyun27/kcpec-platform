@@ -14,7 +14,7 @@ const STEPS = [
   {
     n: "02",
     title: "결제",
-    desc: "선택한 강의를 결제하면 바로 수강을 시작하실 수 있습니다. (결제일로부터 7일간 수강 가능)",
+    desc: "선택한 강의를 결제하면 바로 수강을 시작하실 수 있습니다. (결제일로부터 30일간 수강 가능)",
   },
   {
     n: "03",
@@ -49,7 +49,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 export default function GuidePage() {
   return (
     <div className="min-h-screen bg-slate-50/50">
-      <div className="bg-white pt-6 md:pt-12 relative z-10">
+      <div className="bg-white pt-10 md:pt-16 relative z-10 border-b border-slate-100">
         <div className="mx-auto max-w-4xl px-6">
           <PageHeader
             title="서비스 이용 안내"
@@ -59,7 +59,7 @@ export default function GuidePage() {
           />
         </div>
       </div>
-      <div className="mx-auto max-w-4xl px-6 pt-6 md:pt-10 pb-24 space-y-12">
+      <div className="mx-auto max-w-4xl px-6 pt-8 md:pt-12 pb-24 space-y-12">
 
       <Section title="서비스 소개">
         <p>

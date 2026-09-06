@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
 import { Spinner } from "@/components/ui/Spinner";
-import { useEffect, useState } from "react";
-import { getPosts } from "@/lib/api";
-import type { PostListItem } from "@/types/community";
+import { useEffect, useRef, useState } from "react";
+import { getFaqs, getPosts } from "@/lib/api";
+import type { Faq, PostListItem } from "@/types/community";
 import SiteHeader from "@/components/layout/SiteHeader";
 import {
   ArrowRight,
@@ -13,48 +13,69 @@ import {
   CreditCard,
   FileDown,
   FileText,
+  PartyPopper,
   PlayCircle,
   Quote,
   Search,
   ShieldCheck,
+  Sparkles,
   Star,
   Users,
 } from "lucide-react";
 
-const FAQ_ITEMS: { q: string; a: string }[] = [
-  {
-    q: "수료증 또는 상담의견서 등은 언제 어떻게 받을 수 있나요?",
-    a: "수강자가 강의를 수강한 내역이 확인되면 익일 24시까지 가입하신 이메일을 통해 pdf파일로 보내드립니다.\n상담의견서는 상담 후 24시간 이내에 가입하신 이메일을 통해 pdf파일로 보내드립니다.",
-  },
-  {
-    q: "수료증을 재발급 받을 수 있나요?",
-    a: "수료증을 재발급 받기 위해서는 법령에 따른 개인정보 보관 기간 내에 admin@kcpec.co.kr 이메일로 문의주시면 1회에 한하여 재발급해드립니다.",
-  },
-  {
-    q: "환불 및 취소가 가능한가요?",
-    a: "결제 오류에 대한 환불이나 취소는 가능하나, 강의 수강 시작 후 또는 상담 의뢰 후 환불이나 취소는 불가합니다.",
-  },
-  {
-    q: "상담 절차는 어떻게 진행되나요?",
-    a: "기본 상담 절차는 이용자가 상담 설문지를 작성하여 제출하는 서면상담 방식으로 진행됩니다.\n심화상담은 의뢰를 하실 경우 상담사와 일정을 맞춘 후 상담사가 해당 시간에 이용자에게 전화를 드리거나 대면상담을 진행합니다.\n모든 상담이 종료된 후 24시간 이내에 상담의견서 등을 pdf파일로 가입하신 이메일로 보내드립니다.",
-  },
-  {
-    q: "발급받은 서류를 법원이나 수사기관에 제출해도 되나요?",
-    a: "네, 저희 센터에서 발급한 수료증, 상담 의견서, 서약서 등 자료는 법원이나 수사기관, 학교 등 공공기관에 제출하셔도 됩니다.",
-  },
-  {
-    q: "양형자료만 내면 무조건 감형이 되는 건가요?",
-    a: "그렇지 않습니다. 검찰이나 법원의 양형판단은 다양한 요소들을 바탕으로 종합적으로 이루어지기 때문입니다.\n다만 수료증, 상담 의견서 등 양형자료는 재범예방교육 또는 심리상담을 통해 피고인(또는 피의자)이 재범하지 않을 것을 굳게 다짐하고 있다는 사정을 경찰, 검찰이나 법원에 알리는 효과적인 방법이 될 수 있습니다.",
-  },
-  {
-    q: "발급받은 서류의 진위 확인이 가능한가요?",
-    a: "네 가능합니다. 저희 센터에서 발급하는 서류는 워터마크가 삽입되어 있으며 문서일련번호로 진위 확인이 가능합니다.\n서류의 진위확인을 원하시는 경우, 서류 사본과 문의하실 내용을 적어 admin@kcpec.co.kr로 이메일 문의를 주시면 답변드립니다.",
-  },
-  {
-    q: "사건에 대한 변호사 상담을 받을 수 있나요?",
-    a: "본 센터는 변호사 소개나 알선, 상담을 제공하지 않습니다.",
-  },
-];
+// ---------- 스크롤 인뷰 애니메이션 ------------------------------------------
+//
+// 섹션이 뷰포트에 처음 들어올 때 한 번만 fade+slide-up 시키는 용도.
+// tailwindcss-animate 의 1회성 keyframe 대신, IntersectionObserver 로 감지한
+// 상태를 그대로 transition 클래스에 반영하는 방식 — 스크롤 위치에 따라
+// on/off 를 재계산할 필요 없이 "본 적 있는지"만 기억하면 되기 때문에 더 단순함.
+function useInView<T extends HTMLElement>(threshold = 0.15) {
+  const ref = useRef<T | null>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [threshold]);
+
+  return { ref, inView };
+}
+
+function Reveal({
+  children,
+  delay = 0,
+  className = "",
+  as: Tag = "div",
+}: {
+  children: React.ReactNode;
+  delay?: number;
+  className?: string;
+  as?: "div" | "li";
+}) {
+  const { ref, inView } = useInView<HTMLDivElement>();
+  return (
+    <Tag
+      ref={ref as never}
+      className={`transition-all duration-700 ease-out ${
+        inView ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
+      } ${className}`}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </Tag>
+  );
+}
 
 const STEPS = [
   { n: "01", title: "강의 선택", desc: "내 사건과 관련된 교육 과정을 선택합니다." },
@@ -82,7 +103,7 @@ export default function HomePage() {
 
 function Hero() {
   return (
-    <section className="relative flex items-center justify-center overflow-hidden bg-[var(--color-primary)] -mt-16 pt-28 pb-24 md:pb-36 md:pt-32 text-white">
+    <section className="relative flex items-center justify-center overflow-hidden bg-[var(--color-primary)] -mt-16 pt-32 pb-28 md:pb-44 md:pt-44 text-white">
       {/* Noise Texture Overlay */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.03]"
@@ -94,26 +115,31 @@ function Hero() {
       <div className="pointer-events-none absolute -left-[10%] top-0 h-[500px] w-[500px] rounded-full bg-[var(--color-accent)] opacity-20 blur-[120px]"></div>
       <div className="pointer-events-none absolute -right-[10%] bottom-0 h-[600px] w-[600px] rounded-full bg-blue-600 opacity-10 blur-[150px]"></div>
 
-      <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center px-4 md:px-6 text-center">
-        <div className="mb-6 inline-flex items-center rounded-full border border-white bg-white/5 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-md">
+      <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col items-center px-4 md:px-6 text-center">
+        <div className="mb-6 mx-auto flex w-fit max-w-[92%] items-center gap-2 rounded-2xl sm:rounded-full bg-gradient-to-r from-amber-400 to-orange-400 px-4 py-2 sm:py-1.5 text-[12px] sm:text-sm font-extrabold text-[#1C3461] shadow-lg shadow-orange-500/20 text-center animate-in fade-in slide-in-from-top-4 duration-700 ease-out">
+          <PartyPopper className="h-4 w-4 shrink-0" />
+          <span>리뉴얼 기념 할인 이벤트 · 모든 상품 50% 할인 + 10만원 이상 구매 시 10,000원 추가 할인</span>
+        </div>
+        <div className="mb-8 inline-flex items-center rounded-full border border-white bg-white/5 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-md animate-in fade-in slide-in-from-top-4 duration-700 delay-150 ease-out">
           <span>법원 및 수사기관 제출용 신뢰할 수 있는 교육</span>
         </div>
-        <h1 className="mb-6 font-sans text-4xl font-extrabold leading-[1.15] tracking-tight sm:text-6xl md:text-7xl">
+        <h1 className="mb-8 font-sans text-4xl font-extrabold leading-[1.15] tracking-tight sm:text-6xl md:text-7xl animate-in fade-in slide-in-from-top-4 duration-700 delay-300 ease-out">
           재판 준비, <br className="md:hidden" />
           <span className="bg-gradient-to-r from-blue-200 via-white to-blue-100 bg-clip-text text-transparent">
             전문 교육으로 시작하세요
           </span>
         </h1>
-        <p className="mb-10 max-w-2xl text-[13px] leading-relaxed text-slate-300 sm:text-lg md:text-xl">
+        <p className="mb-12 max-w-2xl text-[13px] leading-relaxed text-slate-300 sm:text-lg md:text-xl animate-in fade-in slide-in-from-top-4 duration-700 delay-500 ease-out">
           가장 확실한 양형 자료를 준비하세요. 법원이 인정하는 심리·준법 교육
           수료증을 무료로 수강하고 즉시 발급받을 수 있습니다.
         </p>
 
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-700 ease-out">
           <Link
             href="/sentencing"
             className="group flex items-center justify-center gap-2 rounded-full bg-[#1C3461] px-8 py-4 text-lg font-semibold text-white ring-2 ring-white/40 shadow-xl shadow-black/20 transition-all hover:-translate-y-1 hover:bg-[var(--color-primary-hover)] hover:shadow-2xl"
           >
+            <Sparkles className="h-5 w-5 shrink-0 text-[var(--color-accent)] transition-transform group-hover:rotate-12" />
             <span>내 사건에 맞는 강의 추천받기</span>
             <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </Link>
@@ -125,28 +151,38 @@ function Hero() {
 
 // ---------- trust section (Bento style) -----------------------------------
 
+const TRUST_STATS = [
+  { icon: Users, label: "누적 발급 건수", value: "15,000+" },
+  { icon: PlayCircle, label: "교육 종류", value: "25개 과정" },
+  { icon: FileText, label: "수료증 발급", value: "수강완료 즉시" },
+  { icon: ShieldCheck, label: "전문가 감수", value: "100% 검증" },
+];
+
 function TrustSection() {
   return (
     <section className="relative z-20 -mt-16 px-4 md:px-6">
-      <div className="mx-auto max-w-5xl rounded-2xl border border-white/20 bg-white/80 p-8 shadow-2xl backdrop-blur-xl sm:p-12">
+      <Reveal className="mx-auto max-w-5xl rounded-2xl border border-white/20 bg-white/80 p-8 shadow-2xl backdrop-blur-xl sm:p-12">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-          <TrustStat icon={<Users className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="누적 발급 건수" value="15,000+" />
-          <TrustStat icon={<PlayCircle className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="교육 종류" value="25개 과정" />
-          <TrustStat icon={<FileText className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="수료증 발급" value="수강완료 즉시" />
-          <TrustStat icon={<ShieldCheck className="mb-2 h-6 w-6 text-[var(--color-accent)]" />} label="전문가 감수" value="100% 검증" />
+          {TRUST_STATS.map((s, idx) => (
+            <div
+              key={s.label}
+              className="group flex flex-col items-center text-center transition-all duration-300 hover:-translate-y-1"
+              style={{ transitionDelay: `${idx * 60}ms` }}
+            >
+              <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[var(--color-accent)] transition-colors duration-300 group-hover:bg-[var(--color-accent)] group-hover:text-white md:h-12 md:w-12">
+                <s.icon className="h-5 w-5 md:h-6 md:w-6" />
+              </div>
+              <dd className="font-sans text-xl font-extrabold text-[var(--color-primary)] md:text-3xl whitespace-nowrap">
+                {s.value}
+              </dd>
+              <dt className="mt-1 text-xs font-medium text-slate-500 md:text-sm whitespace-nowrap">
+                {s.label}
+              </dt>
+            </div>
+          ))}
         </div>
-      </div>
+      </Reveal>
     </section>
-  );
-}
-
-function TrustStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="flex flex-col items-center text-center">
-      {icon}
-      <dd className="font-sans text-xl font-extrabold text-[var(--color-primary)] md:text-3xl whitespace-nowrap">{value}</dd>
-      <dt className="mt-1 text-xs font-medium text-slate-500 md:text-sm whitespace-nowrap">{label}</dt>
-    </div>
   );
 }
 
@@ -179,7 +215,7 @@ function ReviewsSection() {
       <div className="pointer-events-none absolute -right-32 bottom-0 h-80 w-80 rounded-full bg-indigo-100/40 blur-[120px]" />
 
       <div className="relative mx-auto max-w-7xl px-4 md:px-6">
-        <div className="mb-8 md:mb-14 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
+        <Reveal className="mb-8 md:mb-14 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <div>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[var(--color-primary)] ring-1 ring-blue-500/20">
               Testimonials
@@ -198,7 +234,7 @@ function ReviewsSection() {
             <span>전체 후기 보기</span>
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Link>
-        </div>
+        </Reveal>
 
         {reviews == null ? (
           <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white/50 p-8 text-center text-zinc-500">
@@ -212,8 +248,9 @@ function ReviewsSection() {
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {reviews.map((r, idx) => (
-              <div
+              <Reveal
                 key={r.id}
+                delay={(idx % 3) * 120}
                 className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 md:p-7 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--color-primary)]/20 hover:shadow-xl hover:shadow-[var(--color-primary)]/10"
               >
                 <Quote
@@ -261,7 +298,7 @@ function ReviewsSection() {
                     <p className="text-xs text-slate-400">수강생</p>
                   </div>
                 </div>
-              </div>
+              </Reveal>
             ))}
           </div>
         )}
@@ -272,13 +309,19 @@ function ReviewsSection() {
 
 // ---------- 4-step guide ---------------------------------------------------
 
-function StepsSection() {
-  const stepIcons = [Search, PlayCircle, CreditCard, FileDown];
+const STEP_ICONS = [Search, PlayCircle, CreditCard, FileDown];
+const STEP_TONES = [
+  "from-blue-500 to-indigo-500",
+  "from-indigo-500 to-[var(--color-primary)]",
+  "from-[var(--color-accent)] to-blue-500",
+  "from-sky-500 to-blue-600",
+];
 
+function StepsSection() {
   return (
-    <section id="guide" className="bg-[#FAFBFD] py-12 md:py-20">
+    <section id="guide" className="bg-[#FAFBFD] py-16 md:py-28">
       <div className="mx-auto max-w-5xl px-4 md:px-6">
-        <div className="mb-10 md:mb-16 text-center">
+        <Reveal className="mb-10 md:mb-16 text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[var(--color-primary)] ring-1 ring-blue-500/20">
             Guide
           </span>
@@ -288,30 +331,36 @@ function StepsSection() {
           <p className="mt-2 text-sm text-slate-500 md:text-base">
             복잡한 과정 없이 꼭 필요한 서류만 빠르게 준비하세요.
           </p>
-        </div>
+        </Reveal>
 
         {/* Desktop: Horizontal Flow / Mobile: Compact Horizontal List */}
         <div className="relative">
+          {/* 데스크톱 전용: 아이콘 사이를 잇는 연결선 (진행 흐름을 시각적으로 표현) */}
+          <div className="pointer-events-none absolute inset-x-0 top-7 hidden h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent md:block" />
+
           <div className="flex flex-col gap-4 md:flex-row md:justify-between md:gap-5 relative z-10">
             {STEPS.map((s, idx) => {
-              const Icon = stepIcons[idx];
+              const Icon = STEP_ICONS[idx];
               return (
-                <div 
-                  key={s.n} 
-                  className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm md:flex-col md:items-center md:text-center md:p-6 md:flex-1 md:rounded-3xl md:shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+                <Reveal
+                  key={s.n}
+                  delay={idx * 120}
+                  className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm md:flex-col md:items-center md:text-center md:p-6 md:flex-1 md:rounded-3xl md:shadow-md transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/10"
                 >
                   {/* Left (Mobile) / Top (Desktop) - Icon & Number Badge */}
                   <div className="relative shrink-0 flex items-center justify-center">
-                    <div className="flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 text-[var(--color-primary)] ring-1 ring-slate-200/50">
+                    <div
+                      className={`flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-md ring-4 ring-white ${STEP_TONES[idx]}`}
+                    >
                       <Icon className="h-6 w-6 md:h-7 md:w-7" />
                     </div>
-                    <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-accent)] text-[10px] font-extrabold text-white ring-2 ring-white">
+                    <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-extrabold text-[var(--color-primary)] ring-2 ring-slate-100 shadow-sm">
                       {s.n}
                     </span>
                   </div>
 
                   {/* Right (Mobile) / Bottom (Desktop) - Text Content */}
-                  <div className="flex-1 md:mt-2 text-left md:text-center">
+                  <div className="flex-1 md:mt-3 text-left md:text-center">
                     <h3 className="font-sans text-base font-bold text-slate-800 md:text-lg">
                       {s.title}
                     </h3>
@@ -319,7 +368,7 @@ function StepsSection() {
                       {s.desc}
                     </p>
                   </div>
-                </div>
+                </Reveal>
               );
             })}
           </div>
@@ -341,32 +390,40 @@ function SamplesSection() {
   const [selectedImg, setSelectedImg] = useState<{ src: string; caption: string } | null>(null);
 
   return (
-    <section id="samples" className="bg-[#F8F9FA] py-8 md:py-24">
+    <section id="samples" className="bg-[#F8F9FA] py-16 md:py-28">
       <div className="mx-auto max-w-6xl px-4 md:px-6 text-center">
-        <h2 className="font-sans text-xl font-extrabold leading-snug tracking-tight text-[var(--color-primary)] md:text-2xl sm:text-3xl">
-          교육과 상담을 통해 변화된 자신을 발견하고
-          <br />
-          건전한 사회구성원으로 복귀할 수 있습니다.
-        </h2>
-        
+        <Reveal>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[var(--color-primary)] ring-1 ring-blue-500/20">
+            Documents
+          </span>
+          <h2 className="mt-3 font-sans text-2xl font-extrabold leading-snug tracking-tight text-slate-900 sm:text-3xl md:text-4xl">
+            교육과 상담을 통해 변화된 자신을 발견하고
+            <br />
+            건전한 사회구성원으로 복귀할 수 있습니다.
+          </h2>
+        </Reveal>
+
         {/* Horizontal scroll container on mobile, 3-column grid on desktop */}
-        <div className="hide-scrollbar -mx-4 mt-8 flex snap-x gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:mt-12 sm:grid sm:grid-cols-3 sm:gap-6 sm:px-0 sm:pb-0">
-          {SAMPLES.map((s) => (
-            <figure
-              key={s.src}
-              onClick={() => setSelectedImg(s)}
-              className="w-[180px] shrink-0 snap-center overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-transform duration-300 hover:-translate-y-1 sm:w-auto cursor-pointer hover:shadow-md"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={s.src}
-                alt={s.caption}
-                className="aspect-[3/4] w-full object-cover"
-              />
-              <figcaption className="border-t border-zinc-100 py-3.5 text-xs sm:text-sm font-semibold text-slate-700">
-                {s.caption}
-              </figcaption>
-            </figure>
+        <div className="hide-scrollbar -mx-4 mt-10 flex snap-x gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:mt-14 sm:grid sm:grid-cols-3 sm:gap-8 sm:px-0 sm:pb-0">
+          {SAMPLES.map((s, idx) => (
+            <Reveal key={s.src} delay={idx * 120} className="w-[180px] shrink-0 snap-center sm:w-auto">
+              <figure
+                onClick={() => setSelectedImg(s)}
+                className="group overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:rotate-[0.5deg] hover:shadow-xl hover:shadow-[var(--color-primary)]/10 cursor-pointer"
+              >
+                <div className="overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={s.src}
+                    alt={s.caption}
+                    className="aspect-[3/4] w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                </div>
+                <figcaption className="border-t border-zinc-100 py-3.5 text-xs sm:text-sm font-semibold text-slate-700">
+                  {s.caption}
+                </figcaption>
+              </figure>
+            </Reveal>
           ))}
         </div>
         <p className="mt-6 text-xs text-slate-500">
@@ -411,54 +468,70 @@ function SamplesSection() {
 
 function FaqSection() {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
-  
+  const [faqs, setFaqs] = useState<Faq[] | null>(null);
+
+  useEffect(() => {
+    getFaqs()
+      .then(setFaqs)
+      .catch(() => setFaqs([]));
+  }, []);
+
   return (
-    <section id="faq" className="bg-white py-12 md:py-24">
+    <section id="faq" className="bg-white py-16 md:py-28">
       <div className="mx-auto max-w-4xl px-4 md:px-6">
-        <div className="mb-8 md:mb-12 text-center">
-          <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[var(--color-primary)] sm:text-4xl">
+        <Reveal className="mb-8 md:mb-12 text-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[var(--color-primary)] ring-1 ring-blue-500/20">
+            FAQ
+          </span>
+          <h2 className="mt-3 font-sans text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
             자주 묻는 질문
           </h2>
-        </div>
-        
-        <div className="space-y-4">
-          {FAQ_ITEMS.map((item, idx) => {
-            const isOpen = openIdx === idx;
-            return (
-              <div
-                key={idx}
-                className={`overflow-hidden rounded-2xl border transition-colors duration-300 ${isOpen ? 'border-[var(--color-accent)] bg-blue-50/30' : 'border-zinc-200 bg-white hover:border-zinc-300'}`}
-              >
-                <button
-                  type="button"
-                  onClick={() => setOpenIdx(isOpen ? null : idx)}
-                  className="flex w-full items-center justify-between gap-4 px-4 md:px-6 py-5 text-left"
-                >
-                  <span className={`font-sans text-base font-bold sm:text-lg ${isOpen ? 'text-[var(--color-primary)]' : 'text-slate-800'}`}>
-                    Q. {item.q}
-                  </span>
-                  <ChevronDown
-                    className={`h-5 w-5 shrink-0 text-slate-400 transition-transform duration-300 ${
-                      isOpen ? "rotate-180 text-[var(--color-accent)]" : ""
-                    }`}
-                  />
-                </button>
+        </Reveal>
+
+        {faqs == null ? (
+          <div className="flex min-h-[160px] items-center justify-center">
+            <Spinner size="sm" tone="accent" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {faqs.map((item, idx) => {
+              const isOpen = openIdx === idx;
+              return (
                 <div
-                  className={`grid transition-all duration-300 ease-in-out ${
-                    isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-                  }`}
+                  key={item.id}
+                  className={`overflow-hidden rounded-2xl border transition-colors duration-300 ${isOpen ? 'border-[var(--color-accent)] bg-blue-50/30' : 'border-zinc-200 bg-white hover:border-zinc-300'}`}
                 >
-                  <div className="overflow-hidden">
-                    <div className="whitespace-pre-line px-4 md:px-6 pb-6 pt-2 text-base leading-relaxed text-slate-600">
-                      <span className="font-bold text-[var(--color-accent)] mr-2">A.</span>
-                      {item.a}
+                  <button
+                    type="button"
+                    onClick={() => setOpenIdx(isOpen ? null : idx)}
+                    className="flex w-full items-center justify-between gap-4 px-4 md:px-6 py-5 text-left"
+                  >
+                    <span className={`font-sans text-base font-bold sm:text-lg ${isOpen ? 'text-[var(--color-primary)]' : 'text-slate-800'}`}>
+                      Q. {item.question}
+                    </span>
+                    <ChevronDown
+                      className={`h-5 w-5 shrink-0 text-slate-400 transition-transform duration-300 ${
+                        isOpen ? "rotate-180 text-[var(--color-accent)]" : ""
+                      }`}
+                    />
+                  </button>
+                  <div
+                    className={`grid transition-all duration-300 ease-in-out ${
+                      isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                    }`}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="whitespace-pre-line px-4 md:px-6 pb-6 pt-2 text-base leading-relaxed text-slate-600">
+                        <span className="font-bold text-[var(--color-accent)] mr-2">A.</span>
+                        {item.answer}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         <div className="mt-10 text-center">
           <Link

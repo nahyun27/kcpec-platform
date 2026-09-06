@@ -26,9 +26,31 @@ const COURSE_KEYWORDS: Record<string, string[]> = {
   "스토킹범죄 예방": ["스토킹", "접근금지", "따라다님", "집착"],
   "학교폭력 예방": ["학교폭력", "따돌림", "왕따", "집단폭행", "교내"],
   "준법의식 강화": ["준법", "법의식", "법교육", "법준수"],
+  "분노 조절·감정 통제 교육": ["분노", "감정", "화", "폭발", "격분"],
+  "알코올·중독 습관 교정 교육": ["알코올", "중독", "금주", "단주", "술"],
+  "경제 관념·사행성 방지 교육": ["경제", "사행성", "낭비", "소비"],
+  "생활예절교육": ["생활습관", "예절", "매너", "생활"],
+  "비즈니스·직장 내 윤리 교육": ["직장", "괴롭힘", "갑질", "조직문화", "비즈니스"],
+  "디지털 저작권·정보통신 윤리 교육": ["저작권", "정보통신", "불법다운로드", "디지털윤리"],
+  "개인정보 보호·사이버 금융 범죄 예방": ["개인정보", "사이버금융", "유출", "해킹"],
+  "보호자 양육 윤리·예방 교육": ["보호자", "양육", "아동학대", "훈육", "육아"],
+  "공무원 윤리 교육": ["공무원", "공직", "청렴"],
+  "단체·학교 내 윤리 교육": ["단체", "학교", "조직윤리"],
+  "청소년범죄예방교육": ["청소년", "소년범", "미성년"],
+  "폭력범죄 예방교육": ["폭력", "폭행", "상해"],
+  "운전습관·도로교통법 교육": ["운전습관", "도로교통법", "난폭운전", "안전운전"],
+  "명예훼손·모욕 예방 교육": ["명예훼손", "모욕", "악플", "비방"],
 };
 
 const MIN_QUERY_LEN = 2;
+
+// 강의 전체보기 탭 — 사건 유형(카테고리)이 아니라 가격대(상품 구성) 기준으로 분류.
+// 기본 강의(준법·행동교정·생활습관) / 개별범죄 강의 / 특수·단체 강의.
+const PRICE_TIERS = [
+  { price: 22000, label: "기본 강의" },
+  { price: 55000, label: "개별범죄 강의" },
+  { price: 33000, label: "특수·단체 강의" },
+] as const;
 
 function matchesQuery(course: CourseListItem, q: string): boolean {
   if (q.length < MIN_QUERY_LEN) return true;
@@ -66,6 +88,8 @@ function CoursesListInner() {
   })();
 
   const [category, setCategory] = useState<CourseCategory | null>(initialCategory);
+  // 가격대(상품 구성) 탭 — 사건유형 카테고리와 별개 축.
+  const [tier, setTier] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [courses, setCourses] = useState<CourseListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,10 +121,11 @@ function CoursesListInner() {
     const q = trimmedQuery.toLowerCase();
     return courses.filter((c) => {
       if (category && c.category !== category) return false;
+      if (tier != null && c.price !== tier) return false;
       if (!matchesQuery(c, q)) return false;
       return true;
     });
-  }, [courses, category, trimmedQuery]);
+  }, [courses, category, tier, trimmedQuery]);
 
   // 2글자 미만이면 빈 결과여도 검색어로 표시하지 않음 (안내 없이 전체 표시)
   const isQueryActive = trimmedQuery.length >= MIN_QUERY_LEN;
@@ -108,7 +133,7 @@ function CoursesListInner() {
   return (
     <div className="min-h-screen bg-slate-50/50 pb-24">
       {/* Page Header */}
-      <div className="bg-white pt-6 md:pt-12 relative z-10">
+      <div className="bg-white pt-10 md:pt-16 relative z-10 border-b border-slate-100">
         <div className="mx-auto max-w-6xl px-4 md:px-6">
           <PageHeader
             title="교육 강의"
@@ -119,7 +144,7 @@ function CoursesListInner() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 md:px-6 pt-6 md:pt-10 pb-12">
+      <div className="mx-auto max-w-6xl px-4 md:px-6 pt-8 md:pt-12 pb-12">
         {/* Controls: Search & Filter */}
         <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full max-w-md">
@@ -134,16 +159,25 @@ function CoursesListInner() {
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 md:gap-2.5">
-            <CategoryTab active={category === null} onClick={() => setCategory(null)}>
+            <CategoryTab
+              active={tier === null}
+              onClick={() => {
+                setTier(null);
+                setCategory(null);
+              }}
+            >
               전체
             </CategoryTab>
-            {COURSE_CATEGORIES.map((c) => (
+            {PRICE_TIERS.map((t) => (
               <CategoryTab
-                key={c}
-                active={category === c}
-                onClick={() => setCategory(c)}
+                key={t.price}
+                active={tier === t.price}
+                onClick={() => {
+                  setTier(t.price);
+                  setCategory(null);
+                }}
               >
-                {c}
+                {t.label}
               </CategoryTab>
             ))}
           </div>
@@ -233,6 +267,7 @@ function CourseCard({ course, eager = false }: { course: CourseListItem; eager?:
           <CourseThumbnail
             category={course.category}
             title={course.title}
+            thumbnailUrl={course.thumbnail_url}
             showTitle
             eager={eager}
           />

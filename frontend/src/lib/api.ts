@@ -15,6 +15,7 @@ import type {
   StreamUrlResponse,
 } from "@/types/course";
 import type {
+  BundleCreateResponse,
   DocumentResponse,
   OrderResponse,
   PaymentMethod,
@@ -49,6 +50,10 @@ import type {
   PostPatch,
 } from "@/types/admin";
 import type {
+  Faq,
+  FaqCategory,
+  FaqCreate,
+  FaqPatch,
   NoticeCategory,
   NoticeCreate,
   NoticeDetail,
@@ -217,6 +222,7 @@ export type UserResponse = {
   social_provider: string | null;
   is_active: boolean;
   is_admin: boolean;
+  is_verified: boolean;
   created_at: string;
 };
 
@@ -234,6 +240,32 @@ export async function login(payload: LoginPayload): Promise<TokenResponse> {
 
 export async function getMe(): Promise<UserResponse> {
   const { data } = await api.get<UserResponse>("/auth/me");
+  return data;
+}
+
+export async function verifyEmail(token: string): Promise<{ detail: string }> {
+  const { data } = await api.post<{ detail: string }>("/auth/verify-email", { token });
+  return data;
+}
+
+export async function resendVerification(): Promise<{ detail: string }> {
+  const { data } = await api.post<{ detail: string }>("/auth/resend-verification");
+  return data;
+}
+
+export async function forgotPassword(email: string): Promise<{ detail: string }> {
+  const { data } = await api.post<{ detail: string }>("/auth/forgot-password", { email });
+  return data;
+}
+
+export async function resetPassword(
+  token: string,
+  newPassword: string,
+): Promise<{ detail: string }> {
+  const { data } = await api.post<{ detail: string }>("/auth/reset-password", {
+    token,
+    new_password: newPassword,
+  });
   return data;
 }
 
@@ -327,9 +359,28 @@ export async function confirmTossPayment(payload: {
   order_id: number;
   payment_key: string;
   amount: number;
-  is_simulated?: boolean;
 }): Promise<OrderResponse> {
   const { data } = await api.post<OrderResponse>("/orders/toss/confirm", payload);
+  return data;
+}
+
+export async function createOrderBundle(payload: {
+  course_ids: number[];
+  payment_method: PaymentMethod;
+}): Promise<BundleCreateResponse> {
+  const { data } = await api.post<BundleCreateResponse>("/orders/bundle", payload);
+  return data;
+}
+
+export async function confirmBundleTossPayment(payload: {
+  bundle_id: string;
+  payment_key: string;
+  amount: number;
+}): Promise<OrderResponse[]> {
+  const { data } = await api.post<OrderResponse[]>(
+    "/orders/bundle/toss/confirm",
+    payload,
+  );
   return data;
 }
 
@@ -432,9 +483,13 @@ export async function getAdminVisitorStats(): Promise<VisitorStats> {
   return data;
 }
 
-export async function getAdminUsers(page = 1, size = 20): Promise<AdminUsersResponse> {
+export async function getAdminUsers(
+  page = 1,
+  size = 20,
+  courseId?: number,
+): Promise<AdminUsersResponse> {
   const { data } = await api.get<AdminUsersResponse>("/admin/users", {
-    params: { page, size },
+    params: { page, size, course_id: courseId },
   });
   return data;
 }
@@ -479,10 +534,23 @@ export async function getAdminCourseQuiz(courseId: number): Promise<AdminQuizRea
 }
 
 export async function confirmBankOrder(orderId: number): Promise<OrderResponse> {
+  // 주의: /admin/orders/bank/confirm/{id} 가 아니라 /orders/bank/confirm/{id} 다.
+  // 예전엔 admin.py 에 이름이 같은 별도 엔드포인트가 하나 더 있었는데(지금은 삭제),
+  // 그쪽은 _ensure_enrollment 호출이 빠져 있어서 관리자가 "입금 확인"을 눌러도
+  // 결제 상태만 paid 로 바뀌고 실제 수강 등록은 되지 않는 버그가 있었다
+  // (2026-09 발견·수정) — 반드시 이 경로(정상 구현)를 사용해야 함.
   const { data } = await api.post<OrderResponse>(
-    `/admin/orders/bank/confirm/${orderId}`,
+    `/orders/bank/confirm/${orderId}`,
   );
   return data;
+}
+
+export async function cancelAdminOrder(orderId: number): Promise<void> {
+  await api.post(`/admin/orders/${orderId}/cancel`);
+}
+
+export async function refundAdminOrder(orderId: number): Promise<void> {
+  await api.post(`/admin/orders/${orderId}/refund`);
 }
 
 export async function getAdminSurveys(): Promise<AdminSurveyRow[]> {
@@ -528,6 +596,7 @@ export async function exportCounselingDoc(
 export type RegenerateDraftResponse = {
   draft_text: string;
   draft_url: string;
+  is_dummy: boolean;
 };
 
 export async function regenerateCounselingDraft(
@@ -557,7 +626,7 @@ export async function getAdminUserEnrollments(
   return data;
 }
 
-// 수강기간 만료로 강의를 못 보게 된 사용자를 위한 연장(오늘부터 다시 7일).
+// 수강기간 만료로 강의를 못 보게 된 사용자를 위한 연장(오늘부터 다시 30일).
 export async function extendEnrollmentAccess(
   enrollmentId: number,
 ): Promise<AdminUserEnrollmentRow> {
@@ -686,6 +755,32 @@ export async function getPosts(
     params: { category, page, size },
   });
   return data;
+}
+
+// ---------- faq --------------------------------------------------------------
+
+export async function getFaqs(category?: FaqCategory): Promise<Faq[]> {
+  const { data } = await api.get<Faq[]>("/faq", { params: { category } });
+  return data;
+}
+
+export async function getAdminFaqs(): Promise<Faq[]> {
+  const { data } = await api.get<Faq[]>("/admin/faq");
+  return data;
+}
+
+export async function createFaq(payload: FaqCreate): Promise<Faq> {
+  const { data } = await api.post<Faq>("/admin/faq", payload);
+  return data;
+}
+
+export async function patchFaq(faqId: number, payload: FaqPatch): Promise<Faq> {
+  const { data } = await api.patch<Faq>(`/admin/faq/${faqId}`, payload);
+  return data;
+}
+
+export async function deleteFaq(faqId: number): Promise<void> {
+  await api.delete(`/admin/faq/${faqId}`);
 }
 
 export async function getPost(id: number): Promise<PostDetail> {

@@ -23,6 +23,22 @@ export type OrderResponse = {
   course_title?: string | null;
 };
 
+export type BundleItem = {
+  order_id: number;
+  course_id: number;
+  course_title: string;
+  amount: number;
+};
+
+export type BundleCreateResponse = {
+  bundle_id: string;
+  subtotal: number;
+  discount: number;
+  total: number;
+  payment_method: PaymentMethod;
+  items: BundleItem[];
+};
+
 export type IssuedDocumentType = "certificate" | "guide" | "cbt";
 export type IssuedDocumentStatus = "pending" | "ready";
 

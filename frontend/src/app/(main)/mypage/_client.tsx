@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { isAxiosError } from "axios";
 import {
   absUrl,
@@ -14,6 +14,7 @@ import {
   getMySurvey,
   getOrderDocuments,
   getSurveyStatus,
+  resendVerification,
   tokenStorage,
   updateMe,
   type UserResponse,
@@ -34,7 +35,7 @@ import {
   type DocumentResponse,
   type OrderResponse,
 } from "@/types/order";
-import { BookOpen, CreditCard, Download, FileText, User, ChevronRight, PlayCircle, Loader2 } from "lucide-react";
+import { BookOpen, CreditCard, Download, FileText, User, ChevronRight, PlayCircle, Loader2, MailWarning } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
 
@@ -67,6 +68,16 @@ export default function MyPageClient() {
   }
   const [me, setMe] = useState<UserResponse | null>(null);
   const [enrollments, setEnrollments] = useState<EnrollmentWithProgress[]>([]);
+  // 만료된 수강은 목록 맨 아래로 — 그 외 순서는 유지 (stable sort)
+  const sortedEnrollments = useMemo(
+    () =>
+      [...enrollments].sort((a, b) => {
+        const aExpired = expiryBadge(a.expires_at)?.label === "수강기간 만료";
+        const bExpired = expiryBadge(b.expires_at)?.label === "수강기간 만료";
+        return aExpired === bExpired ? 0 : aExpired ? 1 : -1;
+      }),
+    [enrollments],
+  );
   const [orders, setOrders] = useState<OrderWithExtras[]>([]);
   const [counselingOrders, setCounselingOrders] = useState<CounselingOrderItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,6 +85,19 @@ export default function MyPageClient() {
   const [editOpen, setEditOpen] = useState(false);
   const [answersSurveyId, setAnswersSurveyId] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+
+  async function handleResendVerification() {
+    setResending(true);
+    try {
+      await resendVerification();
+      setToast("인증 메일을 다시 보냈습니다. 메일함을 확인해 주세요.");
+    } catch {
+      setToast("발송에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setResending(false);
+    }
+  }
 
   useEffect(() => {
     if (toast == null) return;
@@ -153,13 +177,38 @@ export default function MyPageClient() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 md:space-y-12 px-4 md:px-6 py-6 md:py-12 pb-24 animate-in fade-in duration-300">
-      <PageHeader
-        title="마이페이지"
-        subtitle="My Page"
-        icon={<User className="h-3.5 w-3.5" />}
-        description="수강 중인 강의와 결제·발급 내역, 계정 정보를 관리하세요."
-      />
+    <div className="min-h-screen bg-slate-50/50 pb-24 animate-in fade-in duration-300">
+      <div className="bg-white pt-10 md:pt-16 relative z-10 border-b border-slate-100">
+        <div className="mx-auto max-w-5xl px-4 md:px-6">
+          <PageHeader
+            title="마이페이지"
+            subtitle="My Page"
+            icon={<User className="h-3.5 w-3.5" />}
+            description="수강 중인 강의와 결제·발급 내역, 계정 정보를 관리하세요."
+          />
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-5xl space-y-8 md:space-y-12 px-4 md:px-6 pt-8 md:pt-12">
+      {me && !me.is_verified ? (
+        <div className="flex flex-col items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-2.5">
+            <MailWarning className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              <strong>{me.email}</strong> 이메일 인증이 아직 안 됐어요. 수료증·심리상담
+              의견서가 이 주소로 발송되니 인증을 완료해 주세요.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleResendVerification}
+            disabled={resending}
+            className="shrink-0 rounded-full bg-amber-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-amber-700 disabled:opacity-60"
+          >
+            {resending ? "발송 중..." : "인증 메일 재발송"}
+          </button>
+        </div>
+      ) : null}
 
       {/* 탭 네비게이션 */}
       <div className="hide-scrollbar -mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
@@ -197,7 +246,7 @@ export default function MyPageClient() {
                 />
               ) : (
                 <ul className="space-y-4">
-                  {enrollments.map((e) => (
+                  {sortedEnrollments.map((e) => (
                     <EnrollmentRow
                       key={e.course_id}
                       enrollment={e}
@@ -333,6 +382,7 @@ export default function MyPageClient() {
           {toast}
         </div>
       ) : null}
+      </div>
     </div>
   );
 }
@@ -414,6 +464,9 @@ function EnrollmentRow({
   const issuedDoc = order?.documents?.[0];
   const progressPct = enrollment.overall_progress_pct;
   const expiry = expiryBadge(enrollment.expires_at);
+  const continueLabel = enrollment.current_lecture_title
+    ? `${enrollment.current_lecture_title} 이어보기`
+    : "이어보기";
 
   return (
     <li className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-all hover:border-[var(--color-primary)]/30 hover:shadow-md sm:p-5">
@@ -431,9 +484,6 @@ function EnrollmentRow({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
             <div className="min-w-0 space-y-1.5">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-[var(--color-accent)] ring-1 ring-blue-500/20">
-                  {enrollment.category}
-                </span>
                 {isComplete ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-600 ring-1 ring-emerald-500/20">
                     수료 완료
@@ -470,7 +520,7 @@ function EnrollmentRow({
                 }}
                 className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition-colors hover:border-[var(--color-primary)] hover:bg-slate-50 hover:text-[var(--color-primary)] shadow-sm"
               >
-                <PlayCircle className="h-3.5 w-3.5" /> 이어보기
+                <PlayCircle className="h-3.5 w-3.5" /> {continueLabel}
               </Link>
               {isComplete && issuedDoc ? (
                 <a
@@ -492,6 +542,15 @@ function EnrollmentRow({
                 progressPct >= 100 ? (
                   <Link
                     href={`/courses/${enrollment.course_id}/quiz`}
+                    aria-disabled={expiry?.label === "수강기간 만료"}
+                    onClick={(e) => {
+                      if (expiry?.label === "수강기간 만료") {
+                        e.preventDefault();
+                        alert(
+                          "수강 기간이 만료되었습니다. 연장이 필요하시면 admin@kcpec.co.kr 로 문의해 주세요.",
+                        );
+                      }
+                    }}
                     className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl border border-[var(--color-accent)] bg-blue-50 px-4 py-2 text-xs font-bold text-[var(--color-accent)] transition-colors hover:bg-[var(--color-accent)] hover:text-white shadow-sm"
                   >
                     퀴즈 응시
@@ -529,6 +588,20 @@ function EnrollmentRow({
               {progressPct}%
             </span>
           </div>
+          {!isComplete && enrollment.total_lectures > 0 ? (
+            <p className="text-xs text-slate-500">
+              {enrollment.completed_lectures} / {enrollment.total_lectures}차시 완료
+              {enrollment.current_lecture_title ? (
+                <>
+                  {" · "}
+                  <span className="font-semibold text-[var(--color-primary)]">
+                    {enrollment.current_lecture_title}
+                  </span>{" "}
+                  진행 중
+                </>
+              ) : null}
+            </p>
+          ) : null}
         </div>
       </div>
     </li>
@@ -645,13 +718,17 @@ function CounselingRow({
   order: OrderWithExtras;
   onViewAnswers: (surveyId: number) => void;
 }) {
-  // 심리상담 설문 대상: 독립 구매(order_type=counseling) 또는 "심리상담 의견서" 강의 주문.
-  const hasCounseling =
-    order.order_type === "counseling" ||
-    (order.course_title?.includes("심리상담") ?? false);
-
-  // 심리상담 대상이 아닌 일반 강의 주문 → 별도 구매 유도.
-  if (!hasCounseling) {
+  // 이 주문에 실제로 연결된 설문이 있으면(상담이 진행/완료된 것) 항상 그 상태를
+  // 보여준다. (예전엔 order.course_title 에 "심리상담"이라는 문자열이 들어있는지로
+  // 판단했는데, 실제 상담 상품명은 "기본 프로그램"/"전화 심화상담"/"대면 심화상담"
+  // 이라 이 문자열이 애초에 매치된 적이 없어 사실상 죽은 코드였다 — 관리자가
+  // 의견서 최종본을 업로드해도(survey.status=completed) 사용자 마이페이지엔
+  // 항상 "별도로 신청하세요" 안내만 뜨고 다운로드 버튼이 절대 안 나오던 버그.
+  // 심리상담은 항상 독립 주문(order_type=counseling)으로 진행되고 그 경우는
+  // 이 컴포넌트에 도달하기 전에 이미 걸러지므로, 여기서는 survey 유무만으로
+  // 판단하는 게 실제 데이터에 맞다.)
+  const survey = order.survey;
+  if (!survey) {
     return (
       <div className="rounded-xl border border-dashed border-zinc-300 p-4 text-center bg-slate-50/60">
         <p className="text-xs text-slate-500 mb-3">
@@ -662,21 +739,6 @@ function CounselingRow({
           className="inline-flex items-center justify-center rounded-lg bg-white border border-zinc-300 px-4 py-2 text-xs font-bold text-slate-700 shadow-sm hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
         >
           심리상담 의견서 추가하기
-        </Link>
-      </div>
-    );
-  }
-
-  const survey = order.survey;
-  if (!survey) {
-    return (
-      <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-center bg-slate-50">
-        <p className="text-xs text-slate-500 mb-3">심리상담 의견서 발급을 위해 설문이 필요합니다.</p>
-        <Link
-          href={`/survey?order_id=${order.id}`}
-          className="inline-flex items-center justify-center rounded-lg bg-white border border-zinc-300 px-4 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
-        >
-          상담 설문지 작성하기
         </Link>
       </div>
     );

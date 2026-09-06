@@ -4,22 +4,22 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
-import { confirmTossPayment } from "@/lib/api";
+import { confirmBundleTossPayment } from "@/lib/api";
 import type { OrderResponse } from "@/types/order";
 
-export default function CheckoutSuccessPage() {
+export default function CheckoutBundleSuccessPage() {
   const searchParams = useSearchParams();
   const orderIdParam = searchParams.get("order_id") ?? searchParams.get("orderId");
   const paymentKey = searchParams.get("payment_key") ?? searchParams.get("paymentKey");
   const amountParam = searchParams.get("amount");
   const simulated = searchParams.get("simulated") === "1";
+  // 시뮬레이션 모드에서는 직접 넘긴 bundle_id 를 사용. 실 결제는 Toss 가
+  // successUrl 에 붙여주는 orderId("KCPEC-BUNDLE-{bundle_id}")에서 복원한다.
+  const bundleIdFromQuery = searchParams.get("bundle_id");
+  const bundleId =
+    bundleIdFromQuery ?? orderIdParam?.replace(/^KCPEC-BUNDLE-/, "") ?? null;
 
-  // Toss 가 redirect 할 때 orderId 는 "KCPEC-{id}" 형식이므로 prefix 제거 후 숫자 변환.
-  const orderId = orderIdParam
-    ? Number(orderIdParam.replace(/^KCPEC-/, ""))
-    : NaN;
-
-  const [order, setOrder] = useState<OrderResponse | null>(null);
+  const [orders, setOrders] = useState<OrderResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ranRef = useRef(false);
 
@@ -27,17 +27,17 @@ export default function CheckoutSuccessPage() {
     if (ranRef.current) return;
     ranRef.current = true;
 
-    if (!Number.isFinite(orderId)) {
-      setError("잘못된 접근입니다. (order_id 누락)");
+    if (!bundleId) {
+      setError("잘못된 접근입니다. (bundle_id 누락)");
       return;
     }
 
-    confirmTossPayment({
-      order_id: orderId,
+    confirmBundleTossPayment({
+      bundle_id: bundleId,
       payment_key: paymentKey ?? (simulated ? "SIMULATED" : ""),
       amount: amountParam ? Number(amountParam) : 0,
     })
-      .then(setOrder)
+      .then(setOrders)
       .catch((err) => {
         const detail = isAxiosError(err)
           ? (err.response?.data as { detail?: string } | undefined)?.detail
@@ -47,6 +47,8 @@ export default function CheckoutSuccessPage() {
     // 한 번만 실행
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const total = orders?.reduce((sum, o) => sum + o.amount, 0) ?? 0;
 
   return (
     <div className="mx-auto max-w-xl px-4 py-16">
@@ -62,7 +64,7 @@ export default function CheckoutSuccessPage() {
               강의 목록으로
             </Link>
           </>
-        ) : !order ? (
+        ) : !orders ? (
           <p className="text-sm text-zinc-500">결제 승인 처리 중...</p>
         ) : (
           <>
@@ -70,35 +72,40 @@ export default function CheckoutSuccessPage() {
               결제가 완료되었습니다
             </p>
             <p className="mt-3 text-sm text-zinc-600">
-              주문번호 #{order.id} · {order.amount.toLocaleString()}원
-            </p>
-            <p className="mt-1 text-xs text-zinc-500">
-              {order.order_type === "counseling"
-                ? "설문을 작성하시면 전문가가 검토 후 의견서를 발송해드립니다."
-                : "이제 수료증을 발급받으실 수 있습니다."}
+              강의 {orders.length}건 · 총 {total.toLocaleString()}원
             </p>
 
+            <ul className="mt-6 space-y-2 text-left">
+              {orders.map((o) => (
+                <li
+                  key={o.id}
+                  className="flex items-center justify-between rounded-lg border border-zinc-100 bg-slate-50 px-4 py-3 text-sm"
+                >
+                  <span className="font-semibold text-slate-800">
+                    {o.course_title ?? `주문 #${o.id}`}
+                  </span>
+                  <Link
+                    href={`/issue?order_id=${o.id}`}
+                    className="font-bold text-[var(--color-accent)] hover:underline"
+                  >
+                    수료증 발급 →
+                  </Link>
+                </li>
+              ))}
+            </ul>
+
             <div className="mt-8 flex flex-col gap-2">
-              {order.order_type === "counseling" ? (
-                <Link
-                  href={`/survey?counseling_order_id=${order.id}`}
-                  className="rounded bg-[var(--color-accent)] py-3 font-semibold text-white hover:bg-[var(--color-accent-hover)]"
-                >
-                  설문 작성하기
-                </Link>
-              ) : (
-                <Link
-                  href={`/issue?order_id=${order.id}`}
-                  className="rounded bg-[var(--color-accent)] py-3 font-semibold text-white hover:bg-[var(--color-accent-hover)]"
-                >
-                  수료증 발급하기
-                </Link>
-              )}
               <Link
-                href={order.order_type === "counseling" ? "/mypage" : "/courses"}
+                href="/mypage"
+                className="rounded bg-[var(--color-accent)] py-3 font-semibold text-white hover:bg-[var(--color-accent-hover)]"
+              >
+                마이페이지로
+              </Link>
+              <Link
+                href="/courses"
                 className="rounded border border-[var(--color-border)] py-3 text-sm text-zinc-700 hover:border-[var(--color-primary)]"
               >
-                {order.order_type === "counseling" ? "마이페이지로" : "강의 목록으로"}
+                강의 목록으로
               </Link>
             </div>
           </>

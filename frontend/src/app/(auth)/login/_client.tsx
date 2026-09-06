@@ -79,7 +79,7 @@ export default function LoginPage() {
             <label htmlFor="password" className="block text-sm font-bold text-slate-700">
               비밀번호
             </label>
-            <Link href="#" className="text-xs font-semibold text-[var(--color-primary)] hover:underline">
+            <Link href="/forgot-password" className="text-xs font-semibold text-[var(--color-primary)] hover:underline">
               비밀번호 찾기
             </Link>
           </div>

@@ -82,5 +82,34 @@ export type PostCreate = {
   category: PostCategory;
   author_name?: string;
   course_category?: string;
+  course_id?: number;
   rating?: number;
 };
+
+export type FaqCategory = "docs" | "refund" | "counseling" | "etc";
+
+export const FAQ_CATEGORY_LABEL: Record<FaqCategory, string> = {
+  docs: "수료증·서류",
+  refund: "환불·취소",
+  counseling: "상담",
+  etc: "기타",
+};
+
+export type Faq = {
+  id: number;
+  category: FaqCategory;
+  question: string;
+  answer: string;
+  order_index: number;
+  is_active: boolean;
+};
+
+export type FaqCreate = {
+  category: FaqCategory;
+  question: string;
+  answer: string;
+  order_index?: number;
+  is_active?: boolean;
+};
+
+export type FaqPatch = Partial<FaqCreate>;
