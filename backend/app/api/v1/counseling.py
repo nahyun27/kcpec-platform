@@ -1,3 +1,4 @@
+import logging
 import secrets
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +22,7 @@ from app.schemas.counseling import (
 )
 
 router = APIRouter(prefix="/orders", tags=["counseling"])
+logger = logging.getLogger(__name__)
 
 DRAFTS_DIR = Path(__file__).resolve().parents[3] / "static" / "drafts"
 
@@ -41,7 +43,10 @@ def _process_draft(survey_id: int, course_title: str, user_info: dict[str, str])
 
         try:
             draft = generate_counseling_draft(survey.responses, course_title)
-        except Exception:  # noqa: BLE001 — 초안 생성 실패는 상태로만 표현
+        except Exception:  # noqa: BLE001 — 예기치 못한 실패도 흐름은 막되 반드시 로그
+            logger.exception(
+                "설문 %s 초안 자동 생성 background task 실패", survey_id
+            )
             return
 
         token = survey.access_token or secrets.token_urlsafe(24)

@@ -30,11 +30,35 @@ class TossConfirm(BaseModel):
     payment_key: str
     order_id: int
     amount: int
-    # 프론트가 시뮬레이션 분기로 진입한 경우 명시적으로 표시.
-    # 백엔드 TOSS_SECRET_KEY 가 설정되어 있더라도 이 플래그가 true 면 실제
-    # Toss API 호출을 건너뛰고 mock paid 처리 (개발 편의용).
-    is_simulated: bool = False
 
 
 class BankTransferConfirm(BaseModel):
     order_id: int
+
+
+class BundleCreateRequest(BaseModel):
+    # 사전결제 대상 강의 id 목록. 최소 1개, 중복 없이.
+    course_ids: list[int] = Field(min_length=1)
+    payment_method: PaymentMethod
+
+
+class BundleItem(BaseModel):
+    order_id: int
+    course_id: int
+    course_title: str
+    amount: int
+
+
+class BundleCreateResponse(BaseModel):
+    bundle_id: str
+    subtotal: int
+    discount: int
+    total: int
+    payment_method: PaymentMethod
+    items: list[BundleItem]
+
+
+class BundleTossConfirm(BaseModel):
+    bundle_id: str
+    payment_key: str
+    amount: int

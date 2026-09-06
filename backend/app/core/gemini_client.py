@@ -133,6 +133,19 @@ def _format_user_prompt(
     return base
 
 
+
+# 더미 초안 식별용 마커 — 이 문자열이 본문에 있으면 실제 AI 초안이 아니라
+# 폴백(dummy) 텍스트라는 뜻. GEMINI_API_KEY 미설정뿐 아니라 키가 유효하지
+# 않거나 API 호출이 실패한 경우에도 동일하게 폴백되므로, 호출자(이메일 제목
+# 경고 표시 등)는 설정값(settings.GEMINI_API_KEY)이 아니라 이 마커로 판단해야
+# 실제로 더미가 나갔는지를 정확히 알 수 있다.
+DUMMY_DRAFT_MARKER = "[시스템 점검용 더미 텍스트]"
+
+
+def is_dummy_draft(draft_text: str) -> bool:
+    return DUMMY_DRAFT_MARKER in draft_text
+
+
 def generate_counseling_draft(
     survey_responses: dict,
     course_title: str,
@@ -145,26 +158,35 @@ def generate_counseling_draft(
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    response = client.models.generate_content(
-        model=settings.GEMINI_MODEL,
-        contents=_format_user_prompt(
-            survey_responses, course_title, extra_instructions
-        ),
-        config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
-    )
-    text = (response.text or "").strip()
-    return text or _dummy_draft(survey_responses, course_title)
+    try:
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        response = client.models.generate_content(
+            model=settings.GEMINI_MODEL,
+            contents=_format_user_prompt(
+                survey_responses, course_title, extra_instructions
+            ),
+            config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
+        )
+        text = (response.text or "").strip()
+        return text or _dummy_draft(survey_responses, course_title)
+    except Exception:
+        # 키가 유효하지 않거나(발급/설정 오류), 쿼터 초과, 네트워크 오류 등 —
+        # 원인이 무엇이든 호출자는 반드시 초안 텍스트를 받아야 흐름이
+        # 끊기지 않는다(설문 자동 초안 생성 실패 시 아무 신호 없이 조용히
+        # 멈추는 사고를 방지). 실제 원인은 로그로 남기고, 눈에 띄는 더미
+        # 텍스트로 폴백해 관리자가 반드시 재검토하게 한다.
+        logger.exception("Gemini API 호출 실패 — 더미 초안으로 폴백")
+        return _dummy_draft(survey_responses, course_title)
 
 
 def _dummy_draft(survey_responses: dict, course_title: str) -> str:
-    """GEMINI_API_KEY 미설정 시 사용되는 더미 초안.
+    """AI 초안 생성이 불가능하거나 실패했을 때 대신 반환하는 더미 초안.
     document_generator 가 기대하는 [상담배경]/[상담내용] 섹션 포맷 유지.
     """
     return dedent(
         f"""\
         [상담배경]
-        1. 본 초안은 GEMINI_API_KEY 미설정 환경에서 생성된 시스템 점검용 더미 텍스트임.
+        1. 본 초안은 {DUMMY_DRAFT_MARKER}으로, AI 자동 초안 생성이 불가능하거나 실패하여 대신 표시됨(관리자 확인 필요).
         2. 내담자는 '{course_title}' 교육 과정을 이수하고 본 상담에 참여함.
         3. 본 상담은 내담자의 심리상태 평가 및 재범방지 계획 수립을 목적으로 진행됨.
 
@@ -178,4 +200,4 @@ def _dummy_draft(survey_responses: dict, course_title: str) -> str:
     )
 
 
-__all__ = ["generate_counseling_draft"]
+__all__ = ["generate_counseling_draft", "is_dummy_draft", "DUMMY_DRAFT_MARKER"]

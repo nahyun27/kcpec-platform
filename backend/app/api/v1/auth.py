@@ -1,8 +1,9 @@
 import secrets
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 from jose import JWTError
 from sqlalchemy import select
@@ -11,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.email import send_password_reset_email, send_verification_email
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -18,20 +20,26 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.models.counseling import CounselingSurvey
 from app.models.user import User
 from app.schemas.auth import (
     DeleteMeRequest,
+    ForgotPasswordRequest,
     LoginRequest,
     ProfileUpdateRequest,
     RefreshRequest,
+    ResetPasswordRequest,
     SignupRequest,
     SocialLoginRequest,
     SocialProvider,
     TokenResponse,
     UserResponse,
+    VerifyEmailRequest,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+PASSWORD_RESET_EXPIRE_MINUTES = 60
 
 
 def _issue_tokens(user_id: int) -> TokenResponse:
@@ -42,7 +50,11 @@ def _issue_tokens(user_id: int) -> TokenResponse:
 
 
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> TokenResponse:
+def signup(
+    payload: SignupRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
     exists = db.scalar(
         select(User).where((User.username == payload.username) | (User.email == payload.email))
     )
@@ -52,16 +64,55 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> TokenRespon
             detail="이미 사용 중인 아이디 또는 이메일입니다.",
         )
 
+    verify_token = secrets.token_urlsafe(32)
     user = User(
         username=payload.username,
         password_hash=hash_password(payload.password),
         email=payload.email,
         birth_date=payload.birth_date,
+        is_verified=False,
+        email_verify_token=verify_token,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    verify_url = f"{settings.FRONTEND_BASE_URL}/verify-email?token={verify_token}"
+    background_tasks.add_task(send_verification_email, to_email=user.email, verify_url=verify_url)
+
     return _issue_tokens(user.id)
+
+
+@router.post("/verify-email", status_code=status.HTTP_200_OK)
+def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)) -> dict[str, str]:
+    user = db.scalar(select(User).where(User.email_verify_token == payload.token))
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유효하지 않은 인증 링크입니다.",
+        )
+    user.is_verified = True
+    user.email_verify_token = None
+    db.commit()
+    return {"detail": "이메일 인증이 완료되었습니다."}
+
+
+@router.post("/resend-verification", status_code=status.HTTP_200_OK)
+def resend_verification(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, str]:
+    if current_user.is_verified:
+        return {"detail": "이미 인증된 이메일입니다."}
+    token = secrets.token_urlsafe(32)
+    current_user.email_verify_token = token
+    db.commit()
+    verify_url = f"{settings.FRONTEND_BASE_URL}/verify-email?token={token}"
+    background_tasks.add_task(
+        send_verification_email, to_email=current_user.email, verify_url=verify_url
+    )
+    return {"detail": "인증 메일을 다시 보냈습니다."}
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -102,6 +153,55 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)) -> TokenResp
     return _issue_tokens(user.id)
 
 
+@router.post("/forgot-password", status_code=status.HTTP_200_OK)
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    """이메일이 실제로 가입돼 있는지 여부와 무관하게 항상 같은 응답을 준다
+    (계정 존재 여부를 외부에 노출하지 않기 위한 표준적인 방어 — user
+    enumeration 방지). 소셜 로그인 계정은 비밀번호가 없으므로 대상에서 제외."""
+    user = db.scalar(select(User).where(User.email == payload.email))
+    if user is not None and user.is_active and user.social_provider is None:
+        token = secrets.token_urlsafe(32)
+        user.password_reset_token = token
+        user.password_reset_expires_at = datetime.now(timezone.utc) + timedelta(
+            minutes=PASSWORD_RESET_EXPIRE_MINUTES
+        )
+        db.commit()
+        reset_url = f"{settings.FRONTEND_BASE_URL}/reset-password?token={token}"
+        background_tasks.add_task(
+            send_password_reset_email, to_email=user.email, reset_url=reset_url
+        )
+    return {
+        "detail": "입력하신 이메일로 비밀번호 재설정 링크를 보내드렸습니다. (가입된 이메일인 경우에만 발송됩니다)"
+    }
+
+
+@router.post("/reset-password", status_code=status.HTTP_200_OK)
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)) -> dict[str, str]:
+    user = db.scalar(select(User).where(User.password_reset_token == payload.token))
+    if user is None or user.password_reset_expires_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유효하지 않거나 만료된 링크입니다. 다시 요청해 주세요.",
+        )
+    expires_at = user.password_reset_expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유효하지 않거나 만료된 링크입니다. 다시 요청해 주세요.",
+        )
+    user.password_hash = hash_password(payload.new_password)
+    user.password_reset_token = None
+    user.password_reset_expires_at = None
+    db.commit()
+    return {"detail": "비밀번호가 변경되었습니다. 새 비밀번호로 로그인해 주세요."}
+
+
 @router.get("/me", response_model=UserResponse)
 def me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
@@ -110,13 +210,15 @@ def me(current_user: User = Depends(get_current_user)) -> User:
 @router.patch("/me", response_model=UserResponse)
 def patch_me(
     payload: ProfileUpdateRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> User:
     """이메일 / 비밀번호 변경. 소셜 로그인 사용자는 비밀번호 변경 불가."""
     is_social = current_user.social_provider is not None
 
-    # 1) 이메일 변경
+    # 1) 이메일 변경 — 새 주소는 아직 검증 안 됐으므로 다시 미인증 처리하고
+    # 인증 메일을 재발송한다 (검증된 옛 이메일을 계속 인증완료로 두면 의미 없음).
     if payload.email and payload.email != current_user.email:
         dup = db.scalar(
             select(User).where(User.email == payload.email, User.id != current_user.id)
@@ -127,6 +229,14 @@ def patch_me(
                 detail="이미 사용 중인 이메일입니다.",
             )
         current_user.email = payload.email
+        if not is_social:
+            token = secrets.token_urlsafe(32)
+            current_user.is_verified = False
+            current_user.email_verify_token = token
+            verify_url = f"{settings.FRONTEND_BASE_URL}/verify-email?token={token}"
+            background_tasks.add_task(
+                send_verification_email, to_email=current_user.email, verify_url=verify_url
+            )
 
     # 2) 비밀번호 변경
     if payload.new_password is not None:
@@ -160,7 +270,23 @@ def delete_me(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, str]:
-    """회원 탈퇴 — 실제 삭제 대신 is_active=False 로 비활성화."""
+    """회원 탈퇴.
+
+    개인정보처리방침 제2조에 따르면 "홈페이지 회원 가입 및 관리" 목적의
+    개인정보(아이디·비밀번호·생년월일·이메일 등)는 탈퇴 시까지만 보유하고,
+    "재화 또는 서비스 제공" 관련 기록(주문/결제/발급 서류)은 전자상거래법에
+    따라 탈퇴 여부와 무관하게 5년간 보관 의무가 있다(계약/청약철회·대금결제·
+    공급기록). 그래서 예전처럼 is_active=False 만 세우고 개인정보를 그대로
+    남겨두면 안 되고, 반대로 User row 를 통째로 지우면 orders/issued_documents
+    등 법정 보관 대상 기록까지 FK cascade 로 같이 날아간다.
+
+    그래서 row 는 남기되(주문·발급서류의 FK 무결성 유지) 식별 가능한 개인정보
+    필드만 지우는 "익명화" 방식을 쓴다 — 제6조의 "별도 보관"과 같은 취지.
+    이미 발급된 수료증/의견서(recipient_name 등)는 문서 자체에 스냅샷으로
+    저장돼 있어 법원 재확인 용도로 계속 유효하게 남는다. 심리상담 설문
+    응답(자유서술, 가장 민감한 항목)은 거래기록 보관의무 대상이 아니므로
+    본문만 삭제한다.
+    """
     is_social = current_user.social_provider is not None
     if not is_social:
         if not payload.password:
@@ -176,7 +302,24 @@ def delete_me(
                 detail="비밀번호가 올바르지 않습니다.",
             )
 
+    anon_suffix = secrets.token_hex(4)
+    current_user.username = f"deleted_{current_user.id}_{anon_suffix}"
+    current_user.email = f"deleted_{current_user.id}_{anon_suffix}@withdrawn.kcpec.local"
+    current_user.password_hash = None
+    current_user.birth_date = None
+    current_user.social_id = None
+    current_user.password_reset_token = None
+    current_user.password_reset_expires_at = None
+    current_user.email_verify_token = None
+    current_user.is_verified = False
     current_user.is_active = False
+
+    surveys = db.scalars(
+        select(CounselingSurvey).where(CounselingSurvey.user_id == current_user.id)
+    ).all()
+    for survey in surveys:
+        survey.responses = {"_redacted": "회원 탈퇴로 삭제된 응답입니다."}
+
     db.commit()
     return {"detail": "탈퇴가 완료되었습니다."}
 
@@ -274,7 +417,7 @@ def _find_or_create_social_user(
             ),
         )
 
-    # 3) 신규 생성
+    # 3) 신규 생성 — 소셜 provider 가 이미 이메일을 검증했다고 보고 바로 인증완료 처리.
     new_user = User(
         username=_unique_username_from(db, email),
         password_hash=None,
@@ -282,6 +425,7 @@ def _find_or_create_social_user(
         birth_date=None,
         social_provider=provider,
         social_id=provider_id,
+        is_verified=True,
     )
     db.add(new_user)
     db.commit()

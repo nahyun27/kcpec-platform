@@ -36,6 +36,19 @@ from app.schemas.quiz import (
 
 router = APIRouter(tags=["courses"])
 
+# 차시를 "완료"로 표시하려면 실제 시청 시간이 영상 길이의 이 비율 이상이어야
+# 한다. sequential-unlock 만으로는 lecture_id 를 알면(강의 상세 응답에 그대로
+# 노출됨) watched_seconds=0 인 채로 순서대로 PATCH 호출을 반복해 전 강의를
+# 순식간에 "수료" 처리받을 수 있었다 — 실제 시청량 검증 없이는 순서 검증이
+# 무의미했음. 프론트(watch/page.tsx)의 95% 자동완료 임계값보다 살짝 낮게
+# 잡아, 재생 위치 반올림/네트워크 재시도 등으로 인한 정상 사용자의 오탐을
+# 피한다.
+MIN_LECTURE_WATCH_RATIO = 0.9
+# lecture.duration_seconds 가 아직 0(신규 등록 직후, 어드민/수강생 누구도 아직
+# 재생 안 해 백필 안 된 상태)일 때 쓰는 절대 하한 — 이 경우라도 0초 즉시완료는
+# 막아야 한다.
+MIN_LECTURE_WATCH_SECONDS_FALLBACK = 10
+
 
 # ---------- internal helpers ---------------------------------------------------
 
@@ -108,6 +121,32 @@ def _calc_overall_progress(course: Course, progresses: list[LectureProgress]) ->
     completed_ids = {p.lecture_id for p in progresses if p.is_completed}
     completed = sum(1 for lec in active_lectures if lec.id in completed_ids)
     return int(round(completed * 100 / len(active_lectures)))
+
+
+def _check_sequential_unlock(course: Course, lecture: Lecture, enrollment: Enrollment) -> None:
+    """이전 차시를 다 완료하기 전엔 이 차시를 '완료'로 표시할 수 없게 막는다.
+
+    프론트(watch/page.tsx)는 이전 차시가 끝나야 다음 차시 버튼이 활성화되도록
+    UI 로 막아두지만, 그건 시각적인 제약일 뿐 PATCH /lectures/{id}/progress
+    자체는 어떤 lecture_id 로도 호출 가능해서, lecture_id 만 알면(강의 상세
+    응답에 그대로 노출됨) 앞 차시를 하나도 안 보고 바로 마지막 차시까지
+    is_completed=true 로 찍어 수료 처리를 받을 수 있었다. 발급되는 수료증이
+    법원 제출용 서류라 "실제로 안 봐도 수료 처리된다"는 건 이 서비스의
+    핵심 가치를 무너뜨리는 문제라 서버에서도 같은 규칙을 강제한다.
+    """
+    active_lectures = sorted(
+        (lec for lec in course.lectures if lec.is_active),
+        key=lambda lec: lec.order_index,
+    )
+    completed_ids = {p.lecture_id for p in enrollment.progresses if p.is_completed}
+    for lec in active_lectures:
+        if lec.id == lecture.id:
+            return
+        if lec.id not in completed_ids:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail=f"'{lec.title}' 차시를 먼저 완료해야 합니다.",
+            )
 
 
 def _has_passed_quiz(db: Session, enrollment_id: int) -> bool:
@@ -183,6 +222,16 @@ def list_my_enrollments(
         course = courses_map.get(e.course_id)
         if course is None:
             continue
+        active_lectures = sorted(
+            (lec for lec in course.lectures if lec.is_active),
+            key=lambda lec: lec.order_index,
+        )
+        completed_ids = {p.lecture_id for p in e.progresses if p.is_completed}
+        completed_count = sum(1 for lec in active_lectures if lec.id in completed_ids)
+        # "이어보기"로 다음에 볼 차시 — 순서상 처음 만나는 미완료 차시.
+        next_lecture = next(
+            (lec for lec in active_lectures if lec.id not in completed_ids), None
+        )
         out.append(
             EnrollmentWithProgress(
                 course_id=course.id,
@@ -192,6 +241,10 @@ def list_my_enrollments(
                 expires_at=e.expires_at,
                 overall_progress_pct=_calc_overall_progress(course, e.progresses),
                 has_quiz=course.id in quiz_course_ids,
+                total_lectures=len(active_lectures),
+                completed_lectures=completed_count,
+                current_lecture_title=next_lecture.title if next_lecture else None,
+                current_lecture_order=next_lecture.order_index if next_lecture else None,
             )
         )
     return out
@@ -338,7 +391,18 @@ def update_lecture_progress(
     if payload.duration_seconds is not None and payload.duration_seconds > 0:
         if (lecture.duration_seconds or 0) < payload.duration_seconds:
             lecture.duration_seconds = payload.duration_seconds
-    if payload.is_completed:
+    if payload.is_completed and not progress.is_completed:
+        _check_sequential_unlock(course, lecture, enrollment)
+        min_required = (
+            lecture.duration_seconds * MIN_LECTURE_WATCH_RATIO
+            if lecture.duration_seconds and lecture.duration_seconds > 0
+            else MIN_LECTURE_WATCH_SECONDS_FALLBACK
+        )
+        if progress.watched_seconds < min_required:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="영상을 끝까지 시청해야 완료 처리할 수 있습니다.",
+            )
         progress.is_completed = True
 
     _maybe_complete_enrollment(db, course, enrollment)

@@ -55,6 +55,10 @@ class Order(Base):
         index=True,
     )
     bank_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 묶음결제(여러 강의를 한 번의 결제로 + 10만원 이상 할인)로 생성된 경우,
+    # 같은 결제 세션에 속한 주문들을 하나로 묶어 식별하는 랜덤 토큰.
+    # 단일 강의 주문은 None.
+    bundle_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

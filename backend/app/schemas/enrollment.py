@@ -42,3 +42,8 @@ class EnrollmentWithProgress(BaseModel):
     expires_at: datetime | None = None
     overall_progress_pct: int
     has_quiz: bool = False
+    total_lectures: int = 0
+    completed_lectures: int = 0
+    # 다음에 이어볼 차시(아직 안 끝낸 첫 차시) 제목 — 다 끝났으면 None.
+    current_lecture_title: str | None = None
+    current_lecture_order: int | None = None

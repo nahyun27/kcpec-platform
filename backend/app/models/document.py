@@ -17,6 +17,9 @@ class IssuedDocumentType(str, enum.Enum):
 class IssuedDocumentStatus(str, enum.Enum):
     PENDING = "pending"
     READY = "ready"
+    # 발급 후 주문이 환불되어 더 이상 유효하지 않은 서류 (법원 제출용이라
+    # 환불된 강의의 수료증이 계속 유효한 채로 남아있으면 안 됨).
+    REVOKED = "revoked"
 
 
 class IssuedDocument(Base):

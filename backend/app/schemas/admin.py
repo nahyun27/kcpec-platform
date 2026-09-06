@@ -12,6 +12,8 @@ class AdminUser(BaseModel):
     id: int
     username: str
     email: EmailStr
+    name: str | None = None
+    phone: str | None = None
     birth_date: date | None
     is_active: bool
     is_admin: bool

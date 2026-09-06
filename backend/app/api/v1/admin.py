@@ -3,6 +3,8 @@ from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 
+import httpx
+
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -23,15 +25,16 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.document_generator import fill_counseling_template
 from app.core.email import send_final_to_user
-from app.core.gemini_client import generate_counseling_draft
-from app.core.pdf import convert_office_to_pdf
+from app.core.gemini_client import generate_counseling_draft, is_dummy_draft
+from app.core.pdf import PDF_DIR, convert_office_to_pdf
 from app.models.community import Notice, Post
 from app.models.counseling import CounselingStatus, CounselingSurvey
 from app.models.course import Course
 from app.models.document import IssuedDocument, IssuedDocumentStatus, IssuedDocumentType
 from app.models.enrollment import Enrollment
+from app.models.faq import Faq
 from app.models.lecture import Lecture
-from app.models.order import Order, OrderStatus, PaymentMethod
+from app.models.order import Order, OrderStatus, OrderType
 from app.models.quiz import Quiz, QuizOption, QuizQuestion
 from app.models.user import User
 from app.schemas.admin import (
@@ -67,7 +70,7 @@ from app.schemas.admin import (
 from app.schemas.community import NoticeDetail, PostAdminReply, PostDetail
 from app.schemas.course import CourseDetail, CourseListItem, LectureItem
 from app.schemas.document import DocumentResponse
-from app.schemas.order import OrderResponse
+from app.schemas.faq import FaqCreate, FaqPatch, FaqRead
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
@@ -101,13 +104,26 @@ def _row_from_order(o: Order, user: User, course: Course) -> AdminOrderRow:
 def list_users(
     page: int = Query(default=1, ge=1),
     size: int = Query(default=20, ge=1, le=200),
+    course_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> AdminUsersResponse:
-    total = db.scalar(select(func.count(User.id))) or 0
+    # course_id 가 오면 해당 강의를 수강 등록한 사용자만 필터링 (사이드바 "강의별
+    # 수강생" 클릭). user_id+course_id 에 unique constraint 가 있어 join 해도
+    # row 가 중복되지 않는다.
+    user_query = select(User)
+    count_query = select(func.count(User.id))
+    if course_id is not None:
+        user_query = user_query.join(Enrollment, Enrollment.user_id == User.id).where(
+            Enrollment.course_id == course_id
+        )
+        count_query = count_query.join(
+            Enrollment, Enrollment.user_id == User.id
+        ).where(Enrollment.course_id == course_id)
+
+    total = db.scalar(count_query) or 0
     items = list(
         db.scalars(
-            select(User)
-            .order_by(User.id.desc())
+            user_query.order_by(User.id.desc())
             .offset((page - 1) * size)
             .limit(size)
         ).all()
@@ -143,6 +159,8 @@ def list_users(
                 id=u.id,
                 username=u.username,
                 email=u.email,
+                name=u.name,
+                phone=u.phone,
                 birth_date=u.birth_date,
                 is_active=u.is_active,
                 is_admin=u.is_admin,
@@ -515,21 +533,126 @@ def list_orders(
     return AdminOrdersResponse(items=items, total=total, page=page, size=size)
 
 
-@router.post("/orders/bank/confirm/{order_id}", response_model=OrderResponse)
-def confirm_bank_order(order_id: int, db: Session = Depends(get_db)) -> Order:
+@router.post("/orders/{order_id}/cancel", response_model=OkResponse)
+def cancel_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
+    """결제 전(PENDING) 주문 취소 — 예: 무통장 입금이 끝내 들어오지 않은 경우.
+
+    아직 결제도 수강등록도 안 된 상태라 상태만 바꾸면 끝.
+    """
     order = db.get(Order, order_id)
     if order is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="주문을 찾을 수 없습니다.")
-    if order.payment_method != PaymentMethod.BANK_TRANSFER:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="무통장 주문이 아닙니다.")
-    if order.status == OrderStatus.PAID:
-        return order
-    order.status = OrderStatus.PAID
-    order.paid_at = _now()
-    order.bank_confirmed_at = _now()
+    if order.status != OrderStatus.PENDING:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail="결제 대기 중인 주문만 취소할 수 있습니다."
+        )
+    order.status = OrderStatus.CANCELLED
     db.commit()
-    db.refresh(order)
-    return order
+    return OkResponse()
+
+
+def _revoke_issued_document(doc: IssuedDocument) -> None:
+    """환불된 주문에 딸린 발급 서류 무효화 — DB 상태 변경 + 실제 PDF 파일 삭제.
+
+    /static 은 인증 없이 공개 서빙되므로 상태만 바꾸고 파일을 안 지우면,
+    이미 URL 을 알고 있는(저장해둔) 사람은 여전히 다운로드할 수 있다.
+    document_type 별로 실제 저장 경로 규칙이 달라(수료증: PDF_DIR, 심리상담
+    의견서: FINALS_DIR — 둘 다 파일명은 doc.access_token 그대로 사용) 타입을
+    보고 분기한다.
+    """
+    if doc.access_token:
+        if doc.document_type == IssuedDocumentType.CERTIFICATE:
+            (PDF_DIR / f"cert_{doc.access_token}.pdf").unlink(missing_ok=True)
+        elif doc.document_type == IssuedDocumentType.COUNSELING:
+            (FINALS_DIR / f"{doc.access_token}.pdf").unlink(missing_ok=True)
+    doc.status = IssuedDocumentStatus.REVOKED
+    doc.access_token = None
+    doc.pdf_url = None
+
+
+@router.post("/orders/{order_id}/refund", response_model=OkResponse)
+def refund_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
+    """결제 완료(PAID) 주문 환불 — 수강등록 취소 + 발급된 서류(있다면) 무효화까지 한 번에.
+
+    법원 제출용 서류라 환불된 강의의 수료증/의견서가 계속 유효한 채로
+    남아있으면 안 되므로, 이미 발급된 문서가 있으면 같이 무효화한다.
+    """
+    order = db.get(Order, order_id)
+    if order is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="주문을 찾을 수 없습니다.")
+    if order.status != OrderStatus.PAID:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail="결제 완료된 주문만 환불 처리할 수 있습니다."
+        )
+
+    # 묶음결제(여러 강의를 한 결제로 + 10만원 이상 할인)의 일부면, 하나의 Toss
+    # 결제(paymentKey 공유)에 여러 Order row 가 걸려있는 것이므로 그 중 하나만
+    # 환불하는 건 의미가 없다 — Toss 결제취소는 결제 1건 단위라 부분 취소가
+    # 안 되고, 강의 하나만 DB 상 REFUNDED 로 바꿔봤자 실제 결제는 그대로다.
+    # 같은 bundle_id 의 PAID 주문 전체를 함께 환불한다.
+    bundle_orders = (
+        list(
+            db.scalars(
+                select(Order).where(
+                    Order.bundle_id == order.bundle_id,
+                    Order.status == OrderStatus.PAID,
+                )
+            ).all()
+        )
+        if order.bundle_id
+        else [order]
+    )
+
+    # 카드/간편결제(Toss) 로 결제된 건이면 Toss 결제취소 API를 먼저 호출해 실제로
+    # 고객에게 돈이 돌아가게 한다. 이 호출 없이 DB 상태만 REFUNDED 로 바꾸면
+    # 수강 권한/서류는 즉시 회수되는데 정작 결제된 돈은 그대로 남아있는 —
+    # "환불 처리했다고 안내했는데 고객 카드에는 돈이 안 돌아온" 사고로 이어질
+    # 수 있었다(2026-09 발견). 무통장입금은 애초에 Toss 를 거치지 않아
+    # toss_payment_key 가 없으므로 자동화 대상이 아니고, 기존과 동일하게
+    # 관리자가 계좌로 직접 환불해야 한다. TOSS_SECRET_KEY 미설정(로컬 개발)
+    # 환경에서는 실 호출이 불가능하므로 기존처럼 DB 상태만 갱신한다.
+    # 묶음결제는 모든 구성 주문이 같은 paymentKey 를 공유하므로 취소 호출은
+    # 한 번만 하면 된다.
+    if order.toss_payment_key and settings.TOSS_SECRET_KEY:
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                res = client.post(
+                    f"{settings.TOSS_API_BASE}/v1/payments/{order.toss_payment_key}/cancel",
+                    auth=(settings.TOSS_SECRET_KEY, ""),
+                    json={"cancelReason": "관리자 환불 처리"},
+                )
+        except httpx.HTTPError as exc:
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY,
+                detail=f"결제 게이트웨이 취소 호출에 실패했습니다: {exc!s}",
+            ) from exc
+        if res.status_code != 200:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail=f"토스 결제 취소 실패: {res.text}",
+            )
+
+    for o in bundle_orders:
+        o.status = OrderStatus.REFUNDED
+
+        if o.order_type == OrderType.COURSE:
+            enrollment = db.scalar(
+                select(Enrollment).where(
+                    Enrollment.user_id == o.user_id,
+                    Enrollment.course_id == o.course_id,
+                )
+            )
+            if enrollment is not None:
+                db.delete(enrollment)
+
+        docs = list(
+            db.scalars(select(IssuedDocument).where(IssuedDocument.order_id == o.id)).all()
+        )
+        for doc in docs:
+            _revoke_issued_document(doc)
+
+    db.commit()
+    return OkResponse()
 
 
 # ---------- surveys -----------------------------------------------------------
@@ -750,6 +873,12 @@ class RegenerateDraftRequest(BaseModel):
 class RegenerateDraftResponse(BaseModel):
     draft_text: str
     draft_url: str
+    # 더미 텍스트(GEMINI_API_KEY 미설정뿐 아니라 키가 유효하지 않거나 API 호출이
+    # 실패한 경우도 포함)인지 — draft_text 자체로 판단(is_dummy_draft). 설정값만
+    # 보면 "키는 있는데 무효/실패"인 실제 장애 상황을 놓친다. 더미 문구가 본문에
+    # 섞여 있어도 관리자가 훑어보다 놓칠 수 있어서, 프론트가 눈에 띄는 경고
+    # 배너를 띄울 수 있도록 별도 플래그로 노출한다.
+    is_dummy: bool
 
 
 @router.post(
@@ -797,7 +926,9 @@ def regenerate_draft(
         survey.status = CounselingStatus.DRAFT_GENERATED
     db.commit()
 
-    return RegenerateDraftResponse(draft_text=draft, draft_url=draft_url)
+    return RegenerateDraftResponse(
+        draft_text=draft, draft_url=draft_url, is_dummy=is_dummy_draft(draft)
+    )
 
 
 # ---------- stats -------------------------------------------------------------
@@ -1124,7 +1255,11 @@ def admin_visitor_stats(db: Session = Depends(get_db)) -> VisitorStats:
 
     - 신규 가입자 (이번달 / 전월)
     - 누적 수강 신청
-    - 이번달 전환율 = 이번달 결제 완료 / 이번달 신규 가입
+    - 이번달 전환율 = 이번달 신규 가입자 중 결제까지 이어진 사용자 비율
+      (예전엔 "이번달 결제건수 / 이번달 신규가입" 이었는데, 분자가 신규가입자로
+      한정되지 않아 기존 회원 결제까지 다 섞이고 한 명이 여러 번 결제하면
+      100% 를 넘어버리는 등 숫자가 의미를 안 갖는 문제가 있었음. 지금은 "이번달
+      가입자" 코호트 안에서만 전환 여부(0/1)를 세므로 0~100% 로 항상 유효함.)
     - 활성 사용자 1인당 평균 수강 신청 수
     """
     now = _now()
@@ -1152,18 +1287,22 @@ def admin_visitor_stats(db: Session = Depends(get_db)) -> VisitorStats:
     )
     total_enrollments = db.scalar(select(func.count(Enrollment.id))) or 0
 
-    paid_this_month = (
+    # 이번달 가입자 중 결제(PAID) 이력이 하나라도 있는 사용자 수 — 사용자
+    # 단위로 distinct 를 세기 때문에 한 명이 여러 번 결제해도 1명으로만
+    # 잡히고, 분자가 항상 분모(이번달 신규가입)의 부분집합이라 0~100% 를 벗어날 수 없다.
+    converted_new_users_this_month = (
         db.scalar(
-            select(func.count(Order.id)).where(
+            select(func.count(func.distinct(Order.user_id))).where(
                 Order.status == OrderStatus.PAID,
-                Order.paid_at.is_not(None),
-                Order.paid_at >= this_month_start,
+                Order.user_id.in_(
+                    select(User.id).where(User.created_at >= this_month_start)
+                ),
             )
         )
         or 0
     )
     conversion_rate = (
-        round((paid_this_month / new_users_this_month) * 100, 1)
+        round((converted_new_users_this_month / new_users_this_month) * 100, 1)
         if new_users_this_month > 0
         else 0.0
     )
@@ -1277,3 +1416,43 @@ def patch_post_reply(
     db.commit()
     db.refresh(post)
     return PostDetail.model_validate(post)
+
+
+# ---------- faq (자주 묻는 질문) -----------------------------------------------
+
+
+@router.get("/faq", response_model=list[FaqRead])
+def admin_list_faqs(db: Session = Depends(get_db)) -> list[Faq]:
+    """공개용 /faq 와 달리 비활성 항목까지 전부 반환 (관리자 목록용)."""
+    return list(db.scalars(select(Faq).order_by(Faq.order_index, Faq.id)).all())
+
+
+@router.post("/faq", response_model=FaqRead, status_code=status.HTTP_201_CREATED)
+def create_faq(payload: FaqCreate, db: Session = Depends(get_db)) -> Faq:
+    faq = Faq(**payload.model_dump())
+    db.add(faq)
+    db.commit()
+    db.refresh(faq)
+    return faq
+
+
+@router.patch("/faq/{faq_id}", response_model=FaqRead)
+def patch_faq(faq_id: int, payload: FaqPatch, db: Session = Depends(get_db)) -> Faq:
+    faq = db.get(Faq, faq_id)
+    if faq is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="FAQ를 찾을 수 없습니다.")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(faq, field, value)
+    db.commit()
+    db.refresh(faq)
+    return faq
+
+
+@router.delete("/faq/{faq_id}", response_model=OkResponse)
+def delete_faq(faq_id: int, db: Session = Depends(get_db)) -> OkResponse:
+    faq = db.get(Faq, faq_id)
+    if faq is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="FAQ를 찾을 수 없습니다.")
+    db.delete(faq)
+    db.commit()
+    return OkResponse()

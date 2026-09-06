@@ -41,6 +41,19 @@ class SocialLoginRequest(BaseModel):
     name: str = Field(min_length=1, max_length=100)
 
 
+class VerifyEmailRequest(BaseModel):
+    token: str = Field(min_length=1)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=1)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 class DeleteMeRequest(BaseModel):
     # 일반 로그인 사용자만 비밀번호 재확인 필요. 소셜 로그인은 None 으로 보냄.
     password: str | None = None
@@ -56,10 +69,13 @@ class UserResponse(BaseModel):
     id: int
     username: str
     email: EmailStr
+    name: str | None
+    phone: str | None
     birth_date: date | None
     social_provider: str | None
     is_active: bool
     is_admin: bool
+    is_verified: bool
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

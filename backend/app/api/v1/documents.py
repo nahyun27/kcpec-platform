@@ -1,12 +1,13 @@
 import secrets
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.email import send_certificate_to_user
 from app.core.pdf import generate_certificate_pdf
 from app.models.course import Course
 from app.models.document import (
@@ -31,6 +32,7 @@ def issue_document(
     order_id: int,
     payload: DocumentIssueRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> DocumentResponse:
@@ -46,6 +48,18 @@ def issue_document(
     course = db.get(Course, order.course_id)
     if course is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="강의 정보를 찾을 수 없습니다.")
+
+    # 이미 발급된(취소되지 않은) 서류가 있으면 그대로 반환 — 없으면 한 번의
+    # 완주(결제)로 recipient_name/recipient_birth 만 바꿔가며 서로 다른
+    # 사람 명의의 "정식" 법원 제출용 서류를 무한정 찍어낼 수 있었다.
+    existing = db.scalar(
+        select(IssuedDocument).where(
+            IssuedDocument.order_id == order.id,
+            IssuedDocument.status != IssuedDocumentStatus.REVOKED,
+        )
+    )
+    if existing is not None:
+        return DocumentResponse.model_validate(existing)
 
     # 일반 강의 주문(COURSE)은 결제만으로 발급 불가 — 진도+퀴즈를 완주(enrollment.is_completed)
     # 해야만 수료증 발급 가능. (심리상담 독립 구매(COUNSELING)는 강의 개념이 없어 제외.)
@@ -95,6 +109,18 @@ def issue_document(
 
     db.commit()
     db.refresh(doc)
+
+    # FAQ("익일 24시까지 이메일로 보내드립니다")에 실제로 발송 코드가 없던
+    # 문제를 고침(2026-09) — 심리상담 의견서(admin.py upload_final)는 이미
+    # 발송되고 있었는데 수료증만 빠져 있었음.
+    background_tasks.add_task(
+        send_certificate_to_user,
+        to_email=current_user.email,
+        recipient_name=payload.recipient_name,
+        course_title=course.title,
+        pdf_url=doc.pdf_url,
+    )
+
     return DocumentResponse.model_validate(doc)
 
 

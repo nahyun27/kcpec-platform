@@ -6,6 +6,7 @@ from app.core.admin import require_admin
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.community import Notice, NoticeCategory, Post, PostCategory
+from app.models.faq import Faq, FaqCategory
 from app.models.order import Order, OrderStatus
 from app.models.user import User
 from app.schemas.community import (
@@ -18,8 +19,23 @@ from app.schemas.community import (
     PostDetail,
     PostListItem,
 )
+from app.schemas.faq import FaqRead
 
 router = APIRouter(tags=["community"])
+
+
+# ---------- faq (자주 묻는 질문) -----------------------------------------------
+
+
+@router.get("/faq", response_model=list[FaqRead])
+def list_faqs(
+    category: FaqCategory | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> list[Faq]:
+    stmt = select(Faq).where(Faq.is_active.is_(True))
+    if category is not None:
+        stmt = stmt.where(Faq.category == category)
+    return list(db.scalars(stmt.order_by(Faq.order_index, Faq.id)).all())
 
 
 # ---------- notices (공지사항/자료실) -----------------------------------------
