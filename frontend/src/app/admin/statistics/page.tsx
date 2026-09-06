@@ -437,7 +437,7 @@ function VisitorStatsView({ visitors }: { visitors: VisitorStats | null }) {
           icon={<Repeat className="h-4 w-4" />}
           label="이번 달 전환율"
           value={`${visitors.conversion_rate.toFixed(1)}%`}
-          sub="결제 완료 / 신규 가입"
+          sub="신규 가입자 중 결제 전환"
         />
         <SummaryCard
           icon={<GraduationCap className="h-4 w-4" />}

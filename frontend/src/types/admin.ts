@@ -6,6 +6,8 @@ export type AdminUser = {
   id: number;
   username: string;
   email: string;
+  name: string | null;
+  phone: string | null;
   birth_date: string | null;
   is_active: boolean;
   is_admin: boolean;

@@ -248,15 +248,19 @@ export default function AdminCoursesPage() {
                             }
                           }}
                           onReorder={async (orderedIds) => {
-                            // 1-indexed order_index 를 모두 PATCH (병렬). 실패는 무시.
-                            await Promise.all(
+                            // 1-indexed order_index 를 모두 PATCH (병렬).
+                            const results = await Promise.allSettled(
                               orderedIds.map((id, idx) =>
-                                patchAdminLecture(id, { order_index: idx + 1 }).catch(
-                                  () => null,
-                                ),
+                                patchAdminLecture(id, { order_index: idx + 1 }),
                               ),
                             );
                             await loadLectures(c.id);
+                            const failed = results.filter((r) => r.status === "rejected").length;
+                            if (failed > 0) {
+                              alert(
+                                `${failed}개 차시의 순서 변경에 실패했습니다. 목록을 새로고침했으니 순서를 확인 후 다시 시도해 주세요.`,
+                              );
+                            }
                           }}
                           onDurationDetected={async () => {
                             await loadLectures(c.id);
@@ -427,7 +431,18 @@ function LectureList({
     if (targets.length === 0) return;
 
     const cleanups: Array<() => void> = [];
-    let needsRefresh = false;
+    // "배열 마지막 항목이 가장 나중에 끝난다"는 가정은 실제 metadata 로드
+    // 순서와 무관해서 틀릴 수 있었음(파일 크기·네트워크 따라 순서 뒤바뀜) —
+    // 대신 완료 개수를 세어 전부 끝났을 때 딱 한 번만 새로고침한다.
+    let completed = 0;
+    let refreshed = false;
+    const maybeRefresh = async () => {
+      completed += 1;
+      if (completed >= targets.length && !refreshed) {
+        refreshed = true;
+        await onDurationDetected();
+      }
+    };
 
     for (const lec of targets) {
       probedRef.current.add(lec.id);
@@ -437,22 +452,19 @@ function LectureList({
       const handleMeta = async () => {
         if (cancelled) return;
         const dur = Math.round(video.duration);
-        if (!Number.isFinite(dur) || dur <= 0) return;
-        try {
-          await patchAdminLecture(lec.id, { duration_seconds: dur });
-          needsRefresh = true;
-          // 마지막 항목이면 한 번에 부모 새로고침
-          if (lec === targets[targets.length - 1]) {
-            await onDurationDetected();
-            needsRefresh = false;
+        if (Number.isFinite(dur) && dur > 0) {
+          try {
+            await patchAdminLecture(lec.id, { duration_seconds: dur });
+          } catch {
+            /* 실패해도 dedup 유지 — 사용자가 수동 재시도 가능 */
           }
-        } catch {
-          /* 실패해도 dedup 유지 — 사용자가 수동 재시도 가능 */
         }
+        await maybeRefresh();
       };
       video.onloadedmetadata = handleMeta;
       video.onerror = () => {
-        /* URL 깨짐 등 — 그냥 무시 */
+        /* URL 깨짐 등 — PATCH 없이도 완료 카운트에는 반영 */
+        if (!cancelled) void maybeRefresh();
       };
       video.src = lec.video_url!;
       cleanups.push(() => {
@@ -465,8 +477,6 @@ function LectureList({
 
     return () => {
       for (const fn of cleanups) fn();
-      // 비동기 결과가 도착했지만 마지막 항목 이전에 unmount 된 경우 — 다음 마운트에서 갱신됨
-      if (needsRefresh) void onDurationDetected();
     };
   }, [lectures, onDurationDetected]);
 
@@ -627,6 +637,11 @@ function abbreviate(s: string, maxLen: number): string {
 
 // ---------- modals ---------------------------------------------------------
 
+// 강의 전체보기(frontend/src/app/(main)/courses/page.tsx)의 가격대 탭이
+// 정확히 일치하는 가격만 필터링하므로, 이 값과 다른 가격을 입력하면 그
+// 강의는 어느 탭에도 노출되지 않는다 — admin 에게 경고 문구를 보여주기 위한 목록.
+const PRICE_TIER_VALUES = [22000, 33000, 55000];
+
 const inputCls =
   "w-full rounded border border-zinc-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20";
 
@@ -727,6 +742,7 @@ function NewCourseModal({
   const [hasDiscount, setHasDiscount] = useState(false);
   const [originalPrice, setOriginalPrice] = useState(110_000);
   const [description, setDescription] = useState("");
+  const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -748,6 +764,7 @@ function NewCourseModal({
         price,
         original_price: hasDiscount ? originalPrice : null,
         description: description.trim() || undefined,
+        thumbnail_url: thumbnailUrl.trim() || undefined,
       });
       onCreated();
     } catch (caught) {
@@ -795,6 +812,14 @@ function NewCourseModal({
             className={inputCls}
           />
         </Field>
+        {!PRICE_TIER_VALUES.includes(price) ? (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-200">
+            강의 전체보기 페이지의 가격대 탭(기본 강의 22,000 / 특수·단체 강의
+            33,000 / 개별범죄 강의 55,000)은 정확히 일치하는 가격만 모아서
+            보여줍니다. 이 가격은 어느 탭에도 속하지 않아 &quot;전체&quot;
+            에서만 노출됩니다.
+          </p>
+        ) : null}
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -823,6 +848,14 @@ function NewCourseModal({
             className={`${inputCls} resize-y`}
           />
         </Field>
+        <Field label="썸네일 이미지 URL (선택)">
+          <input
+            value={thumbnailUrl}
+            onChange={(e) => setThumbnailUrl(e.target.value)}
+            placeholder="https://... (비워두면 카테고리 기본 이미지 사용)"
+            className={inputCls}
+          />
+        </Field>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
         <FormActions onClose={safeClose} submitting={submitting} submitLabel="등록" />
       </form>
@@ -847,11 +880,15 @@ function EditCourseModal({
     course.original_price ?? course.price ?? 0,
   );
   const [isActive, setIsActive] = useState(course.is_active);
+  const [thumbnailUrl, setThumbnailUrl] = useState(course.thumbnail_url ?? "");
   // description 은 list 응답에 없어 detail 을 별도 fetch.
   const [description, setDescription] = useState<string>("");
   const [originalDescription, setOriginalDescription] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // fetch 가 끝나기 전에 admin이 이미 타이핑을 시작했으면, fetch 결과로
+  // 그 입력을 덮어쓰지 않기 위한 플래그 (레이스 컨디션 방지).
+  const descriptionTouched = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -859,7 +896,7 @@ function EditCourseModal({
       .then((d) => {
         if (cancelled) return;
         const desc = d.description ?? "";
-        setDescription(desc);
+        if (!descriptionTouched.current) setDescription(desc);
         setOriginalDescription(desc);
       })
       .catch(() => {
@@ -877,6 +914,7 @@ function EditCourseModal({
     hasDiscount !== (course.original_price != null) ||
     (hasDiscount && originalPrice !== (course.original_price ?? 0)) ||
     isActive !== course.is_active ||
+    thumbnailUrl !== (course.thumbnail_url ?? "") ||
     description !== originalDescription;
   const safeClose = () => confirmClose(isDirty, onClose);
 
@@ -897,6 +935,7 @@ function EditCourseModal({
         original_price: hasDiscount ? originalPrice : null,
         is_active: isActive,
         description: trimmed === "" ? undefined : trimmed,
+        thumbnail_url: thumbnailUrl.trim(),
       });
       onSaved();
     } catch (caught) {
@@ -944,6 +983,14 @@ function EditCourseModal({
             className={inputCls}
           />
         </Field>
+        {!PRICE_TIER_VALUES.includes(price) ? (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-200">
+            강의 전체보기 페이지의 가격대 탭(기본 강의 22,000 / 특수·단체 강의
+            33,000 / 개별범죄 강의 55,000)은 정확히 일치하는 가격만 모아서
+            보여줍니다. 이 가격은 어느 탭에도 속하지 않아 &quot;전체&quot;
+            에서만 노출됩니다.
+          </p>
+        ) : null}
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -977,10 +1024,34 @@ function EditCourseModal({
           <textarea
             rows={4}
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => {
+              descriptionTouched.current = true;
+              setDescription(e.target.value);
+            }}
             placeholder="강의 소개 및 학습 목표를 입력하세요"
             className={`${inputCls} resize-y`}
           />
+        </Field>
+        <Field label="썸네일 이미지 URL (선택)">
+          <input
+            value={thumbnailUrl}
+            onChange={(e) => setThumbnailUrl(e.target.value)}
+            placeholder="https://... (비워두면 카테고리 기본 이미지 사용)"
+            className={inputCls}
+          />
+          {thumbnailUrl.trim() ? (
+            <div className="mt-2 overflow-hidden rounded-lg border border-zinc-200">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={thumbnailUrl.trim()}
+                alt="썸네일 미리보기"
+                className="aspect-video w-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            </div>
+          ) : null}
         </Field>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
         <FormActions onClose={safeClose} submitting={submitting} />

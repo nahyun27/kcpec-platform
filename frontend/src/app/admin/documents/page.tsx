@@ -204,7 +204,13 @@ export default function AdminSurveysPage() {
         <DraftViewerModal
           surveyId={draftTarget.surveyId}
           path={draftTarget.path}
-          onClose={() => setDraftTarget(null)}
+          onClose={() => {
+            setDraftTarget(null);
+            // 초안 재생성으로 상태(SUBMITTED→DRAFT_GENERATED)가 바뀌었을 수 있어
+            // 닫을 때 목록을 새로 불러온다 — 안 그러면 새로고침 전까지 행의
+            // 상태 배지가 재생성 전 상태로 남아있었다.
+            load();
+          }}
         />
       ) : null}
     </div>
@@ -611,6 +617,18 @@ function DraftViewerModal({
             <p className="py-10 text-center text-sm text-red-600">{error}</p>
           ) : (
             <>
+              {/* AI 자동 생성이 실패해(키 미설정/무효/API 오류 등) 더미 텍스트가
+                  나온 경우 — 더미임을 알리는 문구가 본문 중간에 섞여 있어서
+                  훑어보다 놓치기 쉬우므로 눈에 띄는 배너로 한 번 더 알림.
+                  backend/app/core/gemini_client.py 의 DUMMY_DRAFT_MARKER 와
+                  반드시 동일한 문자열을 사용할 것. */}
+              {text.includes("[시스템 점검용 더미 텍스트]") ? (
+                <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                  ⚠️ 이 초안은 AI 자동 생성에 실패하여 대신 표시된 더미
+                  텍스트입니다. 실제 상담 내용이 아니니 그대로 발송/다운로드하지
+                  마세요.
+                </div>
+              ) : null}
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}

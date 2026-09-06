@@ -50,6 +50,7 @@ const NAV: (SingleNav | GroupNav)[] = [
       { value: "paid", label: "결제완료" },
       { value: "pending", label: "입금대기" },
       { value: "cancelled", label: "취소" },
+      { value: "refunded", label: "환불" },
     ],
   },
   {
@@ -71,7 +72,8 @@ const NAV: (SingleNav | GroupNav)[] = [
     label: "커뮤니티",
     icon: <MessageSquare className="h-4 w-4" />,
     children: [
-      { value: "notice", label: "공지/자료실" },
+      { value: "notice", label: "공지사항" },
+      { value: "resource", label: "자료실" },
       { value: "qna", label: "Q&A" },
       { value: "column", label: "전문가 칼럼" },
       { value: "review", label: "수강후기" },

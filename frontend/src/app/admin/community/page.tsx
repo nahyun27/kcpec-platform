@@ -5,10 +5,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isAxiosError } from "axios";
 import { TiptapEditor } from "@/components/ui/TiptapEditor";
 import {
+  createFaq,
   createNotice,
   createPost,
   deleteAdminNotice,
   deleteAdminPost,
+  deleteFaq,
+  getAdminFaqs,
   getNotice,
   getNotices,
   getPost,
@@ -16,10 +19,14 @@ import {
   patchAdminNotice,
   patchAdminPost,
   patchAdminPostReply,
+  patchFaq,
 } from "@/lib/api";
 import {
   COMMUNITY_LABEL,
+  FAQ_CATEGORY_LABEL,
   type CommunityCategory,
+  type Faq,
+  type FaqCategory,
   type NoticeCategory,
   type NoticeListItem,
   type PostCategory,
@@ -55,7 +62,7 @@ function confirmClose(isDirty: boolean, onClose: () => void) {
   onClose();
 }
 
-type Filter = "all" | CommunityCategory;
+type Filter = "all" | CommunityCategory | "faq";
 
 const SIDEBAR: { key: Filter; label: string }[] = [
   { key: "all", label: "전체 게시물" },
@@ -64,6 +71,7 @@ const SIDEBAR: { key: Filter; label: string }[] = [
   { key: "qna", label: "Q&A" },
   { key: "column", label: "전문가 칼럼" },
   { key: "review", label: "수강 후기" },
+  { key: "faq", label: "자주 묻는 질문" },
 ];
 
 const ADMIN_WRITABLE: CommunityCategory[] = ["notice", "resource", "column"];
@@ -84,7 +92,8 @@ function isFilter(v: unknown): v is Filter {
     v === "resource" ||
     v === "qna" ||
     v === "column" ||
-    v === "review"
+    v === "review" ||
+    v === "faq"
   );
 }
 
@@ -107,24 +116,55 @@ function AdminCommunityPage() {
   const [qnas, setQnas] = useState<PostListItem[]>([]);
   const [columns, setColumns] = useState<PostListItem[]>([]);
   const [reviews, setReviews] = useState<PostListItem[]>([]);
+  const [faqs, setFaqs] = useState<Faq[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<UnifiedRow | null>(null);
   const [replying, setReplying] = useState<UnifiedRow | null>(null);
+  const [faqFormOpen, setFaqFormOpen] = useState<"new" | Faq | null>(null);
+
+  // getNotices/getPosts 는 백엔드에서 size<=100 으로 강제된다. 게시물이 100건을
+  // 넘으면(예: 실제 후기 158건) 한 번의 호출로는 일부만 보이므로, total 을 보고
+  // 다음 페이지를 계속 이어붙여 전체를 가져온다.
+  async function fetchAllNotices(category?: NoticeCategory): Promise<NoticeListItem[]> {
+    const size = 100;
+    const first = await getNotices(category, 1, size);
+    const all = [...first.items];
+    for (let page = 2; all.length < first.total; page++) {
+      const next = await getNotices(category, page, size);
+      if (next.items.length === 0) break;
+      all.push(...next.items);
+    }
+    return all;
+  }
+
+  async function fetchAllPosts(category: PostCategory): Promise<PostListItem[]> {
+    const size = 100;
+    const first = await getPosts(category, 1, size);
+    const all = [...first.items];
+    for (let page = 2; all.length < first.total; page++) {
+      const next = await getPosts(category, page, size);
+      if (next.items.length === 0) break;
+      all.push(...next.items);
+    }
+    return all;
+  }
 
   async function reload() {
     setError(null);
     try {
-      const [n, q, c, r] = await Promise.all([
-        getNotices(undefined, 1, 100),
-        getPosts("qna", 1, 100),
-        getPosts("column", 1, 100),
-        getPosts("review", 1, 100),
+      const [n, q, c, r, f] = await Promise.all([
+        fetchAllNotices(),
+        fetchAllPosts("qna"),
+        fetchAllPosts("column"),
+        fetchAllPosts("review"),
+        getAdminFaqs(),
       ]);
-      setNotices(n.items);
-      setQnas(q.items);
-      setColumns(c.items);
-      setReviews(r.items);
+      setNotices(n);
+      setQnas(q);
+      setColumns(c);
+      setReviews(r);
+      setFaqs(f);
     } catch {
       setError("목록을 불러오지 못했습니다.");
     }
@@ -135,6 +175,8 @@ function AdminCommunityPage() {
   }, []);
 
   const counts = useMemo(() => {
+    // "전체 게시물" 은 FAQ 를 포함하지 않음 — FAQ 는 성격이 다른(문서형) 콘텐츠라
+    // 별도 카운트로만 보여줌.
     const c: Record<Filter, number> = {
       all: notices.length + qnas.length + columns.length + reviews.length,
       notice: notices.filter((n) => n.category === "notice").length,
@@ -142,9 +184,10 @@ function AdminCommunityPage() {
       qna: qnas.length,
       column: columns.length,
       review: reviews.length,
+      faq: faqs.length,
     };
     return c;
-  }, [notices, qnas, columns, reviews]);
+  }, [notices, qnas, columns, reviews, faqs]);
 
   const rows = useMemo<UnifiedRow[]>(() => {
     const all: UnifiedRow[] = [
@@ -219,10 +262,10 @@ function AdminCommunityPage() {
         </div>
         <button
           type="button"
-          onClick={() => setCreateOpen(true)}
+          onClick={() => (filter === "faq" ? setFaqFormOpen("new") : setCreateOpen(true))}
           className="rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)]"
         >
-          + 게시물 작성
+          {filter === "faq" ? "+ FAQ 작성" : "+ 게시물 작성"}
         </button>
       </header>
 
@@ -247,73 +290,89 @@ function AdminCommunityPage() {
           ))}
         </aside>
 
-        <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
-          <table className="w-full text-left text-[13px]">
-            <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
-              <tr>
-                <th className="px-4 py-3">카테고리</th>
-                <th className="px-4 py-3">제목</th>
-                <th className="px-4 py-3">작성자</th>
-                <th className="px-4 py-3 text-right">조회수</th>
-                <th className="px-4 py-3">작성일</th>
-                <th className="px-4 py-3">액션</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {rows.length === 0 ? (
+        {filter === "faq" ? (
+          <FaqAdminTable
+            faqs={faqs}
+            onEdit={(f) => setFaqFormOpen(f)}
+            onReload={reload}
+          />
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
+            <table className="w-full text-left text-[13px]">
+              <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-zinc-500">
-                    게시물이 없습니다.
-                  </td>
+                  <th className="px-4 py-3">카테고리</th>
+                  <th className="px-4 py-3">제목</th>
+                  <th className="px-4 py-3">작성자</th>
+                  <th className="px-4 py-3 text-right">조회수</th>
+                  <th className="px-4 py-3">작성일</th>
+                  <th className="px-4 py-3">액션</th>
                 </tr>
-              ) : (
-                rows.map((r) => (
-                  <tr key={`${r.table}-${r.id}`} className="transition-colors hover:bg-slate-50/80">
-                    <td className="px-4 py-3 text-xs">
-                      <CategoryBadge category={r.category} />
-                    </td>
-                    <td className="max-w-[280px] px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {r.is_pinned ? (
-                          <span className="text-[var(--color-accent)]">📌</span>
-                        ) : null}
-                        <span
-                          title={r.title}
-                          className="block truncate text-[13px] font-semibold text-slate-900"
-                        >
-                          {r.title}
-                        </span>
-                        {r.category === "qna" && r.admin_reply ? (
-                          <span className="ml-1 shrink-0 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
-                            답변완료
-                          </span>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-slate-500">
-                      {displayAuthor(r.category, r.author)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium text-slate-700">
-                      {r.view_count.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500">
-                      {new Date(r.created_at).toLocaleDateString("ko-KR")}
-                    </td>
-                    <td className="px-4 py-3">
-                      <RowActions
-                        row={r}
-                        onEdit={() => setEditing(r)}
-                        onReply={() => setReplying(r)}
-                        onDelete={() => handleDelete(r)}
-                      />
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-10 text-center text-sm text-zinc-500">
+                      게시물이 없습니다.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  rows.map((r) => (
+                    <tr key={`${r.table}-${r.id}`} className="transition-colors hover:bg-slate-50/80">
+                      <td className="px-4 py-3 text-xs">
+                        <CategoryBadge category={r.category} />
+                      </td>
+                      <td className="max-w-[280px] px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {r.is_pinned ? (
+                            <span className="text-[var(--color-accent)]">📌</span>
+                          ) : null}
+                          <span
+                            title={r.title}
+                            className="block truncate text-[13px] font-semibold text-slate-900"
+                          >
+                            {r.title}
+                          </span>
+                          {r.category === "qna" && r.admin_reply ? (
+                            <span className="ml-1 shrink-0 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
+                              답변완료
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-slate-500">
+                        {displayAuthor(r.category, r.author)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium text-slate-700">
+                        {r.view_count.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500">
+                        {new Date(r.created_at).toLocaleDateString("ko-KR")}
+                      </td>
+                      <td className="px-4 py-3">
+                        <RowActions
+                          row={r}
+                          onEdit={() => setEditing(r)}
+                          onReply={() => setReplying(r)}
+                          onDelete={() => handleDelete(r)}
+                        />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      {faqFormOpen ? (
+        <FaqFormModal
+          initial={faqFormOpen === "new" ? null : faqFormOpen}
+          onClose={() => setFaqFormOpen(null)}
+          onSaved={reload}
+        />
+      ) : null}
 
       {createOpen ? (
         <CreateModal onClose={() => setCreateOpen(false)} onCreated={reload} />
@@ -329,6 +388,262 @@ function AdminCommunityPage() {
         />
       ) : null}
     </div>
+  );
+}
+
+// ---------- FAQ ---------------------------------------------------------------
+
+const FAQ_CATEGORY_BADGE: Record<FaqCategory, string> = {
+  docs: "bg-[var(--color-primary)]/10 text-[var(--color-primary)]",
+  refund: "bg-red-100 text-red-700",
+  counseling: "bg-blue-100 text-blue-700",
+  etc: "bg-zinc-200 text-zinc-700",
+};
+
+function FaqAdminTable({
+  faqs,
+  onEdit,
+  onReload,
+}: {
+  faqs: Faq[];
+  onEdit: (faq: Faq) => void;
+  onReload: () => void;
+}) {
+  async function handleDelete(faq: Faq) {
+    if (!confirm(`"${faq.question}" 항목을 삭제하시겠습니까?`)) return;
+    try {
+      await deleteFaq(faq.id);
+      await onReload();
+    } catch (err) {
+      const detail = isAxiosError(err)
+        ? (err.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      alert(detail ?? "삭제에 실패했습니다.");
+    }
+  }
+
+  async function handleToggleActive(faq: Faq) {
+    try {
+      await patchFaq(faq.id, { is_active: !faq.is_active });
+      await onReload();
+    } catch {
+      alert("상태 변경에 실패했습니다.");
+    }
+  }
+
+  const sorted = [...faqs].sort((a, b) => a.order_index - b.order_index);
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
+      <table className="w-full text-left text-[13px]">
+        <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
+          <tr>
+            <th className="px-4 py-3 text-right">순서</th>
+            <th className="px-4 py-3">카테고리</th>
+            <th className="px-4 py-3">질문</th>
+            <th className="px-4 py-3">노출</th>
+            <th className="px-4 py-3">액션</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {sorted.length === 0 ? (
+            <tr>
+              <td colSpan={5} className="px-4 py-10 text-center text-sm text-zinc-500">
+                등록된 FAQ가 없습니다.
+              </td>
+            </tr>
+          ) : (
+            sorted.map((f) => (
+              <tr key={f.id} className="transition-colors hover:bg-slate-50/80">
+                <td className="px-4 py-3 text-right font-mono text-slate-400">
+                  {f.order_index}
+                </td>
+                <td className="px-4 py-3 text-xs">
+                  <span className={`rounded px-2 py-0.5 text-xs font-semibold ${FAQ_CATEGORY_BADGE[f.category]}`}>
+                    {FAQ_CATEGORY_LABEL[f.category]}
+                  </span>
+                </td>
+                <td className="max-w-[420px] px-4 py-3">
+                  <span
+                    title={f.question}
+                    className={`block truncate text-[13px] font-semibold ${f.is_active ? "text-slate-900" : "text-slate-400 line-through"}`}
+                  >
+                    {f.question}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleActive(f)}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                      f.is_active
+                        ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                        : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
+                    }`}
+                  >
+                    {f.is_active ? "노출 중" : "숨김"}
+                  </button>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onEdit(f)}
+                      className="rounded border border-zinc-300 px-2.5 py-1 text-xs hover:border-[var(--color-primary)]"
+                    >
+                      수정
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(f)}
+                      className="rounded border border-red-300 px-2.5 py-1 text-xs text-red-600 hover:border-red-500"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function FaqFormModal({
+  initial,
+  onClose,
+  onSaved,
+}: {
+  initial: Faq | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [category, setCategory] = useState<FaqCategory>(initial?.category ?? "docs");
+  const [question, setQuestion] = useState(initial?.question ?? "");
+  const [answer, setAnswer] = useState(initial?.answer ?? "");
+  const [orderIndex, setOrderIndex] = useState(initial?.order_index ?? 0);
+  const [isActive, setIsActive] = useState(initial?.is_active ?? true);
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const isDirty = initial
+    ? question !== initial.question ||
+      answer !== initial.answer ||
+      category !== initial.category ||
+      orderIndex !== initial.order_index ||
+      isActive !== initial.is_active
+    : Boolean(question.trim() || answer.trim());
+  const safeClose = () => confirmClose(isDirty, onClose);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    if (!question.trim() || !answer.trim()) {
+      setErr("질문과 답변을 모두 입력해 주세요.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      if (initial) {
+        await patchFaq(initial.id, {
+          category,
+          question: question.trim(),
+          answer: answer.trim(),
+          order_index: orderIndex,
+          is_active: isActive,
+        });
+      } else {
+        await createFaq({
+          category,
+          question: question.trim(),
+          answer: answer.trim(),
+          order_index: orderIndex,
+          is_active: isActive,
+        });
+      }
+      onSaved();
+      onClose();
+    } catch (caught) {
+      const detail = isAxiosError(caught)
+        ? (caught.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      setErr(detail ?? "저장에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <ModalShell title={initial ? "FAQ 수정" : "FAQ 작성"} onClose={safeClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Field label="카테고리">
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value as FaqCategory)}
+            className={inputCls}
+          >
+            {(Object.keys(FAQ_CATEGORY_LABEL) as FaqCategory[]).map((c) => (
+              <option key={c} value={c}>
+                {FAQ_CATEGORY_LABEL[c]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="질문">
+          <input
+            required
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            className={inputCls}
+          />
+        </Field>
+        <Field label="답변">
+          <textarea
+            required
+            rows={6}
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            className={`${inputCls} resize-y`}
+            placeholder="줄바꿈은 그대로 반영됩니다."
+          />
+        </Field>
+        <Field label="노출 순서 (숫자가 작을수록 먼저 표시)">
+          <input
+            type="number"
+            value={orderIndex}
+            onChange={(e) => setOrderIndex(Number(e.target.value))}
+            className={inputCls}
+          />
+        </Field>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={isActive}
+            onChange={(e) => setIsActive(e.target.checked)}
+          />
+          공개 (체크 해제 시 사용자에게 숨김)
+        </label>
+        {err ? <p className="text-sm text-red-600">{err}</p> : null}
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={safeClose}
+            className="rounded border border-zinc-300 px-4 py-2 text-sm"
+          >
+            취소
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded bg-[var(--color-primary)] px-5 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+          >
+            {submitting ? "저장 중..." : "저장"}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
   );
 }
 

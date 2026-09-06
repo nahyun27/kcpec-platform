@@ -22,16 +22,29 @@ export default function AdminUsersPage() {
   const [courseCounts, setCourseCounts] = useState<CourseEnrollmentCount[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [openUser, setOpenUser] = useState<AdminUser | null>(null);
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
+  // "전체 사용자" 사이드바 행은 강의로 필터링 중에도 항상 전체 인원수를 보여줘야
+  // 하므로, data.total(필터된 개수)과 별도로 전체 개수를 한 번 따로 들고 있는다.
+  const [grandTotal, setGrandTotal] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    getAdminUsers(page, size)
-      .then((d) => !cancelled && setData(d))
+    getAdminUsers(page, size, selectedCourseId ?? undefined)
+      .then((d) => {
+        if (cancelled) return;
+        setData(d);
+        if (selectedCourseId == null) setGrandTotal(d.total);
+      })
       .catch(() => !cancelled && setError("회원 목록을 불러오지 못했습니다."));
     return () => {
       cancelled = true;
     };
-  }, [page]);
+  }, [page, selectedCourseId]);
+
+  function selectCourse(courseId: number | null) {
+    setSelectedCourseId(courseId);
+    setPage(1);
+  }
 
   useEffect(() => {
     getCourseEnrollmentCounts().then(setCourseCounts).catch(() => setCourseCounts([]));
@@ -52,8 +65,19 @@ export default function AdminUsersPage() {
       <header className="mb-8">
         <h1 className="font-sans text-3xl font-bold tracking-tight text-slate-900">사용자</h1>
         <p className="mt-1 text-sm text-slate-500">
-          전체 {data.total.toLocaleString()}명 · 누적 수강 등록{" "}
-          {totalEnrollments.toLocaleString()}건
+          {selectedCourseId == null ? (
+            <>
+              전체 {data.total.toLocaleString()}명 · 누적 수강 등록{" "}
+              {totalEnrollments.toLocaleString()}건
+            </>
+          ) : (
+            <>
+              <span className="font-semibold text-blue-600">
+                {courseCounts.find((c) => c.course_id === selectedCourseId)?.course_title ?? "선택한 강의"}
+              </span>{" "}
+              수강생 {data.total.toLocaleString()}명
+            </>
+          )}
         </p>
       </header>
 
@@ -62,7 +86,13 @@ export default function AdminUsersPage() {
           <p className="mb-3 px-3 py-1 text-[12px] font-bold uppercase tracking-widest text-slate-400">
             강의별 수강생
           </p>
-          <SidebarRow label="전체 사용자" value={data.total} bold />
+          <SidebarRow
+            label="전체 사용자"
+            value={grandTotal ?? data.total}
+            bold
+            active={selectedCourseId == null}
+            onClick={() => selectCourse(null)}
+          />
           {courseCounts.length === 0 ? (
             <p className="px-3 py-2 text-xs text-zinc-400">통계 없음</p>
           ) : (
@@ -71,6 +101,8 @@ export default function AdminUsersPage() {
                 key={c.course_id}
                 label={c.course_title}
                 value={c.enrollment_count}
+                active={selectedCourseId === c.course_id}
+                onClick={() => selectCourse(c.course_id)}
               />
             ))
           )}
@@ -81,6 +113,8 @@ export default function AdminUsersPage() {
             <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">닉네임</th>
+                <th className="px-4 py-3">이름</th>
+                <th className="px-4 py-3">연락처</th>
                 <th className="px-4 py-3">이메일</th>
                 <th className="px-4 py-3">가입일</th>
                 <th className="px-4 py-3 text-right">수강 강의</th>
@@ -89,6 +123,13 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
+              {data.items.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-12 text-center text-sm text-slate-400">
+                    이 강의를 수강 중인 사용자가 없습니다.
+                  </td>
+                </tr>
+              ) : null}
               {data.items.map((u) => (
                 <tr
                   key={u.id}
@@ -105,6 +146,8 @@ export default function AdminUsersPage() {
                       )}
                     </div>
                   </td>
+                  <td className="px-4 py-3 text-slate-500">{u.name ?? "-"}</td>
+                  <td className="px-4 py-3 text-slate-500">{u.phone ?? "-"}</td>
                   <td className="px-4 py-3 text-slate-500">{u.email}</td>
                   <td className="px-4 py-3 text-slate-500">
                     {new Date(u.created_at).toLocaleDateString("ko-KR")}
@@ -306,7 +349,7 @@ function UserEnrollmentsModal({
                             disabled={extendingId === r.enrollment_id}
                             className="rounded-md bg-[var(--color-primary)] px-2.5 py-1 text-[11px] font-bold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-50"
                           >
-                            {extendingId === r.enrollment_id ? "연장 중..." : "7일 연장"}
+                            {extendingId === r.enrollment_id ? "연장 중..." : "30일 연장"}
                           </button>
                         </div>
                         {r.lectures.length === 0 ? (
@@ -376,19 +419,29 @@ function SidebarRow({
   label,
   value,
   bold,
+  active,
+  onClick,
 }: {
   label: string;
   value: number;
   bold?: boolean;
+  active?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <div
-      className={`flex items-center justify-between rounded-md px-3 py-2.5 hover:bg-slate-50 transition-colors ${
-        bold ? "font-bold text-slate-900" : "font-medium text-slate-600"
-      }`}
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left transition-colors ${
+        active
+          ? "bg-blue-50 text-blue-700"
+          : bold
+            ? "text-slate-900 hover:bg-slate-50"
+            : "text-slate-600 hover:bg-slate-50"
+      } ${bold ? "font-bold" : "font-medium"}`}
     >
       <span className="truncate text-[13px]">{label}</span>
       <span className="ml-2 shrink-0 text-[13px]">{value.toLocaleString()}</span>
-    </div>
+    </button>
   );
 }

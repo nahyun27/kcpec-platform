@@ -5,9 +5,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isAxiosError } from "axios";
 import {
   absUrl,
+  cancelAdminOrder,
   confirmBankOrder,
   getAdminOrderDocuments,
   getAdminOrders,
+  refundAdminOrder,
 } from "@/lib/api";
 import type { AdminOrderRow, AdminOrdersResponse } from "@/types/admin";
 import { PAYMENT_METHOD_LABEL, type DocumentResponse, type OrderStatus } from "@/types/order";
@@ -19,10 +21,17 @@ const FILTERS: { value: FilterValue; label: string }[] = [
   { value: "paid", label: "결제완료" },
   { value: "pending", label: "입금대기" },
   { value: "cancelled", label: "취소" },
+  { value: "refunded", label: "환불" },
 ];
 
 function isFilterValue(v: unknown): v is FilterValue {
-  return v === "all" || v === "paid" || v === "pending" || v === "cancelled";
+  return (
+    v === "all" ||
+    v === "paid" ||
+    v === "pending" ||
+    v === "cancelled" ||
+    v === "refunded"
+  );
 }
 
 export default function AdminOrdersPageWrapper() {
@@ -41,17 +50,22 @@ function AdminOrdersPage() {
   const statusParam = search.get("status");
   const filter: FilterValue = isFilterValue(statusParam) ? statusParam : "all";
 
+  const [page, setPage] = useState(1);
+  const size = 50;
+
   function setFilter(next: FilterValue) {
     const params = new URLSearchParams(search.toString());
     if (next === "all") params.delete("status");
     else params.set("status", next);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    setPage(1);
   }
 
   const [data, setData] = useState<AdminOrdersResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
+  const [mutatingId, setMutatingId] = useState<number | null>(null);
   const [docsOrder, setDocsOrder] = useState<AdminOrderRow | null>(null);
 
   async function load() {
@@ -59,8 +73,8 @@ function AdminOrdersPage() {
     try {
       const d = await getAdminOrders({
         status: filter === "all" ? undefined : filter,
-        page: 1,
-        size: 100,
+        page,
+        size,
       });
       setData(d);
     } catch {
@@ -71,7 +85,7 @@ function AdminOrdersPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  }, [filter, page]);
 
   async function handleConfirm(row: AdminOrderRow) {
     setConfirmingId(row.id);
@@ -88,12 +102,57 @@ function AdminOrdersPage() {
     }
   }
 
+  async function handleCancel(row: AdminOrderRow) {
+    if (!confirm(`주문 #${row.id} (${row.username})을(를) 취소하시겠습니까?`)) return;
+    setMutatingId(row.id);
+    try {
+      await cancelAdminOrder(row.id);
+      await load();
+    } catch (err) {
+      const detail = isAxiosError(err)
+        ? (err.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      alert(detail ?? "취소에 실패했습니다.");
+    } finally {
+      setMutatingId(null);
+    }
+  }
+
+  async function handleRefund(row: AdminOrderRow) {
+    // 카드/간편결제(토스) 는 이 버튼으로 실제 결제 취소(고객에게 실제 환불)까지
+    // 자동으로 처리된다. 무통장입금은 토스를 거치지 않아 자동화가 안 되므로
+    // 계좌로 직접 환불해야 한다 — 관리자가 헷갈리지 않도록 안내에 명시.
+    const paymentNote =
+      row.payment_method === "bank_transfer"
+        ? "무통장입금 건은 자동으로 환불되지 않으니, 계좌로 직접 환불해 주세요."
+        : "토스 결제가 자동으로 취소되어 고객에게 실제 환불됩니다.";
+    if (
+      !confirm(
+        `주문 #${row.id} (${row.username})을(를) 환불 처리하시겠습니까?\n${paymentNote}\n수강 등록이 취소되고, 이미 발급된 서류가 있다면 함께 무효화됩니다.`,
+      )
+    )
+      return;
+    setMutatingId(row.id);
+    try {
+      await refundAdminOrder(row.id);
+      await load();
+    } catch (err) {
+      const detail = isAxiosError(err)
+        ? (err.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      alert(detail ?? "환불 처리에 실패했습니다.");
+    } finally {
+      setMutatingId(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <header>
         <h1 className="font-sans text-2xl font-bold text-[var(--color-primary)]">주문</h1>
         <p className="mt-1 text-sm text-zinc-500">
           전체 주문 내역 / 무통장 입금 확인 / 발급 문서 조회
+          {data ? <> · 총 {data.total.toLocaleString()}건</> : null}
         </p>
       </header>
 
@@ -162,26 +221,50 @@ function AdminOrdersPage() {
                       <StatusBadge status={r.status} pendingBank={isPendingBank} />
                     </td>
                     <td className="px-4 py-3">
-                      {isPendingBank ? (
-                        <button
-                          type="button"
-                          onClick={() => handleConfirm(r)}
-                          disabled={confirmingId === r.id}
-                          className="rounded-md bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
-                        >
-                          {confirmingId === r.id ? "처리 중..." : "입금 확인"}
-                        </button>
-                      ) : r.status === "paid" ? (
-                        <button
-                          type="button"
-                          onClick={() => setDocsOrder(r)}
-                          className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
-                        >
-                          발급 현황
-                        </button>
-                      ) : (
-                        <span className="text-xs text-slate-300">—</span>
-                      )}
+                      <div className="flex flex-wrap gap-1.5">
+                        {isPendingBank ? (
+                          <button
+                            type="button"
+                            onClick={() => handleConfirm(r)}
+                            disabled={confirmingId === r.id || mutatingId === r.id}
+                            className="rounded-md bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
+                          >
+                            {confirmingId === r.id ? "처리 중..." : "입금 확인"}
+                          </button>
+                        ) : null}
+                        {r.status === "paid" ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setDocsOrder(r)}
+                              className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
+                            >
+                              발급 현황
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRefund(r)}
+                              disabled={mutatingId === r.id}
+                              className="rounded-md border border-red-200 px-3 py-1.5 text-[11px] font-bold text-red-600 shadow-sm transition-colors hover:bg-red-50 disabled:opacity-60"
+                            >
+                              {mutatingId === r.id ? "처리 중..." : "환불"}
+                            </button>
+                          </>
+                        ) : null}
+                        {r.status === "pending" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleCancel(r)}
+                            disabled={confirmingId === r.id || mutatingId === r.id}
+                            className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-500 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60"
+                          >
+                            {mutatingId === r.id ? "처리 중..." : "주문 취소"}
+                          </button>
+                        ) : null}
+                        {r.status !== "pending" && r.status !== "paid" ? (
+                          <span className="text-xs text-slate-300">—</span>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -190,6 +273,33 @@ function AdminOrdersPage() {
           </table>
         </div>
       )}
+
+      {data && data.total > size ? (
+        <div className="flex items-center justify-end gap-3 text-sm">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white"
+          >
+            이전
+          </button>
+          <span className="font-medium text-slate-500">
+            {page} <span className="mx-1 font-normal text-slate-300">/</span>{" "}
+            {Math.max(1, Math.ceil(data.total / size))}
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              setPage((p) => Math.min(Math.ceil(data.total / size), p + 1))
+            }
+            disabled={page >= Math.ceil(data.total / size)}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white"
+          >
+            다음
+          </button>
+        </div>
+      ) : null}
 
       {docsOrder ? (
         <DocumentsModal order={docsOrder} onClose={() => setDocsOrder(null)} />
