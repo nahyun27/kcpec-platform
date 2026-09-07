@@ -3,16 +3,27 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    status,
+)
 from fastapi.responses import RedirectResponse
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.cookies import clear_auth_cookies, get_refresh_token, set_auth_cookies
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.email import send_password_reset_email, send_verification_email
+from app.core.rate_limit import client_ip, enforce_rate_limit
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -27,7 +38,6 @@ from app.schemas.auth import (
     ForgotPasswordRequest,
     LoginRequest,
     ProfileUpdateRequest,
-    RefreshRequest,
     ResetPasswordRequest,
     SignupRequest,
     SocialLoginRequest,
@@ -49,12 +59,16 @@ def _issue_tokens(user_id: int) -> TokenResponse:
     )
 
 
-@router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def signup(
     payload: SignupRequest,
     background_tasks: BackgroundTasks,
+    request: Request,
+    response: Response,
     db: Session = Depends(get_db),
-) -> TokenResponse:
+) -> User:
+    enforce_rate_limit(f"signup:ip:{client_ip(request)}", max_attempts=5, window_seconds=3600)
+
     exists = db.scalar(
         select(User).where((User.username == payload.username) | (User.email == payload.email))
     )
@@ -80,7 +94,8 @@ def signup(
     verify_url = f"{settings.FRONTEND_BASE_URL}/verify-email?token={verify_token}"
     background_tasks.add_task(send_verification_email, to_email=user.email, verify_url=verify_url)
 
-    return _issue_tokens(user.id)
+    set_auth_cookies(response, _issue_tokens(user.id))
+    return user
 
 
 @router.post("/verify-email", status_code=status.HTTP_200_OK)
@@ -103,6 +118,7 @@ def resend_verification(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, str]:
+    enforce_rate_limit(f"resend-verify:user:{current_user.id}", max_attempts=3, window_seconds=3600)
     if current_user.is_verified:
         return {"detail": "이미 인증된 이메일입니다."}
     token = secrets.token_urlsafe(32)
@@ -115,8 +131,16 @@ def resend_verification(
     return {"detail": "인증 메일을 다시 보냈습니다."}
 
 
-@router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
+@router.post("/login", response_model=UserResponse)
+def login(
+    payload: LoginRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> User:
+    enforce_rate_limit(f"login:ip:{client_ip(request)}", max_attempts=10, window_seconds=300)
+    enforce_rate_limit(f"login:user:{payload.username}", max_attempts=5, window_seconds=300)
+
     user = db.scalar(select(User).where(User.username == payload.username))
     if user is None or user.password_hash is None or not verify_password(
         payload.password, user.password_hash
@@ -130,38 +154,55 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse
             status_code=status.HTTP_403_FORBIDDEN,
             detail="비활성화된 계정입니다.",
         )
-    return _issue_tokens(user.id)
+    set_auth_cookies(response, _issue_tokens(user.id))
+    return user
 
 
-@router.post("/refresh", response_model=TokenResponse)
-def refresh(payload: RefreshRequest, db: Session = Depends(get_db)) -> TokenResponse:
+@router.post("/refresh", status_code=status.HTTP_200_OK)
+def refresh(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    invalid_token_exc = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="유효하지 않은 리프레시 토큰입니다.",
+    )
+    refresh_token = get_refresh_token(request)
+    if not refresh_token:
+        raise invalid_token_exc
     try:
-        decoded = decode_token(payload.refresh_token, expected_type="refresh")
+        decoded = decode_token(refresh_token, expected_type="refresh")
         user_id = int(decoded["sub"])
     except (JWTError, KeyError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="유효하지 않은 리프레시 토큰입니다.",
-        )
+        raise invalid_token_exc
 
     user = db.get(User, user_id)
     if user is None or not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="유효하지 않은 리프레시 토큰입니다.",
-        )
-    return _issue_tokens(user.id)
+        raise invalid_token_exc
+    set_auth_cookies(response, _issue_tokens(user.id))
+    return {"detail": "갱신되었습니다."}
+
+
+@router.post("/logout", status_code=status.HTTP_200_OK)
+def logout(response: Response) -> dict[str, str]:
+    clear_auth_cookies(response)
+    return {"detail": "로그아웃 되었습니다."}
 
 
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
 def forgot_password(
     payload: ForgotPasswordRequest,
     background_tasks: BackgroundTasks,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
     """이메일이 실제로 가입돼 있는지 여부와 무관하게 항상 같은 응답을 준다
     (계정 존재 여부를 외부에 노출하지 않기 위한 표준적인 방어 — user
     enumeration 방지). 소셜 로그인 계정은 비밀번호가 없으므로 대상에서 제외."""
+    enforce_rate_limit(f"forgot-pw:ip:{client_ip(request)}", max_attempts=5, window_seconds=3600)
+    enforce_rate_limit(f"forgot-pw:email:{payload.email}", max_attempts=3, window_seconds=3600)
+
     user = db.scalar(select(User).where(User.email == payload.email))
     if user is not None and user.is_active and user.social_provider is None:
         token = secrets.token_urlsafe(32)
@@ -555,10 +596,12 @@ def social_callback(
     error: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
-    """provider 콜백 — 토큰 교환 + 유저 find-or-create + JWT fragment 로 전달.
+    """provider 콜백 — 토큰 교환 + 유저 find-or-create + httpOnly 쿠키 발급.
 
-    토큰을 URL fragment 에 담아 SPA 가 location.hash 로 읽고 즉시 history 에서
-    제거하도록 한다 (브라우저 referer/서버 로그 노출 회피).
+    예전엔 URL fragment(#access_token=...) 로 토큰을 SPA 에 넘겼는데, 그러면
+    SPA 가 결국 JS 에서 읽을 수 있는 localStorage 에 저장하게 된다. 지금은
+    redirect 응답 자체에 Set-Cookie 를 실어 보내 프런트는 쿠키가 이미 설정된
+    채로 도착한다.
     """
     if error:
         return _frontend_redirect("/login", social_error=error, provider=provider)
@@ -592,17 +635,11 @@ def social_callback(
             "/login", social_error="fail", provider=provider, social_message=msg
         )
 
-    tokens = _issue_tokens(user.id)
-
-    # 토큰을 fragment 로 넘김 — SPA 가 hash 에서 꺼내고 location.replace 로 정리.
     redirect = RedirectResponse(
-        url=(
-            f"{settings.FRONTEND_BASE_URL}/social-callback"
-            f"#access_token={tokens.access_token}"
-            f"&refresh_token={tokens.refresh_token}"
-        ),
+        url=f"{settings.FRONTEND_BASE_URL}/social-callback",
         status_code=status.HTTP_302_FOUND,
     )
+    set_auth_cookies(redirect, _issue_tokens(user.id))
     redirect.delete_cookie(f"oauth_state_{provider}")
     return redirect
 

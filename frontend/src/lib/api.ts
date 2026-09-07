@@ -1,8 +1,4 @@
-import axios, {
-  AxiosError,
-  type AxiosRequestConfig,
-  type InternalAxiosRequestConfig,
-} from "axios";
+import axios, { AxiosError, type AxiosRequestConfig } from "axios";
 import type {
   CourseCategory,
   CourseDetail,
@@ -89,85 +85,53 @@ export function absUrl(path: string | null | undefined): string {
   return path;
 }
 
-const ACCESS_TOKEN_KEY = "kcpec_access_token";
-const REFRESH_TOKEN_KEY = "kcpec_refresh_token";
+// 실제 로그인 토큰은 httpOnly 쿠키(서버가 Set-Cookie 로 발급)로만 존재한다 —
+// JS 에서는 절대 읽을 수 없어 XSS 로 토큰이 그대로 털리는 경로를 막는다.
+// 아래 마커는 오직 "지금 로그인된 상태인가?" 를 화면에 표시하기 위한
+// 참고용 플래그일 뿐, 이것만으로는 어떤 API 도 호출할 수 없다.
+const AUTHED_MARKER_KEY = "kcpec_authed";
 
-// 과거 dev 빌드에서 사용했던 키들 — 발견되면 캐노니컬 키로 옮긴 뒤 제거한다.
-// (이 마이그레이션이 없으면, 옛 키로 저장된 토큰이 새 키로 읽히지 않아
-//  로그인 직후에도 AdminShell 등이 "토큰 없음"으로 판정해 잘못 리다이렉트한다.)
-const LEGACY_ACCESS_KEYS = ["access_token", "token"];
-const LEGACY_REFRESH_KEYS = ["refresh_token"];
+// 과거(localStorage 에 JWT 를 직접 저장하던 시절) 키 — 남아있으면 지운다.
+const LEGACY_TOKEN_KEYS = ["kcpec_access_token", "kcpec_refresh_token", "access_token", "token", "refresh_token"];
 
-function migrateLegacy(canonical: string, legacyKeys: string[]): string | null {
-  if (typeof window === "undefined") return null;
-  const current = window.localStorage.getItem(canonical);
-  if (current) return current;
-  for (const k of legacyKeys) {
-    const v = window.localStorage.getItem(k);
-    if (v) {
-      window.localStorage.setItem(canonical, v);
-      window.localStorage.removeItem(k);
-      return v;
-    }
+function clearLegacyTokenKeys() {
+  if (typeof window === "undefined") return;
+  for (const k of LEGACY_TOKEN_KEYS) {
+    window.localStorage.removeItem(k);
   }
-  return null;
 }
 
 export const tokenStorage = {
   getAccess(): string | null {
-    return migrateLegacy(ACCESS_TOKEN_KEY, LEGACY_ACCESS_KEYS);
+    if (typeof window === "undefined") return null;
+    clearLegacyTokenKeys();
+    return window.localStorage.getItem(AUTHED_MARKER_KEY);
   },
-  getRefresh(): string | null {
-    return migrateLegacy(REFRESH_TOKEN_KEY, LEGACY_REFRESH_KEYS);
-  },
-  set(tokens: { access_token: string; refresh_token: string }) {
+  set() {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access_token);
-    window.localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
-    // 캐노니컬 키로 새로 발급된 직후엔 레거시 키도 깨끗이 정리.
-    if (typeof window === "undefined") return;
-    for (const k of [...LEGACY_ACCESS_KEYS, ...LEGACY_REFRESH_KEYS]) {
-      window.localStorage.removeItem(k);
-    }
+    window.localStorage.setItem(AUTHED_MARKER_KEY, "1");
+    clearLegacyTokenKeys();
   },
   clear() {
     if (typeof window === "undefined") return;
-    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
-    window.localStorage.removeItem(REFRESH_TOKEN_KEY);
-    for (const k of [...LEGACY_ACCESS_KEYS, ...LEGACY_REFRESH_KEYS]) {
-      window.localStorage.removeItem(k);
-    }
+    window.localStorage.removeItem(AUTHED_MARKER_KEY);
+    clearLegacyTokenKeys();
   },
 };
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
-});
-
-api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = tokenStorage.getAccess();
-  if (token) {
-    config.headers.set("Authorization", `Bearer ${token}`);
-  }
-  return config;
+  // 쿠키(로그인 세션)를 실어 보내고 Set-Cookie 를 받으려면 필수.
+  withCredentials: true,
 });
 
 type RetryConfig = AxiosRequestConfig & { _retry?: boolean };
 
-let refreshPromise: Promise<string> | null = null;
+let refreshPromise: Promise<void> | null = null;
 
-async function refreshAccessToken(): Promise<string> {
-  const refresh = tokenStorage.getRefresh();
-  if (!refresh) throw new Error("No refresh token");
-
-  const { data } = await axios.post<TokenResponse>(
-    `${API_BASE_URL}/auth/refresh`,
-    { refresh_token: refresh },
-    { headers: { "Content-Type": "application/json" } },
-  );
-  tokenStorage.set(data);
-  return data.access_token;
+async function refreshAccessToken(): Promise<void> {
+  await axios.post(`${API_BASE_URL}/auth/refresh`, null, { withCredentials: true });
 }
 
 api.interceptors.response.use(
@@ -186,9 +150,8 @@ api.interceptors.response.use(
       refreshPromise ??= refreshAccessToken().finally(() => {
         refreshPromise = null;
       });
-      const newToken = await refreshPromise;
-      original.headers = original.headers ?? {};
-      (original.headers as Record<string, string>).Authorization = `Bearer ${newToken}`;
+      await refreshPromise;
+      // 갱신된 쿠키는 브라우저가 재요청에 자동으로 실어 보낸다.
       return api.request(original);
     } catch (refreshError) {
       tokenStorage.clear();
@@ -196,12 +159,6 @@ api.interceptors.response.use(
     }
   },
 );
-
-export type TokenResponse = {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
-};
 
 export type SignupPayload = {
   username: string;
@@ -227,15 +184,15 @@ export type UserResponse = {
   created_at: string;
 };
 
-export async function signup(payload: SignupPayload): Promise<TokenResponse> {
-  const { data } = await api.post<TokenResponse>("/auth/signup", payload);
-  tokenStorage.set(data);
+export async function signup(payload: SignupPayload): Promise<UserResponse> {
+  const { data } = await api.post<UserResponse>("/auth/signup", payload);
+  tokenStorage.set();
   return data;
 }
 
-export async function login(payload: LoginPayload): Promise<TokenResponse> {
-  const { data } = await api.post<TokenResponse>("/auth/login", payload);
-  tokenStorage.set(data);
+export async function login(payload: LoginPayload): Promise<UserResponse> {
+  const { data } = await api.post<UserResponse>("/auth/login", payload);
+  tokenStorage.set();
   return data;
 }
 
@@ -288,6 +245,8 @@ export async function updateMe(payload: ProfileUpdatePayload): Promise<UserRespo
 
 export function logout(): void {
   tokenStorage.clear();
+  // 서버 쿠키도 지워야 한다 — fire-and-forget (실패해도 클라이언트는 이미 로그아웃 처리).
+  api.post("/auth/logout").catch(() => {});
 }
 
 // ---------- courses ---------------------------------------------------------

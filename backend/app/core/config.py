@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # 로그인 세션 쿠키에 Secure 플래그를 붙일지 여부.
+    # https 로 서비스 중이면 반드시 True 여야 하고, 아직 도메인/인증서가 없어
+    # http 로만 서비스 중이면 False 로 둬야 브라우저가 쿠키를 실제로 저장한다
+    # (Secure 쿠키는 http 응답에서는 브라우저가 무조건 무시하고 버림).
+    COOKIE_SECURE: bool = True
+
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
     TOSS_SECRET_KEY: str | None = None

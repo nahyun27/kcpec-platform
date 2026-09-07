@@ -1,28 +1,22 @@
 from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
+from app.core.cookies import get_access_token
 from app.core.database import get_db
 from app.core.security import decode_token
 from app.models.user import User
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_PREFIX}/auth/login")
 
 
 def get_current_user_optional(
     request: Request,
     db: Session = Depends(get_db),
 ) -> User | None:
-    """Authorization Bearer 토큰이 있으면 user 반환, 없거나 invalid 면 None.
+    """access 쿠키가 있으면 user 반환, 없거나 invalid 면 None.
     공개 + 인증된 사용자 모두 허용하는 엔드포인트(예: 강의 상세 — 비활성 강의는
     어드민/수강자만) 에 사용.
     """
-    auth = request.headers.get("Authorization") or request.headers.get("authorization")
-    if not auth or not auth.lower().startswith("bearer "):
-        return None
-    token = auth.split(None, 1)[1].strip()
+    token = get_access_token(request)
     if not token:
         return None
     try:
@@ -40,14 +34,16 @@ def get_current_user_optional(
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
     db: Session = Depends(get_db),
 ) -> User:
     credentials_exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="유효하지 않은 인증 정보입니다.",
-        headers={"WWW-Authenticate": "Bearer"},
     )
+    token = get_access_token(request)
+    if not token:
+        raise credentials_exc
     try:
         payload = decode_token(token, expected_type="access")
         user_id_str = payload.get("sub")

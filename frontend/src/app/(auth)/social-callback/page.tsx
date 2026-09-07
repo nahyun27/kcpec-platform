@@ -3,41 +3,27 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { tokenStorage } from "@/lib/api";
+import { getMe, tokenStorage } from "@/lib/api";
 import { Spinner } from "@/components/ui/Spinner";
 
 /**
  * 백엔드 OAuth callback 이 redirect 한 후 도착하는 페이지.
- * 토큰은 URL fragment(#access_token=...&refresh_token=...) 로 전달된다.
- * → tokenStorage 에 저장하고 history 에서 즉시 fragment 제거 후 /mypage 이동.
+ * 로그인 세션은 callback 응답의 Set-Cookie 로 이미 httpOnly 쿠키에 실려
+ * 도착해 있으므로, 여기서는 실제로 로그인이 됐는지만 /auth/me 로 확인한다.
  */
 export default function SocialCallbackPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const hash = window.location.hash.startsWith("#")
-      ? window.location.hash.slice(1)
-      : window.location.hash;
-    const params = new URLSearchParams(hash);
-    const access = params.get("access_token");
-    const refresh = params.get("refresh_token");
-
-    if (!access || !refresh) {
-      setError("로그인 토큰을 받지 못했습니다. 다시 시도해 주세요.");
-      return;
-    }
-
-    tokenStorage.set({ access_token: access, refresh_token: refresh });
-
-    // fragment 를 history 에서 제거 후 mypage 로 이동.
-    window.history.replaceState(
-      null,
-      "",
-      window.location.pathname + window.location.search,
-    );
-    router.replace("/mypage");
+    getMe()
+      .then(() => {
+        tokenStorage.set();
+        router.replace("/mypage");
+      })
+      .catch(() => {
+        setError("로그인에 실패했습니다. 다시 시도해 주세요.");
+      });
   }, [router]);
 
   if (error) {

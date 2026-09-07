@@ -23,7 +23,7 @@ export default function SiteHeader() {
   useEffect(() => {
     setAuthed(Boolean(tokenStorage.getAccess()));
     const onStorage = (e: StorageEvent) => {
-      if (e.key === null || e.key === "kcpec_access_token") {
+      if (e.key === null || e.key === "kcpec_authed") {
         setAuthed(Boolean(tokenStorage.getAccess()));
       }
     };
