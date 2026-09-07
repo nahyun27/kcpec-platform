@@ -18,6 +18,11 @@ const titleSlugMap: Record<string, string> = {
   "사기횡령배임 등 재산범죄 예방": "property_crime",
   "스토킹범죄 예방": "stalking",
   "학교폭력 예방": "school_violence",
+  "단체·학교 내 윤리 교육": "school",
+  "보호자 양육 윤리·예방 교육": "mother",
+  "개인정보 보호·사이버 금융 범죄 예방": "cyber",
+  "생활예절교육": "manner",
+  "공무원 윤리 교육": "official",
 };
 
 // 강의 제목이 사전에 없을 때(어드민이 새로 추가한 강의 등) 카테고리
