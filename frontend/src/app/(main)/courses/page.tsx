@@ -44,12 +44,57 @@ const COURSE_KEYWORDS: Record<string, string[]> = {
 
 const MIN_QUERY_LEN = 2;
 
-// 강의 전체보기 탭 — 사건 유형(카테고리)이 아니라 가격대(상품 구성) 기준으로 분류.
-// 기본 강의(준법·행동교정·생활습관) / 개별범죄 강의 / 특수·단체 강의.
-const PRICE_TIERS = [
-  { price: 22000, label: "기본 강의" },
-  { price: 55000, label: "개별범죄 강의" },
-  { price: 33000, label: "특수·단체 강의" },
+// 강의 전체보기 탭 — 사건 유형(카테고리)이 아니라 상품 구성 기준으로 분류.
+// (예전엔 가격대만으로 3단으로 나눴는데, 33,000원대 안에 "특수 상황용"과
+// "단체·직장용" 강의가 섞여 있어 가격만으로는 구분이 안 됐다. 강의명 기준
+// 화이트리스트로 4단 분류.)
+const COURSE_TIERS = [
+  {
+    key: "behavior",
+    label: "행동 교정강의",
+    titles: [
+      "생활예절교육",
+      "경제 관념·사행성 방지 교육",
+      "알코올·중독 습관 교정 교육",
+      "분노 조절·감정 통제 교육",
+      "준법의식 강화",
+    ],
+  },
+  {
+    key: "basic",
+    label: "기본 강의",
+    titles: [
+      "명예훼손·모욕 예방 교육",
+      "운전습관·도로교통법 교육",
+      "폭력범죄 예방교육",
+      "청소년범죄예방교육",
+      "학교폭력 예방",
+      "스토킹범죄 예방",
+      "사기횡령배임 등 재산범죄 예방",
+      "피싱범죄 예방",
+      "도박 및 도박개장 예방",
+      "마약 예방",
+      "디지털 성범죄 예방",
+      "성매매 예방",
+      "성범죄 예방",
+      "음주운전 예방",
+    ],
+  },
+  {
+    key: "special",
+    label: "특수강의",
+    titles: [
+      "공무원 윤리 교육",
+      "보호자 양육 윤리·예방 교육",
+      "개인정보 보호·사이버 금융 범죄 예방",
+      "디지털 저작권·정보통신 윤리 교육",
+    ],
+  },
+  {
+    key: "group",
+    label: "단체강의",
+    titles: ["단체·학교 내 윤리 교육", "비즈니스·직장 내 윤리 교육"],
+  },
 ] as const;
 
 function matchesQuery(course: CourseListItem, q: string): boolean {
@@ -88,8 +133,8 @@ function CoursesListInner() {
   })();
 
   const [category, setCategory] = useState<CourseCategory | null>(initialCategory);
-  // 가격대(상품 구성) 탭 — 사건유형 카테고리와 별개 축.
-  const [tier, setTier] = useState<number | null>(null);
+  // 상품 구성 탭 — 사건유형 카테고리와 별개 축.
+  const [tierKey, setTierKey] = useState<(typeof COURSE_TIERS)[number]["key"] | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [courses, setCourses] = useState<CourseListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,15 +162,16 @@ function CoursesListInner() {
   }, []);
 
   const trimmedQuery = searchQuery.trim();
+  const activeTier = tierKey ? COURSE_TIERS.find((t) => t.key === tierKey) : null;
   const filteredCourses = useMemo(() => {
     const q = trimmedQuery.toLowerCase();
     return courses.filter((c) => {
       if (category && c.category !== category) return false;
-      if (tier != null && c.price !== tier) return false;
+      if (activeTier && !(activeTier.titles as readonly string[]).includes(c.title)) return false;
       if (!matchesQuery(c, q)) return false;
       return true;
     });
-  }, [courses, category, tier, trimmedQuery]);
+  }, [courses, category, activeTier, trimmedQuery]);
 
   // 2글자 미만이면 빈 결과여도 검색어로 표시하지 않음 (안내 없이 전체 표시)
   const isQueryActive = trimmedQuery.length >= MIN_QUERY_LEN;
@@ -160,20 +206,20 @@ function CoursesListInner() {
 
           <div className="flex flex-wrap items-center gap-1.5 md:gap-2.5">
             <CategoryTab
-              active={tier === null}
+              active={tierKey === null}
               onClick={() => {
-                setTier(null);
+                setTierKey(null);
                 setCategory(null);
               }}
             >
               전체
             </CategoryTab>
-            {PRICE_TIERS.map((t) => (
+            {COURSE_TIERS.map((t) => (
               <CategoryTab
-                key={t.price}
-                active={tier === t.price}
+                key={t.key}
+                active={tierKey === t.key}
                 onClick={() => {
-                  setTier(t.price);
+                  setTierKey(t.key);
                   setCategory(null);
                 }}
               >
