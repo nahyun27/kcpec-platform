@@ -148,23 +148,27 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-[80vh] bg-slate-50 pb-24 pt-16 md:pt-20">
-      <div className="mx-auto max-w-5xl px-6">
-        <Link
-          href={`/courses/${courseId}`}
-          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-[var(--color-primary)]"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          강의로 돌아가기
-        </Link>
+    <div className="min-h-screen bg-slate-50 pb-24">
+      <div className="bg-white pt-10 md:pt-16 relative z-10 border-b border-slate-100">
+        <div className="mx-auto max-w-5xl px-6">
+          <Link
+            href={`/courses/${courseId}`}
+            className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-[var(--color-primary)]"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            강의로 돌아가기
+          </Link>
 
-        <PageHeader
-          title="수강 신청·결제"
-          subtitle="Enroll & Pay"
-          icon={<Award className="h-3.5 w-3.5" />}
-          description={<><span className="font-semibold text-slate-700">{course.title}</span> 강의를 수강 신청합니다. 결제 완료 즉시 수강을 시작할 수 있습니다.</>}
-        />
+          <PageHeader
+            title="수강 신청·결제"
+            subtitle="Enroll & Pay"
+            icon={<Award className="h-3.5 w-3.5" />}
+            description={<><span className="font-semibold text-slate-700">{course.title}</span> 강의를 수강 신청합니다. 결제 완료 즉시 수강을 시작할 수 있습니다.</>}
+          />
+        </div>
+      </div>
 
+      <div className="mx-auto max-w-5xl px-6 pt-8 md:pt-12">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
           {/* Main Form (Left) */}
           <div className="space-y-12 lg:col-span-8">
@@ -229,7 +233,7 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="mb-6 rounded-xl bg-slate-50 p-4 border border-slate-100">
-                  <div className="flex items-end justify-between">
+                  <div className="flex flex-col gap-1">
                     <span className="text-sm font-bold text-slate-700">총 결제 금액</span>
                     <span className="font-sans text-3xl font-black text-[var(--color-primary)]">
                       {amount.toLocaleString()}

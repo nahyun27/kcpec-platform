@@ -159,28 +159,32 @@ export default function CheckoutBundleClient() {
   }
 
   return (
-    <div className="min-h-[80vh] bg-slate-50 pb-24 pt-16 md:pt-20">
-      <div className="mx-auto max-w-5xl px-6">
-        <Link
-          href="/sentencing"
-          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-[var(--color-primary)]"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          맞춤 강의 찾기로 돌아가기
-        </Link>
+    <div className="min-h-screen bg-slate-50 pb-24">
+      <div className="bg-white pt-10 md:pt-16 relative z-10 border-b border-slate-100">
+        <div className="mx-auto max-w-5xl px-6">
+          <Link
+            href="/sentencing"
+            className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-[var(--color-primary)]"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            맞춤 강의 찾기로 돌아가기
+          </Link>
 
-        <PageHeader
-          title="수강 신청·결제"
-          subtitle="Enroll & Pay"
-          icon={<Award className="h-3.5 w-3.5" />}
-          description={
-            <>
-              선택하신 <span className="font-semibold text-slate-700">강의 {courses.length}건</span>을
-              함께 결제합니다. 결제 완료 즉시 전부 수강을 시작할 수 있습니다.
-            </>
-          }
-        />
+          <PageHeader
+            title="수강 신청·결제"
+            subtitle="Enroll & Pay"
+            icon={<Award className="h-3.5 w-3.5" />}
+            description={
+              <>
+                선택하신 <span className="font-semibold text-slate-700">강의 {courses.length}건</span>을
+                함께 결제합니다. 결제 완료 즉시 전부 수강을 시작할 수 있습니다.
+              </>
+            }
+          />
+        </div>
+      </div>
 
+      <div className="mx-auto max-w-5xl px-6 pt-8 md:pt-12">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
           <div className="space-y-12 lg:col-span-8">
             <section>
@@ -287,7 +291,7 @@ export default function CheckoutBundleClient() {
                 </div>
 
                 <div className="mb-6 rounded-xl bg-slate-50 p-4 border border-slate-100">
-                  <div className="flex items-end justify-between">
+                  <div className="flex flex-col gap-1">
                     <span className="text-sm font-bold text-slate-700">총 결제 금액</span>
                     <span className="font-sans text-3xl font-black text-[var(--color-primary)]">
                       {total.toLocaleString()}
