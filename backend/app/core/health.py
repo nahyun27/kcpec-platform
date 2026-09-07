@@ -157,6 +157,34 @@ def check_gemini() -> HealthItem:
     )
 
 
+def check_base_urls() -> HealthItem:
+    """FRONTEND_BASE_URL/BACKEND_BASE_URL 이 localhost 로 남아있는지 확인.
+
+    2026-09 EC2 배포 때 이 값을 .env 에 넣는 걸 깜빡해서, 실서버인데도
+    기본값(localhost)으로 나가는 바람에 회원가입 인증메일·비밀번호
+    재설정메일·심리상담 의견서 발급 알림메일의 링크가 전부 사용자
+    브라우저에서 열리지 않는 링크였던 적이 있다.
+    """
+    bad = [
+        name
+        for name, url in (
+            ("FRONTEND_BASE_URL", settings.FRONTEND_BASE_URL),
+            ("BACKEND_BASE_URL", settings.BACKEND_BASE_URL),
+        )
+        if "localhost" in url or "127.0.0.1" in url
+    ]
+    if bad:
+        return _fail(
+            "서비스 주소 설정",
+            f"{', '.join(bad)} 가 아직 localhost 입니다 — 실서버라면 이메일 "
+            "속 링크(인증/비밀번호 재설정/의견서 발급 알림)가 전부 깨집니다.",
+        )
+    return _ok(
+        "서비스 주소 설정",
+        f"frontend={settings.FRONTEND_BASE_URL}, backend={settings.BACKEND_BASE_URL}",
+    )
+
+
 def check_toss() -> HealthItem:
     if not settings.TOSS_SECRET_KEY:
         return _fail("결제(토스)", "미설정 — 결제가 시뮬레이션 모드로 동작합니다.")
@@ -175,4 +203,5 @@ def run_all_checks(db: Session) -> list[HealthItem]:
         check_smtp(),
         check_gemini(),
         check_toss(),
+        check_base_urls(),
     ]

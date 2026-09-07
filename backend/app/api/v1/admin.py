@@ -774,7 +774,9 @@ async def upload_final(
             send_final_to_user,
             to_email=user.email,
             recipient_name=user.username,
-            pdf_url=pdf_url,
+            # pdf_url 은 프런트에서 absUrl() 로 붙여 쓰는 상대경로라 DB엔 그대로
+            # 저장하지만, 이메일 본문은 브라우저 컨텍스트가 없으므로 절대경로여야 함.
+            pdf_url=f"{settings.BACKEND_BASE_URL}{pdf_url}",
         )
 
     course = db.get(Course, order.course_id) if order else None
