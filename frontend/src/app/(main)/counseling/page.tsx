@@ -217,23 +217,25 @@ export default function CounselingPage() {
                 key={product.type}
                 className="relative overflow-hidden rounded-[2rem] border-2 border-[var(--color-primary)] bg-white p-8 shadow-xl shadow-[var(--color-primary)]/10 sm:p-10"
               >
-                <div className="mb-6 flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/30">
-                    {product.type === "phone" ? (
-                      <Phone className="h-7 w-7" />
-                    ) : (
-                      <FileSignature className="h-7 w-7" />
-                    )}
+                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/30">
+                      {product.type === "phone" ? (
+                        <Phone className="h-7 w-7" />
+                      ) : (
+                        <FileSignature className="h-7 w-7" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
+                        {product.title}
+                      </h3>
+                      <p className="mt-1 text-sm font-semibold text-slate-500">
+                        {product.composition}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
-                      {product.title}
-                    </h3>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">
-                      {product.composition}
-                    </p>
-                  </div>
-                  <div className="ml-auto text-right">
+                  <div className="text-left sm:ml-auto sm:text-right">
                     <p className="text-xs font-medium text-slate-400 line-through">
                       {product.originalPrice.toLocaleString()}원
                     </p>

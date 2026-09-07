@@ -400,7 +400,7 @@ export default function SentencingPage() {
   const canGoNext = step === 1 ? selectedMain.size > 0 || etcSelected : true;
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-48 lg:pb-24 animate-in fade-in duration-300">
+    <div className="min-h-screen bg-slate-50/50 pb-64 lg:pb-24 animate-in fade-in duration-300">
       {/* 모바일: 제목만 간결하게 / 데스크톱: 풀 헤더 */}
       <div className="bg-white relative z-10 border-b border-slate-100">
         {/* 모바일 컴팩트 헤더 */}
@@ -560,7 +560,7 @@ export default function SentencingPage() {
                         d.active ? "text-[#1C3461]" : "text-slate-300"
                       }`}
                     />
-                    <span className="truncate">{d.name}</span>
+                    <span className="min-w-0 flex-1 truncate">{d.name}</span>
                   </li>
                 ))}
               </ul>
