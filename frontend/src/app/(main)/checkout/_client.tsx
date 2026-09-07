@@ -143,7 +143,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-[80vh] bg-slate-50 pb-24 pt-8">
+    <div className="min-h-[80vh] bg-slate-50 pb-24 pt-16 md:pt-20">
       <div className="mx-auto max-w-5xl px-6">
         <Link
           href={`/courses/${courseId}`}
