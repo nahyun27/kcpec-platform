@@ -349,6 +349,11 @@ export async function getMyOrders(): Promise<OrderResponse[]> {
   return data;
 }
 
+export async function cancelMyOrder(orderId: number): Promise<OrderResponse> {
+  const { data } = await api.post<OrderResponse>(`/orders/${orderId}/cancel`);
+  return data;
+}
+
 export async function issueDocument(
   orderId: number,
   payload: { recipient_name: string; recipient_birth: string },

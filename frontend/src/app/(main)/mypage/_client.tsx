@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { isAxiosError } from "axios";
 import {
   absUrl,
+  cancelMyOrder,
   deleteMe,
   getMe,
   getMyCounselingOrders,
@@ -96,6 +97,36 @@ export default function MyPageClient() {
   const [answersSurveyId, setAnswersSurveyId] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
+
+  async function handleCancelOrder(orderId: number) {
+    if (
+      !window.confirm(
+        "이 주문을 취소하시겠습니까? 같은 묶음으로 함께 결제하신 다른 강의가 있다면 함께 취소됩니다.",
+      )
+    ) {
+      return;
+    }
+    try {
+      await cancelMyOrder(orderId);
+      const refreshed = await getMyOrders();
+      setOrders((prev) =>
+        refreshed
+          .filter((o) => o.order_type !== "counseling")
+          .map((o) => {
+            const existing = prev.find((p) => p.id === o.id);
+            // 이미 결제완료였던 주문은 documents/survey 를 다시 불러올 필요 없이
+            // 갖고 있던 값을 유지 — 취소는 pending 상태에서만 가능하므로
+            // 여기서 실제로 갈아끼워지는 건 방금 취소된 주문들뿐이다.
+            return existing && existing.status === "paid"
+              ? { ...existing, ...o }
+              : { ...o, documents: [], survey: null };
+          }),
+      );
+      setToast("주문이 취소되었습니다.");
+    } catch {
+      setToast("취소에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    }
+  }
 
   async function handleResendVerification() {
     setResending(true);
@@ -310,6 +341,7 @@ export default function MyPageClient() {
                         enrollments.find((e) => e.course_id === o.course_id)?.is_completed ?? false
                       }
                       onViewAnswers={(id) => setAnswersSurveyId(id)}
+                      onCancel={handleCancelOrder}
                     />
                   ))}
                 </ul>
@@ -626,13 +658,17 @@ function OrderRow({
   order,
   isCourseCompleted,
   onViewAnswers,
+  onCancel,
 }: {
   order: OrderWithExtras;
   isCourseCompleted: boolean;
   onViewAnswers: (surveyId: number) => void;
+  onCancel: (orderId: number) => void;
 }) {
   const isPaid = order.status === "paid";
-  
+  const isPendingBankTransfer =
+    order.status === "pending" && order.payment_method === "bank_transfer";
+
   return (
     <li className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md">
       <div className="flex flex-col gap-4 border-b border-zinc-100 bg-slate-50/50 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -719,6 +755,20 @@ function OrderRow({
               <CounselingRow order={order} onViewAnswers={onViewAnswers} />
             </div>
           </div>
+        </div>
+      ) : isPendingBankTransfer ? (
+        <div className="flex flex-col gap-3 p-5 bg-white sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-slate-500">
+            입금 확인이 완료되면 자동으로 강의가 열립니다. 아직 입금 전이거나 실수로
+            신청하셨다면 아래에서 주문을 취소할 수 있습니다.
+          </p>
+          <button
+            type="button"
+            onClick={() => onCancel(order.id)}
+            className="shrink-0 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 shadow-sm hover:bg-red-50"
+          >
+            주문 취소
+          </button>
         </div>
       ) : null}
     </li>

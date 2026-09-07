@@ -260,6 +260,58 @@ def list_my_orders(
     ]
 
 
+@router.post("/{order_id}/cancel", response_model=OrderResponse)
+def cancel_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> OrderResponse:
+    """본인의 결제 대기(무통장입금 등) 주문을 스스로 취소.
+
+    입금 전에는 아직 아무 돈도 오간 게 없으므로 관리자 개입 없이 바로
+    취소 가능해야 한다. 묶음결제로 같이 만들어진 주문이면(bundle_id 공유)
+    할인 금액이 그 묶음 전체를 기준으로 계산돼 있어 하나만 따로 취소하면
+    금액이 안 맞게 되므로, 같은 묶음의 결제 대기 주문을 전부 함께 취소한다.
+    """
+    order = db.get(Order, order_id)
+    if order is None or order.user_id != current_user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="주문을 찾을 수 없습니다.")
+    if order.status != OrderStatus.PENDING:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="결제 대기 상태의 주문만 취소할 수 있습니다.",
+        )
+
+    orders_to_cancel = [order]
+    if order.bundle_id:
+        orders_to_cancel = list(
+            db.scalars(
+                select(Order).where(
+                    Order.bundle_id == order.bundle_id,
+                    Order.status == OrderStatus.PENDING,
+                )
+            ).all()
+        )
+
+    for o in orders_to_cancel:
+        o.status = OrderStatus.CANCELLED
+    db.commit()
+    db.refresh(order)
+
+    course = db.get(Course, order.course_id)
+    return OrderResponse(
+        id=order.id,
+        course_id=order.course_id,
+        order_type=order.order_type,
+        status=order.status,
+        amount=order.amount,
+        payment_method=order.payment_method,
+        created_at=order.created_at,
+        paid_at=order.paid_at,
+        course_title=course.title if course else None,
+    )
+
+
 def _mark_paid(order: Order, payment_key: str | None) -> None:
     order.status = OrderStatus.PAID
     order.paid_at = _now()
