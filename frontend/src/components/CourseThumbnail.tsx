@@ -30,6 +30,7 @@ const titleSlugMap: Record<string, string> = {
   "운전습관·도로교통법 교육": "driving_habit",
   "경제 관념·사행성 방지 교육": "economic",
   "알코올·중독 습관 교정 교육": "alcohol",
+  "청소년범죄예방교육": "juvenile",
 };
 
 // 강의 제목이 사전에 없을 때(어드민이 새로 추가한 강의 등) 카테고리
