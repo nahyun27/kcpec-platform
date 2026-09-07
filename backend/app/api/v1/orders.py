@@ -255,6 +255,7 @@ def list_my_orders(
             created_at=o.created_at,
             paid_at=o.paid_at,
             course_title=course_titles.get(o.course_id),
+            bundle_id=o.bundle_id,
         )
         for o in orders
     ]
@@ -309,6 +310,7 @@ def cancel_order(
         created_at=order.created_at,
         paid_at=order.paid_at,
         course_title=course.title if course else None,
+        bundle_id=order.bundle_id,
     )
 
 

@@ -22,6 +22,9 @@ class OrderResponse(BaseModel):
     paid_at: datetime | None
     # 마이페이지 카드 헤더 표시용 — list 응답에서 함께 내려보냄.
     course_title: str | None = None
+    # 맞춤강의찾기 묶음결제로 같이 생성된 주문끼리 공유하는 값 — 마이페이지에서
+    # 한 카드로 묶어 보여주는 데 사용.
+    bundle_id: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

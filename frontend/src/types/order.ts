@@ -21,6 +21,8 @@ export type OrderResponse = {
   paid_at: string | null;
   // 카드 헤더 표시용 — /orders/my 응답에서만 채워짐.
   course_title?: string | null;
+  // 맞춤강의찾기 묶음결제로 같이 생성된 주문끼리 공유하는 값.
+  bundle_id?: string | null;
 };
 
 export type BundleItem = {

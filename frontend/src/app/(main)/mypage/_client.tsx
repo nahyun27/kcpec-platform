@@ -90,6 +90,28 @@ export default function MyPageClient() {
       ),
     [orders],
   );
+  // 맞춤강의찾기 묶음결제로 같이 생성된 주문(같은 bundle_id)은 주문번호/
+  // 날짜만 다를 뿐 사실상 하나의 결제라, 카드 하나로 묶어서 보여준다.
+  type OrderDisplayGroup =
+    | { kind: "solo"; order: OrderWithExtras }
+    | { kind: "bundle"; bundleId: string; orders: OrderWithExtras[] };
+  const orderGroups = useMemo<OrderDisplayGroup[]>(() => {
+    const seen = new Set<string>();
+    const groups: OrderDisplayGroup[] = [];
+    for (const o of visibleOrders) {
+      if (o.bundle_id) {
+        if (seen.has(o.bundle_id)) continue;
+        seen.add(o.bundle_id);
+        const siblings = visibleOrders.filter((x) => x.bundle_id === o.bundle_id);
+        if (siblings.length > 1) {
+          groups.push({ kind: "bundle", bundleId: o.bundle_id, orders: siblings });
+          continue;
+        }
+      }
+      groups.push({ kind: "solo", order: o });
+    }
+    return groups;
+  }, [visibleOrders]);
   const [counselingOrders, setCounselingOrders] = useState<CounselingOrderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -333,17 +355,28 @@ export default function MyPageClient() {
                 <EmptyState text="결제 내역이 존재하지 않습니다." />
               ) : (
                 <ul className="space-y-4">
-                  {visibleOrders.map((o) => (
-                    <OrderRow
-                      key={o.id}
-                      order={o}
-                      isCourseCompleted={
-                        enrollments.find((e) => e.course_id === o.course_id)?.is_completed ?? false
-                      }
-                      onViewAnswers={(id) => setAnswersSurveyId(id)}
-                      onCancel={handleCancelOrder}
-                    />
-                  ))}
+                  {orderGroups.map((g) =>
+                    g.kind === "bundle" ? (
+                      <BundleOrderGroup
+                        key={g.bundleId}
+                        orders={g.orders}
+                        enrollments={enrollments}
+                        onViewAnswers={(id) => setAnswersSurveyId(id)}
+                        onCancel={handleCancelOrder}
+                      />
+                    ) : (
+                      <OrderRow
+                        key={g.order.id}
+                        order={g.order}
+                        isCourseCompleted={
+                          enrollments.find((e) => e.course_id === g.order.course_id)
+                            ?.is_completed ?? false
+                        }
+                        onViewAnswers={(id) => setAnswersSurveyId(id)}
+                        onCancel={handleCancelOrder}
+                      />
+                    ),
+                  )}
                 </ul>
               )}
             </Section>
@@ -696,65 +729,11 @@ function OrderRow({
 
       {isPaid ? (
         <div className="p-5 bg-white">
-          <div className="mb-3 flex items-center gap-2">
-            <FileText className="h-4 w-4 text-[var(--color-primary)]" />
-            <h4 className="font-bold text-slate-800">발급 서류 및 상담 현황</h4>
-          </div>
-          
-          <div className="space-y-3">
-            {/* Documents */}
-            {order.documents.length > 0 ? (
-              <ul className="space-y-2">
-                {order.documents.map((d) => (
-                  <li
-                    key={d.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-zinc-100 bg-slate-50 p-3"
-                  >
-                    <span className="text-sm font-medium text-slate-700">
-                      수료증 <span className="text-slate-400 font-normal ml-1">({d.issue_number})</span>
-                    </span>
-                    {d.pdf_url && (
-                      <a
-                        href={absUrl(d.pdf_url)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white border border-zinc-200 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:border-blue-200 hover:text-[var(--color-accent)] transition-colors"
-                      >
-                        <Download className="h-3.5 w-3.5" /> PDF 다운로드
-                      </a>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            ) : isCourseCompleted ? (
-              <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
-                <p className="text-xs text-slate-500 mb-3">수료 완료 — 수료증을 발급받을 수 있습니다.</p>
-                <Link
-                  href={`/issue?order_id=${order.id}`}
-                  className="inline-flex items-center justify-center rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[var(--color-primary-hover)] transition-colors"
-                >
-                  수료증 발급하기
-                </Link>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
-                <p className="text-xs text-slate-500 mb-3">
-                  강의를 완주(진도+퀴즈 통과)하면 수료증을 발급받을 수 있습니다.
-                </p>
-                <Link
-                  href={`/courses/${order.course_id}/watch`}
-                  className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-sm hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
-                >
-                  이어서 수강하기
-                </Link>
-              </div>
-            )}
-
-            {/* Counseling */}
-            <div className="mt-2">
-              <CounselingRow order={order} onViewAnswers={onViewAnswers} />
-            </div>
-          </div>
+          <OrderPaidDetails
+            order={order}
+            isCourseCompleted={isCourseCompleted}
+            onViewAnswers={onViewAnswers}
+          />
         </div>
       ) : isPendingBankTransfer ? (
         <div className="flex flex-col gap-3 p-5 bg-white sm:flex-row sm:items-center sm:justify-between">
@@ -768,6 +747,165 @@ function OrderRow({
             className="shrink-0 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 shadow-sm hover:bg-red-50"
           >
             주문 취소
+          </button>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+function OrderPaidDetails({
+  order,
+  isCourseCompleted,
+  onViewAnswers,
+}: {
+  order: OrderWithExtras;
+  isCourseCompleted: boolean;
+  onViewAnswers: (surveyId: number) => void;
+}) {
+  return (
+    <>
+      <div className="mb-3 flex items-center gap-2">
+        <FileText className="h-4 w-4 text-[var(--color-primary)]" />
+        <h4 className="font-bold text-slate-800">발급 서류 및 상담 현황</h4>
+      </div>
+
+      <div className="space-y-3">
+        {order.documents.length > 0 ? (
+          <ul className="space-y-2">
+            {order.documents.map((d) => (
+              <li
+                key={d.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-zinc-100 bg-slate-50 p-3"
+              >
+                <span className="text-sm font-medium text-slate-700">
+                  수료증 <span className="text-slate-400 font-normal ml-1">({d.issue_number})</span>
+                </span>
+                {d.pdf_url && (
+                  <a
+                    href={absUrl(d.pdf_url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white border border-zinc-200 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:border-blue-200 hover:text-[var(--color-accent)] transition-colors"
+                  >
+                    <Download className="h-3.5 w-3.5" /> PDF 다운로드
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : isCourseCompleted ? (
+          <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
+            <p className="text-xs text-slate-500 mb-3">수료 완료 — 수료증을 발급받을 수 있습니다.</p>
+            <Link
+              href={`/issue?order_id=${order.id}`}
+              className="inline-flex items-center justify-center rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[var(--color-primary-hover)] transition-colors"
+            >
+              수료증 발급하기
+            </Link>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
+            <p className="text-xs text-slate-500 mb-3">
+              강의를 완주(진도+퀴즈 통과)하면 수료증을 발급받을 수 있습니다.
+            </p>
+            <Link
+              href={`/courses/${order.course_id}/watch`}
+              className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-sm hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+            >
+              이어서 수강하기
+            </Link>
+          </div>
+        )}
+
+        <div className="mt-2">
+          <CounselingRow order={order} onViewAnswers={onViewAnswers} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// 맞춤강의찾기 묶음결제로 같이 생성된 주문(같은 bundle_id)을 카드 하나로
+// 묶어 보여준다 — 주문번호/날짜가 갈라져 각자 다른 결제처럼 보이던 문제.
+function BundleOrderGroup({
+  orders,
+  enrollments,
+  onViewAnswers,
+  onCancel,
+}: {
+  orders: OrderWithExtras[];
+  enrollments: EnrollmentWithProgress[];
+  onViewAnswers: (surveyId: number) => void;
+  onCancel: (orderId: number) => void;
+}) {
+  const first = orders[0];
+  const isPaid = first.status === "paid";
+  const isPendingBankTransfer =
+    first.status === "pending" && first.payment_method === "bank_transfer";
+  const totalAmount = orders.reduce((sum, o) => sum + o.amount, 0);
+  const orderIdsLabel = orders.map((o) => `#${o.id}`).join(", ");
+
+  return (
+    <li className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md">
+      <div className="flex flex-col gap-4 border-b border-zinc-100 bg-slate-50/50 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-medium text-slate-500">
+              묶음 주문 {orderIdsLabel}
+            </span>
+            <span className="text-slate-300">•</span>
+            <span className="text-xs text-slate-500">
+              {new Date(first.created_at).toLocaleString("ko-KR")}
+            </span>
+          </div>
+          <ul className="mb-1">
+            {orders.map((o) => (
+              <li key={o.id} className="font-sans text-base font-semibold text-slate-900">
+                {o.course_title}
+              </li>
+            ))}
+          </ul>
+          <p className="font-sans text-lg font-bold text-slate-900">
+            {totalAmount.toLocaleString()}원{" "}
+            <span className="text-sm font-medium text-slate-500 ml-1">
+              ({PAYMENT_METHOD_LABEL[first.payment_method]} · {orders.length}건)
+            </span>
+          </p>
+        </div>
+        <div className="self-start sm:self-center">
+          <OrderStatusBadge status={first.status} />
+        </div>
+      </div>
+
+      {isPaid ? (
+        <div className="divide-y divide-zinc-100">
+          {orders.map((o) => (
+            <div key={o.id} className="p-5 bg-white">
+              <p className="mb-3 text-sm font-bold text-slate-500">{o.course_title}</p>
+              <OrderPaidDetails
+                order={o}
+                isCourseCompleted={
+                  enrollments.find((e) => e.course_id === o.course_id)?.is_completed ?? false
+                }
+                onViewAnswers={onViewAnswers}
+              />
+            </div>
+          ))}
+        </div>
+      ) : isPendingBankTransfer ? (
+        <div className="flex flex-col gap-3 p-5 bg-white sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-slate-500">
+            입금 확인이 완료되면 묶음 전체 강의가 한 번에 자동으로 열립니다. 아직
+            입금 전이거나 실수로 신청하셨다면 아래에서 묶음 전체를 취소할 수
+            있습니다.
+          </p>
+          <button
+            type="button"
+            onClick={() => onCancel(first.id)}
+            className="shrink-0 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 shadow-sm hover:bg-red-50"
+          >
+            묶음 전체 취소
           </button>
         </div>
       ) : null}
