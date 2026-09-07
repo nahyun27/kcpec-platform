@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
@@ -388,6 +387,17 @@ export default function SentencingPage() {
         <div className="hidden md:block">
           <StepIndicator step={step} />
         </div>
+
+        {step !== 4 ? (
+          <div className="mt-4 flex flex-col items-center gap-2 rounded-2xl border border-[var(--color-accent)]/20 bg-gradient-to-r from-blue-50 to-amber-50 px-5 py-3.5 text-center sm:flex-row sm:justify-between sm:text-left">
+            <p className="text-[13px] font-medium text-slate-600">
+              마지막 단계(추천 결과)에서 예상 금액을 확인하실 수 있어요.
+            </p>
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-3.5 py-1.5 text-[12px] font-bold text-white shadow-sm">
+              10만원 이상 구매 시 10,000원 할인
+            </span>
+          </div>
+        ) : null}
 
         {/* Step 본문 */}
         <div className="mt-3 md:mt-8 grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -1120,10 +1130,11 @@ function CartSummary({
       </ul>
 
       {/* 결제 직전 가장 먼저 눈에 들어와야 하는 정보라 카드로 강조.
-          발급 서류 안내는 아래로 내리고 톤을 낮춰 금액과 경쟁하지 않게 함. */}
-      <div className="mt-4 rounded-xl bg-slate-50 p-4">
-        {step === 4 ? (
-          <>
+          발급 서류 안내는 아래로 내리고 톤을 낮춰 금액과 경쟁하지 않게 함.
+          1~3단계 안내/할인 문구는 페이지 상단 배너로 옮겨서 여기선 4단계에서만 노출. */}
+      {step === 4 ? (
+        <>
+          <div className="mt-4 rounded-xl bg-slate-50 p-4">
             {recommendation.discount > 0 && (
               <div className="flex items-center justify-between text-xs text-slate-400">
                 <span>상품 금액</span>
@@ -1155,37 +1166,23 @@ function CartSummary({
                 💡 10만원 이상 구매 시 10,000원 할인이 자동 적용돼요.
               </p>
             )}
-          </>
-        ) : (
-          <p className="text-center text-xs text-slate-400">
-            마지막 단계(추천 결과)에서 금액을 확인하실 수 있습니다.
-            <br />
-            <span className="font-bold text-[var(--color-accent)]">
-              10만원 이상 구매 시 10,000원 할인!
-            </span>
-          </p>
-        )}
-      </div>
+          </div>
 
-      <button
-        type="button"
-        onClick={onCheckout}
-        disabled={step !== 4 || noneSelected || checkingOut}
-        className="mt-4 w-full rounded-xl bg-[#1C3461] py-3 text-sm font-bold text-white shadow-md shadow-[#1C3461]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] disabled:translate-y-0 disabled:opacity-40 disabled:hover:translate-y-0"
-      >
-        {checkingOut ? "이동 중..." : "지금 바로 수강 신청하기"}
-      </button>
-      {step === 4 && noneSelected ? (
-        <p className="mt-2 text-center text-[11px] font-medium text-amber-600">
-          최소 1개 이상의 강의를 선택해 주세요.
-        </p>
+          <button
+            type="button"
+            onClick={onCheckout}
+            disabled={noneSelected || checkingOut}
+            className="mt-4 w-full rounded-xl bg-[#1C3461] py-3 text-sm font-bold text-white shadow-md shadow-[#1C3461]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] disabled:translate-y-0 disabled:opacity-40 disabled:hover:translate-y-0"
+          >
+            {checkingOut ? "이동 중..." : "수강신청하기"}
+          </button>
+          {noneSelected ? (
+            <p className="mt-2 text-center text-[11px] font-medium text-amber-600">
+              최소 1개 이상의 강의를 선택해 주세요.
+            </p>
+          ) : null}
+        </>
       ) : null}
-      <Link
-        href="/courses"
-        className="mt-2 block w-full rounded-xl border border-zinc-200 bg-white py-2.5 text-center text-xs font-bold text-slate-700 hover:bg-slate-50"
-      >
-        강의 전체보기에서 직접 선택
-      </Link>
 
       {/* 발급 가능 서류 — 참고 정보로, 금액/CTA 보다 톤 다운해서 맨 아래 배치 */}
       <div className="mt-5 border-t border-zinc-100 pt-4">
