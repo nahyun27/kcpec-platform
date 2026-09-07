@@ -260,30 +260,31 @@ function CourseCard({ course, eager = false }: { course: CourseListItem; eager?:
     <Link
       href={`/courses/${course.id}`}
       prefetch
-      className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200/60 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-[var(--color-primary)]/10"
+      className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-slate-200 hover:shadow-xl hover:shadow-slate-900/10"
     >
-      <div className="overflow-hidden">
-        <div className="transition-transform duration-500 group-hover:scale-105">
+      {/* 실사 썸네일이라 이미지가 곧 시각적 정체성 — 중앙 텍스트 오버레이 없이
+          이미지를 그대로 보여주고, 카테고리 배지만 이미지 위에 얹어 아래
+          제목/가격 영역과 역할을 분리한다. */}
+      <div className="relative overflow-hidden">
+        <div className="transition-transform duration-500 ease-out group-hover:scale-[1.06]">
           <CourseThumbnail
             category={course.category}
             title={course.title}
             thumbnailUrl={course.thumbnail_url}
-            showTitle
             eager={eager}
           />
         </div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/45 to-transparent" />
+        <span className="absolute left-3 top-3 inline-flex items-center rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold tracking-wide text-slate-700 shadow-sm backdrop-blur-sm ring-1 ring-inset ring-black/5">
+          {course.category}
+        </span>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 p-3 md:p-6">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex w-fit items-center rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold tracking-wide text-blue-700 ring-1 ring-inset ring-blue-600/20">
-            {course.category}
-          </span>
-        </div>
-        <h2 className="font-sans text-sm md:text-[17px] font-extrabold leading-snug text-slate-900 transition-colors group-hover:text-[var(--color-primary)] line-clamp-2">
+      <div className="flex flex-1 flex-col gap-3 p-4 md:p-6">
+        <h2 className="font-sans text-[15px] md:text-[17px] font-extrabold leading-snug text-slate-900 transition-colors group-hover:text-[var(--color-primary)] line-clamp-2">
           {course.title}
         </h2>
-        <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-5 text-sm">
+        <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4 text-sm">
           <span className="inline-flex items-center gap-1.5 text-[13px] font-bold text-slate-500">
             <BadgeCheck className="h-4 w-4 text-[var(--color-accent)]" />
             수료증 연계
@@ -294,7 +295,7 @@ function CourseCard({ course, eager = false }: { course: CourseListItem; eager?:
                 {course.original_price.toLocaleString()}원
               </span>
             ) : null}
-            <span className="text-[15px] font-extrabold text-[var(--color-primary)]">
+            <span className="text-[16px] md:text-[17px] font-extrabold text-[var(--color-primary)]">
               {course.price.toLocaleString()}원~
             </span>
           </span>
