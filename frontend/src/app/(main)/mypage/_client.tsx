@@ -36,7 +36,7 @@ import {
   type DocumentResponse,
   type OrderResponse,
 } from "@/types/order";
-import { BookOpen, CreditCard, Download, FileText, User, ChevronRight, PlayCircle, Loader2, MailWarning } from "lucide-react";
+import { BookOpen, Check, CreditCard, Download, FileText, User, ChevronRight, PlayCircle, Loader2, MailWarning } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
 
@@ -704,23 +704,27 @@ function OrderRow({
 
   return (
     <li className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md">
-      <div className="flex flex-col gap-4 border-b border-zinc-100 bg-slate-50/50 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-medium text-slate-500">주문번호 #{order.id}</span>
-            <span className="text-slate-300">•</span>
-            <span className="text-xs text-slate-500">{new Date(order.created_at).toLocaleString("ko-KR")}</span>
+      <div className="flex flex-col gap-4 border-b border-zinc-100 bg-slate-50/50 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-400">
+            <span className="font-medium">주문번호 #{order.id}</span>
+            <span>•</span>
+            <span>{new Date(order.created_at).toLocaleString("ko-KR")}</span>
           </div>
           {order.course_title ? (
-            <div className="mb-1 flex flex-wrap items-center gap-2">
-              <span className="font-sans text-base font-semibold text-slate-900">
-                {order.course_title}
-              </span>
-            </div>
+            <p className="mb-2 font-sans text-lg font-bold text-slate-900">
+              {order.course_title}
+            </p>
           ) : null}
-          <p className="font-sans text-lg font-bold text-slate-900">
-            {order.amount.toLocaleString()}원 <span className="text-sm font-medium text-slate-500 ml-1">({PAYMENT_METHOD_LABEL[order.payment_method]})</span>
-          </p>
+          <div className="flex items-center gap-2">
+            <span className="font-sans text-2xl font-black text-slate-900">
+              {order.amount.toLocaleString()}
+              <span className="ml-0.5 text-base font-bold text-slate-500">원</span>
+            </span>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
+              {PAYMENT_METHOD_LABEL[order.payment_method]}
+            </span>
+          </div>
         </div>
         <div className="self-start sm:self-center">
           <OrderStatusBadge status={order.status} />
@@ -728,7 +732,7 @@ function OrderRow({
       </div>
 
       {isPaid ? (
-        <div className="p-5 bg-white">
+        <div className="p-6 bg-white">
           <OrderPaidDetails
             order={order}
             isCourseCompleted={isCourseCompleted}
@@ -736,15 +740,15 @@ function OrderRow({
           />
         </div>
       ) : isPendingBankTransfer ? (
-        <div className="flex flex-col gap-3 p-5 bg-white sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-slate-500">
+        <div className="flex flex-col gap-3 p-6 bg-white sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm leading-relaxed text-slate-500">
             입금 확인이 완료되면 자동으로 강의가 열립니다. 아직 입금 전이거나 실수로
             신청하셨다면 아래에서 주문을 취소할 수 있습니다.
           </p>
           <button
             type="button"
             onClick={() => onCancel(order.id)}
-            className="shrink-0 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 shadow-sm hover:bg-red-50"
+            className="shrink-0 rounded-lg border border-red-200 bg-white px-5 py-2.5 text-sm font-bold text-red-600 shadow-sm transition-colors hover:bg-red-50"
           >
             주문 취소
           </button>
@@ -766,8 +770,8 @@ function OrderPaidDetails({
   return (
     <>
       <div className="mb-3 flex items-center gap-2">
-        <FileText className="h-4 w-4 text-[var(--color-primary)]" />
-        <h4 className="font-bold text-slate-800">발급 서류 및 상담 현황</h4>
+        <FileText className="h-5 w-5 text-[var(--color-primary)]" />
+        <h4 className="text-base font-bold text-slate-800">발급 서류 및 상담 현황</h4>
       </div>
 
       <div className="space-y-3">
@@ -776,19 +780,20 @@ function OrderPaidDetails({
             {order.documents.map((d) => (
               <li
                 key={d.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-zinc-100 bg-slate-50 p-3"
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-zinc-100 bg-slate-50 p-4"
               >
-                <span className="text-sm font-medium text-slate-700">
-                  수료증 <span className="text-slate-400 font-normal ml-1">({d.issue_number})</span>
+                <span className="text-sm font-bold text-slate-700">
+                  수료증{" "}
+                  <span className="font-normal text-slate-400">({d.issue_number})</span>
                 </span>
                 {d.pdf_url && (
                   <a
                     href={absUrl(d.pdf_url)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white border border-zinc-200 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:border-blue-200 hover:text-[var(--color-accent)] transition-colors"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white border border-zinc-200 px-3.5 py-2 text-sm font-bold text-slate-700 shadow-sm hover:border-blue-200 hover:text-[var(--color-accent)] transition-colors"
                   >
-                    <Download className="h-3.5 w-3.5" /> PDF 다운로드
+                    <Download className="h-4 w-4" /> PDF 다운로드
                   </a>
                 )}
               </li>
@@ -796,22 +801,22 @@ function OrderPaidDetails({
           </ul>
         ) : isCourseCompleted ? (
           <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
-            <p className="text-xs text-slate-500 mb-3">수료 완료 — 수료증을 발급받을 수 있습니다.</p>
+            <p className="text-sm text-slate-500 mb-3">수료 완료 — 수료증을 발급받을 수 있습니다.</p>
             <Link
               href={`/issue?order_id=${order.id}`}
-              className="inline-flex items-center justify-center rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[var(--color-primary-hover)] transition-colors"
+              className="inline-flex items-center justify-center rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[var(--color-primary-hover)] transition-colors"
             >
               수료증 발급하기
             </Link>
           </div>
         ) : (
           <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
-            <p className="text-xs text-slate-500 mb-3">
+            <p className="text-sm text-slate-500 mb-3">
               강의를 완주(진도+퀴즈 통과)하면 수료증을 발급받을 수 있습니다.
             </p>
             <Link
               href={`/courses/${order.course_id}/watch`}
-              className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-sm hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+              className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
             >
               이어서 수강하기
             </Link>
@@ -848,30 +853,35 @@ function BundleOrderGroup({
 
   return (
     <li className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md">
-      <div className="flex flex-col gap-4 border-b border-zinc-100 bg-slate-50/50 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-medium text-slate-500">
-              묶음 주문 {orderIdsLabel}
+      <div className="flex flex-col gap-4 border-b border-zinc-100 bg-slate-50/50 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-400">
+            <span className="rounded-full bg-[var(--color-primary)]/10 px-2.5 py-0.5 text-xs font-bold text-[var(--color-primary)]">
+              묶음결제
             </span>
-            <span className="text-slate-300">•</span>
-            <span className="text-xs text-slate-500">
-              {new Date(first.created_at).toLocaleString("ko-KR")}
-            </span>
+            <span className="font-medium">{orderIdsLabel}</span>
+            <span>•</span>
+            <span>{new Date(first.created_at).toLocaleString("ko-KR")}</span>
           </div>
-          <ul className="mb-1">
+          <ul className="mb-3 space-y-1.5">
             {orders.map((o) => (
-              <li key={o.id} className="font-sans text-base font-semibold text-slate-900">
-                {o.course_title}
+              <li key={o.id} className="flex items-center gap-2">
+                <Check className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
+                <span className="font-sans text-base font-bold text-slate-900">
+                  {o.course_title}
+                </span>
               </li>
             ))}
           </ul>
-          <p className="font-sans text-lg font-bold text-slate-900">
-            {totalAmount.toLocaleString()}원{" "}
-            <span className="text-sm font-medium text-slate-500 ml-1">
-              ({PAYMENT_METHOD_LABEL[first.payment_method]} · {orders.length}건)
+          <div className="flex items-center gap-2">
+            <span className="font-sans text-2xl font-black text-slate-900">
+              {totalAmount.toLocaleString()}
+              <span className="ml-0.5 text-base font-bold text-slate-500">원</span>
             </span>
-          </p>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
+              {PAYMENT_METHOD_LABEL[first.payment_method]} · {orders.length}건
+            </span>
+          </div>
         </div>
         <div className="self-start sm:self-center">
           <OrderStatusBadge status={first.status} />
@@ -881,8 +891,8 @@ function BundleOrderGroup({
       {isPaid ? (
         <div className="divide-y divide-zinc-100">
           {orders.map((o) => (
-            <div key={o.id} className="p-5 bg-white">
-              <p className="mb-3 text-sm font-bold text-slate-500">{o.course_title}</p>
+            <div key={o.id} className="p-6 bg-white">
+              <p className="mb-3 text-base font-bold text-slate-800">{o.course_title}</p>
               <OrderPaidDetails
                 order={o}
                 isCourseCompleted={
@@ -894,8 +904,8 @@ function BundleOrderGroup({
           ))}
         </div>
       ) : isPendingBankTransfer ? (
-        <div className="flex flex-col gap-3 p-5 bg-white sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-slate-500">
+        <div className="flex flex-col gap-3 p-6 bg-white sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm leading-relaxed text-slate-500">
             입금 확인이 완료되면 묶음 전체 강의가 한 번에 자동으로 열립니다. 아직
             입금 전이거나 실수로 신청하셨다면 아래에서 묶음 전체를 취소할 수
             있습니다.
@@ -903,7 +913,7 @@ function BundleOrderGroup({
           <button
             type="button"
             onClick={() => onCancel(first.id)}
-            className="shrink-0 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 shadow-sm hover:bg-red-50"
+            className="shrink-0 rounded-lg border border-red-200 bg-white px-5 py-2.5 text-sm font-bold text-red-600 shadow-sm transition-colors hover:bg-red-50"
           >
             묶음 전체 취소
           </button>
@@ -933,12 +943,12 @@ function CounselingRow({
   if (!survey) {
     return (
       <div className="rounded-xl border border-dashed border-zinc-300 p-4 text-center bg-slate-50/60">
-        <p className="text-xs text-slate-500 mb-3">
+        <p className="text-sm text-slate-500 mb-3">
           심리상담 의견서가 필요하신가요? 별도로 신청하실 수 있습니다.
         </p>
         <Link
           href="/counseling"
-          className="inline-flex items-center justify-center rounded-lg bg-white border border-zinc-300 px-4 py-2 text-xs font-bold text-slate-700 shadow-sm hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+          className="inline-flex items-center justify-center rounded-lg bg-white border border-zinc-300 px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
         >
           심리상담 의견서 추가하기
         </Link>
@@ -991,12 +1001,12 @@ function OrderStatusBadge({ status }: { status: OrderResponse["status"] }) {
   const map: Record<OrderResponse["status"], { label: string; className: string }> = {
     paid: { label: "결제 완료", className: "bg-emerald-100 text-emerald-700 ring-emerald-500/20" },
     pending: { label: "결제 대기", className: "bg-amber-100 text-amber-700 ring-amber-500/20" },
-    cancelled: { label: "취소", className: "bg-zinc-100 text-zinc-600 ring-zinc-500/20" },
-    refunded: { label: "환불", className: "bg-zinc-100 text-zinc-600 ring-zinc-500/20" },
+    cancelled: { label: "취소됨", className: "bg-zinc-100 text-zinc-600 ring-zinc-500/20" },
+    refunded: { label: "환불됨", className: "bg-zinc-100 text-zinc-600 ring-zinc-500/20" },
   };
   const { label, className } = map[status];
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${className}`}>
+    <span className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-sm font-bold ring-1 ${className}`}>
       {label}
     </span>
   );
