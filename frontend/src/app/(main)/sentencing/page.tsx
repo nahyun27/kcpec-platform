@@ -380,6 +380,20 @@ export default function SentencingPage() {
             />
           </div>
         </div>
+
+        {/* 할인 안내 배너 — 헤더 영역 안에 둬서 구분선이 하나만 남게 함 */}
+        {step !== 4 ? (
+          <div className="px-4 pb-3 sm:px-6 md:mx-auto md:max-w-5xl md:pb-5">
+            <div className="flex flex-col items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-50 to-amber-50 px-4 py-2.5 text-center sm:flex-row sm:justify-between sm:gap-2 sm:text-left">
+              <p className="text-[12px] font-medium text-slate-600 sm:text-[13px]">
+                마지막 단계(추천 결과)에서 예상 금액을 확인하실 수 있어요.
+              </p>
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-3 py-1 text-[11px] font-bold text-white shadow-sm sm:px-3.5 sm:py-1.5 sm:text-[12px]">
+                10만원 이상 구매 시 10,000원 할인
+              </span>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="mx-auto max-w-5xl px-4 sm:px-6 pt-3 md:pt-8">
@@ -387,17 +401,6 @@ export default function SentencingPage() {
         <div className="hidden md:block">
           <StepIndicator step={step} />
         </div>
-
-        {step !== 4 ? (
-          <div className="mt-4 flex flex-col items-center gap-2 rounded-2xl border border-[var(--color-accent)]/20 bg-gradient-to-r from-blue-50 to-amber-50 px-5 py-3.5 text-center sm:flex-row sm:justify-between sm:text-left">
-            <p className="text-[13px] font-medium text-slate-600">
-              마지막 단계(추천 결과)에서 예상 금액을 확인하실 수 있어요.
-            </p>
-            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-3.5 py-1.5 text-[12px] font-bold text-white shadow-sm">
-              10만원 이상 구매 시 10,000원 할인
-            </span>
-          </div>
-        ) : null}
 
         {/* Step 본문 */}
         <div className="mt-3 md:mt-8 grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -686,9 +689,7 @@ function Step1({
         어떤 사건으로 오셨나요?
       </h2>
       <p className="mt-1 text-xs text-slate-500">
-        해당되는 항목을 모두 선택해 주세요. (복수 선택 가능) ·{" "}
-        <span className="font-semibold text-[#1C3461]">준법의식 강화</span>는
-        모든 경우에 기본으로 포함됩니다.
+        해당되는 항목을 모두 선택해 주세요. (복수 선택 가능)
       </p>
 
       <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
