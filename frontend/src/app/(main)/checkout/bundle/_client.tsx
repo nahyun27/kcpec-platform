@@ -15,8 +15,37 @@ import {
   ChevronRight,
   ShieldCheck,
   Loader2,
+  Landmark,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+
+function PaymentMethodIcon({
+  method,
+  selected,
+}: {
+  method: PaymentMethod;
+  selected: boolean;
+}) {
+  if (method === "kakaopay") {
+    return (
+      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#FEE500]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/kakao.svg" alt="" className="h-3.5 w-3.5" />
+      </span>
+    );
+  }
+  if (method === "naverpay") {
+    return (
+      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#03C75A]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/naver.svg" alt="" className="h-3.5 w-3.5" />
+      </span>
+    );
+  }
+  const cls = `h-6 w-6 ${selected ? "text-[var(--color-primary)]" : "text-slate-400"}`;
+  if (method === "bank_transfer") return <Landmark className={cls} />;
+  return <CreditCard className={cls} />;
+}
 
 const PAYMENT_METHODS: PaymentMethod[] = ["card", "kakaopay", "naverpay", "bank_transfer"];
 
@@ -39,6 +68,23 @@ export default function CheckoutBundleClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [paymentFailMessage, setPaymentFailMessage] = useState<string | null>(null);
+
+  // 토스 결제창에서 실패/취소 시 failUrl(이 페이지 자체)로 code/message 를
+  // 쿼리스트링에 실어 되돌아온다. 예전엔 이걸 그냥 무시해서, 사용자가
+  // 왜 결제가 안 됐는지 전혀 모른 채 조용히 결제 폼으로만 돌아왔었다.
+  useEffect(() => {
+    const failMessage = searchParams.get("message");
+    const failCode = searchParams.get("code");
+    if (!failMessage && !failCode) return;
+    setPaymentFailMessage(failMessage ?? "결제가 취소되었거나 실패했습니다.");
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("code");
+    params.delete("message");
+    params.delete("orderId");
+    router.replace(`/checkout/bundle?${params.toString()}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (courseIds.length === 0) {
@@ -185,6 +231,21 @@ export default function CheckoutBundleClient() {
       </div>
 
       <div className="mx-auto max-w-5xl px-6 pt-8 md:pt-12">
+        {paymentFailMessage ? (
+          <div className="mb-8 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <div className="flex-1">
+              <p className="font-bold">결제에 실패했습니다</p>
+              <p className="mt-0.5">{paymentFailMessage} 다시 시도해 주세요.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPaymentFailMessage(null)}
+              className="shrink-0 text-xs font-bold text-red-500 hover:text-red-700"
+            >
+              닫기
+            </button>
+          </div>
+        ) : null}
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
           <div className="space-y-12 lg:col-span-8">
             <section>
@@ -236,9 +297,7 @@ export default function CheckoutBundleClient() {
                         onChange={() => setPaymentMethod(m)}
                         className="sr-only"
                       />
-                      <CreditCard
-                        className={`h-6 w-6 ${selected ? "text-[var(--color-primary)]" : "text-slate-400"}`}
-                      />
+                      <PaymentMethodIcon method={m} selected={selected} />
                       <span className="text-sm font-bold">{PAYMENT_METHOD_LABEL[m]}</span>
                       {selected && (
                         <div className="absolute top-2 right-2 text-[var(--color-primary)]">

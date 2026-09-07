@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
   BadgeCheck,
   Check,
   FileText,
+  Loader2,
   Scale,
   Sparkles,
 } from "lucide-react";
@@ -187,6 +188,51 @@ export default function SentencingPage() {
   const [disabledCourses, setDisabledCourses] = useState<Set<CourseId>>(
     new Set(),
   );
+
+  // 뭔가 선택했거나 첫 단계를 넘어갔으면 "진행 중"으로 본다 — 이 상태에서
+  // 새로고침/탭 닫기/다른 메뉴로 이동하면 전부 초기화되므로 확인창을 띄운다.
+  const hasProgress = step > 1 || selectedMain.size > 0 || etcSelected;
+
+  useEffect(() => {
+    if (!hasProgress) return;
+
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    // 헤더 메뉴 등 앱 내부 링크 클릭은 beforeunload 가 안 걸리므로(SPA
+    // 이동이라 실제 페이지 unload 가 아님) 클릭을 캡처 단계에서 가로채서
+    // 직접 확인창을 띄운다.
+    function handleClickCapture(e: MouseEvent) {
+      const anchor = (e.target as HTMLElement | null)?.closest?.(
+        "a[href]",
+      ) as HTMLAnchorElement | null;
+      if (!anchor) return;
+      if (
+        anchor.target === "_blank" ||
+        anchor.hasAttribute("download") ||
+        anchor.origin !== window.location.origin ||
+        anchor.pathname === window.location.pathname
+      ) {
+        return;
+      }
+      const confirmed = window.confirm(
+        "지금 나가시면 선택하신 내용이 모두 초기화됩니다. 이동하시겠습니까?",
+      );
+      if (!confirmed) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+    document.addEventListener("click", handleClickCapture, true);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("click", handleClickCapture, true);
+    };
+  }, [hasProgress]);
 
   // 강의가 선택 목록에서 완전히 빠질 때, Page4 에서 남아있던 개별 해제
   // 기록도 같이 지운다. 안 지우면: (1)해제 → (2)Page1/2 에서 그 강의를
@@ -560,9 +606,15 @@ export default function SentencingPage() {
                   type="button"
                   onClick={handleCheckout}
                   disabled={recommendation.activeCourseCount === 0 || checkingOut}
-                  className="rounded-full bg-[#1C3461] px-4 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-40"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#1C3461] px-4 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-40"
                 >
-                  {checkingOut ? "이동 중..." : "수강 신청 →"}
+                  {checkingOut ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" /> 이동 중...
+                    </>
+                  ) : (
+                    "수강 신청 →"
+                  )}
                 </button>
               </div>
             )}
@@ -1174,9 +1226,15 @@ function CartSummary({
             type="button"
             onClick={onCheckout}
             disabled={noneSelected || checkingOut}
-            className="mt-4 w-full rounded-xl bg-[#1C3461] py-3 text-sm font-bold text-white shadow-md shadow-[#1C3461]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] disabled:translate-y-0 disabled:opacity-40 disabled:hover:translate-y-0"
+            className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#1C3461] py-3 text-sm font-bold text-white shadow-md shadow-[#1C3461]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] disabled:translate-y-0 disabled:opacity-40 disabled:hover:translate-y-0"
           >
-            {checkingOut ? "이동 중..." : "수강신청하기"}
+            {checkingOut ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> 이동 중...
+              </>
+            ) : (
+              "수강신청하기"
+            )}
           </button>
           {noneSelected ? (
             <p className="mt-2 text-center text-[13px] font-medium text-amber-600">
