@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import ApplyButton from "./ApplyButton";
 import type { CounselingType } from "@/types/counseling";
-import { CheckCircle2, FileSignature, ShieldCheck, Award } from "lucide-react";
+import { CheckCircle2, FileSignature, Phone, ShieldCheck, Award } from "lucide-react";
 
 export const metadata = {
   title: "전문가 심리상담 | KCPEC",
@@ -53,7 +53,7 @@ type CounselingProduct = {
 const COUNSELING_PRODUCTS: CounselingProduct[] = [
   {
     type: "basic",
-    title: "심리상담 의견서",
+    title: "서면 심리상담 의견서",
     price: 77_000,
     originalPrice: 154_000,
     composition: "범죄심리상담 · 서면상담",
@@ -70,7 +70,7 @@ const COUNSELING_PRODUCTS: CounselingProduct[] = [
   },
   {
     type: "phone",
-    title: "전화 심화상담",
+    title: "전화 심화상담 의견서",
     price: 440_000,
     originalPrice: 880_000,
     composition: "전화 상담 · 회당 20분 · 총 4회",
@@ -219,7 +219,11 @@ export default function CounselingPage() {
               >
                 <div className="mb-6 flex items-center gap-4">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/30">
-                    <FileSignature className="h-7 w-7" />
+                    {product.type === "phone" ? (
+                      <Phone className="h-7 w-7" />
+                    ) : (
+                      <FileSignature className="h-7 w-7" />
+                    )}
                   </div>
                   <div>
                     <h3 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
