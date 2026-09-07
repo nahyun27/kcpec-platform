@@ -50,17 +50,6 @@ const MIN_QUERY_LEN = 2;
 // 화이트리스트로 4단 분류.)
 const COURSE_TIERS = [
   {
-    key: "behavior",
-    label: "행동 교정강의",
-    titles: [
-      "생활예절교육",
-      "경제 관념·사행성 방지 교육",
-      "알코올·중독 습관 교정 교육",
-      "분노 조절·감정 통제 교육",
-      "준법의식 강화",
-    ],
-  },
-  {
     key: "basic",
     label: "기본 강의",
     titles: [
@@ -81,6 +70,17 @@ const COURSE_TIERS = [
     ],
   },
   {
+    key: "behavior",
+    label: "행동 교정강의",
+    titles: [
+      "생활예절교육",
+      "경제 관념·사행성 방지 교육",
+      "알코올·중독 습관 교정 교육",
+      "분노 조절·감정 통제 교육",
+      "준법의식 강화",
+    ],
+  },
+  {
     key: "special",
     label: "특수강의",
     titles: [
@@ -96,6 +96,12 @@ const COURSE_TIERS = [
     titles: ["단체·학교 내 윤리 교육", "비즈니스·직장 내 윤리 교육"],
   },
 ] as const;
+
+function getTierLabel(title: string): string {
+  return (
+    COURSE_TIERS.find((t) => (t.titles as readonly string[]).includes(title))?.label ?? "기타"
+  );
+}
 
 function matchesQuery(course: CourseListItem, q: string): boolean {
   if (q.length < MIN_QUERY_LEN) return true;
@@ -322,7 +328,7 @@ function CourseCard({ course, eager = false }: { course: CourseListItem; eager?:
         </div>
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/45 to-transparent" />
         <span className="absolute left-3 top-3 inline-flex items-center rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold tracking-wide text-slate-700 shadow-sm backdrop-blur-sm ring-1 ring-inset ring-black/5">
-          {course.category}
+          {getTierLabel(course.title)}
         </span>
       </div>
 
