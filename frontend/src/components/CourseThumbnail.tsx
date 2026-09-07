@@ -23,6 +23,7 @@ const titleSlugMap: Record<string, string> = {
   "개인정보 보호·사이버 금융 범죄 예방": "cyber",
   "생활예절교육": "manner",
   "공무원 윤리 교육": "official",
+  "디지털 저작권·정보통신 윤리 교육": "copyright",
 };
 
 // 강의 제목이 사전에 없을 때(어드민이 새로 추가한 강의 등) 카테고리
