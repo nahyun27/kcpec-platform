@@ -47,3 +47,12 @@ class CourseReviewItem(BaseModel):
     # 작성자명 마스킹된 형태 (예: "김**"). 클라이언트에 원본 노출 안 함.
     author_name: str
     rating: int
+
+
+class PaginatedCourseReviews(BaseModel):
+    items: list[CourseReviewItem]
+    total: int
+    page: int
+    size: int
+    # 전체 후기 평균 별점 (소수 첫째 자리 반올림). 후기가 없으면 None.
+    average_rating: float | None = None

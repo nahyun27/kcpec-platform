@@ -3,9 +3,9 @@ import type {
   CourseCategory,
   CourseDetail,
   CourseListItem,
-  CourseReview,
   EnrollmentStatus,
   LectureProgressUpdate,
+  PaginatedCourseReviews,
   QuizDetail,
   QuizResult,
   StreamUrlResponse,
@@ -263,8 +263,14 @@ export async function getCourseDetail(courseId: number): Promise<CourseDetail> {
   return data;
 }
 
-export async function getCourseReviews(courseId: number): Promise<CourseReview[]> {
-  const { data } = await api.get<CourseReview[]>(`/courses/${courseId}/reviews`);
+export async function getCourseReviews(
+  courseId: number,
+  page = 1,
+  size = 10,
+): Promise<PaginatedCourseReviews> {
+  const { data } = await api.get<PaginatedCourseReviews>(`/courses/${courseId}/reviews`, {
+    params: { page, size },
+  });
   return data;
 }
 

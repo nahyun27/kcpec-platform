@@ -18,6 +18,7 @@ from app.schemas.course import (
     CourseListItem,
     CourseReviewItem,
     LectureItem,
+    PaginatedCourseReviews,
     StreamUrlResponse,
 )
 from app.schemas.enrollment import (
@@ -290,31 +291,47 @@ def _mask_author(name: str | None) -> str:
     return f"{name[0]}**"
 
 
-@router.get("/courses/{course_id}/reviews", response_model=list[CourseReviewItem])
+@router.get("/courses/{course_id}/reviews", response_model=PaginatedCourseReviews)
 def list_course_reviews(
-    course_id: int, db: Session = Depends(get_db)
-) -> list[CourseReviewItem]:
+    course_id: int,
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=10, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> PaginatedCourseReviews:
+    base = select(Post).where(
+        Post.category == PostCategory.REVIEW,
+        Post.course_id == course_id,
+    )
+    total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
+    average_rating = db.scalar(
+        select(func.avg(Post.rating)).where(
+            Post.category == PostCategory.REVIEW,
+            Post.course_id == course_id,
+        )
+    )
     posts = list(
         db.scalars(
-            select(Post)
-            .where(
-                Post.category == PostCategory.REVIEW,
-                Post.course_id == course_id,
-            )
-            .order_by(Post.created_at.desc())
-            .limit(10)
+            base.order_by(Post.created_at.desc())
+            .offset((page - 1) * size)
+            .limit(size)
         ).all()
     )
-    return [
-        CourseReviewItem(
-            id=p.id,
-            content=p.content,
-            created_at=p.created_at,
-            author_name=_mask_author(p.author_name),
-            rating=p.rating,
-        )
-        for p in posts
-    ]
+    return PaginatedCourseReviews(
+        items=[
+            CourseReviewItem(
+                id=p.id,
+                content=p.content,
+                created_at=p.created_at,
+                author_name=_mask_author(p.author_name),
+                rating=p.rating,
+            )
+            for p in posts
+        ],
+        total=total,
+        page=page,
+        size=size,
+        average_rating=round(float(average_rating), 1) if average_rating is not None else None,
+    )
 
 
 # ---------- enrollment + progress ---------------------------------------------

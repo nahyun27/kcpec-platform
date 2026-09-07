@@ -77,6 +77,14 @@ export type CourseReview = {
   rating: number;
 };
 
+export type PaginatedCourseReviews = {
+  items: CourseReview[];
+  total: number;
+  page: number;
+  size: number;
+  average_rating: number | null;
+};
+
 export type QuizOptionItem = {
   id: number;
   option_text: string;

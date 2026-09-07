@@ -561,16 +561,35 @@ function badgeClassFor(courseCategory: string | null): string {
   return "bg-zinc-100 text-zinc-700 ring-zinc-500/20";
 }
 
+const REVIEW_PAGE_SIZE = 20;
+
 function ReviewTab() {
   const router = useRouter();
   const [items, setItems] = useState<PostListItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [filter, setFilter] = useState<string | null>(null);
   const [writing, setWriting] = useState(false);
 
   async function reload() {
-    const r = await getPosts("review", 1, 100);
+    const r = await getPosts("review", 1, REVIEW_PAGE_SIZE);
     setItems(r.items);
+    setTotal(r.total);
+    setPage(1);
+  }
+
+  async function loadMore() {
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const r = await getPosts("review", nextPage, REVIEW_PAGE_SIZE);
+      setItems((prev) => [...prev, ...r.items]);
+      setPage(nextPage);
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   useEffect(() => {
@@ -650,6 +669,19 @@ function ReviewTab() {
           ))}
         </ul>
       )}
+
+      {filter == null && items.length < total ? (
+        <div className="flex justify-center pt-2">
+          <button
+            type="button"
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="rounded-full border border-zinc-200 bg-white px-6 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-zinc-50 disabled:opacity-60"
+          >
+            {loadingMore ? "불러오는 중..." : `후기 더보기 (${items.length}/${total})`}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

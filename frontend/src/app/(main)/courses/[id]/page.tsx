@@ -21,7 +21,21 @@ import {
   FileText,
   MessageSquare,
   PlayCircle,
+  Star,
 } from "lucide-react";
+
+function StarRow({ rating }: { rating: number }) {
+  return (
+    <div className="inline-flex gap-0.5" aria-label={`${rating}점`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Star
+          key={n}
+          className={`h-3.5 w-3.5 ${n <= rating ? "fill-amber-400 text-amber-400" : "fill-slate-100 text-slate-200"}`}
+        />
+      ))}
+    </div>
+  );
+}
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -50,6 +64,10 @@ export default function CourseDetailPage({
   const [isEnrolled, setIsEnrolled] = useState<boolean | null>(null);
   const [reviews, setReviews] = useState<CourseReview[]>([]);
   const [reviewsLoaded, setReviewsLoaded] = useState(false);
+  const [reviewTotal, setReviewTotal] = useState(0);
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewsLoadingMore, setReviewsLoadingMore] = useState(false);
+  const [averageRating, setAverageRating] = useState<number | null>(null);
   const [expandedReviews, setExpandedReviews] = useState<Set<number>>(new Set());
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [sidebarFlash, setSidebarFlash] = useState(false);
@@ -75,9 +93,14 @@ export default function CourseDetailPage({
   // 후기 — 로그인 여부 무관 공개 조회.
   useEffect(() => {
     let cancelled = false;
-    getCourseReviews(courseId)
+    getCourseReviews(courseId, 1)
       .then((data) => {
-        if (!cancelled) setReviews(data);
+        if (!cancelled) {
+          setReviews(data.items);
+          setReviewTotal(data.total);
+          setReviewPage(1);
+          setAverageRating(data.average_rating);
+        }
       })
       .catch(() => {
         /* 후기 로드 실패는 전체 페이지를 막지 않음 — 빈 배열로 노출 */
@@ -92,9 +115,27 @@ export default function CourseDetailPage({
 
   async function reloadReviews() {
     try {
-      setReviews(await getCourseReviews(courseId));
+      const data = await getCourseReviews(courseId, 1);
+      setReviews(data.items);
+      setReviewTotal(data.total);
+      setReviewPage(1);
+      setAverageRating(data.average_rating);
     } catch {
       /* 재조회 실패해도 기존 목록 유지 */
+    }
+  }
+
+  async function loadMoreReviews() {
+    setReviewsLoadingMore(true);
+    try {
+      const nextPage = reviewPage + 1;
+      const data = await getCourseReviews(courseId, nextPage);
+      setReviews((prev) => [...prev, ...data.items]);
+      setReviewPage(nextPage);
+    } catch {
+      /* 실패해도 기존 목록 유지 */
+    } finally {
+      setReviewsLoadingMore(false);
     }
   }
 
@@ -298,10 +339,18 @@ export default function CourseDetailPage({
                   <h2 className="font-sans text-2xl font-extrabold text-slate-900">
                     수강 후기
                   </h2>
-                  {reviewsLoaded && reviews.length > 0 ? (
+                  {reviewsLoaded && reviewTotal > 0 ? (
                     <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600">
-                      {reviews.length}
+                      {reviewTotal}
                     </span>
+                  ) : null}
+                  {reviewsLoaded && averageRating != null ? (
+                    <div className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 ring-1 ring-inset ring-amber-200">
+                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                      <span className="text-[13px] font-bold text-amber-700">
+                        {averageRating.toFixed(1)}
+                      </span>
+                    </div>
                   ) : null}
                 </div>
                 <button
@@ -334,7 +383,7 @@ export default function CourseDetailPage({
                         key={r.id}
                         className="rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm transition-shadow hover:shadow-md"
                       >
-                        <div className="mb-4 flex items-center justify-between">
+                        <div className="mb-3 flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-primary)]/10 font-bold text-[var(--color-primary)]">
                               {r.author_name.charAt(0)}
@@ -346,6 +395,9 @@ export default function CourseDetailPage({
                           <span className="text-[13px] font-medium text-slate-400">
                             {formatReviewDate(r.created_at)}
                           </span>
+                        </div>
+                        <div className="mb-3">
+                          <StarRow rating={r.rating} />
                         </div>
                         <p
                           className={`whitespace-pre-wrap text-[15px] leading-relaxed text-slate-600 ${
@@ -368,6 +420,19 @@ export default function CourseDetailPage({
                   })}
                 </ul>
               )}
+
+              {reviewsLoaded && reviews.length < reviewTotal ? (
+                <div className="flex justify-center pt-2">
+                  <button
+                    type="button"
+                    onClick={loadMoreReviews}
+                    disabled={reviewsLoadingMore}
+                    className="rounded-full border border-slate-200 bg-white px-6 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    {reviewsLoadingMore ? "불러오는 중..." : `후기 더보기 (${reviews.length}/${reviewTotal})`}
+                  </button>
+                </div>
+              ) : null}
             </section>
 
             <PurchaseInfoSection />
