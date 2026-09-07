@@ -79,6 +79,16 @@ export default function MyPageClient() {
     [enrollments],
   );
   const [orders, setOrders] = useState<OrderWithExtras[]>([]);
+  // 무통장입금 대기(실제 입금을 기다리는 상태)만 노출하고, 카드/카카오페이/
+  // 네이버페이로 결제 시도했다가 중단·실패한 뒤 영구히 "대기중"으로 남는
+  // 재시도 불가 주문은 목록에서 숨긴다.
+  const visibleOrders = useMemo(
+    () =>
+      orders.filter(
+        (o) => o.status !== "pending" || o.payment_method === "bank_transfer",
+      ),
+    [orders],
+  );
   const [counselingOrders, setCounselingOrders] = useState<CounselingOrderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -284,11 +294,15 @@ export default function MyPageClient() {
 
           {tab === "orders" ? (
             <Section icon={<CreditCard className="h-6 w-6 text-[var(--color-accent)]" />} title="결제 내역">
-              {orders.length === 0 ? (
+              {/* 카드/카카오페이/네이버페이는 결제창을 닫거나 실패해도 주문이
+                  "대기중" 상태로 영구히 남는데, 재시도/취소 수단이 없어
+                  사용자 입장에선 아무 의미 없는 죽은 행이다. 무통장입금
+                  대기(진짜 입금을 기다리는 상태)만 남기고 감춘다. */}
+              {visibleOrders.length === 0 ? (
                 <EmptyState text="결제 내역이 존재하지 않습니다." />
               ) : (
                 <ul className="space-y-4">
-                  {orders.map((o) => (
+                  {visibleOrders.map((o) => (
                     <OrderRow
                       key={o.id}
                       order={o}
