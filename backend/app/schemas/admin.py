@@ -277,3 +277,15 @@ class PostPatch(BaseModel):
 # 단순 OK 응답
 class OkResponse(BaseModel):
     ok: Literal[True] = True
+
+
+class HealthItem(BaseModel):
+    name: str
+    ok: bool
+    detail: str | None = None
+
+
+class HealthResponse(BaseModel):
+    all_ok: bool
+    checked_at: datetime
+    items: list[HealthItem]

@@ -26,6 +26,7 @@ from app.core.database import get_db
 from app.core.document_generator import fill_counseling_template
 from app.core.email import send_final_to_user
 from app.core.gemini_client import generate_counseling_draft, is_dummy_draft
+from app.core.health import run_all_checks
 from app.core.pdf import PDF_DIR, convert_office_to_pdf
 from app.models.community import Notice, Post
 from app.models.counseling import CounselingStatus, CounselingSurvey
@@ -56,6 +57,7 @@ from app.schemas.admin import (
     AdminActivity,
     AdminTopCourse,
     AdminUserBrief,
+    HealthResponse,
     NoticePatch,
     OkResponse,
     PostPatch,
@@ -1456,3 +1458,21 @@ def delete_faq(faq_id: int, db: Session = Depends(get_db)) -> OkResponse:
     db.delete(faq)
     db.commit()
     return OkResponse()
+
+
+# ---------- 시스템 상태 점검 ---------------------------------------------------
+
+
+@router.get("/health", response_model=HealthResponse)
+def system_health(db: Session = Depends(get_db)) -> HealthResponse:
+    """배포 직후 조용히 깨져있기 쉬운 서버 의존성 점검 (DB/LibreOffice/한글폰트/
+    수료증 템플릿/S3/SMTP/Gemini/토스). 2026-09 EC2 첫 배포 때 이 중 여러 개가
+    실제로 깨져있었는데 실사용자가 수료증을 발급받으려다가 처음 발견했음 —
+    배포 직후 이 화면 하나만 확인하면 바로 알 수 있게 하기 위함.
+    """
+    items = run_all_checks(db)
+    return HealthResponse(
+        all_ok=all(item.ok for item in items),
+        checked_at=datetime.now(timezone.utc),
+        items=items,
+    )

@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { isAxiosError } from "axios";
 import {
+  Activity,
   BarChart2,
   BookOpen,
   ChevronDown,
@@ -80,6 +81,7 @@ const NAV: (SingleNav | GroupNav)[] = [
       { value: "faq", label: "FAQ" },
     ],
   },
+  { kind: "single", href: "/admin/health", label: "시스템 상태", icon: <Activity className="h-4 w-4" /> },
 ];
 
 type DenyReason =

@@ -2,6 +2,18 @@ import type { CourseCategory } from "@/types/course";
 import type { CounselingStatus } from "@/types/counseling";
 import type { OrderStatus, OrderType, PaymentMethod } from "@/types/order";
 
+export type HealthItem = {
+  name: string;
+  ok: boolean;
+  detail: string | null;
+};
+
+export type HealthResponse = {
+  all_ok: boolean;
+  checked_at: string;
+  items: HealthItem[];
+};
+
 export type AdminUser = {
   id: number;
   username: string;

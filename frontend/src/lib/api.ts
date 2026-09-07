@@ -46,6 +46,7 @@ import type {
   AdminUserEnrollmentRow,
   AdminUsersResponse,
   CourseEnrollmentCount,
+  HealthResponse,
   NoticePatch,
   PostPatch,
 } from "@/types/admin";
@@ -766,6 +767,11 @@ export async function getFaqs(category?: FaqCategory): Promise<Faq[]> {
 
 export async function getAdminFaqs(): Promise<Faq[]> {
   const { data } = await api.get<Faq[]>("/admin/faq");
+  return data;
+}
+
+export async function getSystemHealth(): Promise<HealthResponse> {
+  const { data } = await api.get<HealthResponse>("/admin/health");
   return data;
 }
 
