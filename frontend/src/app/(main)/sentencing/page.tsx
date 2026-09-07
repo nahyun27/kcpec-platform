@@ -1141,17 +1141,17 @@ function CartSummary({
       !disabledCourses.has(c.id),
   );
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <h3 className="font-sans text-sm font-extrabold tracking-wide text-slate-900">
+    <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-md shadow-slate-200/40">
+      <h3 className="font-sans text-lg font-extrabold tracking-tight text-slate-900">
         추천 강의
       </h3>
-      <p className="mt-0.5 text-[13px] text-slate-500">
+      <p className="mt-1 text-sm text-slate-500">
         선택하신 사건에 따른 추천 강의입니다.
       </p>
 
       <ul
-        className={`mt-4 space-y-2 ${
-          step === 4 ? "border-b border-zinc-100 pb-4" : "pb-1"
+        className={`mt-5 space-y-3 ${
+          step === 4 ? "border-b border-zinc-100 pb-5" : "pb-1"
         }`}
       >
         {recommendation.courses.length === 0 ? (
@@ -1160,18 +1160,23 @@ function CartSummary({
           recommendation.courses.map((c) => {
             const active = !disabledCourses.has(c.id);
             return (
-              <li key={c.id} className="flex items-center justify-between text-sm">
+              <li key={c.id} className="flex items-center gap-2.5">
+                <Check
+                  className={`h-4 w-4 shrink-0 ${
+                    active ? "text-[#1C3461]" : "text-slate-300"
+                  }`}
+                />
                 <span
-                  className={`truncate pr-2 ${
-                    active ? "text-slate-700" : "text-slate-400 line-through"
+                  className={`min-w-0 flex-1 truncate text-[15px] font-medium ${
+                    active ? "text-slate-800" : "text-slate-400 line-through"
                   }`}
                 >
                   {c.name}
                 </span>
                 {step === 4 ? (
                   <span
-                    className={`shrink-0 font-mono text-sm font-bold ${
-                      active ? "text-slate-600" : "text-slate-400 line-through"
+                    className={`shrink-0 font-mono text-[15px] font-bold ${
+                      active ? "text-slate-700" : "text-slate-400 line-through"
                     }`}
                   >
                     {c.price.toLocaleString()}원
@@ -1188,9 +1193,9 @@ function CartSummary({
           1~3단계 안내/할인 문구는 페이지 상단 배너로 옮겨서 여기선 4단계에서만 노출. */}
       {step === 4 ? (
         <>
-          <div className="mt-4 rounded-xl bg-slate-50 p-4">
+          <div className="mt-5 rounded-xl bg-slate-50 p-5">
             {recommendation.discount > 0 && (
-              <div className="flex items-center justify-between text-sm text-slate-400">
+              <div className="flex items-center justify-between text-[15px] text-slate-400">
                 <span>상품 금액</span>
                 <span className="line-through">
                   {recommendation.subtotal.toLocaleString()}원
@@ -1198,25 +1203,26 @@ function CartSummary({
               </div>
             )}
             {recommendation.discount > 0 && (
-              <div className="mt-1 flex items-center justify-between text-sm font-bold text-[var(--color-accent)]">
+              <div className="mt-1.5 flex items-center justify-between text-[15px] font-bold text-[var(--color-accent)]">
                 <span>10만원 이상 할인</span>
                 <span>-{recommendation.discount.toLocaleString()}원</span>
               </div>
             )}
             <div
-              className={`flex items-end justify-between ${
+              className={`flex flex-col gap-1 ${
                 recommendation.discount > 0
-                  ? "mt-2 border-t border-dashed border-zinc-200 pt-2"
+                  ? "mt-3 border-t border-dashed border-zinc-200 pt-3"
                   : ""
               }`}
             >
-              <span className="text-sm font-bold text-slate-700">합계</span>
-              <span className="font-sans text-xl font-extrabold text-[#1C3461]">
-                {recommendation.total.toLocaleString()}원
+              <span className="text-sm font-bold text-slate-600">합계</span>
+              <span className="font-sans text-[28px] font-black leading-tight text-[#1C3461]">
+                {recommendation.total.toLocaleString()}
+                <span className="ml-1 text-base font-bold text-slate-500">원</span>
               </span>
             </div>
             {recommendation.discount === 0 && (
-              <p className="mt-2 text-[13px] font-medium text-[var(--color-accent)]">
+              <p className="mt-3 text-sm font-medium text-[var(--color-accent)]">
                 💡 10만원 이상 구매 시 10,000원 할인이 자동 적용돼요.
               </p>
             )}
@@ -1226,18 +1232,18 @@ function CartSummary({
             type="button"
             onClick={onCheckout}
             disabled={noneSelected || checkingOut}
-            className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#1C3461] py-3 text-sm font-bold text-white shadow-md shadow-[#1C3461]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] disabled:translate-y-0 disabled:opacity-40 disabled:hover:translate-y-0"
+            className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#1C3461] py-3.5 text-base font-bold text-white shadow-md shadow-[#1C3461]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] disabled:translate-y-0 disabled:opacity-40 disabled:hover:translate-y-0"
           >
             {checkingOut ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" /> 이동 중...
+                <Loader2 className="h-5 w-5 animate-spin" /> 이동 중...
               </>
             ) : (
               "수강신청하기"
             )}
           </button>
           {noneSelected ? (
-            <p className="mt-2 text-center text-[13px] font-medium text-amber-600">
+            <p className="mt-2 text-center text-sm font-medium text-amber-600">
               최소 1개 이상의 강의를 선택해 주세요.
             </p>
           ) : null}
@@ -1245,12 +1251,12 @@ function CartSummary({
       ) : null}
 
       {/* 발급 가능 서류 — 참고 정보로, 금액/CTA 보다 톤 다운해서 맨 아래 배치 */}
-      <div className="mt-5 border-t border-zinc-100 pt-4">
-        <p className="flex items-center gap-1.5 text-sm font-bold text-slate-500">
-          <FileText className="h-3.5 w-3.5" />
+      <div className="mt-6 border-t border-zinc-100 pt-5">
+        <p className="flex items-center gap-2 text-base font-bold text-slate-700">
+          <FileText className="h-4 w-4 text-slate-400" />
           발급 가능 서류
           {recommendation.documents.length > 0 ? (
-            <span className="font-mono font-medium text-slate-400">
+            <span className="font-mono text-sm font-medium text-slate-400">
               (
               {recommendation.documents.filter((d) => d.active).length +
                 (counselingActive ? COUNSELING_BONUS_ITEMS.length : 0)}
@@ -1259,18 +1265,36 @@ function CartSummary({
           ) : null}
         </p>
         {recommendation.documents.length === 0 ? (
-          <p className="mt-2 text-[13px] text-slate-400">
+          <p className="mt-2.5 text-sm text-slate-400">
             강의를 선택하면 발급 서류가 표시됩니다.
           </p>
         ) : (
-          <ul className="mt-2 space-y-1 text-[13px] leading-relaxed text-slate-500">
+          <ul className="mt-3 space-y-2">
             {recommendation.documents.map((d) => (
-              <li key={d.name} className={d.active ? "" : "text-slate-300 line-through"}>
-                · {d.name}
+              <li
+                key={d.name}
+                className={`flex items-start gap-2 text-sm leading-relaxed ${
+                  d.active ? "text-slate-600" : "text-slate-300 line-through"
+                }`}
+              >
+                <Check
+                  className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
+                    d.active ? "text-[#1C3461]" : "text-slate-300"
+                  }`}
+                />
+                {d.name}
               </li>
             ))}
             {counselingActive
-              ? COUNSELING_BONUS_ITEMS.map((item) => <li key={item}>· {item}</li>)
+              ? COUNSELING_BONUS_ITEMS.map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-start gap-2 text-sm leading-relaxed text-slate-600"
+                  >
+                    <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#1C3461]" />
+                    {item}
+                  </li>
+                ))
               : null}
           </ul>
         )}
