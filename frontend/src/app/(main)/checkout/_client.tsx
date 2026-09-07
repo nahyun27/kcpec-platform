@@ -94,24 +94,29 @@ export default function CheckoutPage() {
       const { loadTossPayments } = await import("@tosspayments/tosspayments-sdk");
       const toss = await loadTossPayments(tossClientKey);
       const widget = toss.payment({ customerKey: `kcpec-${order.id}` });
-      const tossMethod = paymentMethod === "card" ? "CARD" : "EASY_PAY";
-      const easyPay =
+      // 카카오페이/네이버페이는 별도 method 가 아니라, method:"CARD" 에
+      // card.flowMode:"DIRECT" + card.easyPay:"KAKAOPAY"/"NAVERPAY" 를
+      // 실어 보내는 방식이다(토스 SDK v2 결제창 스펙). 예전엔
+      // method:"EASY_PAY" + easyPay:{provider:...} 형태로 보냈는데 이건
+      // 이 SDK 버전에 없는 필드라 요청 자체가 즉시 실패하고 있었다
+      // (2026-09 발견 — "결제 진행에 실패했습니다" 즉시 에러).
+      const easyPayCode =
         paymentMethod === "kakaopay"
-          ? { provider: "KAKAOPAY" as const }
+          ? "KAKAOPAY"
           : paymentMethod === "naverpay"
-            ? { provider: "NAVERPAY" as const }
+            ? "NAVERPAY"
             : undefined;
 
       // Toss orderId 형식 요건: 영문/숫자/-/_, 최소 6자.
       // DB id 만으로는 너무 짧을 수 있어 "KCPEC-{id}" prefix 사용.
       await widget.requestPayment({
-        method: tossMethod,
+        method: "CARD",
         amount: { currency: "KRW", value: amount },
         orderId: `KCPEC-${order.id}`,
         orderName: course.title,
         successUrl: `${window.location.origin}/checkout/success`,
         failUrl: `${window.location.origin}/checkout?course_id=${course.id}`,
-        ...(easyPay ? { easyPay } : {}),
+        ...(easyPayCode ? { card: { flowMode: "DIRECT", easyPay: easyPayCode } } : {}),
       } as unknown as Parameters<typeof widget.requestPayment>[0]);
     } catch (err) {
       const detail = isAxiosError(err)
