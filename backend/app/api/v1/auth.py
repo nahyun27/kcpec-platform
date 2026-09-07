@@ -448,15 +448,22 @@ def _find_or_create_social_user(
             )
         return user
 
-    # 2) 같은 이메일이 다른 방식으로 가입돼 있으면 충돌
-    if db.scalar(select(User).where(User.email == email)):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "이미 가입된 이메일입니다. 기존 로그인 방식으로 로그인 후 "
-                "마이페이지에서 소셜 계정을 연결해 주세요."
-            ),
-        )
+    # 2) 같은 이메일로 이미 가입된 계정(비밀번호 방식이든 다른 소셜이든)이
+    # 있으면 그 계정으로 그대로 로그인시킨다. provider 로그인에 성공했다는
+    # 것 자체가 이 이메일의 소유권을 이미 검증받았다는 뜻이므로, 새 계정을
+    # 따로 만들거나 사용자에게 별도 "연결" 절차를 요구할 필요가 없다.
+    # (예전엔 여기서 막고 "마이페이지에서 연결하라"고 안내했는데, 정작 그
+    # 연결 기능이 없었고 — 기존 계정이 비밀번호 없는 소셜 전용 계정이면
+    # "기존 방식으로 로그인" 자체가 불가능해 사용자가 영영 못 들어가는
+    # 상황이었다. 2026-09 발견.)
+    existing = db.scalar(select(User).where(User.email == email))
+    if existing is not None:
+        if not existing.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="비활성화된 계정입니다.",
+            )
+        return existing
 
     # 3) 신규 생성 — 소셜 provider 가 이미 이메일을 검증했다고 보고 바로 인증완료 처리.
     new_user = User(
