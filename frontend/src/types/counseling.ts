@@ -58,9 +58,12 @@ export type EnrollmentWithProgress = {
 // 전문가 심리상담 독립 구매
 export type CounselingType = "basic" | "phone" | "inperson";
 
+// /counseling 페이지의 상품명(COUNSELING_PRODUCTS)과 반드시 동일하게 유지 —
+// 여기 값이 DB Course.title 그대로("기본 프로그램" 등)라 구매 페이지에서
+// 본 이름과 마이페이지에서 보이는 이름이 서로 달라 보이던 문제가 있었음.
 export const COUNSELING_PROGRAM_LABEL: Record<CounselingType, string> = {
-  basic: "기본 프로그램",
-  phone: "전화 심화상담",
+  basic: "서면 심리상담 의견서",
+  phone: "전화 심화상담 의견서",
   inperson: "대면 심화상담",
 };
 

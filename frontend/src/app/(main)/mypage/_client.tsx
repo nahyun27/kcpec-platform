@@ -36,7 +36,7 @@ import {
   type DocumentResponse,
   type OrderResponse,
 } from "@/types/order";
-import { BookOpen, Check, CreditCard, Download, FileText, User, ChevronRight, PlayCircle, Loader2, MailWarning } from "lucide-react";
+import { BookOpen, Check, CreditCard, Download, FileSignature, FileText, Phone, User, ChevronRight, PlayCircle, Loader2, MailWarning } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { useDialog } from "@/components/ui/DialogProvider";
@@ -62,9 +62,16 @@ export default function MyPageClient() {
   const dialog = useDialog();
   const router = useRouter();
   const search = useSearchParams();
-  const tabParam = search.get("tab");
-  const tab: TabKey = isTabKey(tabParam) ? tabParam : "courses";
+  // 탭 전환을 URL(useSearchParams) 에 반응형으로 의존시켰더니 라우터 상태에
+  // 따라 클릭해도 탭이 안 바뀌는 문제가 있었다 — 실제 렌더링에 쓰는 값은
+  // 로컬 state 로 분리해 클릭이 항상 즉시 반영되도록 하고, URL 은 공유용
+  // best-effort 로만 맞춰준다(뒤로가기 등에서 완벽히 동기화되진 않음).
+  const [tab, setTabState] = useState<TabKey>(() => {
+    const initial = search.get("tab");
+    return isTabKey(initial) ? initial : "courses";
+  });
   function setTab(next: TabKey) {
+    setTabState(next);
     const params = new URLSearchParams(search.toString());
     params.set("tab", next);
     router.replace(`/mypage?${params.toString()}`, { scroll: false });
@@ -981,6 +988,7 @@ function CounselingOrderCard({
   onViewAnswers: (surveyId: number) => void;
 }) {
   const programLabel = COUNSELING_PROGRAM_LABEL[order.counseling_type];
+  const ProgramIcon = order.counseling_type === "phone" ? Phone : FileSignature;
   const isPaid = order.status === "paid";
   const isCompleted = order.survey_status === "completed";
   const surveySubmitted = order.survey_status != null;
@@ -989,21 +997,30 @@ function CounselingOrderCard({
     order.survey_status === "sent_to_staff";
 
   return (
-    <li className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <p className="text-xs text-slate-500">상담 #{order.order_id}</p>
-          <p className="font-sans text-base font-semibold text-slate-900">
-            {programLabel}
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            {new Date(order.created_at).toLocaleString("ko-KR")} ·{" "}
-            {order.amount > 0 ? `${order.amount.toLocaleString()}원` : "별도문의"}
-          </p>
+    <li className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md">
+      <div className="flex flex-col gap-4 border-b border-zinc-100 bg-slate-50/50 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-white shadow-sm">
+            <ProgramIcon className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-slate-400">상담 #{order.order_id}</p>
+            <p className="font-sans text-lg font-bold text-slate-900">{programLabel}</p>
+          </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex items-center gap-2 self-start sm:self-center">
+          <span className="font-sans text-xl font-black text-slate-900">
+            {order.amount > 0 ? (
+              <>
+                {order.amount.toLocaleString()}
+                <span className="ml-0.5 text-sm font-bold text-slate-500">원</span>
+              </>
+            ) : (
+              "별도문의"
+            )}
+          </span>
           <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+            className={`rounded-full px-2.5 py-1 text-xs font-bold ${
               isPaid
                 ? "bg-emerald-100 text-emerald-700"
                 : "bg-amber-100 text-amber-700"
@@ -1011,63 +1028,71 @@ function CounselingOrderCard({
           >
             {isPaid ? "결제완료" : "대기중"}
           </span>
-          {surveySubmitted ? (
-            <span className="text-xs text-slate-500">
-              설문: {COUNSELING_STATUS_LABEL[order.survey_status as CounselingStatus]}
-            </span>
-          ) : null}
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {!surveySubmitted ? (
-          isPaid ? (
-            <Link
-              href={`/survey?counseling_order_id=${order.order_id}`}
-              className="rounded bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)]"
-            >
-              설문 작성하기
-            </Link>
-          ) : (
-            <span className="text-xs text-slate-500">
-              결제 완료 후 설문 작성이 가능합니다.
-            </span>
-          )
-        ) : (
-          <>
-            {order.survey_id != null ? (
-              <button
-                type="button"
-                onClick={() => onViewAnswers(order.survey_id!)}
-                className="rounded border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-              >
-                답변 보기
-              </button>
-            ) : null}
-            {editable && order.survey_id != null ? (
-              <Link
-                href={`/survey?edit=${order.survey_id}`}
-                className="rounded border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-              >
-                수정하기
-              </Link>
-            ) : null}
-            {isCompleted && order.final_pdf_url ? (
-              <a
-                href={absUrl(order.final_pdf_url)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-accent-hover)]"
-              >
-                의견서 다운로드
-              </a>
-            ) : !isCompleted ? (
-              <span className="rounded bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
-                검토 중
+      <div className="flex flex-col gap-3 p-6 bg-white sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-slate-400">
+          {new Date(order.created_at).toLocaleString("ko-KR")}
+          {surveySubmitted ? (
+            <>
+              {" · "}
+              <span className="font-semibold text-[var(--color-accent)]">
+                설문 {COUNSELING_STATUS_LABEL[order.survey_status as CounselingStatus]}
               </span>
-            ) : null}
-          </>
-        )}
+            </>
+          ) : null}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {!surveySubmitted ? (
+            isPaid ? (
+              <Link
+                href={`/survey?counseling_order_id=${order.order_id}`}
+                className="rounded-lg bg-[var(--color-primary)] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[var(--color-primary-hover)]"
+              >
+                설문 작성하기
+              </Link>
+            ) : (
+              <span className="text-xs text-slate-500">
+                결제 완료 후 설문 작성이 가능합니다.
+              </span>
+            )
+          ) : (
+            <>
+              {order.survey_id != null ? (
+                <button
+                  type="button"
+                  onClick={() => onViewAnswers(order.survey_id!)}
+                  className="rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50"
+                >
+                  답변 보기
+                </button>
+              ) : null}
+              {editable && order.survey_id != null ? (
+                <Link
+                  href={`/survey?edit=${order.survey_id}`}
+                  className="rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50"
+                >
+                  수정하기
+                </Link>
+              ) : null}
+              {isCompleted && order.final_pdf_url ? (
+                <a
+                  href={absUrl(order.final_pdf_url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[var(--color-accent-hover)]"
+                >
+                  <Download className="h-3.5 w-3.5" /> 의견서 다운로드
+                </a>
+              ) : !isCompleted ? (
+                <span className="rounded-lg bg-slate-100 px-3.5 py-2 text-xs font-bold text-slate-700">
+                  검토 중
+                </span>
+              ) : null}
+            </>
+          )}
+        </div>
       </div>
     </li>
   );
