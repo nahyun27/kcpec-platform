@@ -369,7 +369,7 @@ export default function MyPageClient() {
                         key={g.bundleId}
                         orders={g.orders}
                         enrollments={enrollments}
-                        onViewAnswers={(id) => setAnswersSurveyId(id)}
+                        hasCounseling={counselingOrders.length > 0}
                         onCancel={handleCancelOrder}
                       />
                     ) : (
@@ -380,7 +380,7 @@ export default function MyPageClient() {
                           enrollments.find((e) => e.course_id === g.order.course_id)
                             ?.is_completed ?? false
                         }
-                        onViewAnswers={(id) => setAnswersSurveyId(id)}
+                        hasCounseling={counselingOrders.length > 0}
                         onCancel={handleCancelOrder}
                       />
                     ),
@@ -706,12 +706,12 @@ function EnrollmentRow({
 function OrderRow({
   order,
   isCourseCompleted,
-  onViewAnswers,
+  hasCounseling,
   onCancel,
 }: {
   order: OrderWithExtras;
   isCourseCompleted: boolean;
-  onViewAnswers: (surveyId: number) => void;
+  hasCounseling: boolean;
   onCancel: (orderId: number) => void;
 }) {
   const isPaid = order.status === "paid";
@@ -748,12 +748,9 @@ function OrderRow({
       </div>
 
       {isPaid ? (
-        <div className="p-6 bg-white">
-          <OrderPaidDetails
-            order={order}
-            isCourseCompleted={isCourseCompleted}
-            onViewAnswers={onViewAnswers}
-          />
+        <div className="space-y-3 p-6 bg-white">
+          <OrderPaidDetails order={order} isCourseCompleted={isCourseCompleted} />
+          {!hasCounseling ? <CounselingUpsell /> : null}
         </div>
       ) : isPendingBankTransfer ? (
         <div className="flex flex-col gap-3 p-6 bg-white sm:flex-row sm:items-center sm:justify-between">
@@ -777,11 +774,9 @@ function OrderRow({
 function OrderPaidDetails({
   order,
   isCourseCompleted,
-  onViewAnswers,
 }: {
   order: OrderWithExtras;
   isCourseCompleted: boolean;
-  onViewAnswers: (surveyId: number) => void;
 }) {
   return (
     <>
@@ -838,10 +833,6 @@ function OrderPaidDetails({
             </Link>
           </div>
         )}
-
-        <div className="mt-2">
-          <CounselingRow order={order} onViewAnswers={onViewAnswers} />
-        </div>
       </div>
     </>
   );
@@ -852,12 +843,12 @@ function OrderPaidDetails({
 function BundleOrderGroup({
   orders,
   enrollments,
-  onViewAnswers,
+  hasCounseling,
   onCancel,
 }: {
   orders: OrderWithExtras[];
   enrollments: EnrollmentWithProgress[];
-  onViewAnswers: (surveyId: number) => void;
+  hasCounseling: boolean;
   onCancel: (orderId: number) => void;
 }) {
   const first = orders[0];
@@ -914,10 +905,15 @@ function BundleOrderGroup({
                 isCourseCompleted={
                   enrollments.find((e) => e.course_id === o.course_id)?.is_completed ?? false
                 }
-                onViewAnswers={onViewAnswers}
               />
             </div>
           ))}
+          {/* 묶음 안의 강의마다 반복하면 동일 문구가 여러 번 뜨므로 묶음당 한 번만. */}
+          {!hasCounseling ? (
+            <div className="p-6 bg-white">
+              <CounselingUpsell />
+            </div>
+          ) : null}
         </div>
       ) : isPendingBankTransfer ? (
         <div className="flex flex-col gap-3 p-6 bg-white sm:flex-row sm:items-center sm:justify-between">
@@ -939,76 +935,25 @@ function BundleOrderGroup({
   );
 }
 
-function CounselingRow({
-  order,
-  onViewAnswers,
-}: {
-  order: OrderWithExtras;
-  onViewAnswers: (surveyId: number) => void;
-}) {
-  // 이 주문에 실제로 연결된 설문이 있으면(상담이 진행/완료된 것) 항상 그 상태를
-  // 보여준다. (예전엔 order.course_title 에 "심리상담"이라는 문자열이 들어있는지로
-  // 판단했는데, 실제 상담 상품명은 "기본 프로그램"/"전화 심화상담"/"대면 심화상담"
-  // 이라 이 문자열이 애초에 매치된 적이 없어 사실상 죽은 코드였다 — 관리자가
-  // 의견서 최종본을 업로드해도(survey.status=completed) 사용자 마이페이지엔
-  // 항상 "별도로 신청하세요" 안내만 뜨고 다운로드 버튼이 절대 안 나오던 버그.
-  // 심리상담은 항상 독립 주문(order_type=counseling)으로 진행되고 그 경우는
-  // 이 컴포넌트에 도달하기 전에 이미 걸러지므로, 여기서는 survey 유무만으로
-  // 판단하는 게 실제 데이터에 맞다.)
-  const survey = order.survey;
-  if (!survey) {
-    return (
-      <div className="rounded-xl border border-dashed border-zinc-300 p-4 text-center bg-slate-50/60">
-        <p className="text-sm text-slate-500 mb-3">
-          심리상담 의견서가 필요하신가요? 별도로 신청하실 수 있습니다.
-        </p>
-        <Link
-          href="/counseling"
-          className="inline-flex items-center justify-center rounded-lg bg-white border border-zinc-300 px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
-        >
-          심리상담 의견서 추가하기
-        </Link>
-      </div>
-    );
-  }
-  // 최종 발급 전이면 수정 가능 (spec: submitted / sent_to_staff)
-  const editable =
-    survey.status === "submitted" || survey.status === "sent_to_staff";
+// 심리상담을 아직 한 번도 구매하지 않은 사용자에게만 보여주는 교차판매 유도
+// 박스. 강의 주문(order.survey)에는 실제로 설문이 절대 연결되지 않으므로
+// (설문은 심리상담 주문에만 붙는다 — 심리상담은 항상 order_type=counseling
+// 인 별도 주문이라 이 컴포넌트에 도달하기 전에 이미 걸러짐) 여기선 상태
+// 표시가 필요 없고, 렌더 여부는 호출부가 hasCounseling 으로 판단한다.
+// 묶음결제 안에서 강의마다 반복 렌더하면 같은 문구가 여러 번 뜨므로(예:
+// 강의 2개 묶음이면 동일 박스가 2번) 호출부는 카드/묶음당 한 번만 렌더할 것.
+function CounselingUpsell() {
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-blue-100 bg-blue-50/30 p-3 sm:flex-row sm:items-center sm:justify-between">
-      <span className="text-sm font-medium text-slate-700">
-        심리상담 의견서 <span className="mx-2 text-slate-300">|</span>
-        <strong className="text-[var(--color-accent)]">
-          {COUNSELING_STATUS_LABEL[survey.status as CounselingStatus]}
-        </strong>
-      </span>
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => onViewAnswers(survey.id)}
-          className="inline-flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
-        >
-          답변 보기
-        </button>
-        {editable ? (
-          <Link
-            href={`/survey?edit=${survey.id}`}
-            className="inline-flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
-          >
-            수정하기
-          </Link>
-        ) : null}
-        {survey.status === "completed" && survey.final_pdf_url && (
-          <a
-            href={absUrl(survey.final_pdf_url)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[var(--color-accent-hover)]"
-          >
-            <Download className="h-3.5 w-3.5" /> PDF 다운로드
-          </a>
-        )}
-      </div>
+    <div className="rounded-xl border border-dashed border-zinc-300 p-4 text-center bg-slate-50/60">
+      <p className="text-sm text-slate-500 mb-3">
+        심리상담 의견서가 필요하신가요? 별도로 신청하실 수 있습니다.
+      </p>
+      <Link
+        href="/counseling"
+        className="inline-flex items-center justify-center rounded-lg bg-white border border-zinc-300 px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+      >
+        심리상담 의견서 추가하기
+      </Link>
     </div>
   );
 }
