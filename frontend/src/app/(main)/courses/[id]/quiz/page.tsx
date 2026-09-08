@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useEffect, useMemo, useState } from "react";
 import { isAxiosError } from "axios";
-import { getQuiz, submitQuiz } from "@/lib/api";
+import { getMyOrders, getQuiz, submitQuiz } from "@/lib/api";
 import type { QuizDetail, QuizResult } from "@/types/course";
 import { useDialog } from "@/components/ui/DialogProvider";
 
@@ -24,6 +24,10 @@ export default function QuizPage({
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<QuizResult | null>(null);
+  // 합격 시 "수료증 발급하기" 링크가 결제된 주문을 가리켜야 하므로(과거엔
+  // /checkout?course_id= 로 잘못 링크돼 있어 결제 완료한 사용자에게 다시
+  // 결제 페이지가 뜨는 버그가 있었음) 이 강의의 결제완료 주문 id를 찾는다.
+  const [certOrderId, setCertOrderId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,6 +58,23 @@ export default function QuizPage({
     () => quiz != null && quiz.questions.every((q) => answers[q.id] != null),
     [quiz, answers],
   );
+
+  useEffect(() => {
+    if (!result?.is_passed) return;
+    let cancelled = false;
+    getMyOrders()
+      .then((orders) => {
+        if (cancelled) return;
+        const paid = orders.find((o) => o.course_id === courseId && o.status === "paid");
+        if (paid) setCertOrderId(paid.id);
+      })
+      .catch(() => {
+        /* 실패해도 아래 폴백 링크(마이페이지)로 발급 가능 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [result?.is_passed, courseId]);
 
   async function handleSubmit() {
     if (!quiz || !allAnswered) return;
@@ -106,7 +127,7 @@ export default function QuizPage({
           <div className="mt-8 flex flex-col gap-2">
             {result.is_passed ? (
               <Link
-                href={`/checkout?course_id=${courseId}`}
+                href={certOrderId != null ? `/issue?order_id=${certOrderId}` : "/mypage?tab=orders"}
                 className="rounded bg-[var(--color-accent)] py-3 font-semibold text-white hover:bg-[var(--color-accent-hover)]"
               >
                 수료증 발급하기

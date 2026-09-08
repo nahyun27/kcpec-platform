@@ -332,7 +332,6 @@ export default function WatchPage({
   const handleTimeUpdate = useCallback(
     (info: VideoPlayerTimeUpdate) => {
       const t = info.currentTime;
-      lastCurrentTimeRef.current = t;
       isPlayingRef.current = info.isPlaying;
       const delta = t - lastTimeRef.current;
       // 자연 재생인 경우만 watched_seconds 누적
@@ -346,6 +345,16 @@ export default function WatchPage({
         setLiveWatched(liveWatchedRef.current);
       }
       lastTimeRef.current = t;
+
+      // 시청하지 않은 구간으로 스크럽하면 VideoPlayer 가 currentTime 을 즉시
+      // maxWatched 로 되돌리지만(seeking 핸들러), 되돌리기 전에 timeupdate 가
+      // 한 번(가끔 여러 번) 먼저 발생해 순간적으로 앞당겨진 t 값을 그대로 넘겨준다.
+      // isSeeking 가드 없이 이 t 를 그대로 신뢰하면: (1) 이어보기 위치가 그
+      // 순간의(되돌려지기 직전) 위치로 잘못 저장되고, (2) 우연히 duration 의
+      // 95% 이상이면 "완료"로 오판정됐다가 되돌아가는 깜빡임이 생긴다
+      // (실제 리포트된 버그 — 스크럽 시 잠깐 완료로 표시됐다 1초 후 복귀).
+      if (info.isSeeking) return;
+      lastCurrentTimeRef.current = t;
 
       // 95% 이상 → 자동 완료
       // duration 은 이미 검증된 DB 값(lecture.duration_seconds)을 우선 신뢰한다 —
