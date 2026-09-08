@@ -59,6 +59,7 @@ export default function CheckoutPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [paymentFailMessage, setPaymentFailMessage] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // 토스 결제창에서 실패/취소 시 failUrl(이 페이지 자체)로 code/message 를
   // 쿼리스트링에 실어 되돌아온다. 예전엔 이걸 그냥 무시해서, 사용자가
@@ -88,6 +89,8 @@ export default function CheckoutPage() {
     }
 
     let cancelled = false;
+    setLoading(true);
+    setError(null);
     getCourseDetail(courseId)
       .then((c) => {
         if (cancelled) return;
@@ -97,6 +100,13 @@ export default function CheckoutPage() {
         if (cancelled) return;
         if (isAxiosError(err) && err.response?.status === 404) {
           router.replace(`/courses/${courseId}`);
+          return;
+        }
+        // 카드 인증(은행 ARS 등)에 오래 머물다 돌아오면 세션이 만료돼 있을
+        // 수 있다 — 이 경우 그냥 에러로 막다른 화면을 보여주지 말고
+        // 로그인 후 이 페이지로 되돌아오게 한다.
+        if (isAxiosError(err) && err.response?.status === 401) {
+          router.replace(`/login?next=${encodeURIComponent(`/checkout?course_id=${courseId}`)}`);
           return;
         }
         setError("결제 정보를 불러오지 못했습니다.");
@@ -109,7 +119,7 @@ export default function CheckoutPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId]);
+  }, [courseId, retryCount]);
 
   const amount = course?.price ?? 0;
 
@@ -190,6 +200,24 @@ export default function CheckoutPage() {
       <div className="mx-auto max-w-4xl px-6 py-20">
         <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-red-600 shadow-sm">
           <p className="text-lg font-semibold">{error ?? "오류가 발생했습니다."}</p>
+          <div className="mt-6 flex justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setRetryCount((n) => n + 1);
+              }}
+              className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700"
+            >
+              다시 시도
+            </button>
+            <Link
+              href="/courses"
+              className="rounded-lg border border-red-200 bg-white px-5 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50"
+            >
+              강의 목록으로 돌아가기
+            </Link>
+          </div>
         </div>
       </div>
     );
