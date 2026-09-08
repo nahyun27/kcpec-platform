@@ -311,7 +311,7 @@ export default function SurveyClient() {
       return;
     }
     const confirmed = await dialog.confirm(
-      "작성하신 내용으로 설문을 제출하시겠습니까?\n제출 후에도 마이페이지에서 언제든 다시 수정하실 수 있습니다.",
+      "작성하신 내용으로 설문을 제출하시겠습니까?\n의견서가 발급되기 전까지는 마이페이지에서 다시 수정하실 수 있습니다.",
       { title: "설문 제출", confirmText: "제출하기" },
     );
     if (!confirmed) return;
