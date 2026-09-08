@@ -139,9 +139,15 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const original = error.config as RetryConfig | undefined;
     const isUnauthorized = error.response?.status === 401;
-    const isRefreshCall = original?.url?.includes("/auth/refresh");
+    // /auth/refresh 자체의 401은 당연히 재시도 대상이 아니고, /auth/login 의
+    // 401은 "세션 만료"가 아니라 "아이디/비밀번호 불일치"이므로 재시도하면
+    // 안 된다 — 재시도하면 (로그인 자체가 안 된 상태라 리프레시 쿠키도 없어)
+    // 리프레시가 곧바로 실패하고, 그 리프레시 실패 메시지("유효하지 않은
+    // 리프레시 토큰입니다")가 실제 로그인 실패 메시지를 덮어써 버렸다.
+    const isAuthEndpoint =
+      original?.url?.includes("/auth/refresh") || original?.url?.includes("/auth/login");
 
-    if (!isUnauthorized || !original || original._retry || isRefreshCall) {
+    if (!isUnauthorized || !original || original._retry || isAuthEndpoint) {
       return Promise.reject(error);
     }
     original._retry = true;

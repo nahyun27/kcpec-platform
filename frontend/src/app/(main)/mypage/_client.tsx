@@ -555,11 +555,13 @@ function EnrollmentRow({
   // 진도 0%(아직 한 번도 안 본 상태)면 "이어보기"가 어색하므로 시작하기로
   // 문구를 구분한다. 진도가 있으면 기존처럼 다음 이어볼 차시명을 보여줌.
   const notStarted = progressPct === 0;
-  const continueLabel = notStarted
-    ? "수강 시작하기"
-    : enrollment.current_lecture_title
-      ? `${enrollment.current_lecture_title} 이어보기`
-      : "이어보기";
+  const continueLabel = isComplete
+    ? "다시보기"
+    : notStarted
+      ? "수강 시작하기"
+      : enrollment.current_lecture_title
+        ? `${enrollment.current_lecture_title} 이어보기`
+        : "이어보기";
 
   return (
     <li className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-all hover:border-[var(--color-primary)]/30 hover:shadow-md sm:p-5">
