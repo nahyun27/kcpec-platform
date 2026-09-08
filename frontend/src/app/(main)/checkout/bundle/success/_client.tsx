@@ -18,7 +18,6 @@ export default function CheckoutBundleSuccessPage() {
   const bundleIdFromQuery = searchParams.get("bundle_id");
   const bundleId =
     bundleIdFromQuery ?? orderIdParam?.replace(/^KCPEC-BUNDLE-/, "") ?? null;
-  const counseling = searchParams.get("counseling");
 
   const [orders, setOrders] = useState<OrderResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,32 +84,24 @@ export default function CheckoutBundleSuccessPage() {
                   <span className="font-semibold text-slate-800">
                     {o.course_title ?? `주문 #${o.id}`}
                   </span>
-                  <Link
-                    href={`/issue?order_id=${o.id}`}
-                    className="font-bold text-[var(--color-accent)] hover:underline"
-                  >
-                    수료증 발급 →
-                  </Link>
+                  {o.order_type === "counseling" ? (
+                    <Link
+                      href={`/survey?counseling_order_id=${o.id}`}
+                      className="font-bold text-[var(--color-accent)] hover:underline"
+                    >
+                      설문 작성하기 →
+                    </Link>
+                  ) : (
+                    <Link
+                      href={`/issue?order_id=${o.id}`}
+                      className="font-bold text-[var(--color-accent)] hover:underline"
+                    >
+                      수료증 발급 →
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>
-
-            {counseling ? (
-              <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-center">
-                <p className="text-sm font-bold text-amber-800">
-                  심리상담 의견서는 이 결제에 포함되지 않았어요
-                </p>
-                <p className="mt-1 text-xs text-amber-700">
-                  선택하신 심리상담은 별도 결제가 필요합니다. 아래 버튼으로 이어서 신청해 주세요.
-                </p>
-                <Link
-                  href={`/counseling#${counseling}`}
-                  className="mt-3 inline-block rounded-full bg-amber-600 px-5 py-2 text-sm font-bold text-white hover:bg-amber-700"
-                >
-                  심리상담 이어서 신청하기 →
-                </Link>
-              </div>
-            ) : null}
 
             <div className="mt-8 flex flex-col gap-2">
               <Link

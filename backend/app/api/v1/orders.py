@@ -12,7 +12,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.course import Course, CourseCategory
 from app.models.enrollment import Enrollment
-from app.models.order import Order, OrderStatus, PaymentMethod
+from app.models.order import Order, OrderStatus, OrderType, PaymentMethod
 from app.models.user import User
 from app.schemas.order import (
     BankTransferConfirm,
@@ -151,7 +151,7 @@ def create_order_bundle(
         )
     for cid in course_ids:
         c = courses[cid]
-        if not c.is_active or c.category == CourseCategory.COUNSELING:
+        if not c.is_active:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 detail=f"'{c.title}' 은(는) 묶음결제 대상이 아닙니다.",
@@ -201,6 +201,9 @@ def create_order_bundle(
         order = Order(
             user_id=current_user.id,
             course_id=cid,
+            order_type=(
+                OrderType.COUNSELING if c.category == CourseCategory.COUNSELING else OrderType.COURSE
+            ),
             payment_method=payload.payment_method,
             amount=amount,
             status=OrderStatus.PENDING,

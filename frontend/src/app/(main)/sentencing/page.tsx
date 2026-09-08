@@ -14,7 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { getCourses, tokenStorage } from "@/lib/api";
+import { getCounselingCourses, getCourses, tokenStorage } from "@/lib/api";
 import { useDialog } from "@/components/ui/DialogProvider";
 
 // ---------- 강의 카탈로그 -----------------------------------------------------
@@ -320,22 +320,29 @@ export default function SentencingPage() {
     return s;
   }, [selectedMain, selectedAddon, counselingAnswer, counselingType]);
 
-  // 추천 결과 계산
+  // 추천 결과 계산 — 심리상담도 이제 강의와 함께 한 번의 묶음결제로 처리되므로
+  // (백엔드 /orders/bundle 이 심리상담 상품도 sibling Order 로 받아준다) 전부
+  // 합쳐서 소계/할인/합계를 계산한다.
   const recommendation = useMemo(() => {
     const courses = Array.from(currentCourseIds).map((id) => COURSES[id]);
     const isCounseling = (id: CourseId) => id === "counseling" || id === "counseling_phone";
-    const regularCourses = courses.filter((c) => !isCounseling(c.id));
+    const activeCourses = courses.filter((c) => !disabledCourses.has(c.id));
     const counselingCourse = courses.find((c) => isCounseling(c.id));
-    const activeRegularCourses = regularCourses.filter((c) => !disabledCourses.has(c.id));
     const counselingActive = counselingCourse ? !disabledCourses.has(counselingCourse.id) : false;
     // 강의당 "수료증 + 서약서" 1세트 생성. 심리상담 의견서만 별도 표기.
-    const docs = courses.map((c) => ({
-      name: isCounseling(c.id) ? c.name : `${c.name} 수료증 + 서약서`,
-      active: !disabledCourses.has(c.id),
-    }));
-    // 심리상담은 묶음결제에 포함되지 않고 별도 주문으로 진행되므로, 실제
-    // 결제될 금액과 일치하도록 강의 금액만으로 소계/할인/합계를 계산한다.
-    const subtotal = activeRegularCourses.reduce((sum, c) => sum + c.price, 0);
+    // 심리상담을 선택했으면 부가 자료(자기성찰 리포트 등)도 문서 목록에 함께
+    // 넣어 — 해제(취소) 시 다른 항목들처럼 취소선으로 표시되도록 한다
+    // (이전엔 카운트에서만 늘었다 줄었다 하고, 목록에선 통째로 사라져 버렸음).
+    const docs = [
+      ...courses.map((c) => ({
+        name: isCounseling(c.id) ? c.name : `${c.name} 수료증 + 서약서`,
+        active: !disabledCourses.has(c.id),
+      })),
+      ...(counselingCourse
+        ? COUNSELING_BONUS_ITEMS.map((item) => ({ name: item, active: counselingActive }))
+        : []),
+    ];
+    const subtotal = activeCourses.reduce((sum, c) => sum + c.price, 0);
     const discount = subtotal >= BULK_DISCOUNT_THRESHOLD ? BULK_DISCOUNT_AMOUNT : 0;
     const total = subtotal - discount;
     return {
@@ -344,12 +351,16 @@ export default function SentencingPage() {
       subtotal,
       discount,
       total,
-      activeCourseCount: activeRegularCourses.length + (counselingActive ? 1 : 0),
-      counseling: counselingCourse
-        ? { name: counselingCourse.name, price: counselingCourse.price, active: counselingActive }
-        : null,
+      activeCourseCount: activeCourses.length,
     };
   }, [currentCourseIds, disabledCourses]);
+
+  // 심리상담 CourseId → 백엔드 Course.title 매핑 (counseling_purchase.py 의
+  // TITLE_BY_TYPE 과 반드시 동일하게 유지할 것).
+  const COUNSELING_BACKEND_TITLE: Record<"counseling" | "counseling_phone", string> = {
+    counseling: "기본 프로그램",
+    counseling_phone: "전화 심화상담",
+  };
 
   async function handleCheckout() {
     if (recommendation.activeCourseCount === 0) return;
@@ -360,51 +371,40 @@ export default function SentencingPage() {
       return;
     }
 
-    // 심리상담(counseling/counseling_phone)은 일반 강의와 다른 별도 구매
-    // 플로우(설문 제출 등)를 타고 있어 이 묶음결제에 함께 담지 않는다 — 선택돼
-    // 있으면 /counseling 에서 별도로 진행해야 한다는 걸 먼저 안내한다.
-    const regularCourses = recommendation.courses.filter(
-      (c) =>
-        !disabledCourses.has(c.id) &&
-        c.id !== "counseling" &&
-        c.id !== "counseling_phone",
-    );
-    const counselingSelected = recommendation.courses.some(
-      (c) =>
-        !disabledCourses.has(c.id) &&
-        (c.id === "counseling" || c.id === "counseling_phone"),
-    );
-
-    if (regularCourses.length === 0) {
-      if (counselingSelected) router.push("/counseling");
-      return;
-    }
+    const activeItems = recommendation.courses.filter((c) => !disabledCourses.has(c.id));
 
     setCheckoutError(null);
     setCheckingOut(true);
     try {
       // sentencing 페이지의 CourseId(문자열 키)는 실제 DB course_id 와 별개라
       // (여기 코드 상단 주석 참고) 실제 결제로 넘어가려면 강의명으로 매칭해
-      // 진짜 course_id 를 알아내야 한다.
-      const realCourses = await getCourses();
+      // 진짜 course_id 를 알아내야 한다. 심리상담은 공개 강의 목록에 안 나와서
+      // (courses.py 가 기본적으로 심리상담 카테고리를 제외) 별도로 조회한다.
+      const needsCounseling = activeItems.some(
+        (c) => c.id === "counseling" || c.id === "counseling_phone",
+      );
+      const [realCourses, counselingCourses] = await Promise.all([
+        getCourses(),
+        needsCounseling ? getCounselingCourses() : Promise.resolve([]),
+      ]);
       const byTitle = new Map(realCourses.map((c) => [c.title, c.id]));
-      const resolvedIds = regularCourses
-        .map((c) => byTitle.get(c.name))
+      const counselingByTitle = new Map(counselingCourses.map((c) => [c.title, c.id]));
+
+      const resolvedIds = activeItems
+        .map((c) => {
+          if (c.id === "counseling" || c.id === "counseling_phone") {
+            return counselingByTitle.get(COUNSELING_BACKEND_TITLE[c.id]);
+          }
+          return byTitle.get(c.name);
+        })
         .filter((id): id is number => typeof id === "number");
 
-      if (resolvedIds.length !== regularCourses.length) {
+      if (resolvedIds.length !== activeItems.length) {
         setCheckoutError("일부 강의 정보를 찾지 못했습니다. 잠시 후 다시 시도해 주세요.");
         return;
       }
 
-      // 심리상담은 이 결제에 포함되지 않는다는 안내를 화면(합계 카드)에 이미
-      // 상시 노출하고 있으므로, 여기서 별도 알림창을 띄우진 않는다 — 대신
-      // 강의 결제 완료 후에도 놓치지 않도록 counseling 파라미터를 이어서
-      // 넘겨 결제 대기/완료 페이지에 "이어서 신청하기" 도선을 표시한다.
-      const counselingParam = counselingSelected
-        ? `&counseling=${counselingType === "phone" ? "phone" : "basic"}`
-        : "";
-      router.push(`/checkout/bundle?courses=${resolvedIds.join(",")}${counselingParam}`);
+      router.push(`/checkout/bundle?courses=${resolvedIds.join(",")}`);
     } catch {
       setCheckoutError("강의 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
@@ -544,16 +544,7 @@ export default function SentencingPage() {
               발급 가능 서류
               {recommendation.documents.length > 0 ? (
                 <span className="font-mono text-slate-500">
-                  (
-                  {recommendation.documents.filter((d) => d.active).length +
-                    (recommendation.courses.some(
-                      (c) =>
-                        (c.id === "counseling" || c.id === "counseling_phone") &&
-                        !disabledCourses.has(c.id),
-                    )
-                      ? COUNSELING_BONUS_ITEMS.length
-                      : 0)}
-                  개)
+                  ({recommendation.documents.filter((d) => d.active).length}개)
                 </span>
               ) : null}
             </div>
@@ -607,9 +598,7 @@ export default function SentencingPage() {
             ) : (
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <p className="text-xs font-bold text-slate-500">
-                    {recommendation.counseling?.active ? "강의 결제 합계" : "합계"}
-                  </p>
+                  <p className="text-xs font-bold text-slate-500">총 결제 합계</p>
                   {recommendation.discount > 0 && (
                     <p className="text-xs font-medium text-slate-400 line-through">
                       {recommendation.subtotal.toLocaleString()}원
@@ -618,11 +607,6 @@ export default function SentencingPage() {
                   <p className="text-lg font-extrabold text-[#1C3461]">
                     {recommendation.total.toLocaleString()}원
                   </p>
-                  {recommendation.counseling?.active ? (
-                    <p className="text-[11px] font-semibold text-amber-600">
-                      심리상담 +{recommendation.counseling.price.toLocaleString()}원 (별도 결제)
-                    </p>
-                  ) : null}
                 </div>
                 <button
                   type="button"
@@ -1069,14 +1053,10 @@ function Step3Counseling({
 type Recommendation = {
   courses: CourseInfo[];
   documents: { name: string; active: boolean }[];
-  // 강의(심리상담 제외) 기준 금액 — 실제 묶음결제에서 청구되는 금액과 일치시키기
-  // 위해 심리상담은 제외하고 계산한다 (심리상담은 별도 주문 플로우).
   subtotal: number;
   discount: number;
   total: number;
   activeCourseCount: number;
-  // 심리상담 선택 시 별도 표시용 — 위 금액(subtotal/discount/total)에는 포함 안 됨.
-  counseling: { name: string; price: number; active: boolean } | null;
 };
 
 function Step4Result({
@@ -1141,6 +1121,42 @@ function Step4Result({
         </p>
       </div>
 
+      {/* 발급 가능 서류 — 예전엔 우측 카트 카드 맨 아래(체크아웃 버튼 밑)에 있어
+          스크롤해야 겨우 보였다. 결제만큼 중요한 정보라 왼쪽 본문으로 옮김. */}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="mb-4 flex items-center gap-2">
+          <FileText className="h-5 w-5 text-slate-400" />
+          <h2 className="font-sans text-lg font-extrabold text-slate-900">
+            발급 가능 서류
+            {recommendation.documents.length > 0 ? (
+              <span className="ml-1.5 font-mono text-sm font-medium text-slate-400">
+                ({recommendation.documents.filter((d) => d.active).length}개)
+              </span>
+            ) : null}
+          </h2>
+        </div>
+        {recommendation.documents.length === 0 ? (
+          <p className="text-sm text-slate-400">강의를 선택하면 발급 서류가 표시됩니다.</p>
+        ) : (
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {recommendation.documents.map((d) => (
+              <li
+                key={d.name}
+                className={`flex items-start gap-2 text-sm leading-relaxed ${
+                  d.active ? "text-slate-600" : "text-slate-300 line-through"
+                }`}
+              >
+                <Check
+                  className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
+                    d.active ? "text-[#1C3461]" : "text-slate-300"
+                  }`}
+                />
+                {d.name}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }
@@ -1161,18 +1177,13 @@ function CartSummary({
   checkingOut: boolean;
 }) {
   const noneSelected = recommendation.activeCourseCount === 0;
-  const counselingActive = recommendation.courses.some(
-    (c) =>
-      (c.id === "counseling" || c.id === "counseling_phone") &&
-      !disabledCourses.has(c.id),
-  );
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-md shadow-slate-200/40">
       <h3 className="font-sans text-lg font-extrabold tracking-tight text-slate-900">
-        추천 강의
+        추천 교육 과정
       </h3>
       <p className="mt-1 text-sm text-slate-500">
-        선택하신 사건에 따른 추천 강의입니다.
+        선택하신 사건에 따른 추천 교육 과정입니다.
       </p>
 
       <ul
@@ -1241,9 +1252,7 @@ function CartSummary({
                   : ""
               }`}
             >
-              <span className="text-sm font-bold text-slate-600">
-                {recommendation.counseling?.active ? "강의 결제 합계" : "합계"}
-              </span>
+              <span className="text-sm font-bold text-slate-600">총 결제 합계</span>
               <span className="font-sans text-[28px] font-black leading-tight text-[#1C3461]">
                 {recommendation.total.toLocaleString()}
                 <span className="ml-1 text-base font-bold text-slate-500">원</span>
@@ -1255,14 +1264,6 @@ function CartSummary({
                 <span>10만원 이상 구매 시 10,000원 할인이 자동 적용돼요.</span>
               </p>
             )}
-            {recommendation.counseling?.active ? (
-              <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2.5 text-amber-700">
-                <p className="text-[13px] font-semibold">심리상담 의견서는 별도로 결제됩니다</p>
-                <p className="mt-0.5 text-[15px] font-bold">
-                  +{recommendation.counseling.price.toLocaleString()}원
-                </p>
-              </div>
-            ) : null}
           </div>
 
           <button
@@ -1287,55 +1288,6 @@ function CartSummary({
         </>
       ) : null}
 
-      {/* 발급 가능 서류 — 참고 정보로, 금액/CTA 보다 톤 다운해서 맨 아래 배치 */}
-      <div className="mt-6 border-t border-zinc-100 pt-5">
-        <p className="flex items-center gap-2 text-base font-bold text-slate-700">
-          <FileText className="h-4 w-4 text-slate-400" />
-          발급 가능 서류
-          {recommendation.documents.length > 0 ? (
-            <span className="font-mono text-sm font-medium text-slate-400">
-              (
-              {recommendation.documents.filter((d) => d.active).length +
-                (counselingActive ? COUNSELING_BONUS_ITEMS.length : 0)}
-              개)
-            </span>
-          ) : null}
-        </p>
-        {recommendation.documents.length === 0 ? (
-          <p className="mt-2.5 text-sm text-slate-400">
-            강의를 선택하면 발급 서류가 표시됩니다.
-          </p>
-        ) : (
-          <ul className="mt-3 space-y-2">
-            {recommendation.documents.map((d) => (
-              <li
-                key={d.name}
-                className={`flex items-start gap-2 text-sm leading-relaxed ${
-                  d.active ? "text-slate-600" : "text-slate-300 line-through"
-                }`}
-              >
-                <Check
-                  className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
-                    d.active ? "text-[#1C3461]" : "text-slate-300"
-                  }`}
-                />
-                {d.name}
-              </li>
-            ))}
-            {counselingActive
-              ? COUNSELING_BONUS_ITEMS.map((item) => (
-                  <li
-                    key={item}
-                    className="flex items-start gap-2 text-sm leading-relaxed text-slate-600"
-                  >
-                    <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#1C3461]" />
-                    {item}
-                  </li>
-                ))
-              : null}
-          </ul>
-        )}
-      </div>
     </div>
   );
 }

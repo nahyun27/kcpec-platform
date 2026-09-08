@@ -258,6 +258,16 @@ export async function getCourses(category?: CourseCategory): Promise<CourseListI
   return data;
 }
 
+// 심리상담 상품(기본 프로그램/전화 심화상담 등)은 category="심리상담" 로 별도
+// 조회해야 한다 — CourseCategory 타입엔 일반 강의 6개만 있어(counseling 페이지
+// 별도 노출 목적) 여기선 위 getCourses 시그니처를 그대로 못 씀.
+export async function getCounselingCourses(): Promise<CourseListItem[]> {
+  const { data } = await api.get<CourseListItem[]>("/courses", {
+    params: { category: "심리상담" },
+  });
+  return data;
+}
+
 export async function getCourseDetail(courseId: number): Promise<CourseDetail> {
   const { data } = await api.get<CourseDetail>(`/courses/${courseId}`);
   return data;
