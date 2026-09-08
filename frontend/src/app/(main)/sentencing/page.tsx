@@ -164,6 +164,45 @@ const COUNSELING_BONUS_ITEMS = [
   "맞춤형 양형자료 준비 가이드북",
 ];
 
+// 발급 서류 목록 항목에 마우스를 올리면 보여줄 미리보기 — 실제 발급 양식
+// 예시 이미지(첫 페이지) + 짧은 설명. 문서명 문자열에 매칭되는 첫 항목을 사용.
+const DOC_PREVIEWS: { match: (name: string) => boolean; src: string; desc: string }[] = [
+  {
+    match: (n) => n.includes("수료증"),
+    src: "/images/sample-certificate.png",
+    desc: "강의를 수료하면 발급되는 수료증입니다. 서약서도 함께 발급됩니다.",
+  },
+  {
+    match: (n) => n.includes("심리상담"),
+    src: "/images/sample-counseling.png",
+    desc: "전문 상담사가 작성하는 심리상담 의견서 예시입니다.",
+  },
+  {
+    match: (n) => n === "자기성찰 리포트",
+    src: "/images/sample-self-reflection.png",
+    desc: "심리상담 진행 시 함께 제공되는 자기성찰 리포트입니다.",
+  },
+  {
+    match: (n) => n === "교육이수 소감문",
+    src: "/images/sample-completion-note.png",
+    desc: "교육 이수 후 느낀 점과 다짐을 정리한 확인서입니다.",
+  },
+  {
+    match: (n) => n === "CBT 기반 재범방지 자가진단 검사지",
+    src: "/images/sample-cbt-checklist.png",
+    desc: "인지행동치료(CBT) 관점에서 재범 관련 요인을 점검하는 자가진단 검사지입니다.",
+  },
+  {
+    match: (n) => n === "맞춤형 양형자료 준비 가이드북",
+    src: "/images/sample-guidebook-blur.png",
+    desc: "양형자료 준비 방법을 안내하는 가이드북입니다. (내용 보호를 위해 미리보기는 흐리게 처리됨)",
+  },
+];
+
+function getDocPreview(name: string) {
+  return DOC_PREVIEWS.find((p) => p.match(name)) ?? null;
+}
+
 // ---------- 페이지 ------------------------------------------------------------
 
 type Step = 1 | 2 | 3 | 4;
@@ -1139,21 +1178,37 @@ function Step4Result({
           <p className="text-sm text-slate-400">강의를 선택하면 발급 서류가 표시됩니다.</p>
         ) : (
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {recommendation.documents.map((d) => (
-              <li
-                key={d.name}
-                className={`flex items-start gap-2 text-sm leading-relaxed ${
-                  d.active ? "text-slate-600" : "text-slate-300 line-through"
-                }`}
-              >
-                <Check
-                  className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
-                    d.active ? "text-[#1C3461]" : "text-slate-300"
-                  }`}
-                />
-                {d.name}
-              </li>
-            ))}
+            {recommendation.documents.map((d) => {
+              const preview = getDocPreview(d.name);
+              return (
+                <li
+                  key={d.name}
+                  className={`group/doc relative flex items-start gap-2 text-sm leading-relaxed ${
+                    d.active ? "text-slate-600" : "text-slate-300 line-through"
+                  } ${preview ? "cursor-help" : ""}`}
+                >
+                  <Check
+                    className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
+                      d.active ? "text-[#1C3461]" : "text-slate-300"
+                    }`}
+                  />
+                  {d.name}
+                  {preview ? (
+                    <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 hidden w-48 -translate-x-1/2 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl group-hover/doc:block">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={preview.src}
+                        alt={d.name}
+                        className="aspect-[3/4] w-full object-cover"
+                      />
+                      <p className="border-t border-zinc-100 px-3 py-2 text-[11px] leading-snug text-slate-500">
+                        {preview.desc}
+                      </p>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
