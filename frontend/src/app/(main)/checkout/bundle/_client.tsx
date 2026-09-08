@@ -7,6 +7,7 @@ import { isAxiosError } from "axios";
 import { createOrderBundle, getCourseDetail, tokenStorage } from "@/lib/api";
 import type { CourseDetail } from "@/types/course";
 import { PAYMENT_METHOD_LABEL, type PaymentMethod } from "@/types/order";
+import { counselingDisplayTitle } from "@/types/counseling";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -159,8 +160,8 @@ export default function CheckoutBundleClient() {
             : undefined;
       const orderName =
         bundle.items.length > 1
-          ? `${bundle.items[0].course_title} 외 ${bundle.items.length - 1}건`
-          : bundle.items[0].course_title;
+          ? `${counselingDisplayTitle(bundle.items[0].course_title)} 외 ${bundle.items.length - 1}건`
+          : counselingDisplayTitle(bundle.items[0].course_title);
 
       // Toss orderId 형식 요건: 영문/숫자/-/_, 최소 6자 — 체크아웃 페이지와
       // 동일 규칙("KCPEC-BUNDLE-{bundle_id}"). 서버 확인(orders/bundle/toss/confirm)
@@ -170,7 +171,10 @@ export default function CheckoutBundleClient() {
         amount: { currency: "KRW", value: bundle.total },
         orderId: `KCPEC-BUNDLE-${bundle.bundle_id}`,
         orderName,
-        successUrl: `${window.location.origin}/checkout/bundle/success`,
+        // courses 를 함께 실어 보내 — 카드 인증 중 취소(X) 등으로 승인이
+        // 안 된 채 success 페이지로 넘어오는 경우에도, 그 페이지에서 이
+        // 체크아웃(같은 강의 선택)으로 되돌아갈 수 있게 하기 위함.
+        successUrl: `${window.location.origin}/checkout/bundle/success?courses=${coursesParam}`,
         failUrl: `${window.location.origin}/checkout/bundle?courses=${coursesParam}`,
         ...(easyPayCode ? { card: { flowMode: "DIRECT", easyPay: easyPayCode } } : {}),
       } as unknown as Parameters<typeof widget.requestPayment>[0]);
@@ -212,7 +216,7 @@ export default function CheckoutBundleClient() {
             className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-[var(--color-primary)]"
           >
             <ChevronLeft className="h-4 w-4" />
-            맞춤 강의 찾기로 돌아가기
+            다시 추천받기
           </Link>
 
           <PageHeader
@@ -260,7 +264,9 @@ export default function CheckoutBundleClient() {
                     key={c.id}
                     className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-5 py-4"
                   >
-                    <span className="font-bold text-slate-800">{c.title}</span>
+                    <span className="font-bold text-slate-800">
+                      {counselingDisplayTitle(c.title)}
+                    </span>
                     <span className="font-bold text-slate-600">
                       {c.price.toLocaleString()}원
                     </span>

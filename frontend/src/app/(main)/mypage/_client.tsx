@@ -30,6 +30,7 @@ import type {
 import {
   COUNSELING_PROGRAM_LABEL,
   COUNSELING_STATUS_LABEL,
+  counselingDisplayTitle,
 } from "@/types/counseling";
 import {
   PAYMENT_METHOD_LABEL,
@@ -46,18 +47,6 @@ type OrderWithExtras = OrderResponse & {
   survey?: SurveyStatusResponse | null;
 };
 
-// 묶음결제에 함께 담긴 심리상담 주문의 course_title 은 DB 원본 상품명
-// ("기본 프로그램" 등)이라 /counseling 구매 페이지에서 본 이름과 다르게
-// 보인다 — COUNSELING_PROGRAM_LABEL 과 동일한 이름으로 맞춰서 표시.
-const COUNSELING_RAW_TITLE_LABEL: Record<string, string> = {
-  "기본 프로그램": COUNSELING_PROGRAM_LABEL.basic,
-  "전화 심화상담": COUNSELING_PROGRAM_LABEL.phone,
-  "대면 심화상담": COUNSELING_PROGRAM_LABEL.inperson,
-};
-function counselingDisplayTitle(rawTitle: string | null | undefined): string {
-  if (!rawTitle) return "심리상담 의견서";
-  return COUNSELING_RAW_TITLE_LABEL[rawTitle] ?? rawTitle;
-}
 
 // 설문 상태 라벨 — "검토 중"(관리자에게 전달돼 대기 중) 상태에만 이모지
 // 대신 시계 아이콘을 붙여준다.

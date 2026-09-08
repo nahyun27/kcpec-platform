@@ -67,6 +67,21 @@ export const COUNSELING_PROGRAM_LABEL: Record<CounselingType, string> = {
   inperson: "대면 심화상담",
 };
 
+// 심리상담 주문의 course_title 은 DB 원본 상품명("기본 프로그램" 등)이라
+// /counseling 구매 페이지에서 본 이름과 다르게 보인다 — 마이페이지뿐 아니라
+// 묶음결제 체크아웃/완료 페이지에서도 같은 이름으로 통일해서 보여줘야 하므로
+// 공용 유틸로 분리. 인식 못 하는 제목은 원본 그대로 반환(일반 강의는 이
+// 세 제목과 절대 겹치지 않으므로 카테고리 체크 없이 항상 적용해도 안전).
+const COUNSELING_RAW_TITLE_LABEL: Record<string, string> = {
+  "기본 프로그램": COUNSELING_PROGRAM_LABEL.basic,
+  "전화 심화상담": COUNSELING_PROGRAM_LABEL.phone,
+  "대면 심화상담": COUNSELING_PROGRAM_LABEL.inperson,
+};
+export function counselingDisplayTitle(rawTitle: string | null | undefined): string {
+  if (!rawTitle) return "심리상담 의견서";
+  return COUNSELING_RAW_TITLE_LABEL[rawTitle] ?? rawTitle;
+}
+
 export type CounselingPurchaseResponse = {
   order_id: number;
   course_id: number;

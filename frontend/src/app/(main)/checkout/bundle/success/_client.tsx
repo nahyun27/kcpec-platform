@@ -1,14 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { confirmBundleTossPayment } from "@/lib/api";
 import type { OrderResponse } from "@/types/order";
+import { counselingDisplayTitle } from "@/types/counseling";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 export default function CheckoutBundleSuccessPage() {
+  const router = useRouter();
+  const dialog = useDialog();
   const searchParams = useSearchParams();
+  // 카드 인증 중 취소(X)처럼 결제가 실제로 승인되지 않은 채 이 페이지로
+  // 넘어오는 경우, 승인 실패 시 이 값으로 원래 체크아웃(같은 강의 선택)
+  // 으로 되돌아간다.
+  const coursesParam = searchParams.get("courses");
   const orderIdParam = searchParams.get("order_id") ?? searchParams.get("orderId");
   const paymentKey = searchParams.get("payment_key") ?? searchParams.get("paymentKey");
   const amountParam = searchParams.get("amount");
@@ -20,15 +28,23 @@ export default function CheckoutBundleSuccessPage() {
     bundleIdFromQuery ?? orderIdParam?.replace(/^KCPEC-BUNDLE-/, "") ?? null;
 
   const [orders, setOrders] = useState<OrderResponse[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const ranRef = useRef(false);
+
+  // 결제 승인 실패 시(카드 인증 중 X로 취소한 경우 등) 별도의 막다른 페이지
+  // 대신 알림창으로 안내하고, 원래 체크아웃(같은 강의 선택)으로 돌려보낸다
+  // — courses 파라미터가 없으면(직접 접근 등) 맞춤강의 추천으로 폴백.
+  function backToCheckout() {
+    router.push(coursesParam ? `/checkout/bundle?courses=${coursesParam}` : "/sentencing");
+  }
 
   useEffect(() => {
     if (ranRef.current) return;
     ranRef.current = true;
 
     if (!bundleId) {
-      setError("잘못된 접근입니다. (bundle_id 누락)");
+      dialog
+        .alert("잘못된 접근입니다. 다시 시도해 주세요.", { title: "결제 승인 실패" })
+        .then(backToCheckout);
       return;
     }
 
@@ -42,7 +58,11 @@ export default function CheckoutBundleSuccessPage() {
         const detail = isAxiosError(err)
           ? (err.response?.data as { detail?: string } | undefined)?.detail
           : null;
-        setError(detail ?? "결제 승인에 실패했습니다. 관리자에게 문의해 주세요.");
+        dialog
+          .alert(detail ?? "결제가 완료되지 않았습니다. 다시 시도해 주세요.", {
+            title: "결제 승인 실패",
+          })
+          .then(backToCheckout);
       });
     // 한 번만 실행
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -53,18 +73,7 @@ export default function CheckoutBundleSuccessPage() {
   return (
     <div className="mx-auto max-w-xl px-4 py-16">
       <div className="rounded-lg border border-[var(--color-border)] bg-white p-8 text-center shadow-sm">
-        {error ? (
-          <>
-            <p className="font-sans text-2xl font-bold text-red-600">결제 승인 실패</p>
-            <p className="mt-3 text-sm text-zinc-600">{error}</p>
-            <Link
-              href="/courses"
-              className="mt-6 inline-block rounded bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)]"
-            >
-              강의 목록으로
-            </Link>
-          </>
-        ) : !orders ? (
+        {!orders ? (
           <p className="text-sm text-zinc-500">결제 승인 처리 중...</p>
         ) : (
           <>
@@ -82,7 +91,7 @@ export default function CheckoutBundleSuccessPage() {
                   className="flex items-center justify-between rounded-lg border border-zinc-100 bg-slate-50 px-4 py-3 text-sm"
                 >
                   <span className="font-semibold text-slate-800">
-                    {o.course_title ?? `주문 #${o.id}`}
+                    {o.course_title ? counselingDisplayTitle(o.course_title) : `주문 #${o.id}`}
                   </span>
                   {o.order_type === "counseling" ? (
                     <Link
