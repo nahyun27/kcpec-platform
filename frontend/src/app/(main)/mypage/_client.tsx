@@ -36,7 +36,7 @@ import {
   type DocumentResponse,
   type OrderResponse,
 } from "@/types/order";
-import { BookOpen, Check, CreditCard, Download, FileSignature, FileText, Phone, User, ChevronRight, PlayCircle, Loader2, MailWarning } from "lucide-react";
+import { BookOpen, Check, Clock, CreditCard, Download, FileSignature, FileText, Phone, User, ChevronRight, PlayCircle, Loader2, MailWarning } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { useDialog } from "@/components/ui/DialogProvider";
@@ -57,6 +57,17 @@ const COUNSELING_RAW_TITLE_LABEL: Record<string, string> = {
 function counselingDisplayTitle(rawTitle: string | null | undefined): string {
   if (!rawTitle) return "심리상담 의견서";
   return COUNSELING_RAW_TITLE_LABEL[rawTitle] ?? rawTitle;
+}
+
+// 설문 상태 라벨 — "검토 중"(관리자에게 전달돼 대기 중) 상태에만 이모지
+// 대신 시계 아이콘을 붙여준다.
+function CounselingStatusText({ status }: { status: CounselingStatus }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      {COUNSELING_STATUS_LABEL[status]}
+      {status === "sent_to_staff" ? <Clock className="h-3.5 w-3.5" /> : null}
+    </span>
+  );
 }
 
 type TabKey = "courses" | "counseling" | "orders";
@@ -1021,7 +1032,7 @@ function CounselingOrderDetails({
       <span className="text-sm font-medium text-slate-700">
         설문{" "}
         <strong className="text-[var(--color-accent)]">
-          {COUNSELING_STATUS_LABEL[survey.status as CounselingStatus]}
+          <CounselingStatusText status={survey.status as CounselingStatus} />
         </strong>
       </span>
       <button
@@ -1106,8 +1117,8 @@ function CounselingOrderCard({
           {surveySubmitted ? (
             <>
               {" · "}
-              <span className="font-semibold text-[var(--color-accent)]">
-                설문 {COUNSELING_STATUS_LABEL[order.survey_status as CounselingStatus]}
+              <span className="inline-flex items-center gap-1 font-semibold text-[var(--color-accent)]">
+                설문 <CounselingStatusText status={order.survey_status as CounselingStatus} />
               </span>
             </>
           ) : null}

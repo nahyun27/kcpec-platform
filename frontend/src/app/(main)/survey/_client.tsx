@@ -436,12 +436,20 @@ export default function SurveyClient() {
         </p>
       ) : null}
 
-      <div className="pt-2">
+      <div className="flex gap-3 pt-2">
+        {isEditMode ? (
+          <Link
+            href="/mypage?tab=counseling"
+            className="flex items-center justify-center rounded-xl border border-zinc-300 bg-white px-6 py-4 text-base font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+          >
+            수정 취소
+          </Link>
+        ) : null}
         <button
           type="button"
           onClick={handleSubmit}
           disabled={submitting || isMissing}
-          className="w-full rounded-xl bg-[var(--color-primary)] py-4 text-base font-semibold text-white shadow-md shadow-[var(--color-primary)]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-lg hover:shadow-[var(--color-primary)]/30 disabled:translate-y-0 disabled:opacity-60 disabled:hover:translate-y-0"
+          className="flex-1 rounded-xl bg-[var(--color-primary)] py-4 text-base font-semibold text-white shadow-md shadow-[var(--color-primary)]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-lg hover:shadow-[var(--color-primary)]/30 disabled:translate-y-0 disabled:opacity-60 disabled:hover:translate-y-0"
         >
           {submitting
             ? isEditMode

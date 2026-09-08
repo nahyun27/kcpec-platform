@@ -7,7 +7,7 @@ export type CounselingStatus =
 export const COUNSELING_STATUS_LABEL: Record<CounselingStatus, string> = {
   submitted: "검토 대기",
   draft_generated: "초안 생성 완료",
-  sent_to_staff: "검토 중 🕐",
+  sent_to_staff: "검토 중",
   completed: "완료",
 };
 
