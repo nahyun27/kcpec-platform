@@ -1108,6 +1108,11 @@ function Step4Result({
   onToggleCourse: (id: CourseId) => void;
 }) {
   const hasDisabled = disabledCourses.size > 0;
+  // 항목마다 미리보기 이미지를 항상 DOM 에 올려두고 CSS로만 숨기면(hidden
+  // + group-hover:block) 실제로는 여러 개의 큰 이미지를 전부 미리 로드/디코드
+  // 하게 돼 스크롤이 버벅였다 — 실제로 마우스를 올린 항목 하나만 그때그때
+  // 렌더링하도록 state 로 전환.
+  const [hoveredDoc, setHoveredDoc] = useState<string | null>(null);
   return (
     <section className="space-y-6">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
@@ -1183,7 +1188,9 @@ function Step4Result({
               return (
                 <li
                   key={d.name}
-                  className={`group/doc relative flex items-start gap-2 text-sm leading-relaxed ${
+                  onMouseEnter={() => preview && setHoveredDoc(d.name)}
+                  onMouseLeave={() => setHoveredDoc((cur) => (cur === d.name ? null : cur))}
+                  className={`relative flex items-start gap-2 text-sm leading-relaxed ${
                     d.active ? "text-slate-600" : "text-slate-300 line-through"
                   } ${preview ? "cursor-help" : ""}`}
                 >
@@ -1193,8 +1200,8 @@ function Step4Result({
                     }`}
                   />
                   {d.name}
-                  {preview ? (
-                    <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 hidden w-48 -translate-x-1/2 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl group-hover/doc:block">
+                  {preview && hoveredDoc === d.name ? (
+                    <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-48 -translate-x-1/2 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={preview.src}
