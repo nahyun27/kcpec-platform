@@ -131,7 +131,7 @@ export default function CheckoutPage() {
       const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
       if (!tossClientKey) {
         router.push(
-          `/checkout/success?order_id=${order.id}&amount=${amount}&simulated=1`,
+          `/checkout/success?order_id=${order.id}&amount=${amount}&simulated=1&course_id=${course.id}`,
         );
         return;
       }
@@ -159,7 +159,10 @@ export default function CheckoutPage() {
         amount: { currency: "KRW", value: amount },
         orderId: `KCPEC-${order.id}`,
         orderName: course.title,
-        successUrl: `${window.location.origin}/checkout/success`,
+        // course_id 를 함께 실어 보내 — 카드 인증 중 취소(X) 등으로 승인이
+        // 안 된 채 success 페이지로 넘어오는 경우에도, 그 페이지에서 이
+        // 체크아웃(같은 강의)으로 되돌아갈 수 있게 하기 위함.
+        successUrl: `${window.location.origin}/checkout/success?course_id=${course.id}`,
         failUrl: `${window.location.origin}/checkout?course_id=${course.id}`,
         ...(easyPayCode ? { card: { flowMode: "DIRECT", easyPay: easyPayCode } } : {}),
       } as unknown as Parameters<typeof widget.requestPayment>[0]);
