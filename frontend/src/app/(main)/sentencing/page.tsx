@@ -1323,7 +1323,7 @@ function CartSummary({
             {recommendation.discount === 0 && (
               <p className="mt-3 flex items-start gap-1.5 text-sm font-medium text-[var(--color-accent)]">
                 <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>10만원 이상 구매 시 10,000원 할인이 자동 적용돼요.</span>
+                <span>10만원 이상 구매 시 10,000원 할인</span>
               </p>
             )}
           </div>
