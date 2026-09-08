@@ -215,7 +215,8 @@ export default function CounselingPage() {
             {COUNSELING_PRODUCTS.map((product) => (
               <article
                 key={product.type}
-                className="relative overflow-hidden rounded-[2rem] border-2 border-[var(--color-primary)] bg-white p-8 shadow-xl shadow-[var(--color-primary)]/10 sm:p-10"
+                id={product.type}
+                className="relative overflow-hidden rounded-[2rem] border-2 border-[var(--color-primary)] bg-white p-8 shadow-xl shadow-[var(--color-primary)]/10 sm:p-10 scroll-mt-28"
               >
                 <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
                   <div className="flex items-center gap-4">

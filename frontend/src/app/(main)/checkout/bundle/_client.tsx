@@ -62,6 +62,11 @@ export default function CheckoutBundleClient() {
     .split(",")
     .map((s) => Number(s))
     .filter((n) => Number.isFinite(n));
+  // 맞춤강의 추천에서 심리상담도 함께 선택했다면 여기까지 넘어온다 — 이
+  // 결제엔 포함되지 않지만(별도 주문 플로우), 강의 결제 완료 후에도 놓치지
+  // 않도록 대기/완료 페이지까지 계속 이어서 전달한다.
+  const counselingParam = searchParams.get("counseling");
+  const counselingQuery = counselingParam ? `&counseling=${counselingParam}` : "";
 
   const [courses, setCourses] = useState<CourseDetail[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
@@ -131,14 +136,14 @@ export default function CheckoutBundleClient() {
       });
 
       if (paymentMethod === "bank_transfer") {
-        router.push(`/checkout/pending?bundle_id=${bundle.bundle_id}`);
+        router.push(`/checkout/pending?bundle_id=${bundle.bundle_id}${counselingQuery}`);
         return;
       }
 
       const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
       if (!tossClientKey) {
         router.push(
-          `/checkout/bundle/success?bundle_id=${bundle.bundle_id}&amount=${bundle.total}&simulated=1`,
+          `/checkout/bundle/success?bundle_id=${bundle.bundle_id}&amount=${bundle.total}&simulated=1${counselingQuery}`,
         );
         return;
       }
@@ -171,8 +176,8 @@ export default function CheckoutBundleClient() {
         amount: { currency: "KRW", value: bundle.total },
         orderId: `KCPEC-BUNDLE-${bundle.bundle_id}`,
         orderName,
-        successUrl: `${window.location.origin}/checkout/bundle/success`,
-        failUrl: `${window.location.origin}/checkout/bundle?courses=${coursesParam}`,
+        successUrl: `${window.location.origin}/checkout/bundle/success${counselingParam ? `?counseling=${counselingParam}` : ""}`,
+        failUrl: `${window.location.origin}/checkout/bundle?courses=${coursesParam}${counselingQuery}`,
         ...(easyPayCode ? { card: { flowMode: "DIRECT", easyPay: easyPayCode } } : {}),
       } as unknown as Parameters<typeof widget.requestPayment>[0]);
     } catch (err) {
@@ -231,6 +236,14 @@ export default function CheckoutBundleClient() {
       </div>
 
       <div className="mx-auto max-w-5xl px-6 pt-8 md:pt-12">
+        {counselingParam ? (
+          <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <p className="font-bold">심리상담 의견서는 이 결제에 포함되지 않습니다</p>
+            <p className="mt-0.5">
+              강의 결제를 완료하시면 이어서 전문가 심리상담 페이지에서 별도로 신청하실 수 있어요.
+            </p>
+          </div>
+        ) : null}
         {paymentFailMessage ? (
           <div className="mb-8 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             <div className="flex-1">

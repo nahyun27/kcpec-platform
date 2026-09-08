@@ -11,6 +11,7 @@ export default function CheckoutPendingPage() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("order_id");
   const bundleId = searchParams.get("bundle_id");
+  const counseling = searchParams.get("counseling");
 
   return (
     <div className="mx-auto max-w-xl px-4 py-16">
@@ -40,6 +41,23 @@ export default function CheckoutPendingPage() {
             · 입금 확인이 완료되면 마이페이지에서 수료증을 발급하실 수 있습니다.
           </li>
         </ul>
+
+        {counseling ? (
+          <div className="mt-6 rounded border border-amber-200 bg-amber-50 p-4 text-center">
+            <p className="text-sm font-bold text-amber-800">
+              심리상담 의견서는 이 주문에 포함되지 않았어요
+            </p>
+            <p className="mt-1 text-xs text-amber-700">
+              선택하신 심리상담은 별도 결제가 필요합니다. 아래 버튼으로 이어서 신청해 주세요.
+            </p>
+            <Link
+              href={`/counseling#${counseling}`}
+              className="mt-3 inline-block rounded-full bg-amber-600 px-5 py-2 text-sm font-bold text-white hover:bg-amber-700"
+            >
+              심리상담 이어서 신청하기 →
+            </Link>
+          </div>
+        ) : null}
 
         <div className="mt-8 flex flex-col gap-2">
           <Link

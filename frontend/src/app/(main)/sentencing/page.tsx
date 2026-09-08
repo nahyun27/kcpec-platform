@@ -322,13 +322,19 @@ export default function SentencingPage() {
   // 추천 결과 계산
   const recommendation = useMemo(() => {
     const courses = Array.from(currentCourseIds).map((id) => COURSES[id]);
-    const activeCourses = courses.filter((c) => !disabledCourses.has(c.id));
+    const isCounseling = (id: CourseId) => id === "counseling" || id === "counseling_phone";
+    const regularCourses = courses.filter((c) => !isCounseling(c.id));
+    const counselingCourse = courses.find((c) => isCounseling(c.id));
+    const activeRegularCourses = regularCourses.filter((c) => !disabledCourses.has(c.id));
+    const counselingActive = counselingCourse ? !disabledCourses.has(counselingCourse.id) : false;
     // 강의당 "수료증 + 서약서" 1세트 생성. 심리상담 의견서만 별도 표기.
     const docs = courses.map((c) => ({
-      name: c.id === "counseling" || c.id === "counseling_phone" ? c.name : `${c.name} 수료증 + 서약서`,
+      name: isCounseling(c.id) ? c.name : `${c.name} 수료증 + 서약서`,
       active: !disabledCourses.has(c.id),
     }));
-    const subtotal = activeCourses.reduce((sum, c) => sum + c.price, 0);
+    // 심리상담은 묶음결제에 포함되지 않고 별도 주문으로 진행되므로, 실제
+    // 결제될 금액과 일치하도록 강의 금액만으로 소계/할인/합계를 계산한다.
+    const subtotal = activeRegularCourses.reduce((sum, c) => sum + c.price, 0);
     const discount = subtotal >= BULK_DISCOUNT_THRESHOLD ? BULK_DISCOUNT_AMOUNT : 0;
     const total = subtotal - discount;
     return {
@@ -337,7 +343,10 @@ export default function SentencingPage() {
       subtotal,
       discount,
       total,
-      activeCourseCount: activeCourses.length,
+      activeCourseCount: activeRegularCourses.length + (counselingActive ? 1 : 0),
+      counseling: counselingCourse
+        ? { name: counselingCourse.name, price: counselingCourse.price, active: counselingActive }
+        : null,
     };
   }, [currentCourseIds, disabledCourses]);
 
@@ -387,13 +396,14 @@ export default function SentencingPage() {
         return;
       }
 
-      if (counselingSelected) {
-        await dialog.alert(
-          "심리상담 의견서는 이 결제에 포함되지 않습니다. 강의 결제 후 전문가 심리상담 페이지에서 별도로 신청해 주세요.",
-        );
-      }
-
-      router.push(`/checkout/bundle?courses=${resolvedIds.join(",")}`);
+      // 심리상담은 이 결제에 포함되지 않는다는 안내를 화면(합계 카드)에 이미
+      // 상시 노출하고 있으므로, 여기서 별도 알림창을 띄우진 않는다 — 대신
+      // 강의 결제 완료 후에도 놓치지 않도록 counseling 파라미터를 이어서
+      // 넘겨 결제 대기/완료 페이지에 "이어서 신청하기" 도선을 표시한다.
+      const counselingParam = counselingSelected
+        ? `&counseling=${counselingType === "phone" ? "phone" : "basic"}`
+        : "";
+      router.push(`/checkout/bundle?courses=${resolvedIds.join(",")}${counselingParam}`);
     } catch {
       setCheckoutError("강의 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
@@ -605,6 +615,11 @@ export default function SentencingPage() {
                   <p className="text-lg font-extrabold text-[#1C3461]">
                     {recommendation.total.toLocaleString()}원
                   </p>
+                  {recommendation.counseling?.active ? (
+                    <p className="text-[11px] font-semibold text-amber-600">
+                      +심리상담 {recommendation.counseling.price.toLocaleString()}원(별도결제)
+                    </p>
+                  ) : null}
                 </div>
                 <button
                   type="button"
@@ -1051,10 +1066,14 @@ function Step3Counseling({
 type Recommendation = {
   courses: CourseInfo[];
   documents: { name: string; active: boolean }[];
+  // 강의(심리상담 제외) 기준 금액 — 실제 묶음결제에서 청구되는 금액과 일치시키기
+  // 위해 심리상담은 제외하고 계산한다 (심리상담은 별도 주문 플로우).
   subtotal: number;
   discount: number;
   total: number;
   activeCourseCount: number;
+  // 심리상담 선택 시 별도 표시용 — 위 금액(subtotal/discount/total)에는 포함 안 됨.
+  counseling: { name: string; price: number; active: boolean } | null;
 };
 
 function Step4Result({
@@ -1230,6 +1249,12 @@ function CartSummary({
                 💡 10만원 이상 구매 시 10,000원 할인이 자동 적용돼요.
               </p>
             )}
+            {recommendation.counseling?.active ? (
+              <p className="mt-3 flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-[13px] font-semibold text-amber-700">
+                <span>+ 심리상담 의견서 (별도 결제)</span>
+                <span>{recommendation.counseling.price.toLocaleString()}원</span>
+              </p>
+            ) : null}
           </div>
 
           <button
