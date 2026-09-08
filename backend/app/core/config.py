@@ -33,8 +33,13 @@ class Settings(BaseSettings):
     )
 
     # 의견서 초안 생성 LLM. Gemini 우선; 미설정 시 dummy fallback.
+    # "-latest" 별칭 사용 — 특정 버전(예: gemini-2.5-flash)을 못 박으면
+    # Google 이 구버전을 신규 프로젝트에서 막을 때마다(404 NOT_FOUND) 수동
+    # 갱신이 필요해진다(2026-09 실제 발생: "gemini-2.5-flash is no longer
+    # available to new users"). latest 별칭은 Google 쪽에서 알아서 최신
+    # 안정 버전으로 갱신해준다.
     GEMINI_API_KEY: str | None = None
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-flash-latest"
     # (legacy) Anthropic 설정 — 현재 미사용. 추후 정리 예정.
     ANTHROPIC_API_KEY: str | None = None
     ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"
