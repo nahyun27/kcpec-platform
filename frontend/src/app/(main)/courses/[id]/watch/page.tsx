@@ -465,11 +465,13 @@ export default function WatchPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
+      {/* 이미 결제해서 보는 페이지라, 공개 판매 페이지(강의 상세)보다
+          마이페이지(내 강의실)로 돌아가는 게 실제로 더 유용한 목적지다. */}
       <Link
-        href={`/courses/${courseId}`}
+        href="/mypage?tab=courses"
         className="mb-4 inline-block text-sm text-zinc-500 hover:text-[var(--color-primary)]"
       >
-        ← 강의 상세
+        ← 마이페이지
       </Link>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
