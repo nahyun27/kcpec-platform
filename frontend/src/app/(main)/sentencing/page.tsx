@@ -1213,7 +1213,7 @@ function Step4Result({
                             key={src}
                             src={src}
                             alt={d.name}
-                            className="aspect-[3/4] w-full object-cover"
+                            className="aspect-[3/4] w-full min-w-0 flex-1 object-cover"
                           />
                         ))}
                       </div>
