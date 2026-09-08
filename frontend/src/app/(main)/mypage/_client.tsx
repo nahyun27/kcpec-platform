@@ -1016,7 +1016,6 @@ function CounselingOrderDetails({
       </Link>
     );
   }
-  const editable = survey.status === "submitted" || survey.status === "sent_to_staff";
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-sm font-medium text-slate-700">
@@ -1030,16 +1029,8 @@ function CounselingOrderDetails({
         onClick={() => onViewAnswers(survey.id)}
         className="rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50"
       >
-        답변 보기
+        내가 쓴 설문 보기
       </button>
-      {editable ? (
-        <Link
-          href={`/survey?edit=${survey.id}`}
-          className="rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50"
-        >
-          수정하기
-        </Link>
-      ) : null}
       {survey.status === "completed" && survey.final_pdf_url ? (
         <a
           href={absUrl(survey.final_pdf_url)}
@@ -1081,9 +1072,6 @@ function CounselingOrderCard({
   const isPaid = order.status === "paid";
   const isCompleted = order.survey_status === "completed";
   const surveySubmitted = order.survey_status != null;
-  const editable =
-    order.survey_status === "submitted" ||
-    order.survey_status === "sent_to_staff";
 
   return (
     <li className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md">
@@ -1097,27 +1085,19 @@ function CounselingOrderCard({
             <p className="font-sans text-lg font-bold text-slate-900">{programLabel}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 self-start sm:self-center">
-          <span className="font-sans text-xl font-black text-slate-900">
-            {order.amount > 0 ? (
-              <>
-                {order.amount.toLocaleString()}
-                <span className="ml-0.5 text-sm font-bold text-slate-500">원</span>
-              </>
-            ) : (
-              "별도문의"
-            )}
-          </span>
-          <span
-            className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-              isPaid
-                ? "bg-emerald-100 text-emerald-700"
-                : "bg-amber-100 text-amber-700"
-            }`}
-          >
-            {isPaid ? "결제완료" : "대기중"}
-          </span>
-        </div>
+        {/* 묶음결제 시 할인이 마지막 항목에 몰려 배분되는 방식이라, 여기 개별
+            금액을 보여주면 "77,000원짜리를 67,000원에 샀다"처럼 실제 정가와
+            다르게 보여 혼란을 줄 수 있다 — 정확한 결제 금액은 결제내역
+            탭에서 확인 가능하므로 여기서는 상태만 표시. */}
+        <span
+          className={`self-start rounded-full px-2.5 py-1 text-xs font-bold sm:self-center ${
+            isPaid
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-amber-100 text-amber-700"
+          }`}
+        >
+          {isPaid ? "결제완료" : "대기중"}
+        </span>
       </div>
 
       <div className="flex flex-col gap-3 p-6 bg-white sm:flex-row sm:items-center sm:justify-between">
@@ -1154,16 +1134,8 @@ function CounselingOrderCard({
                   onClick={() => onViewAnswers(order.survey_id!)}
                   className="rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50"
                 >
-                  답변 보기
+                  내가 쓴 설문 보기
                 </button>
-              ) : null}
-              {editable && order.survey_id != null ? (
-                <Link
-                  href={`/survey?edit=${order.survey_id}`}
-                  className="rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50"
-                >
-                  수정하기
-                </Link>
               ) : null}
               {isCompleted && order.final_pdf_url ? (
                 <a
@@ -1551,6 +1523,11 @@ function SurveyAnswersModal({
     };
   }, [surveyId]);
 
+  // 최종 발급 전(검토 중)이면 수정 가능 — /survey/_client.tsx 의 editable
+  // 판정 기준과 동일하게 유지할 것.
+  const editable =
+    detail?.status === "submitted" || detail?.status === "sent_to_staff";
+
   // 알려진 키부터 정해진 순서로, 그 외 키는 뒤에.
   const orderedEntries: [string, unknown][] = (() => {
     if (!detail) return [];
@@ -1577,13 +1554,23 @@ function SurveyAnswersModal({
           <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">
             심리상담 설문 응답
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-sm text-zinc-500 hover:text-zinc-900"
-          >
-            닫기
-          </button>
+          <div className="flex items-center gap-3">
+            {editable ? (
+              <Link
+                href={`/survey?edit=${surveyId}`}
+                className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50"
+              >
+                수정하기
+              </Link>
+            ) : null}
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-sm text-zinc-500 hover:text-zinc-900"
+            >
+              닫기
+            </button>
+          </div>
         </header>
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {error ? (

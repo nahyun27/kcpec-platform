@@ -12,6 +12,7 @@ import {
 } from "@/lib/api";
 import { FileText } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 // ---------- 인적사항 (구조화 입력) -------------------------------------------
 
@@ -145,6 +146,7 @@ const QUESTIONS: Question[] = [
 
 export default function SurveyClient() {
   const router = useRouter();
+  const dialog = useDialog();
   const searchParams = useSearchParams();
   const editParam = searchParams.get("edit");
   const editSurveyId = editParam ? Number(editParam) : null;
@@ -222,6 +224,53 @@ export default function SurveyClient() {
     );
   }, [personal.birthdate]);
 
+  // 작성 중 이탈 시 확인 — 새로고침/탭 닫기(beforeunload) + 내부 링크 클릭
+  // (capture 단계에서 Next.js Link 라우팅보다 먼저 가로챔) 모두 가드.
+  const hasProgress =
+    !submitted &&
+    (Object.values(personal).some((v) => (v ?? "").toString().trim().length > 0) ||
+      answers.some((a) => a.trim().length > 0));
+
+  useEffect(() => {
+    if (!hasProgress) return;
+
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    function handleClickCapture(e: MouseEvent) {
+      const anchor = (e.target as HTMLElement | null)?.closest?.(
+        "a[href]",
+      ) as HTMLAnchorElement | null;
+      if (!anchor) return;
+      if (
+        anchor.target === "_blank" ||
+        anchor.hasAttribute("download") ||
+        anchor.origin !== window.location.origin ||
+        anchor.pathname === window.location.pathname
+      ) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      const destination = `${anchor.pathname}${anchor.search}${anchor.hash}`;
+      dialog
+        .confirm("지금 나가시면 작성 중인 설문 내용이 모두 사라집니다. 이동하시겠습니까?")
+        .then((confirmed) => {
+          if (confirmed) router.push(destination);
+        });
+    }
+    document.addEventListener("click", handleClickCapture, true);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("click", handleClickCapture, true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasProgress]);
+
   function updatePersonal<K extends keyof PersonalInfo>(
     key: K,
     value: PersonalInfo[K],
@@ -261,6 +310,11 @@ export default function SurveyClient() {
       );
       return;
     }
+    const confirmed = await dialog.confirm(
+      "작성하신 내용으로 설문을 제출하시겠습니까?\n제출 후에도 마이페이지에서 언제든 다시 수정하실 수 있습니다.",
+      { title: "설문 제출", confirmText: "제출하기" },
+    );
+    if (!confirmed) return;
     setSubmitting(true);
     setError(null);
     try {
