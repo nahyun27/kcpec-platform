@@ -8,6 +8,7 @@ import {
   BadgeCheck,
   Check,
   FileText,
+  Lightbulb,
   Loader2,
   Scale,
   Sparkles,
@@ -606,7 +607,9 @@ export default function SentencingPage() {
             ) : (
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <p className="text-xs font-bold text-slate-500">합계</p>
+                  <p className="text-xs font-bold text-slate-500">
+                    {recommendation.counseling?.active ? "강의 결제 합계" : "합계"}
+                  </p>
                   {recommendation.discount > 0 && (
                     <p className="text-xs font-medium text-slate-400 line-through">
                       {recommendation.subtotal.toLocaleString()}원
@@ -617,7 +620,7 @@ export default function SentencingPage() {
                   </p>
                   {recommendation.counseling?.active ? (
                     <p className="text-[11px] font-semibold text-amber-600">
-                      +심리상담 {recommendation.counseling.price.toLocaleString()}원(별도결제)
+                      심리상담 +{recommendation.counseling.price.toLocaleString()}원 (별도 결제)
                     </p>
                   ) : null}
                 </div>
@@ -1238,22 +1241,27 @@ function CartSummary({
                   : ""
               }`}
             >
-              <span className="text-sm font-bold text-slate-600">합계</span>
+              <span className="text-sm font-bold text-slate-600">
+                {recommendation.counseling?.active ? "강의 결제 합계" : "합계"}
+              </span>
               <span className="font-sans text-[28px] font-black leading-tight text-[#1C3461]">
                 {recommendation.total.toLocaleString()}
                 <span className="ml-1 text-base font-bold text-slate-500">원</span>
               </span>
             </div>
             {recommendation.discount === 0 && (
-              <p className="mt-3 text-sm font-medium text-[var(--color-accent)]">
-                💡 10만원 이상 구매 시 10,000원 할인이 자동 적용돼요.
+              <p className="mt-3 flex items-start gap-1.5 text-sm font-medium text-[var(--color-accent)]">
+                <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>10만원 이상 구매 시 10,000원 할인이 자동 적용돼요.</span>
               </p>
             )}
             {recommendation.counseling?.active ? (
-              <p className="mt-3 flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-[13px] font-semibold text-amber-700">
-                <span>+ 심리상담 의견서 (별도 결제)</span>
-                <span>{recommendation.counseling.price.toLocaleString()}원</span>
-              </p>
+              <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2.5 text-amber-700">
+                <p className="text-[13px] font-semibold">심리상담 의견서는 별도로 결제됩니다</p>
+                <p className="mt-0.5 text-[15px] font-bold">
+                  +{recommendation.counseling.price.toLocaleString()}원
+                </p>
+              </div>
             ) : null}
           </div>
 

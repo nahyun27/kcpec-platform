@@ -75,7 +75,7 @@ export default function AuthLayout({
 function FeatureItem({ text }: { text: string }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-accent)]/20 text-[var(--color-accent)]">
+      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-accent)]/20 text-white">
         <CheckCircle2 className="h-4 w-4" />
       </div>
       <span className="font-medium text-slate-200">{text}</span>
