@@ -35,7 +35,7 @@ from app.models.document import IssuedDocument, IssuedDocumentStatus, IssuedDocu
 from app.models.enrollment import Enrollment
 from app.models.faq import Faq
 from app.models.lecture import Lecture
-from app.models.order import Order, OrderStatus, OrderType
+from app.models.order import Order, OrderStatus
 from app.models.quiz import Quiz, QuizOption, QuizQuestion
 from app.models.user import User
 from app.schemas.admin import (
@@ -637,15 +637,18 @@ def refund_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
     for o in bundle_orders:
         o.status = OrderStatus.REFUNDED
 
-        if o.order_type == OrderType.COURSE:
-            enrollment = db.scalar(
-                select(Enrollment).where(
-                    Enrollment.user_id == o.user_id,
-                    Enrollment.course_id == o.course_id,
-                )
+        # order_type 과 무관하게 결제 승인 시(_ensure_enrollment, orders.py)
+        # 항상 Enrollment 가 생성되므로(심리상담도 예외 아님) 환불 시에도
+        # order_type 으로 가르지 않고 항상 정리한다 — COURSE 만 지웠을 때는
+        # 환불된 심리상담이 "수강 중"으로 계속 남는 버그가 있었음.
+        enrollment = db.scalar(
+            select(Enrollment).where(
+                Enrollment.user_id == o.user_id,
+                Enrollment.course_id == o.course_id,
             )
-            if enrollment is not None:
-                db.delete(enrollment)
+        )
+        if enrollment is not None:
+            db.delete(enrollment)
 
         docs = list(
             db.scalars(select(IssuedDocument).where(IssuedDocument.order_id == o.id)).all()

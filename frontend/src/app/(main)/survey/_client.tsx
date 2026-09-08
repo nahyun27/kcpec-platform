@@ -163,6 +163,15 @@ export default function SurveyClient() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 이탈 가드(hasProgress)가 "빈 값인지"가 아니라 "원래 불러온 값에서 실제로
+  // 바뀌었는지"를 봐야 한다 — 수정 모드는 prefill 직후부터 필드가 전부
+  // 채워져 있어 단순 "비어있지 않음" 기준으로는 아무것도 안 고쳐도 항상
+  // hasProgress=true 가 되어, 방금 만든 "수정 취소" 버튼조차 누르자마자
+  // "내용이 사라집니다" 경고가 뜨는 문제가 있었다.
+  const [baseline, setBaseline] = useState<{ personal: PersonalInfo; answers: string[] }>({
+    personal: EMPTY_PERSONAL,
+    answers: QUESTIONS.map(() => ""),
+  });
 
   // 비로그인 → 로그인 페이지로
   useEffect(() => {
@@ -192,14 +201,17 @@ export default function SurveyClient() {
         if (cancelled) return;
         const r = d.responses ?? {};
         const p = r.personal;
-        if (p && typeof p === "object") {
-          setPersonal({ ...EMPTY_PERSONAL, ...(p as Partial<PersonalInfo>) });
-        }
+        const loadedPersonal =
+          p && typeof p === "object"
+            ? { ...EMPTY_PERSONAL, ...(p as Partial<PersonalInfo>) }
+            : EMPTY_PERSONAL;
+        setPersonal(loadedPersonal);
         // 자유 응답: q2..q6 우선, 없으면 한글 legacy 키 폴백
         const next = QUESTIONS.map(
           (q) => (r[q.key] as string | undefined) ?? (r[q.legacyKey] as string | undefined) ?? "",
         );
         setAnswers(next);
+        setBaseline({ personal: loadedPersonal, answers: next });
       })
       .catch(() => {
         if (!cancelled) setError("기존 설문을 불러오지 못했습니다.");
@@ -228,8 +240,8 @@ export default function SurveyClient() {
   // (capture 단계에서 Next.js Link 라우팅보다 먼저 가로챔) 모두 가드.
   const hasProgress =
     !submitted &&
-    (Object.values(personal).some((v) => (v ?? "").toString().trim().length > 0) ||
-      answers.some((a) => a.trim().length > 0));
+    (JSON.stringify(personal) !== JSON.stringify(baseline.personal) ||
+      JSON.stringify(answers) !== JSON.stringify(baseline.answers));
 
   useEffect(() => {
     if (!hasProgress) return;

@@ -406,6 +406,7 @@ export default function MyPageClient() {
                             ?.is_completed ?? false
                         }
                         hasCounseling={counselingOrders.length > 0}
+                        onViewAnswers={(id) => setAnswersSurveyId(id)}
                         onCancel={handleCancelOrder}
                       />
                     ),
@@ -732,16 +733,19 @@ function OrderRow({
   order,
   isCourseCompleted,
   hasCounseling,
+  onViewAnswers,
   onCancel,
 }: {
   order: OrderWithExtras;
   isCourseCompleted: boolean;
   hasCounseling: boolean;
+  onViewAnswers: (surveyId: number) => void;
   onCancel: (orderId: number) => void;
 }) {
   const isPaid = order.status === "paid";
   const isPendingBankTransfer =
     order.status === "pending" && order.payment_method === "bank_transfer";
+  const isCounseling = order.order_type === "counseling";
 
   return (
     <li className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md">
@@ -754,7 +758,7 @@ function OrderRow({
           </div>
           {order.course_title ? (
             <p className="mb-2 font-sans text-lg font-bold text-slate-900">
-              {order.course_title}
+              {isCounseling ? counselingDisplayTitle(order.course_title) : order.course_title}
             </p>
           ) : null}
           <div className="flex items-center gap-2">
@@ -774,8 +778,14 @@ function OrderRow({
 
       {isPaid ? (
         <div className="space-y-3 p-6 bg-white">
-          <OrderPaidDetails order={order} isCourseCompleted={isCourseCompleted} />
-          {!hasCounseling ? <CounselingUpsell /> : null}
+          {isCounseling ? (
+            <CounselingOrderDetails order={order} onViewAnswers={onViewAnswers} />
+          ) : (
+            <>
+              <OrderPaidDetails order={order} isCourseCompleted={isCourseCompleted} />
+              {!hasCounseling ? <CounselingUpsell /> : null}
+            </>
+          )}
         </div>
       ) : isPendingBankTransfer ? (
         <div className="flex flex-col gap-3 p-6 bg-white sm:flex-row sm:items-center sm:justify-between">
