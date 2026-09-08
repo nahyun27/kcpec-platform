@@ -71,14 +71,20 @@ export default function MyPageClient() {
   }
   const [me, setMe] = useState<UserResponse | null>(null);
   const [enrollments, setEnrollments] = useState<EnrollmentWithProgress[]>([]);
-  // 만료된 수강은 목록 맨 아래로 — 그 외 순서는 유지 (stable sort)
+  // 만료된 수강은 목록 맨 아래로 — 그 외 순서는 유지 (stable sort).
+  // 심리상담은 결제 시 다른 강의와 동일하게 enrollment 가 생성되지만
+  // (진도 추적용 lecture 가 없는 상담 "상품"이라) 여기 강의실 목록에
+  // 뜨면 진도율 0%/이어보기 같은 의미 없는 UI가 나온다 — 제외하고
+  // "전문가 심리상담" 탭에서만 상태를 보여준다.
   const sortedEnrollments = useMemo(
     () =>
-      [...enrollments].sort((a, b) => {
-        const aExpired = expiryBadge(a.expires_at)?.label === "수강기간 만료";
-        const bExpired = expiryBadge(b.expires_at)?.label === "수강기간 만료";
-        return aExpired === bExpired ? 0 : aExpired ? 1 : -1;
-      }),
+      [...enrollments]
+        .filter((e) => e.category !== "심리상담")
+        .sort((a, b) => {
+          const aExpired = expiryBadge(a.expires_at)?.label === "수강기간 만료";
+          const bExpired = expiryBadge(b.expires_at)?.label === "수강기간 만료";
+          return aExpired === bExpired ? 0 : aExpired ? 1 : -1;
+        }),
     [enrollments],
   );
   const [orders, setOrders] = useState<OrderWithExtras[]>([]);
@@ -546,9 +552,14 @@ function EnrollmentRow({
   const issuedDoc = order?.documents?.[0];
   const progressPct = enrollment.overall_progress_pct;
   const expiry = expiryBadge(enrollment.expires_at);
-  const continueLabel = enrollment.current_lecture_title
-    ? `${enrollment.current_lecture_title} 이어보기`
-    : "이어보기";
+  // 진도 0%(아직 한 번도 안 본 상태)면 "이어보기"가 어색하므로 시작하기로
+  // 문구를 구분한다. 진도가 있으면 기존처럼 다음 이어볼 차시명을 보여줌.
+  const notStarted = progressPct === 0;
+  const continueLabel = notStarted
+    ? "수강 시작하기"
+    : enrollment.current_lecture_title
+      ? `${enrollment.current_lecture_title} 이어보기`
+      : "이어보기";
 
   return (
     <li className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-all hover:border-[var(--color-primary)]/30 hover:shadow-md sm:p-5">
