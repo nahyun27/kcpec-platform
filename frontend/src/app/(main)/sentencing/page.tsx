@@ -166,36 +166,36 @@ const COUNSELING_BONUS_ITEMS = [
 
 // 발급 서류 목록 항목에 마우스를 올리면 보여줄 미리보기 — 실제 발급 양식
 // 예시 이미지(첫 페이지) + 짧은 설명. 문서명 문자열에 매칭되는 첫 항목을 사용.
-const DOC_PREVIEWS: { match: (name: string) => boolean; src: string; desc: string }[] = [
+const DOC_PREVIEWS: { match: (name: string) => boolean; srcs: string[]; desc: string }[] = [
   {
     match: (n) => n.includes("수료증"),
-    src: "/images/sample-certificate.png",
-    desc: "강의를 수료하면 발급되는 수료증입니다. 서약서도 함께 발급됩니다.",
+    srcs: ["/images/sample-certificate.png", "/images/sample-pledge.png"],
+    desc: "강의를 수료하면 수료증과 서약서가 함께 발급됩니다.",
   },
   {
     match: (n) => n.includes("심리상담"),
-    src: "/images/sample-counseling.png",
+    srcs: ["/images/sample-counseling.png"],
     desc: "전문 상담사가 작성하는 심리상담 의견서 예시입니다.",
   },
   {
     match: (n) => n === "자기성찰 리포트",
-    src: "/images/sample-self-reflection.png",
+    srcs: ["/images/sample-self-reflection.png"],
     desc: "심리상담 진행 시 함께 제공되는 자기성찰 리포트입니다.",
   },
   {
     match: (n) => n === "교육이수 소감문",
-    src: "/images/sample-completion-note.png",
+    srcs: ["/images/sample-completion-note.png"],
     desc: "교육 이수 후 느낀 점과 다짐을 정리한 확인서입니다.",
   },
   {
     match: (n) => n === "CBT 기반 재범방지 자가진단 검사지",
-    src: "/images/sample-cbt-checklist.png",
+    srcs: ["/images/sample-cbt-checklist.png"],
     desc: "인지행동치료(CBT) 관점에서 재범 관련 요인을 점검하는 자가진단 검사지입니다.",
   },
   {
     match: (n) => n === "맞춤형 양형자료 준비 가이드북",
-    src: "/images/sample-guidebook-blur.png",
-    desc: "양형자료 준비 방법을 안내하는 가이드북입니다. (내용 보호를 위해 미리보기는 흐리게 처리됨)",
+    srcs: ["/images/sample-guidebook.png"],
+    desc: "양형자료 준비 방법을 안내하는 가이드북 표지입니다.",
   },
 ];
 
@@ -1201,13 +1201,22 @@ function Step4Result({
                   />
                   {d.name}
                   {preview && hoveredDoc === d.name ? (
-                    <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-48 -translate-x-1/2 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={preview.src}
-                        alt={d.name}
-                        className="aspect-[3/4] w-full object-cover"
-                      />
+                    <div
+                      className={`pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 -translate-x-1/2 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl ${
+                        preview.srcs.length > 1 ? "w-72" : "w-48"
+                      }`}
+                    >
+                      <div className={`flex ${preview.srcs.length > 1 ? "divide-x divide-zinc-100" : ""}`}>
+                        {preview.srcs.map((src) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            key={src}
+                            src={src}
+                            alt={d.name}
+                            className="aspect-[3/4] w-full object-cover"
+                          />
+                        ))}
+                      </div>
                       <p className="border-t border-zinc-100 px-3 py-2 text-[11px] leading-snug text-slate-500">
                         {preview.desc}
                       </p>
