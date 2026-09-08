@@ -46,6 +46,19 @@ type OrderWithExtras = OrderResponse & {
   survey?: SurveyStatusResponse | null;
 };
 
+// 묶음결제에 함께 담긴 심리상담 주문의 course_title 은 DB 원본 상품명
+// ("기본 프로그램" 등)이라 /counseling 구매 페이지에서 본 이름과 다르게
+// 보인다 — COUNSELING_PROGRAM_LABEL 과 동일한 이름으로 맞춰서 표시.
+const COUNSELING_RAW_TITLE_LABEL: Record<string, string> = {
+  "기본 프로그램": COUNSELING_PROGRAM_LABEL.basic,
+  "전화 심화상담": COUNSELING_PROGRAM_LABEL.phone,
+  "대면 심화상담": COUNSELING_PROGRAM_LABEL.inperson,
+};
+function counselingDisplayTitle(rawTitle: string | null | undefined): string {
+  if (!rawTitle) return "심리상담 의견서";
+  return COUNSELING_RAW_TITLE_LABEL[rawTitle] ?? rawTitle;
+}
+
 type TabKey = "courses" | "counseling" | "orders";
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
@@ -202,10 +215,14 @@ export default function MyPageClient() {
         setEnrollments(e);
         setCounselingOrders(co);
 
-        // 강의 주문(course)만 documents/survey enrich. 심리상담 독립 주문은 별도 섹션.
+        // 강의 주문(course) + 묶음결제에 함께 담긴 심리상담 주문만 enrich.
+        // 독립 구매한 심리상담(bundle_id 없음)은 "전문가 심리상담" 탭에서만
+        // 보여주면 충분하지만, 묶음으로 강의와 같이 결제한 심리상담까지
+        // 여기서 빼면 "분명 같이 결제했는데 왜 빠져있지" 하고 혼란스러워한다
+        // — 같은 결제(bundle_id)에 속한 건 결제내역에도 함께 노출한다.
         const enriched = await Promise.all(
           o
-            .filter((order) => order.order_type !== "counseling")
+            .filter((order) => order.order_type !== "counseling" || order.bundle_id != null)
             .map(async (order) => {
               const [docs, survey] = await Promise.all([
                 getOrderDocuments(order.id).catch(() => [] as DocumentResponse[]),
@@ -377,6 +394,7 @@ export default function MyPageClient() {
                         orders={g.orders}
                         enrollments={enrollments}
                         hasCounseling={counselingOrders.length > 0}
+                        onViewAnswers={(id) => setAnswersSurveyId(id)}
                         onCancel={handleCancelOrder}
                       />
                     ) : (
@@ -851,11 +869,13 @@ function BundleOrderGroup({
   orders,
   enrollments,
   hasCounseling,
+  onViewAnswers,
   onCancel,
 }: {
   orders: OrderWithExtras[];
   enrollments: EnrollmentWithProgress[];
   hasCounseling: boolean;
+  onViewAnswers: (surveyId: number) => void;
   onCancel: (orderId: number) => void;
 }) {
   const first = orders[0];
@@ -882,7 +902,9 @@ function BundleOrderGroup({
               <li key={o.id} className="flex items-center gap-2">
                 <Check className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
                 <span className="font-sans text-base font-bold text-slate-900">
-                  {o.course_title}
+                  {o.order_type === "counseling"
+                    ? counselingDisplayTitle(o.course_title)
+                    : o.course_title}
                 </span>
               </li>
             ))}
@@ -904,17 +926,26 @@ function BundleOrderGroup({
 
       {isPaid ? (
         <div className="divide-y divide-zinc-100">
-          {orders.map((o) => (
-            <div key={o.id} className="p-6 bg-white">
-              <p className="mb-3 text-base font-bold text-slate-800">{o.course_title}</p>
-              <OrderPaidDetails
-                order={o}
-                isCourseCompleted={
-                  enrollments.find((e) => e.course_id === o.course_id)?.is_completed ?? false
-                }
-              />
-            </div>
-          ))}
+          {orders.map((o) =>
+            o.order_type === "counseling" ? (
+              <div key={o.id} className="p-6 bg-white">
+                <p className="mb-3 text-base font-bold text-slate-800">
+                  {counselingDisplayTitle(o.course_title)}
+                </p>
+                <CounselingOrderDetails order={o} onViewAnswers={onViewAnswers} />
+              </div>
+            ) : (
+              <div key={o.id} className="p-6 bg-white">
+                <p className="mb-3 text-base font-bold text-slate-800">{o.course_title}</p>
+                <OrderPaidDetails
+                  order={o}
+                  isCourseCompleted={
+                    enrollments.find((e) => e.course_id === o.course_id)?.is_completed ?? false
+                  }
+                />
+              </div>
+            ),
+          )}
           {/* 묶음 안의 강의마다 반복하면 동일 문구가 여러 번 뜨므로 묶음당 한 번만. */}
           {!hasCounseling ? (
             <div className="p-6 bg-white">
@@ -961,6 +992,64 @@ function CounselingUpsell() {
       >
         심리상담 의견서 추가하기
       </Link>
+    </div>
+  );
+}
+
+// 묶음결제에 함께 담긴 심리상담 주문의 결제내역 표시 — 설문 미제출이면
+// 작성 유도, 제출/완료 상태면 답변 보기·수정·다운로드 액션을 보여준다.
+function CounselingOrderDetails({
+  order,
+  onViewAnswers,
+}: {
+  order: OrderWithExtras;
+  onViewAnswers: (surveyId: number) => void;
+}) {
+  const survey = order.survey;
+  if (!survey) {
+    return (
+      <Link
+        href={`/survey?counseling_order_id=${order.id}`}
+        className="inline-flex items-center justify-center rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[var(--color-primary-hover)] transition-colors"
+      >
+        설문 작성하기
+      </Link>
+    );
+  }
+  const editable = survey.status === "submitted" || survey.status === "sent_to_staff";
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-sm font-medium text-slate-700">
+        설문{" "}
+        <strong className="text-[var(--color-accent)]">
+          {COUNSELING_STATUS_LABEL[survey.status as CounselingStatus]}
+        </strong>
+      </span>
+      <button
+        type="button"
+        onClick={() => onViewAnswers(survey.id)}
+        className="rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50"
+      >
+        답변 보기
+      </button>
+      {editable ? (
+        <Link
+          href={`/survey?edit=${survey.id}`}
+          className="rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50"
+        >
+          수정하기
+        </Link>
+      ) : null}
+      {survey.status === "completed" && survey.final_pdf_url ? (
+        <a
+          href={absUrl(survey.final_pdf_url)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[var(--color-accent-hover)]"
+        >
+          <Download className="h-3.5 w-3.5" /> PDF 다운로드
+        </a>
+      ) : null}
     </div>
   );
 }
