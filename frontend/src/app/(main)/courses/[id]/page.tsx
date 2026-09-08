@@ -13,6 +13,7 @@ import type { CourseDetail, CourseReview } from "@/types/course";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { ReviewWriteForm } from "@/components/features/ReviewWriteForm";
 import { Spinner } from "@/components/ui/Spinner";
+import { useDialog } from "@/components/ui/DialogProvider";
 import {
   ArrowLeft,
   BookOpen,
@@ -56,6 +57,7 @@ export default function CourseDetailPage({
   const { id } = use(params);
   const courseId = Number(id);
   const router = useRouter();
+  const dialog = useDialog();
 
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -182,14 +184,28 @@ export default function CourseDetailPage({
     setTimeout(() => setSidebarFlash(false), 1500);
   }
 
-  function handleStart() {
-    if (!tokenStorage.getAccess()) {
-      router.push(`/login?next=/checkout?course_id=${courseId}`);
-      return;
-    }
-    // 이미 결제한 사용자는 바로 수강 페이지로.
+  async function handleStart() {
+    // 이미 결제한 사용자는 바로 수강 페이지로 — 추천 유도 없이 즉시 이동.
     if (isEnrolled) {
       router.push(`/courses/${courseId}/watch`);
+      return;
+    }
+    // 구매 직전 — 다른 강의와 묶어 사면 할인받을 수 있는 "맞춤강의 추천"
+    // 흐름으로 유도. 여기서 발길을 돌리지 않으면 이 강의만 바로 결제 진행.
+    const wantsRecommendation = await dialog.confirm(
+      "여러 강의를 함께 구매하시면 최대 10,000원 할인을 받을 수 있어요.\n간단한 질문에 답하고 나에게 맞는 강의 조합을 추천받아보시겠어요?",
+      {
+        title: "맞춤강의 추천",
+        confirmText: "추천받기",
+        cancelText: "이 강의만 구매하기",
+      },
+    );
+    if (wantsRecommendation) {
+      router.push("/sentencing");
+      return;
+    }
+    if (!tokenStorage.getAccess()) {
+      router.push(`/login?next=/checkout?course_id=${courseId}`);
       return;
     }
     // 사전결제 — 결제 완료 시 백엔드가 자동으로 enrollment 생성.
