@@ -39,6 +39,7 @@ import {
 import { BookOpen, Check, CreditCard, Download, FileText, User, ChevronRight, PlayCircle, Loader2, MailWarning } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 type OrderWithExtras = OrderResponse & {
   documents: DocumentResponse[];
@@ -58,6 +59,7 @@ function isTabKey(s: string | null): s is TabKey {
 }
 
 export default function MyPageClient() {
+  const dialog = useDialog();
   const router = useRouter();
   const search = useSearchParams();
   const tabParam = search.get("tab");
@@ -122,9 +124,9 @@ export default function MyPageClient() {
 
   async function handleCancelOrder(orderId: number) {
     if (
-      !window.confirm(
+      !(await dialog.confirm(
         "이 주문을 취소하시겠습니까? 같은 묶음으로 함께 결제하신 다른 강의가 있다면 함께 취소됩니다.",
-      )
+      ))
     ) {
       return;
     }
@@ -539,6 +541,7 @@ function EnrollmentRow({
   enrollment: EnrollmentWithProgress;
   order?: OrderWithExtras;
 }) {
+  const dialog = useDialog();
   const isComplete = enrollment.is_completed;
   const issuedDoc = order?.documents?.[0];
   const progressPct = enrollment.overall_progress_pct;
@@ -592,7 +595,7 @@ function EnrollmentRow({
                 onClick={(e) => {
                   if (expiry?.label === "수강기간 만료") {
                     e.preventDefault();
-                    alert(
+                    void dialog.alert(
                       "수강 기간이 만료되었습니다. 연장이 필요하시면 admin@kcpec.co.kr 로 문의해 주세요.",
                     );
                   }
@@ -625,7 +628,7 @@ function EnrollmentRow({
                     onClick={(e) => {
                       if (expiry?.label === "수강기간 만료") {
                         e.preventDefault();
-                        alert(
+                        void dialog.alert(
                           "수강 기간이 만료되었습니다. 연장이 필요하시면 admin@kcpec.co.kr 로 문의해 주세요.",
                         );
                       }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { GA4 } from "@/components/analytics/GA4";
+import { DialogProvider } from "@/components/ui/DialogProvider";
 import "./globals.css";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -38,7 +39,7 @@ export default function RootLayout({
         className="min-h-full flex flex-col bg-white text-foreground"
       >
         <GA4 />
-        {children}
+        <DialogProvider>{children}</DialogProvider>
       </body>
     </html>
   );

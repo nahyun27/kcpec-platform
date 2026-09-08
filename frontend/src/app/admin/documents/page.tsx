@@ -12,6 +12,7 @@ import {
 } from "@/lib/api";
 import type { AdminSurveyDetail, AdminSurveyRow } from "@/types/admin";
 import type { CounselingStatus } from "@/types/counseling";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 // 초안 부재 시 textarea 에 보일 기본 템플릿. document_generator 의
 // [상담배경]/[상담내용] 섹션 분리 패턴을 그대로 따른다.
@@ -22,6 +23,7 @@ const DEFAULT_DRAFT_TEMPLATE = `[상담배경]
 1. `;
 
 export default function AdminSurveysPage() {
+  const dialog = useDialog();
   const [rows, setRows] = useState<AdminSurveyRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
@@ -55,7 +57,7 @@ export default function AdminSurveysPage() {
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
         : null;
-      alert(detail ?? "최종본 업로드에 실패했습니다.");
+      await dialog.alert(detail ?? "최종본 업로드에 실패했습니다.");
     } finally {
       setUploadingId(null);
     }
@@ -465,6 +467,7 @@ function DraftViewerModal({
   path: string | null;
   onClose: () => void;
 }) {
+  const dialog = useDialog();
   const [text, setText] = useState<string>(path ? "" : DEFAULT_DRAFT_TEMPLATE);
   const [loading, setLoading] = useState<boolean>(!!path);
   const [error, setError] = useState<string | null>(null);
@@ -515,7 +518,7 @@ function DraftViewerModal({
 
   async function handleDownload(format: "docx" | "pdf") {
     if (!text.trim()) {
-      alert("초안 내용이 비어있습니다.");
+      await dialog.alert("초안 내용이 비어있습니다.");
       return;
     }
     setDownloading(format);
@@ -533,7 +536,7 @@ function DraftViewerModal({
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
         : null;
-      alert(detail ?? `${format.toUpperCase()} 다운로드에 실패했습니다.`);
+      await dialog.alert(detail ?? `${format.toUpperCase()} 다운로드에 실패했습니다.`);
     } finally {
       setDownloading(null);
     }
@@ -542,7 +545,7 @@ function DraftViewerModal({
   // 현재 textarea 내용으로 PDF 만든 뒤 새 탭에서 인라인 표시 (다운로드 X).
   async function handlePreview() {
     if (!text.trim()) {
-      alert("초안 내용이 비어있습니다.");
+      await dialog.alert("초안 내용이 비어있습니다.");
       return;
     }
     setPreviewing(true);
@@ -557,7 +560,7 @@ function DraftViewerModal({
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
         : null;
-      alert(detail ?? "미리보기 생성에 실패했습니다.");
+      await dialog.alert(detail ?? "미리보기 생성에 실패했습니다.");
     } finally {
       setPreviewing(false);
     }
@@ -574,7 +577,7 @@ function DraftViewerModal({
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
         : null;
-      alert(detail ?? "초안 재생성에 실패했습니다.");
+      await dialog.alert(detail ?? "초안 재생성에 실패했습니다.");
     } finally {
       setRegenerating(false);
     }

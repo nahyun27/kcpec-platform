@@ -14,6 +14,7 @@ import type {
   AdminUsersResponse,
   CourseEnrollmentCount,
 } from "@/types/admin";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 export default function AdminUsersPage() {
   const [page, setPage] = useState(1);
@@ -206,6 +207,7 @@ function UserEnrollmentsModal({
   user: AdminUser;
   onClose: () => void;
 }) {
+  const dialog = useDialog();
   const [rows, setRows] = useState<AdminUserEnrollmentRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedCourseId, setExpandedCourseId] = useState<number | null>(null);
@@ -225,7 +227,7 @@ function UserEnrollmentsModal({
         prev?.map((r) => (r.enrollment_id === enrollmentId ? updated : r)) ?? prev,
       );
     } catch {
-      alert("연장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      await dialog.alert("연장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
       setExtendingId(null);
     }

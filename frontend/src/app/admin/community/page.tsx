@@ -32,6 +32,7 @@ import {
   type PostCategory,
   type PostListItem,
 } from "@/types/community";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 type UnifiedRow = {
   table: "notice" | "post";
@@ -55,8 +56,12 @@ function displayAuthor(category: CommunityCategory, author: string): string {
 }
 
 // 폼 모달 공용 — 변경사항이 있으면 닫기 전 확인.
-function confirmClose(isDirty: boolean, onClose: () => void) {
-  if (isDirty && !confirm("변경사항이 저장되지 않았습니다. 그래도 닫으시겠습니까?")) {
+async function confirmClose(
+  isDirty: boolean,
+  onClose: () => void,
+  confirmFn: (message: string) => Promise<boolean>,
+) {
+  if (isDirty && !(await confirmFn("변경사항이 저장되지 않았습니다. 그래도 닫으시겠습니까?"))) {
     return;
   }
   onClose();
@@ -98,6 +103,7 @@ function isFilter(v: unknown): v is Filter {
 }
 
 function AdminCommunityPage() {
+  const dialog = useDialog();
   const search = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -236,7 +242,7 @@ function AdminCommunityPage() {
   }, [filter, notices, qnas, columns, reviews]);
 
   async function handleDelete(row: UnifiedRow) {
-    if (!confirm(`"${row.title}" 을(를) 삭제하시겠습니까?`)) return;
+    if (!(await dialog.confirm(`"${row.title}" 을(를) 삭제하시겠습니까?`))) return;
     try {
       if (row.table === "notice") await deleteAdminNotice(row.id);
       else await deleteAdminPost(row.id);
@@ -245,7 +251,7 @@ function AdminCommunityPage() {
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
         : null;
-      alert(detail ?? "삭제에 실패했습니다.");
+      await dialog.alert(detail ?? "삭제에 실패했습니다.");
     }
   }
 
@@ -409,8 +415,10 @@ function FaqAdminTable({
   onEdit: (faq: Faq) => void;
   onReload: () => void;
 }) {
+  const dialog = useDialog();
+
   async function handleDelete(faq: Faq) {
-    if (!confirm(`"${faq.question}" 항목을 삭제하시겠습니까?`)) return;
+    if (!(await dialog.confirm(`"${faq.question}" 항목을 삭제하시겠습니까?`))) return;
     try {
       await deleteFaq(faq.id);
       await onReload();
@@ -418,7 +426,7 @@ function FaqAdminTable({
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
         : null;
-      alert(detail ?? "삭제에 실패했습니다.");
+      await dialog.alert(detail ?? "삭제에 실패했습니다.");
     }
   }
 
@@ -427,7 +435,7 @@ function FaqAdminTable({
       await patchFaq(faq.id, { is_active: !faq.is_active });
       await onReload();
     } catch {
-      alert("상태 변경에 실패했습니다.");
+      await dialog.alert("상태 변경에 실패했습니다.");
     }
   }
 
@@ -520,6 +528,7 @@ function FaqFormModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const dialog = useDialog();
   const [category, setCategory] = useState<FaqCategory>(initial?.category ?? "docs");
   const [question, setQuestion] = useState(initial?.question ?? "");
   const [answer, setAnswer] = useState(initial?.answer ?? "");
@@ -535,7 +544,7 @@ function FaqFormModal({
       orderIndex !== initial.order_index ||
       isActive !== initial.is_active
     : Boolean(question.trim() || answer.trim());
-  const safeClose = () => confirmClose(isDirty, onClose);
+  const safeClose = () => confirmClose(isDirty, onClose, dialog.confirm);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -762,6 +771,7 @@ function CreateModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const dialog = useDialog();
   const [category, setCategory] = useState<CommunityCategory>("notice");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -773,7 +783,7 @@ function CreateModal({
 
   // 입력이 한 글자라도 들어왔으면 dirty
   const isDirty = Boolean(title.trim() || content.trim() || fileUrl.trim() || author.trim());
-  const safeClose = () => confirmClose(isDirty, onClose);
+  const safeClose = () => confirmClose(isDirty, onClose, dialog.confirm);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -908,6 +918,7 @@ function EditModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const dialog = useDialog();
   const [title, setTitle] = useState(row.title);
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
@@ -921,7 +932,7 @@ function EditModal({
     title !== row.title ||
     content !== originalContent ||
     pinned !== (row.is_pinned ?? false);
-  const safeClose = () => confirmClose(isDirty, onClose);
+  const safeClose = () => confirmClose(isDirty, onClose, dialog.confirm);
 
   // 마운트 시 상세를 받아와 TipTap 초기 콘텐츠로 채워준다.
   // (목록 응답엔 본문이 빠져 있어 별도 GET 필요)
@@ -1054,11 +1065,12 @@ function ReplyModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const dialog = useDialog();
   const [reply, setReply] = useState(row.admin_reply ?? "");
   const [submitting, setSubmitting] = useState(false);
 
   const isDirty = reply !== (row.admin_reply ?? "");
-  const safeClose = () => confirmClose(isDirty, onClose);
+  const safeClose = () => confirmClose(isDirty, onClose, dialog.confirm);
   const [err, setErr] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {

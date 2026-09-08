@@ -5,6 +5,7 @@ import { useState } from "react";
 import { isAxiosError } from "axios";
 import { purchaseCounseling, tokenStorage } from "@/lib/api";
 import type { CounselingType } from "@/types/counseling";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 export default function ApplyButton({
   counselingType,
@@ -16,6 +17,7 @@ export default function ApplyButton({
   programTitle: string;
 }) {
   const router = useRouter();
+  const dialog = useDialog();
   const [submitting, setSubmitting] = useState(false);
 
   // 가격이 없는 프로그램(예: 대면 심화상담)은 별도 문의 — tel 링크 버튼.
@@ -70,7 +72,7 @@ export default function ApplyButton({
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
         : null;
-      alert(detail ?? "신청에 실패했습니다.");
+      await dialog.alert(detail ?? "신청에 실패했습니다.");
       setSubmitting(false);
     }
   }

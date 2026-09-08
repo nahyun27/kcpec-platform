@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { getCourses, tokenStorage } from "@/lib/api";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 // ---------- 강의 카탈로그 -----------------------------------------------------
 //
@@ -168,6 +169,7 @@ type Step = 1 | 2 | 3 | 4;
 
 export default function SentencingPage() {
   const router = useRouter();
+  const dialog = useDialog();
   const [step, _setStep] = useState<Step>(1);
   function setStep(next: Step | ((s: Step) => Step)) {
     _setStep(next);
@@ -218,13 +220,14 @@ export default function SentencingPage() {
       ) {
         return;
       }
-      const confirmed = window.confirm(
-        "지금 나가시면 선택하신 내용이 모두 초기화됩니다. 이동하시겠습니까?",
-      );
-      if (!confirmed) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+      e.preventDefault();
+      e.stopPropagation();
+      const destination = `${anchor.pathname}${anchor.search}${anchor.hash}`;
+      dialog
+        .confirm("지금 나가시면 선택하신 내용이 모두 초기화됩니다. 이동하시겠습니까?")
+        .then((confirmed) => {
+          if (confirmed) router.push(destination);
+        });
     }
     document.addEventListener("click", handleClickCapture, true);
 
@@ -232,6 +235,7 @@ export default function SentencingPage() {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("click", handleClickCapture, true);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasProgress]);
 
   // 강의가 선택 목록에서 완전히 빠질 때, Page4 에서 남아있던 개별 해제
@@ -384,7 +388,7 @@ export default function SentencingPage() {
       }
 
       if (counselingSelected) {
-        window.alert(
+        await dialog.alert(
           "심리상담 의견서는 이 결제에 포함되지 않습니다. 강의 결제 후 전문가 심리상담 페이지에서 별도로 신청해 주세요.",
         );
       }

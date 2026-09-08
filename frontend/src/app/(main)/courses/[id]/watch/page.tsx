@@ -27,6 +27,7 @@ import type {
   EnrollmentStatus,
   LectureItem,
 } from "@/types/course";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const PROGRESS_INTERVAL_MS = 10_000;
 // 한 번의 timeupdate 에서 누적할 최대 delta (초). 이 이상은 시크/점프로 간주.
@@ -40,6 +41,7 @@ export default function WatchPage({
   const { id } = use(params);
   const courseId = Number(id);
   const router = useRouter();
+  const dialog = useDialog();
 
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [status, setStatus] = useState<EnrollmentStatus | null>(null);
@@ -115,16 +117,17 @@ export default function WatchPage({
       const url = new URL(anchor.href, window.location.href);
       if (url.origin !== window.location.origin) return;
       if (url.pathname === window.location.pathname) return;
-      const ok = window.confirm(
-        "영상이 재생 중입니다. 지금 이동하면 재생이 중단됩니다. 계속 이동하시겠습니까?",
-      );
-      if (!ok) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+      e.preventDefault();
+      e.stopPropagation();
+      dialog
+        .confirm("영상이 재생 중입니다. 지금 이동하면 재생이 중단됩니다. 계속 이동하시겠습니까?")
+        .then((ok) => {
+          if (ok) router.push(`${url.pathname}${url.search}${url.hash}`);
+        });
     };
     document.addEventListener("click", handleClick, true);
     return () => document.removeEventListener("click", handleClick, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 1) 강의 + 수강 상태 초기 로드
@@ -578,7 +581,7 @@ export default function WatchPage({
                   unlocked={unlocked}
                   onClick={async () => {
                     if (!unlocked) {
-                      alert("이전 강의를 먼저 완료해주세요.");
+                      await dialog.alert("이전 강의를 먼저 완료해주세요.");
                       return;
                     }
                     if (lec.id === activeLectureId) return;

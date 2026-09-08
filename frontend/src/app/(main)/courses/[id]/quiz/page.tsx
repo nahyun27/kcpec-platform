@@ -6,6 +6,7 @@ import { use, useEffect, useMemo, useState } from "react";
 import { isAxiosError } from "axios";
 import { getQuiz, submitQuiz } from "@/lib/api";
 import type { QuizDetail, QuizResult } from "@/types/course";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 export default function QuizPage({
   params,
@@ -15,6 +16,7 @@ export default function QuizPage({
   const { id } = use(params);
   const courseId = Number(id);
   const router = useRouter();
+  const dialog = useDialog();
 
   const [quiz, setQuiz] = useState<QuizDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +65,7 @@ export default function QuizPage({
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
         : null;
-      alert(detail ?? "제출에 실패했습니다.");
+      await dialog.alert(detail ?? "제출에 실패했습니다.");
     } finally {
       setSubmitting(false);
     }

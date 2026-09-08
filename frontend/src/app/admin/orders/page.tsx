@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import type { AdminOrderRow, AdminOrdersResponse } from "@/types/admin";
 import { PAYMENT_METHOD_LABEL, type DocumentResponse, type OrderStatus } from "@/types/order";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 type FilterValue = OrderStatus | "all";
 
@@ -44,6 +45,7 @@ export default function AdminOrdersPageWrapper() {
 }
 
 function AdminOrdersPage() {
+  const dialog = useDialog();
   const search = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -96,14 +98,14 @@ function AdminOrdersPage() {
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
         : null;
-      alert(detail ?? "입금 확인에 실패했습니다.");
+      await dialog.alert(detail ?? "입금 확인에 실패했습니다.");
     } finally {
       setConfirmingId(null);
     }
   }
 
   async function handleCancel(row: AdminOrderRow) {
-    if (!confirm(`주문 #${row.id} (${row.username})을(를) 취소하시겠습니까?`)) return;
+    if (!(await dialog.confirm(`주문 #${row.id} (${row.username})을(를) 취소하시겠습니까?`))) return;
     setMutatingId(row.id);
     try {
       await cancelAdminOrder(row.id);
@@ -112,7 +114,7 @@ function AdminOrdersPage() {
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
         : null;
-      alert(detail ?? "취소에 실패했습니다.");
+      await dialog.alert(detail ?? "취소에 실패했습니다.");
     } finally {
       setMutatingId(null);
     }
@@ -127,9 +129,9 @@ function AdminOrdersPage() {
         ? "무통장입금 건은 자동으로 환불되지 않으니, 계좌로 직접 환불해 주세요."
         : "토스 결제가 자동으로 취소되어 고객에게 실제 환불됩니다.";
     if (
-      !confirm(
+      !(await dialog.confirm(
         `주문 #${row.id} (${row.username})을(를) 환불 처리하시겠습니까?\n${paymentNote}\n수강 등록이 취소되고, 이미 발급된 서류가 있다면 함께 무효화됩니다.`,
-      )
+      ))
     )
       return;
     setMutatingId(row.id);
@@ -140,7 +142,7 @@ function AdminOrdersPage() {
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
         : null;
-      alert(detail ?? "환불 처리에 실패했습니다.");
+      await dialog.alert(detail ?? "환불 처리에 실패했습니다.");
     } finally {
       setMutatingId(null);
     }

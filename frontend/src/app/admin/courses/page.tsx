@@ -32,6 +32,7 @@ import type {
   AdminQuizQuestion,
   AdminQuizRead,
 } from "@/types/admin";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 type Modal =
   | { kind: "new-course" }
@@ -42,6 +43,7 @@ type Modal =
   | null;
 
 export default function AdminCoursesPage() {
+  const dialog = useDialog();
   const [courses, setCourses] = useState<CourseListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<Modal>(null);
@@ -234,12 +236,12 @@ export default function AdminCoursesPage() {
                             setModal({ kind: "edit-lecture", course: c, lecture: lec })
                           }
                           onDelete={async (lec) => {
-                            if (!confirm(`"${lec.title}" 영상을 삭제하시겠습니까?`)) return;
+                            if (!(await dialog.confirm(`"${lec.title}" 영상을 삭제하시겠습니까?`))) return;
                             try {
                               await deleteAdminLecture(lec.id);
                               await loadLectures(c.id);
                             } catch (err) {
-                              alert(
+                              await dialog.alert(
                                 isAxiosError(err)
                                   ? (err.response?.data as { detail?: string } | undefined)
                                       ?.detail ?? "삭제 실패"
@@ -257,7 +259,7 @@ export default function AdminCoursesPage() {
                             await loadLectures(c.id);
                             const failed = results.filter((r) => r.status === "rejected").length;
                             if (failed > 0) {
-                              alert(
+                              await dialog.alert(
                                 `${failed}개 차시의 순서 변경에 실패했습니다. 목록을 새로고침했으니 순서를 확인 후 다시 시도해 주세요.`,
                               );
                             }
@@ -646,8 +648,12 @@ const inputCls =
   "w-full rounded border border-zinc-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20";
 
 // 폼에 변경사항이 있으면 닫기 전 확인
-function confirmClose(isDirty: boolean, onClose: () => void) {
-  if (isDirty && !confirm("변경사항이 저장되지 않았습니다. 그래도 닫으시겠습니까?")) {
+async function confirmClose(
+  isDirty: boolean,
+  onClose: () => void,
+  confirmFn: (message: string) => Promise<boolean>,
+) {
+  if (isDirty && !(await confirmFn("변경사항이 저장되지 않았습니다. 그래도 닫으시겠습니까?"))) {
     return;
   }
   onClose();
@@ -736,6 +742,7 @@ function NewCourseModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const dialog = useDialog();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<CourseCategory>(COURSE_CATEGORIES[0]);
   const [price, setPrice] = useState(110_000);
@@ -747,7 +754,7 @@ function NewCourseModal({
   const [err, setErr] = useState<string | null>(null);
 
   const isDirty = Boolean(title.trim() || description.trim());
-  const safeClose = () => confirmClose(isDirty, onClose);
+  const safeClose = () => confirmClose(isDirty, onClose, dialog.confirm);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -872,6 +879,7 @@ function EditCourseModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const dialog = useDialog();
   const [title, setTitle] = useState(course.title);
   const [category, setCategory] = useState<CourseCategory>(course.category);
   const [price, setPrice] = useState<number>(course.price ?? 0);
@@ -916,7 +924,7 @@ function EditCourseModal({
     isActive !== course.is_active ||
     thumbnailUrl !== (course.thumbnail_url ?? "") ||
     description !== originalDescription;
-  const safeClose = () => confirmClose(isDirty, onClose);
+  const safeClose = () => confirmClose(isDirty, onClose, dialog.confirm);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -1069,6 +1077,7 @@ function NewLectureModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const dialog = useDialog();
   const DEFAULT_URL = "http://localhost:8000/static/videos/";
   const [title, setTitle] = useState("");
   const [videoUrl, setVideoUrl] = useState(DEFAULT_URL);
@@ -1076,7 +1085,7 @@ function NewLectureModal({
   const [err, setErr] = useState<string | null>(null);
 
   const isDirty = Boolean(title.trim()) || videoUrl !== DEFAULT_URL;
-  const safeClose = () => confirmClose(isDirty, onClose);
+  const safeClose = () => confirmClose(isDirty, onClose, dialog.confirm);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -1140,6 +1149,7 @@ function EditLectureModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const dialog = useDialog();
   const [title, setTitle] = useState(lecture.title);
   const [orderIndex, setOrderIndex] = useState(lecture.order_index);
   const [videoUrl, setVideoUrl] = useState(lecture.video_url ?? "");
@@ -1152,7 +1162,7 @@ function EditLectureModal({
     orderIndex !== lecture.order_index ||
     videoUrl !== (lecture.video_url ?? "") ||
     isActive !== lecture.is_active;
-  const safeClose = () => confirmClose(isDirty, onClose);
+  const safeClose = () => confirmClose(isDirty, onClose, dialog.confirm);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -1254,6 +1264,7 @@ function QuizModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const dialog = useDialog();
   const isEdit = !!existing?.exists;
   const initialQuestions = useMemo<QuestionDraft[]>(() => {
     if (existing?.exists && existing.questions.length > 0) {
@@ -1272,7 +1283,7 @@ function QuizModal({
   const [err, setErr] = useState<string | null>(null);
 
   const isDirty = JSON.stringify(questions) !== JSON.stringify(initialQuestions);
-  const safeClose = () => confirmClose(isDirty, onClose);
+  const safeClose = () => confirmClose(isDirty, onClose, dialog.confirm);
 
   function addQuestion() {
     setQuestions((prev) => [...prev, blankQuestion()]);
