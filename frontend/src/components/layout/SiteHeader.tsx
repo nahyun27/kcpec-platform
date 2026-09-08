@@ -47,8 +47,10 @@ export default function SiteHeader() {
   return (
     <header className="sticky top-0 md:top-4 z-50 transition-all px-0 md:px-6 pointer-events-none">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between bg-white/80 backdrop-blur-lg border-b border-zinc-200 md:border md:border-zinc-200/50 md:rounded-full md:shadow-lg md:shadow-slate-900/5 px-4 md:px-6 pointer-events-auto">
-        {/* 좌: 로고 */}
-        <div className="flex flex-1 items-center justify-start">
+        {/* 좌: 로고 — md~lg 구간(심볼 로고)에서는 flex-1로 우측 영역과 폭을
+            강제로 맞추면 안 됨. 그러면 "마이페이지"/"로그아웃"이 좁아진 우측
+            칸에 눌려 줄바꿈되므로, 이 구간만 로고 내용만큼만 차지하게 줄임. */}
+        <div className="flex flex-1 items-center justify-start md:flex-none md:shrink-0 lg:flex-1">
           {/* 모바일과 넓은 화면에서는 가로 로고, 애매한 중간 너비(md~lg)에서는 심볼 로고 */}
           <Logo className="md:hidden lg:flex" />
           <Logo kind="mark" className="hidden md:flex lg:hidden" />
