@@ -64,11 +64,16 @@ export default function CheckoutPage() {
   // 토스 결제창에서 실패/취소 시 failUrl(이 페이지 자체)로 code/message 를
   // 쿼리스트링에 실어 되돌아온다. 예전엔 이걸 그냥 무시해서, 사용자가
   // 왜 결제가 안 됐는지 전혀 모른 채 조용히 결제 폼으로만 돌아왔었다.
+  // 다만 인증창을 X로 닫은 "단순 취소"(PAY_PROCESS_CANCELED)는 결제
+  // 실패가 아니라 사용자의 정상적인 선택이므로, 이 경우엔 경고성 배너
+  // 없이 그냥 조용히 결제 폼으로 돌려보낸다.
   useEffect(() => {
     const failMessage = searchParams.get("message");
     const failCode = searchParams.get("code");
     if (!failMessage && !failCode) return;
-    setPaymentFailMessage(failMessage ?? "결제가 취소되었거나 실패했습니다.");
+    if (failCode !== "PAY_PROCESS_CANCELED") {
+      setPaymentFailMessage(failMessage ?? "결제가 취소되었거나 실패했습니다.");
+    }
     const params = new URLSearchParams(searchParams.toString());
     params.delete("code");
     params.delete("message");
