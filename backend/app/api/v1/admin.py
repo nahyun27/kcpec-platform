@@ -751,27 +751,42 @@ async def upload_final(
     survey.status = CounselingStatus.COMPLETED
     survey.completed_at = _now()
 
-    # IssuedDocument 레코드 생성 (counseling 타입 — 별도 issue_number 발급)
-    issue_number = (
-        f"KCPEC-CNSL-{datetime.now(timezone.utc).strftime('%Y%m%d')}-"
-        f"{secrets.token_hex(3).upper()}"
-    )
     order = db.get(Order, survey.order_id)
     user = db.get(User, survey.user_id) if survey.user_id else None
     if order is not None and user is not None:
-        doc = IssuedDocument(
-            order_id=order.id,
-            user_id=user.id,
-            document_type=IssuedDocumentType.COUNSELING,
-            recipient_name=user.username,
-            recipient_birth=user.birth_date or datetime(2000, 1, 1).date(),
-            pdf_url=pdf_url,
-            issue_number=issue_number,
-            access_token=token,
-            status=IssuedDocumentStatus.READY,
-            issued_at=_now(),
+        # 재업로드(최종본 교체)인 경우 이미 발급된(취소되지 않은) 문서 레코드가
+        # 있을 수 있다 — 새로 INSERT 하면 survey.access_token 을 그대로 재사용하는
+        # access_token 컬럼이 unique 제약에 걸려 500 에러가 났다(2026-09 발견).
+        # 파일만 교체된 것이므로 기존 레코드의 pdf_url 만 갱신한다.
+        existing_doc = db.scalar(
+            select(IssuedDocument).where(
+                IssuedDocument.order_id == order.id,
+                IssuedDocument.document_type == IssuedDocumentType.COUNSELING,
+                IssuedDocument.status != IssuedDocumentStatus.REVOKED,
+            )
         )
-        db.add(doc)
+        if existing_doc is not None:
+            existing_doc.pdf_url = pdf_url
+        else:
+            issue_number = (
+                f"KCPEC-CNSL-{datetime.now(timezone.utc).strftime('%Y%m%d')}-"
+                f"{secrets.token_hex(3).upper()}"
+            )
+            doc = IssuedDocument(
+                order_id=order.id,
+                user_id=user.id,
+                document_type=IssuedDocumentType.COUNSELING,
+                recipient_name=user.username,
+                recipient_birth=user.birth_date or datetime(2000, 1, 1).date(),
+                pdf_url=pdf_url,
+                issue_number=issue_number,
+                # survey.access_token(=파일명 token)과는 독립된 값이어야 재업로드 시
+                # unique 제약에 걸리지 않는다.
+                access_token=secrets.token_urlsafe(24),
+                status=IssuedDocumentStatus.READY,
+                issued_at=_now(),
+            )
+            db.add(doc)
 
     db.commit()
     db.refresh(survey)
