@@ -25,7 +25,11 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.document_generator import fill_counseling_template
 from app.core.email import send_final_to_user
-from app.core.gemini_client import generate_counseling_draft, is_dummy_draft
+from app.core.gemini_client import (
+    generate_counseling_draft,
+    is_dummy_draft,
+    is_transient_overload_draft,
+)
 from app.core.health import run_all_checks
 from app.core.pdf import PDF_DIR, convert_office_to_pdf
 from app.models.community import Notice, Post
@@ -886,6 +890,10 @@ class RegenerateDraftResponse(BaseModel):
     # 섞여 있어도 관리자가 훑어보다 놓칠 수 있어서, 프론트가 눈에 띄는 경고
     # 배너를 띄울 수 있도록 별도 플래그로 노출한다.
     is_dummy: bool
+    # 우리 쪽 문제가 아니라 구글 Gemini 서버 자체의 일시적 과부하(503)로
+    # 실패한 경우 — 프론트가 "잠시 후 다시 시도해주세요" 안내로 다르게
+    # 보여줄 수 있도록 별도 플래그로 노출.
+    is_transient_overload: bool = False
 
 
 @router.post(
@@ -934,7 +942,10 @@ def regenerate_draft(
     db.commit()
 
     return RegenerateDraftResponse(
-        draft_text=draft, draft_url=draft_url, is_dummy=is_dummy_draft(draft)
+        draft_text=draft,
+        draft_url=draft_url,
+        is_dummy=is_dummy_draft(draft),
+        is_transient_overload=is_transient_overload_draft(draft),
     )
 
 

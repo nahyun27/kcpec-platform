@@ -584,6 +584,7 @@ export type RegenerateDraftResponse = {
   draft_text: string;
   draft_url: string;
   is_dummy: boolean;
+  is_transient_overload: boolean;
 };
 
 export async function regenerateCounselingDraft(

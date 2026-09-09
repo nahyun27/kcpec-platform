@@ -141,9 +141,31 @@ def _format_user_prompt(
 # 실제로 더미가 나갔는지를 정확히 알 수 있다.
 DUMMY_DRAFT_MARKER = "[시스템 점검용 더미 텍스트]"
 
+# 구글 서버 자체의 일시적 과부하(503 UNAVAILABLE 등)로 실패한 경우를 구분하는
+# 마커 — 이때는 우리 쪽 설정/코드 문제가 아니라 잠시 후 재시도하면 되는
+# 상황이므로, 관리자에게 "뭔가 고장났다"가 아니라 "다시 시도해보라"고
+# 알려줄 수 있게 별도로 표시한다.
+TRANSIENT_OVERLOAD_MARKER = "[일시적 서버 과부하]"
+
 
 def is_dummy_draft(draft_text: str) -> bool:
     return DUMMY_DRAFT_MARKER in draft_text
+
+
+def is_transient_overload_draft(draft_text: str) -> bool:
+    return TRANSIENT_OVERLOAD_MARKER in draft_text
+
+
+def _is_transient_overload(exc: Exception) -> bool:
+    # google.genai.errors.APIError 는 .code(int)/.status(str) 를 갖는다
+    # (예: code=503, status="UNAVAILABLE"). 그 외 라이브러리가 바뀌어도
+    # 최소한 메시지 문구로는 판별되게 문자열 검사도 함께 둔다.
+    code = getattr(exc, "code", None)
+    status_field = getattr(exc, "status", None)
+    if code == 503 or status_field == "UNAVAILABLE":
+        return True
+    text = str(exc).lower()
+    return "unavailable" in text or "high demand" in text or "overloaded" in text
 
 
 def generate_counseling_draft(
@@ -169,24 +191,39 @@ def generate_counseling_draft(
         )
         text = (response.text or "").strip()
         return text or _dummy_draft(survey_responses, course_title)
-    except Exception:
+    except Exception as e:
         # 키가 유효하지 않거나(발급/설정 오류), 쿼터 초과, 네트워크 오류 등 —
         # 원인이 무엇이든 호출자는 반드시 초안 텍스트를 받아야 흐름이
         # 끊기지 않는다(설문 자동 초안 생성 실패 시 아무 신호 없이 조용히
         # 멈추는 사고를 방지). 실제 원인은 로그로 남기고, 눈에 띄는 더미
         # 텍스트로 폴백해 관리자가 반드시 재검토하게 한다.
         logger.exception("Gemini API 호출 실패 — 더미 초안으로 폴백")
-        return _dummy_draft(survey_responses, course_title)
+        return _dummy_draft(
+            survey_responses, course_title, transient=_is_transient_overload(e)
+        )
 
 
-def _dummy_draft(survey_responses: dict, course_title: str) -> str:
+def _dummy_draft(
+    survey_responses: dict, course_title: str, transient: bool = False
+) -> str:
     """AI 초안 생성이 불가능하거나 실패했을 때 대신 반환하는 더미 초안.
     document_generator 가 기대하는 [상담배경]/[상담내용] 섹션 포맷 유지.
     """
+    if transient:
+        cause_line = (
+            f"1. 본 초안은 {DUMMY_DRAFT_MARKER}으로, {TRANSIENT_OVERLOAD_MARKER}"
+            " Google Gemini 서버가 일시적으로 과부하 상태라 자동 생성에 실패하여"
+            " 대신 표시됨 — 저희 쪽 문제가 아니니 잠시 후 '다시 생성'을 눌러주세요."
+        )
+    else:
+        cause_line = (
+            f"1. 본 초안은 {DUMMY_DRAFT_MARKER}으로, AI 자동 초안 생성이"
+            " 불가능하거나 실패하여 대신 표시됨(관리자 확인 필요)."
+        )
     return dedent(
         f"""\
         [상담배경]
-        1. 본 초안은 {DUMMY_DRAFT_MARKER}으로, AI 자동 초안 생성이 불가능하거나 실패하여 대신 표시됨(관리자 확인 필요).
+        {cause_line}
         2. 내담자는 '{course_title}' 교육 과정을 이수하고 본 상담에 참여함.
         3. 본 상담은 내담자의 심리상태 평가 및 재범방지 계획 수립을 목적으로 진행됨.
 
@@ -200,4 +237,10 @@ def _dummy_draft(survey_responses: dict, course_title: str) -> str:
     )
 
 
-__all__ = ["generate_counseling_draft", "is_dummy_draft", "DUMMY_DRAFT_MARKER"]
+__all__ = [
+    "generate_counseling_draft",
+    "is_dummy_draft",
+    "is_transient_overload_draft",
+    "DUMMY_DRAFT_MARKER",
+    "TRANSIENT_OVERLOAD_MARKER",
+]

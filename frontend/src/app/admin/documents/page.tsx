@@ -148,7 +148,7 @@ export default function AdminSurveysPage() {
                       >
                         초안 보기
                       </button>
-                      {r.status === "completed" && r.final_pdf_url ? (
+                      {r.final_pdf_url ? (
                         <a
                           href={absUrl(r.final_pdf_url)}
                           target="_blank"
@@ -157,31 +157,32 @@ export default function AdminSurveysPage() {
                         >
                           최종본 PDF
                         </a>
-                      ) : (
-                        <>
-                          <input
-                            ref={(el) => {
-                              fileInputs.current[r.id] = el;
-                            }}
-                            type="file"
-                            accept="application/pdf"
-                            className="hidden"
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f) void handleUpload(r.id, f);
-                              e.target.value = "";
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => fileInputs.current[r.id]?.click()}
-                            disabled={uploadingId === r.id}
-                            className="rounded-md bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
-                          >
-                            {uploadingId === r.id ? "업로드 중..." : "최종본 업로드"}
-                          </button>
-                        </>
-                      )}
+                      ) : null}
+                      <input
+                        ref={(el) => {
+                          fileInputs.current[r.id] = el;
+                        }}
+                        type="file"
+                        accept="application/pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) void handleUpload(r.id, f);
+                          e.target.value = "";
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputs.current[r.id]?.click()}
+                        disabled={uploadingId === r.id}
+                        className="rounded-md bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
+                      >
+                        {uploadingId === r.id
+                          ? "업로드 중..."
+                          : r.final_pdf_url
+                            ? "다시 업로드"
+                            : "최종본 업로드"}
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -416,7 +417,7 @@ function SurveyDetailModal({
               >
                 {detail.ai_draft_url ? "Claude 초안 보기" : "직접 작성"}
               </button>
-              {detail.status === "completed" && detail.final_pdf_url ? (
+              {detail.final_pdf_url ? (
                 <a
                   href={absUrl(detail.final_pdf_url)}
                   target="_blank"
@@ -427,28 +428,26 @@ function SurveyDetailModal({
                 </a>
               ) : null}
             </div>
-            {detail.status !== "completed" ? (
-              <>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="application/pdf"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void onUpload(f);
-                    e.target.value = "";
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  className="rounded bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)]"
-                >
-                  최종본 업로드
-                </button>
-              </>
-            ) : null}
+            <>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void onUpload(f);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="rounded bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)]"
+              >
+                {detail.final_pdf_url ? "다시 업로드" : "최종본 업로드"}
+              </button>
+            </>
           </footer>
         ) : null}
       </div>
@@ -487,7 +486,9 @@ function DraftViewerModal({
     const url = absUrl(path);
     setLoading(true);
     setError(null);
-    fetch(url)
+    // 재생성해도 파일 URL(토큰)이 그대로라 브라우저가 이전 응답을 캐시해서
+    // 보여줄 수 있다 — 항상 서버에서 새로 받아오도록 강제.
+    fetch(url, { cache: "no-store" })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.text();
@@ -623,9 +624,17 @@ function DraftViewerModal({
               {/* AI 자동 생성이 실패해(키 미설정/무효/API 오류 등) 더미 텍스트가
                   나온 경우 — 더미임을 알리는 문구가 본문 중간에 섞여 있어서
                   훑어보다 놓치기 쉬우므로 눈에 띄는 배너로 한 번 더 알림.
-                  backend/app/core/gemini_client.py 의 DUMMY_DRAFT_MARKER 와
-                  반드시 동일한 문자열을 사용할 것. */}
-              {text.includes("[시스템 점검용 더미 텍스트]") ? (
+                  backend/app/core/gemini_client.py 의 DUMMY_DRAFT_MARKER /
+                  TRANSIENT_OVERLOAD_MARKER 와 반드시 동일한 문자열을 사용할 것.
+                  구글 서버 자체의 일시적 과부하(503)로 실패한 경우엔 "고장"이
+                  아니라 "잠시 후 재시도"임을 명확히 구분해서 안내한다. */}
+              {text.includes("[일시적 서버 과부하]") ? (
+                <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+                  ⏳ Google Gemini 서버가 일시적으로 과부하 상태라 자동 생성에
+                  실패했습니다(저희 쪽 문제 아님). 잠시 후 아래 &quot;다시
+                  생성&quot;을 눌러주세요.
+                </div>
+              ) : text.includes("[시스템 점검용 더미 텍스트]") ? (
                 <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
                   ⚠️ 이 초안은 AI 자동 생성에 실패하여 대신 표시된 더미
                   텍스트입니다. 실제 상담 내용이 아니니 그대로 발송/다운로드하지
