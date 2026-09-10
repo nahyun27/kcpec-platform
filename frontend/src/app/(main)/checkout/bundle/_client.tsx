@@ -262,8 +262,9 @@ export default function CheckoutBundleClient() {
             icon={<Award className="h-3.5 w-3.5" />}
             description={
               <>
-                선택하신 <span className="font-semibold text-slate-700">강의 {courses.length}건</span>을
-                함께 결제합니다. 결제 완료 즉시 전부 수강을 시작할 수 있습니다.
+                선택하신 <span className="font-semibold text-slate-700">과정 {courses.length}건</span>을
+                함께 결제합니다. 결제 완료 즉시 마이페이지에서 전부 수강을
+                시작할 수 있습니다.
               </>
             }
           />
@@ -293,7 +294,7 @@ export default function CheckoutBundleClient() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">
                   1
                 </div>
-                <h2 className="font-sans text-xl font-bold text-slate-900">선택한 강의</h2>
+                <h2 className="font-sans text-xl font-bold text-slate-900">선택한 과정</h2>
               </div>
               <ul className="space-y-3">
                 {courses.map((c) => (

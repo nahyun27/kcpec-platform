@@ -80,7 +80,7 @@ function Reveal({
 const STEPS = [
   { n: "01", title: "강의 선택", desc: "내 사건과 관련된 교육 과정을 선택합니다." },
   { n: "02", title: "수강 신청·결제", desc: "강의를 수강 신청하고 결제합니다." },
-  { n: "03", title: "강의 수강", desc: "진도와 퀴즈로 수료 처리." },
+  { n: "03", title: "강의 수강", desc: "완강 및 퀴즈 통과 시 수료." },
   { n: "04", title: "자료 수령", desc: "수료증을 PDF 로 즉시 수령." },
 ];
 
@@ -118,20 +118,21 @@ function Hero() {
       <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col items-center px-4 md:px-6 text-center">
         <div className="mb-6 mx-auto flex w-fit max-w-[92%] items-center gap-2 rounded-2xl sm:rounded-full bg-gradient-to-r from-amber-400 to-orange-400 px-4 py-2 sm:py-1.5 text-[12px] sm:text-sm font-extrabold text-[#1C3461] shadow-lg shadow-orange-500/20 text-center animate-in fade-in slide-in-from-top-4 duration-700 ease-out">
           <PartyPopper className="h-4 w-4 shrink-0" />
-          <span>리뉴얼 기념 할인 이벤트 · 모든 상품 50% 할인 + 10만원 이상 구매 시 10,000원 추가 할인</span>
+          <span>리뉴얼 기념 할인 이벤트 · 40~60% 할인 중! 국내 최저가! + 10만원 이상 구매 시 10,000원 추가 할인</span>
         </div>
         <div className="mb-8 inline-flex items-center rounded-full border border-white bg-white/5 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-md animate-in fade-in slide-in-from-top-4 duration-700 delay-150 ease-out">
-          <span>법원 및 수사기관 제출용 신뢰할 수 있는 교육</span>
+          <span>신뢰할 수 있는 양형자료</span>
         </div>
         <h1 className="mb-8 font-sans text-4xl font-extrabold leading-[1.15] tracking-tight sm:text-6xl md:text-7xl animate-in fade-in slide-in-from-top-4 duration-700 delay-300 ease-out">
-          재판 준비, <br className="md:hidden" />
+          수사대응 및<br className="md:hidden" /> 재판 준비,{" "}
           <span className="bg-gradient-to-r from-blue-200 via-white to-blue-100 bg-clip-text text-transparent">
             전문 교육으로 시작하세요
           </span>
         </h1>
         <p className="mb-12 max-w-2xl text-[13px] leading-relaxed text-slate-300 sm:text-lg md:text-xl animate-in fade-in slide-in-from-top-4 duration-700 delay-500 ease-out">
-          가장 확실한 양형 자료를 준비하세요. 법원이 인정하는 심리·준법 교육
-          수료증을 무료로 수강하고 즉시 발급받을 수 있습니다.
+          가장 확실한 양형 자료를 준비하세요. 공공기관에 제출 가능한
+          교육이수 수료증, 서약서, 심리상담의견서를 과정을 마친 즉시
+          발급받을 수 있습니다.
         </p>
 
         <div className="flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-700 ease-out">
@@ -140,7 +141,7 @@ function Hero() {
             className="group flex items-center justify-center gap-2 rounded-full bg-[#1C3461] px-8 py-4 text-lg font-semibold text-white ring-2 ring-white/40 shadow-xl shadow-black/20 transition-all hover:-translate-y-1 hover:bg-[var(--color-primary-hover)] hover:shadow-2xl"
           >
             <Sparkles className="h-5 w-5 shrink-0 text-white transition-transform group-hover:rotate-12" />
-            <span>내 사건에 맞는 강의 추천받기</span>
+            <span>내 사건에 맞는 교육과정 추천 받기</span>
             <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>
@@ -153,7 +154,7 @@ function Hero() {
 
 const TRUST_STATS = [
   { icon: Users, label: "누적 발급 건수", value: "15,000+" },
-  { icon: PlayCircle, label: "교육 종류", value: "25개 과정" },
+  { icon: PlayCircle, label: "국내 최다 교육과정 보유", value: "25개 과정" },
   { icon: FileText, label: "수료증 발급", value: "수강완료 즉시" },
   { icon: ShieldCheck, label: "전문가 감수", value: "100% 검증" },
 ];
@@ -175,7 +176,7 @@ function TrustSection() {
               <dd className="font-sans text-xl font-extrabold text-[var(--color-primary)] md:text-3xl whitespace-nowrap">
                 {s.value}
               </dd>
-              <dt className="mt-1 text-xs font-medium text-slate-500 md:text-sm whitespace-nowrap">
+              <dt className="mt-1 text-xs font-medium text-slate-500 md:text-sm">
                 {s.label}
               </dt>
             </div>
@@ -198,6 +199,16 @@ const REVIEW_AVATAR_TONES = [
   "from-[var(--color-accent)] to-blue-500",
   "from-blue-600 to-indigo-600",
 ];
+
+// 후기 작성자명 익명화 — author_name 은 작성 시 자유 입력값이라 실명이
+// 그대로 노출될 수 있어(민감한 범죄예방 교육 서비스 특성상), 표시 시점에
+// 가운데 글자를 마스킹한다. "김민석" -> "김*석", "이해" -> "이*".
+function maskName(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed.length <= 1) return trimmed;
+  if (trimmed.length === 2) return `${trimmed[0]}*`;
+  return `${trimmed[0]}${"*".repeat(trimmed.length - 2)}${trimmed[trimmed.length - 1]}`;
+}
 
 function ReviewsSection() {
   const [reviews, setReviews] = useState<PostListItem[] | null>(null);
@@ -293,7 +304,7 @@ function ReviewsSection() {
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-slate-800">
-                      {r.author_name}
+                      {maskName(r.author_name)}
                     </p>
                     <p className="text-xs text-slate-400">수강생</p>
                   </div>
@@ -329,7 +340,7 @@ function StepsSection() {
             쉽고 빠른 이용 절차
           </h2>
           <p className="mt-2 text-sm text-slate-500 md:text-base">
-            복잡한 과정 없이 꼭 필요한 서류만 빠르게 준비하세요.
+            복잡한 과정 없이 필요한 서류를 즉시 준비하세요
           </p>
         </Reveal>
 
@@ -364,7 +375,7 @@ function StepsSection() {
                     <h3 className="font-sans text-base font-bold text-slate-800 md:text-lg">
                       {s.title}
                     </h3>
-                    <p className="mt-1 text-xs sm:text-sm leading-relaxed text-slate-500">
+                    <p className="mt-1 text-xs sm:text-sm leading-relaxed text-slate-500 break-keep">
                       {s.desc}
                     </p>
                   </div>
@@ -427,7 +438,7 @@ function SamplesSection() {
           ))}
         </div>
         <p className="mt-6 text-xs text-slate-500">
-          ※ 위 이미지는 샘플로, 실제 발급 양식과 다를 수 있습니다. (클릭 시 확대)
+          ※ 위 이미지는 샘플로, 교육 과정 별로 일부 상이합니다. (클릭 시 확대)
         </p>
       </div>
 
@@ -556,8 +567,9 @@ function Footer() {
         <div className="space-y-6 md:col-span-5 lg:col-span-4">
           <Logo variant="white" />
           <p className="text-sm leading-relaxed text-slate-400">
-            법원이 인정하는 재범방지 교육 및 심리상담 전문 기관. 
-            가장 확실하고 신뢰할 수 있는 양형 자료를 제공합니다.
+            국내 최다 범죄예방 교육과정 보유, 범죄관련 심리상담 전문 기관.
+            공공기관(경찰, 검찰, 법원 등)에 제출 가능한 가장 확실하고
+            신뢰할 수 있는 양형 자료를 제공합니다.
           </p>
         </div>
         
@@ -602,7 +614,7 @@ function Footer() {
       <div className="border-t border-white/10 bg-black/20">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 md:px-6 py-6 sm:flex-row">
           <p className="text-sm text-slate-500">
-            ⓒ {new Date().getFullYear()} 한국범죄예방교육센터. All rights reserved.
+            ⓒ 2024 한국범죄예방교육센터. All rights reserved.
           </p>
           <div className="flex gap-4 text-sm text-slate-500">
             <Link href="/terms" className="hover:text-white transition-colors">이용약관</Link>

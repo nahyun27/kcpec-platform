@@ -90,7 +90,7 @@ const COURSES: Record<CourseId, CourseInfo> = {
   org_school_ethics: { id: "org_school_ethics", name: "단체·학교 내 윤리 교육", price: 33_000 },
 
   counseling: { id: "counseling", name: "심리상담 의견서(서면)", price: 77_000 },
-  counseling_phone: { id: "counseling_phone", name: "심화 상담(전화)", price: 440_000 },
+  counseling_phone: { id: "counseling_phone", name: "심화 상담(전화)", price: 330_000 },
 };
 
 // ---------- Page 1: 메인 강의 --------------------------------------------------
@@ -98,9 +98,9 @@ const COURSES: Record<CourseId, CourseInfo> = {
 
 const MAIN_CARDS: { id: CourseId; description: string }[] = [
   { id: "drunk", description: "음주·약물 운전 적발" },
-  { id: "sex", description: "성추행, 성폭력, 불법촬영 등" },
+  { id: "sex", description: "성추행, 성폭력" },
   { id: "prostitution", description: "성매매 알선·이용" },
-  { id: "digital_sex", description: "불법촬영물 유포, 몰카, 딥페이크 등" },
+  { id: "digital_sex", description: "불법촬영 및 유포, 몰카, 딥페이크 등" },
   { id: "drug", description: "투약·소지·유통" },
   { id: "gambling", description: "도박·도박개장·사설사이트" },
   { id: "phishing", description: "보이스피싱, 대포통장 등" },
@@ -109,7 +109,7 @@ const MAIN_CARDS: { id: CourseId; description: string }[] = [
   { id: "school", description: "교내 폭력·따돌림" },
   { id: "violence", description: "폭행, 상해 등 일반 폭력" },
   { id: "youth", description: "소년 사건, 청소년 재범방지" },
-  { id: "driving_habit", description: "난폭운전, 도로교통법 위반" },
+  { id: "driving_habit", description: "무면허, 난폭운전, 도로교통법 위반 등" },
   { id: "defamation", description: "온·오프라인 명예훼손·모욕" },
 ];
 
@@ -372,13 +372,17 @@ export default function SentencingPage() {
     // 심리상담을 선택했으면 부가 자료(자기성찰 리포트 등)도 문서 목록에 함께
     // 넣어 — 해제(취소) 시 다른 항목들처럼 취소선으로 표시되도록 한다
     // (이전엔 카운트에서만 늘었다 줄었다 하고, 목록에선 통째로 사라져 버렸음).
+    // count: 발급 서류 개수 — 일반 강의는 수료증+서약서 2건, 심리상담/부가
+    // 자료는 1건. 예전엔 "수료증 + 서약서"를 한 줄로 합쳐 보여주면서 개수도
+    // 1건으로만 세서, 실제 발급 서류 수(서약서 포함)보다 적게 표시되고 있었다.
     const docs = [
       ...courses.map((c) => ({
         name: isCounseling(c.id) ? c.name : `${c.name} 수료증 + 서약서`,
         active: !disabledCourses.has(c.id),
+        count: isCounseling(c.id) ? 1 : 2,
       })),
       ...(counselingCourse
-        ? COUNSELING_BONUS_ITEMS.map((item) => ({ name: item, active: counselingActive }))
+        ? COUNSELING_BONUS_ITEMS.map((item) => ({ name: item, active: counselingActive, count: 1 }))
         : []),
     ];
     const subtotal = activeCourses.reduce((sum, c) => sum + c.price, 0);
@@ -387,6 +391,7 @@ export default function SentencingPage() {
     return {
       courses,
       documents: docs,
+      documentCount: docs.filter((d) => d.active).reduce((sum, d) => sum + d.count, 0),
       subtotal,
       discount,
       total,
@@ -583,7 +588,7 @@ export default function SentencingPage() {
               발급 가능 서류
               {recommendation.documents.length > 0 ? (
                 <span className="font-mono text-slate-500">
-                  ({recommendation.documents.filter((d) => d.active).length}개)
+                  ({recommendation.documentCount}개)
                 </span>
               ) : null}
             </div>
@@ -900,7 +905,7 @@ function Step2({
             표시됩니다. 필요한 항목을 자유롭게 선택해 주세요.
           </>
         ) : (
-          "해당하는 사건에 맞는 추천 항목은 없지만, 필요하신 항목을 자유롭게 선택해 주세요."
+          "본인 사건의 구체적인 내용에 따라 필요하신 교육과정을 자유롭게 선택해 주세요."
         )}{" "}
         (복수 선택 가능, 선택하지 않아도 다음 단계로 진행 가능)
       </p>
@@ -974,7 +979,7 @@ const COUNSELING_TYPE_OPTIONS: {
   {
     type: "phone",
     label: "심화 상담 (전화)",
-    desc: "회당 20분 × 4회 · 440,000원",
+    desc: "회당 15분 × 3회 · 330,000원",
   },
 ];
 
@@ -996,12 +1001,17 @@ function Step3Counseling({
         마지막으로 한 가지만 확인할게요
       </h2>
       <p className="mt-1 text-sm text-slate-500">
-        전문가 심리상담 의견서는 사건 유형과 무관하게 신청하실 수 있습니다.
+        전문가 심리상담 의견서는 사건 유형과 무관하게 누구나 신청하실 수 있습니다.
       </p>
 
       <div className="mt-5 rounded-xl border border-zinc-100 bg-slate-50/40 p-3.5">
         <p className="text-sm font-bold text-slate-800">
           {COUNSELING_QUESTION}
+        </p>
+        <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-[var(--color-accent)]">
+          <Sparkles className="h-3.5 w-3.5" />
+          심리상담 신청 시 4가지 서류 무료 지급 (자기성찰 리포트, 교육이수
+          소감문 등)
         </p>
         <div className="mt-2.5 flex gap-2">
           {(["Y", "N"] as const).map((opt) => (
@@ -1065,8 +1075,8 @@ function Step3Counseling({
           {explainerOpen ? (
             <div className="mt-2 rounded-lg bg-blue-50 p-4 text-sm leading-relaxed text-slate-700">
               <p>
-                심리상담 의견서는 전문 심리상담사가 작성하는 법원 제출용
-                공식 문서입니다.
+                심리상담 의견서는 전문 자격 심리상담사가 질의 내용을
+                확인하고 작성하는 문서입니다.
               </p>
               <ul className="mt-2 space-y-1.5 text-sm">
                 <li>
@@ -1077,7 +1087,7 @@ function Step3Counseling({
                   • 판사에게 피고인의 변화 의지를 전달하는 핵심 양형자료
                 </li>
                 <li>• 전문 심리상담사의 작성 및 검수를 거쳐 발급</li>
-                <li>• 발급까지 1~2 영업일 소요</li>
+                <li>• 상담 완료 다음 날까지 발급(주말 가능)</li>
               </ul>
             </div>
           ) : null}
@@ -1092,6 +1102,7 @@ function Step3Counseling({
 type Recommendation = {
   courses: CourseInfo[];
   documents: { name: string; active: boolean }[];
+  documentCount: number;
   subtotal: number;
   discount: number;
   total: number;
@@ -1161,7 +1172,7 @@ function Step4Result({
           </p>
         ) : null}
         <p className="mt-4 text-sm text-slate-500">
-          * 수료증은 결제 후 강의를 수료(진도+퀴즈 통과)하면 발급됩니다.
+          * 수료증은 결제 후 강의를 수료(완강+퀴즈 통과)하면 발급됩니다.
         </p>
       </div>
 
@@ -1174,7 +1185,7 @@ function Step4Result({
             발급 가능 서류
             {recommendation.documents.length > 0 ? (
               <span className="ml-1.5 font-mono text-sm font-medium text-slate-400">
-                ({recommendation.documents.filter((d) => d.active).length}개)
+                ({recommendation.documentCount}개)
               </span>
             ) : null}
           </h2>
@@ -1296,8 +1307,44 @@ function CartSummary({
         )}
       </ul>
 
+      {/* 발급 가능 서류 — 모바일 하단 고정 패널과 동일하게, 마지막 단계까지
+          가지 않아도 처음부터 어떤 서류를 받게 되는지 보이게 한다. */}
+      <div className="mt-4 border-t border-zinc-100 pt-4">
+        <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-slate-500">
+          <FileText className="h-3.5 w-3.5 text-[#1C3461]" />
+          발급 가능 서류
+          {recommendation.documents.length > 0 ? (
+            <span className="font-mono text-slate-400">
+              ({recommendation.documentCount}개)
+            </span>
+          ) : null}
+        </div>
+        {recommendation.documents.length === 0 ? (
+          <p className="text-xs text-slate-400">
+            사건 유형을 선택하시면 발급 가능한 서류가 표시됩니다.
+          </p>
+        ) : (
+          <ul className="flex max-h-32 flex-col gap-1 overflow-y-auto pr-1">
+            {recommendation.documents.map((d) => (
+              <li
+                key={d.name}
+                className={`flex items-start gap-1.5 text-xs leading-snug ${
+                  d.active ? "text-slate-600" : "text-slate-400 line-through"
+                }`}
+              >
+                <Check
+                  className={`mt-0.5 h-3 w-3 shrink-0 ${
+                    d.active ? "text-[#1C3461]" : "text-slate-300"
+                  }`}
+                />
+                <span className="min-w-0 flex-1">{d.name}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       {/* 결제 직전 가장 먼저 눈에 들어와야 하는 정보라 카드로 강조.
-          발급 서류 안내는 아래로 내리고 톤을 낮춰 금액과 경쟁하지 않게 함.
           1~3단계 안내/할인 문구는 페이지 상단 배너로 옮겨서 여기선 4단계에서만 노출. */}
       {step === 4 ? (
         <>

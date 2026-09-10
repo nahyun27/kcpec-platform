@@ -45,7 +45,7 @@ export default function AuthLayout({
         </div>
 
         <div className="relative z-10 text-sm text-slate-400">
-          ⓒ {new Date().getFullYear()} 한국범죄예방교육센터. All rights reserved.
+          ⓒ 2024 한국범죄예방교육센터. All rights reserved.
         </div>
       </div>
 
