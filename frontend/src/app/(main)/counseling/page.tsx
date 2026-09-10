@@ -81,6 +81,7 @@ const COUNSELING_PRODUCTS: CounselingProduct[] = [
     ],
     process: [
       "신청 및 결제",
+      "서면질의 작성",
       "상담사와 일정 조율",
       "전화 상담 진행 (회당 15분 × 3회)",
       "심리상담 의견서 PDF 발급 (상담 종료 다음 날)",
