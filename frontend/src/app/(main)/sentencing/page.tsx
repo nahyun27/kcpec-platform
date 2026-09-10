@@ -225,7 +225,11 @@ export default function SentencingPage() {
   const [selectedAddon, setSelectedAddon] = useState<Set<CourseId>>(new Set());
   // Page 3
   const [counselingAnswer, setCounselingAnswer] = useState<"Y" | "N" | "">("");
-  const [counselingType, setCounselingType] = useState<"basic" | "phone">("basic");
+  // 서면/전화 복수 선택 가능 — 둘 다 선택하면 두 상담 모두 같은 묶음결제에
+  // 포함된다(2026-09, 예전엔 단일 선택만 가능했음).
+  const [counselingTypes, setCounselingTypes] = useState<Set<"basic" | "phone">>(
+    new Set(["basic"]),
+  );
   // Page 4 — 개별 해제 (추천에서 빠지진 않고 회색 처리)
   const [disabledCourses, setDisabledCourses] = useState<Set<CourseId>>(
     new Set(),
@@ -325,11 +329,19 @@ export default function SentencingPage() {
     }
   }
 
-  function selectCounselingType(type: "basic" | "phone") {
-    setCounselingType(type);
-    // 상담 종류를 바꾸면 이전 종류에 남아있던 Page4 개별 해제 기록이
-    // 새 종류로 잘못 이어붙는 걸 방지 (pruneDisabled 패턴과 동일한 이유).
-    pruneDisabled(type === "phone" ? "counseling" : "counseling_phone");
+  function toggleCounselingType(type: "basic" | "phone") {
+    setCounselingTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) {
+        next.delete(type);
+        // 선택 해제한 종류에 남아있던 Page4 개별 해제 기록 정리 (pruneDisabled
+        // 패턴과 동일한 이유 — 다른 종류로 잘못 이어붙는 걸 방지).
+        pruneDisabled(type === "phone" ? "counseling_phone" : "counseling");
+      } else {
+        next.add(type);
+      }
+      return next;
+    });
   }
 
   function toggleCourse(id: CourseId) {
@@ -354,10 +366,11 @@ export default function SentencingPage() {
     selectedMain.forEach((k) => s.add(k));
     selectedAddon.forEach((k) => s.add(k));
     if (counselingAnswer === "Y") {
-      s.add(counselingType === "phone" ? "counseling_phone" : "counseling");
+      if (counselingTypes.has("basic")) s.add("counseling");
+      if (counselingTypes.has("phone")) s.add("counseling_phone");
     }
     return s;
-  }, [selectedMain, selectedAddon, counselingAnswer, counselingType]);
+  }, [selectedMain, selectedAddon, counselingAnswer, counselingTypes]);
 
   // 추천 결과 계산 — 심리상담도 이제 강의와 함께 한 번의 묶음결제로 처리되므로
   // (백엔드 /orders/bundle 이 심리상담 상품도 sibling Order 로 받아준다) 전부
@@ -366,8 +379,9 @@ export default function SentencingPage() {
     const courses = Array.from(currentCourseIds).map((id) => COURSES[id]);
     const isCounseling = (id: CourseId) => id === "counseling" || id === "counseling_phone";
     const activeCourses = courses.filter((c) => !disabledCourses.has(c.id));
-    const counselingCourse = courses.find((c) => isCounseling(c.id));
-    const counselingActive = counselingCourse ? !disabledCourses.has(counselingCourse.id) : false;
+    // 서면/전화 복수 선택이 가능하므로 심리상담 항목이 0~2개일 수 있다.
+    const counselingCourses = courses.filter((c) => isCounseling(c.id));
+    const counselingActive = counselingCourses.some((c) => !disabledCourses.has(c.id));
     // 강의당 "수료증 + 서약서" 1세트 생성. 심리상담 의견서만 별도 표기.
     // 심리상담을 선택했으면 부가 자료(자기성찰 리포트 등)도 문서 목록에 함께
     // 넣어 — 해제(취소) 시 다른 항목들처럼 취소선으로 표시되도록 한다
@@ -381,7 +395,7 @@ export default function SentencingPage() {
         active: !disabledCourses.has(c.id),
         count: isCounseling(c.id) ? 1 : 2,
       })),
-      ...(counselingCourse
+      ...(counselingCourses.length > 0
         ? COUNSELING_BONUS_ITEMS.map((item) => ({ name: item, active: counselingActive, count: 1 }))
         : []),
     ];
@@ -527,8 +541,8 @@ export default function SentencingPage() {
               <Step3Counseling
                 answer={counselingAnswer}
                 onAnswer={answerCounseling}
-                counselingType={counselingType}
-                onSelectType={selectCounselingType}
+                counselingTypes={counselingTypes}
+                onToggleType={toggleCounselingType}
               />
             ) : null}
             {step === 4 ? (
@@ -986,13 +1000,13 @@ const COUNSELING_TYPE_OPTIONS: {
 function Step3Counseling({
   answer,
   onAnswer,
-  counselingType,
-  onSelectType,
+  counselingTypes,
+  onToggleType,
 }: {
   answer: "Y" | "N" | "";
   onAnswer: (val: "Y" | "N") => void;
-  counselingType: "basic" | "phone";
-  onSelectType: (type: "basic" | "phone") => void;
+  counselingTypes: Set<"basic" | "phone">;
+  onToggleType: (type: "basic" | "phone") => void;
 }) {
   const [explainerOpen, setExplainerOpen] = useState(false);
   return (
@@ -1033,22 +1047,27 @@ function Step3Counseling({
         {answer === "Y" ? (
           <div className="mt-3.5 border-t border-zinc-100 pt-3.5">
             <p className="text-sm font-bold text-slate-600">
-              어떤 방식으로 상담받으실래요?
+              어떤 방식으로 상담받으실래요?{" "}
+              <span className="font-normal text-slate-400">(복수 선택 가능)</span>
             </p>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {COUNSELING_TYPE_OPTIONS.map((opt) => {
-                const active = counselingType === opt.type;
+                const active = counselingTypes.has(opt.type);
                 return (
                   <button
                     key={opt.type}
                     type="button"
-                    onClick={() => onSelectType(opt.type)}
-                    className={`rounded-lg border p-3 text-left transition-all ${
+                    aria-pressed={active}
+                    onClick={() => onToggleType(opt.type)}
+                    className={`relative rounded-lg border p-3 text-left transition-all ${
                       active
                         ? "border-[#1C3461] bg-[#1C3461]/5 ring-1 ring-[#1C3461]"
                         : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
                     }`}
                   >
+                    {active ? (
+                      <Check className="absolute right-2.5 top-2.5 h-4 w-4 text-[#1C3461]" />
+                    ) : null}
                     <p
                       className={`text-sm font-bold ${
                         active ? "text-[#1C3461]" : "text-slate-800"
@@ -1061,6 +1080,11 @@ function Step3Counseling({
                 );
               })}
             </div>
+            {counselingTypes.size === 0 ? (
+              <p className="mt-2 text-xs font-medium text-amber-600">
+                최소 1개 이상 선택해 주세요.
+              </p>
+            ) : null}
           </div>
         ) : null}
 
