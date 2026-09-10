@@ -48,25 +48,29 @@ const MIN_QUERY_LEN = 2;
 // (예전엔 가격대만으로 3단으로 나눴는데, 33,000원대 안에 "특수 상황용"과
 // "단체·직장용" 강의가 섞여 있어 가격만으로는 구분이 안 됐다. 강의명 기준
 // 화이트리스트로 4단 분류.)
+// 순서: 기본 강의는 판매량이 높은 순, 나머지는 성격이 비슷한 것끼리 묶은
+// 순서 — 의뢰인이 직접 지정(2026-09). "강의 전체보기"에서도 이 순서 그대로
+// 정렬해 보여준다(TIER_SORT_INDEX 참고).
 const COURSE_TIERS = [
   {
     key: "basic",
     label: "기본 강의",
     titles: [
-      "명예훼손·모욕 예방 교육",
-      "운전습관·도로교통법 교육",
-      "폭력범죄 예방교육",
-      "청소년범죄예방교육",
-      "학교폭력 예방",
-      "스토킹범죄 예방",
-      "사기횡령배임 등 재산범죄 예방",
-      "피싱범죄 예방",
-      "도박 및 도박개장 예방",
-      "마약 예방",
-      "디지털 성범죄 예방",
-      "성매매 예방",
-      "성범죄 예방",
+      "준법의식 강화",
       "음주운전 예방",
+      "성범죄 예방",
+      "성매매 예방",
+      "디지털 성범죄 예방",
+      "스토킹범죄 예방",
+      "마약 예방",
+      "도박 및 도박개장 예방",
+      "피싱범죄 예방",
+      "사기횡령배임 등 재산범죄 예방",
+      "폭력범죄 예방교육",
+      "명예훼손·모욕 예방 교육",
+      "학교폭력 예방",
+      "청소년범죄예방교육",
+      "운전습관·도로교통법 교육",
     ],
   },
   {
@@ -74,26 +78,28 @@ const COURSE_TIERS = [
     label: "행동 교정강의",
     titles: [
       "생활예절교육",
-      "경제 관념·사행성 방지 교육",
-      "알코올·중독 습관 교정 교육",
       "분노 조절·감정 통제 교육",
-      "준법의식 강화",
+      "알코올·중독 습관 교정 교육",
+      "경제 관념·사행성 방지 교육",
     ],
   },
   {
     key: "special",
     label: "특수강의",
     titles: [
-      "공무원 윤리 교육",
-      "보호자 양육 윤리·예방 교육",
-      "개인정보 보호·사이버 금융 범죄 예방",
       "디지털 저작권·정보통신 윤리 교육",
+      "개인정보 보호·사이버 금융 범죄 예방",
+      "보호자 양육 윤리·예방 교육",
     ],
   },
   {
     key: "group",
     label: "단체강의",
-    titles: ["단체·학교 내 윤리 교육", "비즈니스·직장 내 윤리 교육"],
+    titles: [
+      "공무원 윤리 교육",
+      "비즈니스·직장 내 윤리 교육",
+      "단체·학교 내 윤리 교육",
+    ],
   },
 ] as const;
 
@@ -102,6 +108,14 @@ function getTierLabel(title: string): string {
     COURSE_TIERS.find((t) => (t.titles as readonly string[]).includes(title))?.label ?? "기타"
   );
 }
+
+// 강의 전체보기 정렬 순서 — 탭(기본/행동교정/특수/단체) 순서대로, 탭 안에서는
+// titles 배열에 적힌 순서대로.
+const TIER_SORT_INDEX = new Map<string, number>(
+  COURSE_TIERS.flatMap((tier, tierIdx) =>
+    tier.titles.map((title, i) => [title, tierIdx * 1000 + i] as const),
+  ),
+);
 
 function matchesQuery(course: CourseListItem, q: string): boolean {
   if (q.length < MIN_QUERY_LEN) return true;
@@ -171,12 +185,17 @@ function CoursesListInner() {
   const activeTier = tierKey ? COURSE_TIERS.find((t) => t.key === tierKey) : null;
   const filteredCourses = useMemo(() => {
     const q = trimmedQuery.toLowerCase();
-    return courses.filter((c) => {
-      if (category && c.category !== category) return false;
-      if (activeTier && !(activeTier.titles as readonly string[]).includes(c.title)) return false;
-      if (!matchesQuery(c, q)) return false;
-      return true;
-    });
+    return courses
+      .filter((c) => {
+        if (category && c.category !== category) return false;
+        if (activeTier && !(activeTier.titles as readonly string[]).includes(c.title)) return false;
+        if (!matchesQuery(c, q)) return false;
+        return true;
+      })
+      .sort(
+        (a, b) =>
+          (TIER_SORT_INDEX.get(a.title) ?? 9999) - (TIER_SORT_INDEX.get(b.title) ?? 9999),
+      );
   }, [courses, category, activeTier, trimmedQuery]);
 
   // 2글자 미만이면 빈 결과여도 검색어로 표시하지 않음 (안내 없이 전체 표시)
