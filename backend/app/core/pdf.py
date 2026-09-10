@@ -24,6 +24,7 @@ from datetime import date
 from pathlib import Path
 
 from pptx import Presentation
+from pptx.dml.color import RGBColor
 
 from app.core.cert_config import get_cert_template
 
@@ -123,6 +124,17 @@ def _fill_template(
             table = shape.table
             _replace_text_frame(table.cell(0, 1).text_frame, course_title)
             _replace_text_frame(table.cell(0, 3).text_frame, issued_str)
+            # row 1(성명/생년월일)의 회색 음영은 셀 자체 fill 이 아니라 테이블
+            # 스타일의 band1H(테마 dk1 색 20% 투명도)에서 나온다 — 화면/PNG
+            # 렌더링은 정상인데 LibreOffice의 PPTX→PDF 변환에서만 이 alpha가
+            # 무시되고 완전 불투명 검정으로 나와 성명/생년월일 행 전체가 검은
+            # 막대로 뒤덮이는 버그가 있었다(2026-09 발견). alpha 20% 검정을
+            # 흰 배경에 합성한 값(RGB 204,204,204)으로 셀 fill 을 명시 고정해
+            # 이 투명도 버그를 우회한다.
+            for col in range(4):
+                cell = table.cell(1, col)
+                cell.fill.solid()
+                cell.fill.fore_color.rgb = RGBColor(0xCC, 0xCC, 0xCC)
             _replace_text_frame(table.cell(1, 1).text_frame, name_str)
             _replace_text_frame(table.cell(1, 3).text_frame, birth_str)
 
