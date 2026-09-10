@@ -1297,11 +1297,7 @@ function CartSummary({
         선택하신 사건에 따른 추천 교육 과정입니다.
       </p>
 
-      <ul
-        className={`mt-5 space-y-3 ${
-          step === 4 ? "border-b border-zinc-100 pb-5" : "pb-1"
-        }`}
-      >
+      <ul className={`mt-5 space-y-3 ${step === 4 ? "pb-5" : "pb-1"}`}>
         {recommendation.courses.length === 0 ? (
           <li className="text-sm text-slate-400">아직 선택된 과정이 없습니다.</li>
         ) : (
