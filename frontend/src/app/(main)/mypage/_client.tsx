@@ -644,14 +644,26 @@ function EnrollmentRow({
                 <PlayCircle className="h-3.5 w-3.5" /> {continueLabel}
               </Link>
               {isComplete && issuedDoc ? (
-                <a
-                  href={absUrl(issuedDoc.pdf_url)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-900/10 transition-colors hover:from-blue-700 hover:to-blue-800"
-                >
-                  <Download className="h-3.5 w-3.5" /> 수료증 다운로드
-                </a>
+                <>
+                  <a
+                    href={absUrl(issuedDoc.pdf_url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-900/10 transition-colors hover:from-blue-700 hover:to-blue-800"
+                  >
+                    <Download className="h-3.5 w-3.5" /> 수료증 다운로드
+                  </a>
+                  {issuedDoc.pledge_pdf_url ? (
+                    <a
+                      href={absUrl(issuedDoc.pledge_pdf_url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl border border-[var(--color-primary)] bg-white px-4 py-2 text-xs font-bold text-[var(--color-primary)] transition-colors hover:bg-blue-50"
+                    >
+                      <Download className="h-3.5 w-3.5" /> 서약서 다운로드
+                    </a>
+                  ) : null}
+                </>
               ) : isComplete && order ? (
                 <Link
                   href={`/issue?order_id=${order.id}`}
@@ -832,16 +844,28 @@ function OrderPaidDetails({
                   수료증{" "}
                   <span className="font-normal text-slate-400">({d.issue_number})</span>
                 </span>
-                {d.pdf_url && (
-                  <a
-                    href={absUrl(d.pdf_url)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white border border-zinc-200 px-3.5 py-2 text-sm font-bold text-slate-700 shadow-sm hover:border-blue-200 hover:text-[var(--color-accent)] transition-colors"
-                  >
-                    <Download className="h-4 w-4" /> PDF 다운로드
-                  </a>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {d.pdf_url && (
+                    <a
+                      href={absUrl(d.pdf_url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white border border-zinc-200 px-3.5 py-2 text-sm font-bold text-slate-700 shadow-sm hover:border-blue-200 hover:text-[var(--color-accent)] transition-colors"
+                    >
+                      <Download className="h-4 w-4" /> 수료증 PDF
+                    </a>
+                  )}
+                  {d.pledge_pdf_url && (
+                    <a
+                      href={absUrl(d.pledge_pdf_url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white border border-zinc-200 px-3.5 py-2 text-sm font-bold text-slate-700 shadow-sm hover:border-blue-200 hover:text-[var(--color-accent)] transition-colors"
+                    >
+                      <Download className="h-4 w-4" /> 서약서 PDF
+                    </a>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

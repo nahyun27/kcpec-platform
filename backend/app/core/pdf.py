@@ -26,11 +26,12 @@ from pathlib import Path
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 
-from app.core.cert_config import get_cert_template
+from app.core.cert_config import get_cert_template, get_pledge_file
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 STATIC_DIR = BACKEND_DIR / "static"
 TEMPLATES_DIR = STATIC_DIR / "templates" / "certificates"
+PLEDGE_TEMPLATES_DIR = STATIC_DIR / "templates" / "pledges"
 PDF_DIR = STATIC_DIR / "pdfs"
 
 # LibreOffice 변환 타임아웃 (단건 PPTX 변환은 보통 5초 내 완료)
@@ -221,3 +222,86 @@ def generate_certificate_pdf(
         shutil.copy(tmp_pdf, final_path)
 
     return final_path, cert_number
+
+
+# ---------- 서약서 PDF (수료증과 세트로 함께 발급) --------------------------
+
+
+def _fill_pledge_template(
+    pptx_path: Path,
+    *,
+    cert_number: str,
+    recipient_name: str,
+    issued_date: date,
+) -> None:
+    """서약서 PPTX 사본을 in-place 로 수정한다.
+
+    수료증(pdf.py 상단)과 동일한 shape id 구조를 그대로 쓴다(같은 제작
+    파이프라인으로 만들어진 템플릿이라 확인됨):
+      - shape 90 : 증서번호
+      - shape 88 : 서약일자
+      - shape 92 : 본문 표 — cell(0,0) 첫 문단의 두 번째 run 이 "본인 ___는(은)"
+        의 빈칸(성명)
+      - shape 93 : "서약자 :        (인)" 서명란
+    """
+    prs = Presentation(str(pptx_path))
+    slide = prs.slides[0]
+
+    issued_str = _format_korean_date(issued_date)
+    name_str = _spaced_name(recipient_name)
+
+    for shape in slide.shapes:
+        sid = shape.shape_id
+        if sid == 90 and shape.has_text_frame:
+            _replace_text_frame(shape.text_frame, f"증 {cert_number} 호")
+        elif sid == 88 and shape.has_text_frame:
+            _replace_text_frame(shape.text_frame, f"서약일자 : {issued_str}")
+        elif sid == 92 and shape.has_table:
+            para = shape.table.cell(0, 0).text_frame.paragraphs[0]
+            if len(para.runs) > 1:
+                para.runs[1].text = name_str
+        elif sid == 93 and shape.has_text_frame:
+            _replace_text_frame(shape.text_frame, f"서약자 :  {name_str}  (인)")
+
+    prs.save(str(pptx_path))
+
+
+def generate_pledge_pdf(
+    *,
+    course_title: str,
+    file_token: str,
+    recipient_name: str,
+    issued_date: date,
+    cert_number: str,
+) -> Path | None:
+    """서약서 PDF 를 생성해 저장 경로를 반환. 등록된 서약서 템플릿이 없는
+    강의(예: 심리상담)는 None 을 반환 — 호출부가 조용히 건너뛴다.
+
+    cert_number 는 같은 세트로 발급되는 수료증과 동일한 증서번호를 그대로
+    받아서 쓴다(수료증·서약서를 별개 문서번호로 관리할 이유가 없음).
+    """
+    pledge_file = get_pledge_file(course_title)
+    if pledge_file is None:
+        return None
+
+    src = PLEDGE_TEMPLATES_DIR / pledge_file
+    if not src.exists():
+        raise RuntimeError(f"서약서 템플릿 파일 누락: {src}")
+
+    PDF_DIR.mkdir(parents=True, exist_ok=True)
+    final_path = PDF_DIR / f"pledge_{file_token}.pdf"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        tmp_pptx = tmp / "pledge.pptx"
+        shutil.copy(src, tmp_pptx)
+        _fill_pledge_template(
+            tmp_pptx,
+            cert_number=cert_number,
+            recipient_name=recipient_name,
+            issued_date=issued_date,
+        )
+        tmp_pdf = _convert_to_pdf(tmp_pptx, tmp)
+        shutil.copy(tmp_pdf, final_path)
+
+    return final_path

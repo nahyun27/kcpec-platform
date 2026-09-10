@@ -395,16 +395,28 @@ function DocumentsModal({
                       {d.document_type} · {d.status}
                     </p>
                   </div>
-                  {d.pdf_url ? (
-                    <a
-                      href={absUrl(d.pdf_url)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded bg-[var(--color-accent)] px-3 py-1 text-xs font-semibold text-white hover:bg-[var(--color-accent-hover)]"
-                    >
-                      PDF
-                    </a>
-                  ) : null}
+                  <div className="flex items-center gap-1.5">
+                    {d.pdf_url ? (
+                      <a
+                        href={absUrl(d.pdf_url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded bg-[var(--color-accent)] px-3 py-1 text-xs font-semibold text-white hover:bg-[var(--color-accent-hover)]"
+                      >
+                        수료증
+                      </a>
+                    ) : null}
+                    {d.pledge_pdf_url ? (
+                      <a
+                        href={absUrl(d.pledge_pdf_url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded border border-[var(--color-accent)] px-3 py-1 text-xs font-semibold text-[var(--color-accent)] hover:bg-blue-50"
+                      >
+                        서약서
+                      </a>
+                    ) : null}
+                  </div>
                 </li>
               ))}
             </ul>

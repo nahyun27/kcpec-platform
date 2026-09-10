@@ -108,8 +108,10 @@ def send_certificate_to_user(
     recipient_name: str,
     course_title: str,
     pdf_url: str,
+    pledge_pdf_url: str | None = None,
 ) -> bool:
     subject = f"[KCPEC] '{course_title}' 수료증이 발급되었습니다"
+    pledge_line = f"\n서약서 다운로드: {pledge_pdf_url}\n" if pledge_pdf_url else ""
     body = dedent(
         f"""\
         안녕하세요, {recipient_name} 님.
@@ -118,7 +120,7 @@ def send_certificate_to_user(
         아래 링크에서 PDF 파일을 다운로드 받으실 수 있습니다.
 
         다운로드: {pdf_url}
-
+        {pledge_line}
         본 수료증은 양형 자료 등으로 활용하실 수 있습니다.
         문의 사항은 admin@kcpec.co.kr 로 보내주세요.
 

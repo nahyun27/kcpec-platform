@@ -47,6 +47,8 @@ class IssuedDocument(Base):
     # 전체 발급 문서를 스캔/다운로드할 수 있게 된다(2026-09 발견·수정).
     access_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     pdf_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # 수료증과 세트로 발급되는 서약서 PDF — 서약서 템플릿이 없는 강의(심리상담 등)는 None.
+    pledge_pdf_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     issue_number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     status: Mapped[IssuedDocumentStatus] = mapped_column(
         Enum(

@@ -50,5 +50,6 @@ export type DocumentResponse = {
   issue_number: string;
   status: IssuedDocumentStatus;
   pdf_url: string | null;
+  pledge_pdf_url: string | null;
   issued_at: string | null;
 };

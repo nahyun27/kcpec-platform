@@ -95,7 +95,17 @@ export default function IssuePage() {
                 rel="noopener noreferrer"
                 className="rounded bg-[var(--color-accent)] py-3 font-semibold text-white hover:bg-[var(--color-accent-hover)]"
               >
-                PDF 다운로드
+                수료증 PDF 다운로드
+              </a>
+            ) : null}
+            {document.pledge_pdf_url ? (
+              <a
+                href={absUrl(document.pledge_pdf_url)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded border border-[var(--color-border)] py-3 font-semibold text-[var(--color-primary)] hover:border-[var(--color-primary)]"
+              >
+                서약서 PDF 다운로드
               </a>
             ) : null}
             <Link

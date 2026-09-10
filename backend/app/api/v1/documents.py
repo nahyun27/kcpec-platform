@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.email import send_certificate_to_user
-from app.core.pdf import generate_certificate_pdf
+from app.core.pdf import generate_certificate_pdf, generate_pledge_pdf
 from app.models.course import Course
 from app.models.document import (
     IssuedDocument,
@@ -107,6 +107,19 @@ def issue_document(
     doc.pdf_url = str(request.url_for("static", path=f"pdfs/{pdf_path.name}"))
     doc.issue_number = issue_number
 
+    # 서약서 — 해당 강의에 등록된 템플릿이 있으면 수료증과 같은 증서번호로
+    # 세트로 함께 발급한다(2026-09, 여태 수료증만 발급되고 서약서는 아예
+    # 생성되지 않던 문제 수정).
+    pledge_path = generate_pledge_pdf(
+        course_title=course.title,
+        file_token=doc.access_token,
+        recipient_name=payload.recipient_name,
+        issued_date=issued_date,
+        cert_number=issue_number,
+    )
+    if pledge_path is not None:
+        doc.pledge_pdf_url = str(request.url_for("static", path=f"pdfs/{pledge_path.name}"))
+
     db.commit()
     db.refresh(doc)
 
@@ -119,6 +132,7 @@ def issue_document(
         recipient_name=payload.recipient_name,
         course_title=course.title,
         pdf_url=doc.pdf_url,
+        pledge_pdf_url=doc.pledge_pdf_url,
     )
 
     return DocumentResponse.model_validate(doc)

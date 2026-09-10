@@ -16,6 +16,7 @@ class DocumentResponse(BaseModel):
     issue_number: str
     status: IssuedDocumentStatus
     pdf_url: str | None
+    pledge_pdf_url: str | None = None
     issued_at: datetime | None
 
     model_config = ConfigDict(from_attributes=True)
