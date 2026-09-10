@@ -470,7 +470,12 @@ export default function SentencingPage() {
     }
   }
 
-  const canGoNext = step === 1 ? selectedMain.size > 0 || etcSelected : true;
+  const canGoNext =
+    step === 1
+      ? selectedMain.size > 0 || etcSelected
+      : // "예"를 선택하고도 상담 방식을 하나도 안 고르면 아무 상품도 담기지
+        // 않은 채 다음 단계로 넘어가 버렸다 — 최소 1개는 선택해야 진행 가능.
+        !(step === 3 && counselingAnswer === "Y" && counselingTypes.size === 0);
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-64 lg:pb-24 animate-in fade-in duration-300">
