@@ -1,6 +1,6 @@
-import Image from "next/image";
 import Link from "next/link";
 import ApplyButton from "./ApplyButton";
+import CertificateGrid from "./CertificateGrid";
 import type { CounselingType } from "@/types/counseling";
 import { CheckCircle2, FileSignature, Phone, ShieldCheck, Award } from "lucide-react";
 
@@ -65,7 +65,7 @@ const COUNSELING_PRODUCTS: CounselingProduct[] = [
     process: [
       "온라인 설문지 작성",
       "전문 심리상담사 검토 및 작성",
-      "심리상담 의견서 PDF 발급 (1~2 영업일)",
+      "심리상담 의견서 PDF 발급 (상담 완료 다음 날)",
     ],
   },
   {
@@ -77,13 +77,13 @@ const COUNSELING_PRODUCTS: CounselingProduct[] = [
     goals: [
       "전화를 통한 1:1 심층 심리 상담 및 재범 방지 코칭",
       "회당 15분씩 총 3회, 상담사와의 밀착 케어",
-      "상담 종료 후 심리상담 의견서 발급",
+      "심리상담 의견서(3회차)",
     ],
     process: [
       "신청 및 결제",
       "상담사와 일정 조율",
       "전화 상담 진행 (회당 15분 × 3회)",
-      "심리상담 의견서 PDF 발급 (상담 종료 후 1~2 영업일)",
+      "심리상담 의견서 PDF 발급 (상담 종료 다음 날)",
     ],
   },
 ];
@@ -138,7 +138,7 @@ export default function CounselingPage() {
             <ShieldCheck className="h-4 w-4" />
             Certified Experts
           </div>
-          <h2 className="font-sans text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
+          <h2 className="break-keep font-sans text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
             공인된 1급 심리상담사의{" "}
             <span className="text-[var(--color-primary)]">전문적이고 확실한 치유</span>
           </h2>
@@ -164,34 +164,7 @@ export default function CounselingPage() {
             <Award className="h-5 w-5 text-[var(--color-accent)]" />
             <h3 className="text-lg font-bold text-slate-900">상담사 보유 자격 및 면허</h3>
           </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {CERTIFICATES.map((c) => (
-              <a
-                key={c.slug}
-                href={`/certs/${c.slug}.pdf`}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={`${c.title} 원본 보기`}
-                className="group relative flex flex-col items-center overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--color-primary)]/30 hover:shadow-xl hover:shadow-slate-200/60"
-              >
-                <div className="absolute inset-x-0 top-0 h-1 origin-left scale-x-0 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-accent)] transition-transform duration-300 group-hover:scale-x-100" />
-                <div className="relative mb-4 h-24 w-20 overflow-hidden rounded-lg shadow-md ring-1 ring-slate-900/5">
-                  <Image
-                    src={`/certs/${c.slug}.jpg`}
-                    alt={`${c.title} 자격증`}
-                    fill
-                    sizes="80px"
-                    quality={80}
-                    className="object-cover transition-transform duration-300 group-hover:scale-110"
-                  />
-                </div>
-                <p className="font-sans text-[13px] font-extrabold leading-tight text-slate-900">
-                  {c.title}
-                </p>
-                <p className="mt-1.5 text-[11px] font-medium text-slate-400">{c.issuer}</p>
-              </a>
-            ))}
-          </div>
+          <CertificateGrid certificates={CERTIFICATES} />
         </div>
       </section>
 
@@ -290,6 +263,17 @@ export default function CounselingPage() {
                 </div>
               </article>
             ))}
+          </div>
+
+          {/* 심리상담 의견서 샘플 — 실제로 어떤 문서를 받게 되는지 미리 볼 수 있게 */}
+          <div className="mx-auto mt-16 max-w-xs text-center">
+            <p className="mb-4 text-sm font-bold text-slate-500">심리상담 의견서 샘플</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/sample-counseling.png"
+              alt="심리상담 의견서 샘플"
+              className="aspect-[3/4] w-full rounded-2xl border border-zinc-200 object-cover shadow-sm"
+            />
           </div>
         </div>
       </section>

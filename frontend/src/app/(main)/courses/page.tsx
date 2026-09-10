@@ -191,7 +191,7 @@ function CoursesListInner() {
             title="교육 강의"
             subtitle="Courses"
             icon={<BookOpen className="h-3.5 w-3.5" />}
-            description="전문가들이 감수한 심리·준법교육 과정입니다. 원하시는 과정을 선택하고 바로 학습을 시작하세요."
+            description="전문가들이 감수한 범죄예방·준법교육 과정입니다. 원하시는 과정을 선택하고 바로 학습을 시작하세요."
           />
         </div>
       </div>
