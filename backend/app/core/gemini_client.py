@@ -8,6 +8,7 @@ Google Gemini 로 통일.
 from __future__ import annotations
 
 import logging
+import time
 from textwrap import dedent
 
 from app.core.config import settings
@@ -168,6 +169,20 @@ def _is_transient_overload(exc: Exception) -> bool:
     return "unavailable" in text or "high demand" in text or "overloaded" in text
 
 
+def _is_worth_retrying(exc: Exception) -> bool:
+    # 503(일시적 과부하) 뿐 아니라 429(RESOURCE_EXHAUSTED, 분당 요청 한도 등)도
+    # 짧게 재시도하면 풀리는 경우가 많다 — 설문 제출 시 자동으로 도는 첫 시도가
+    # 하필 그 짧은 스파이크에 걸려 곧바로 더미로 폴백되던 문제(2026-09 발견,
+    # 관리자가 수동으로 "다시 생성"을 누르면 그새 스파이크가 지나가 있어서
+    # 잘 되던 것과 대비됨). 백그라운드 태스크라 몇 초 더 걸려도 사용자 응답을
+    # 막지 않으므로 부담 없이 재시도한다.
+    if _is_transient_overload(exc):
+        return True
+    code = getattr(exc, "code", None)
+    status_field = getattr(exc, "status", None)
+    return code == 429 or status_field == "RESOURCE_EXHAUSTED"
+
+
 def generate_counseling_draft(
     survey_responses: dict,
     course_title: str,
@@ -180,27 +195,49 @@ def generate_counseling_draft(
     from google import genai
     from google.genai import types
 
-    try:
-        client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        response = client.models.generate_content(
-            model=settings.GEMINI_MODEL,
-            contents=_format_user_prompt(
-                survey_responses, course_title, extra_instructions
-            ),
-            config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
-        )
-        text = (response.text or "").strip()
-        return text or _dummy_draft(survey_responses, course_title)
-    except Exception as e:
-        # 키가 유효하지 않거나(발급/설정 오류), 쿼터 초과, 네트워크 오류 등 —
-        # 원인이 무엇이든 호출자는 반드시 초안 텍스트를 받아야 흐름이
-        # 끊기지 않는다(설문 자동 초안 생성 실패 시 아무 신호 없이 조용히
-        # 멈추는 사고를 방지). 실제 원인은 로그로 남기고, 눈에 띄는 더미
-        # 텍스트로 폴백해 관리자가 반드시 재검토하게 한다.
-        logger.exception("Gemini API 호출 실패 — 더미 초안으로 폴백")
-        return _dummy_draft(
-            survey_responses, course_title, transient=_is_transient_overload(e)
-        )
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    contents = _format_user_prompt(survey_responses, course_title, extra_instructions)
+
+    # 설문 제출 직후 자동으로 도는 첫 시도가 503/429 같은 짧은 스파이크에
+    # 걸리면 그 자리에서 바로 더미로 폴백되고, 몇 분 뒤 관리자가 수동으로
+    # "다시 생성"을 누르면(그새 스파이크가 지나가) 멀쩡히 되는 문제가 있었다
+    # (2026-09 발견). 최대 3회, 스파이크가 지나갈 시간을 주기 위해 점점
+    # 늘어나는 간격(4초/8초)으로 재시도한 뒤에만 더미로 폴백한다.
+    last_exc: Exception | None = None
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model=settings.GEMINI_MODEL,
+                contents=contents,
+                config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
+            )
+            text = (response.text or "").strip()
+            return text or _dummy_draft(survey_responses, course_title)
+        except Exception as e:  # noqa: BLE001
+            last_exc = e
+            if attempt < 2 and _is_worth_retrying(e):
+                delay = 4 * (attempt + 1)
+                logger.warning(
+                    "Gemini API 호출 실패(%d번째 시도) — %d초 후 재시도: %s",
+                    attempt + 1,
+                    delay,
+                    e,
+                )
+                time.sleep(delay)
+                continue
+            break
+
+    # 키가 유효하지 않거나(발급/설정 오류), 재시도로도 안 풀리는 쿼터 초과,
+    # 네트워크 오류 등 — 원인이 무엇이든 호출자는 반드시 초안 텍스트를
+    # 받아야 흐름이 끊기지 않는다(설문 자동 초안 생성 실패 시 아무 신호
+    # 없이 조용히 멈추는 사고를 방지). 실제 원인은 로그로 남기고, 눈에
+    # 띄는 더미 텍스트로 폴백해 관리자가 반드시 재검토하게 한다.
+    logger.exception("Gemini API 호출 실패 — 더미 초안으로 폴백", exc_info=last_exc)
+    return _dummy_draft(
+        survey_responses,
+        course_title,
+        transient=last_exc is not None and _is_transient_overload(last_exc),
+    )
 
 
 def _dummy_draft(
