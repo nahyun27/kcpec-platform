@@ -602,7 +602,7 @@ function EnrollmentRow({
 
         {/* 우측 내용 */}
         <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+          <div className="flex flex-col gap-3">
             <div className="min-w-0 space-y-1.5">
               <div className="flex items-center gap-2 flex-wrap">
                 {isComplete ? (
@@ -627,7 +627,7 @@ function EnrollmentRow({
               </h3>
             </div>
 
-            <div className="flex items-center gap-2 mt-1 sm:mt-0 flex-wrap sm:shrink-0">
+            <div className="flex flex-wrap items-center gap-2">
               <Link
                 href={`/courses/${enrollment.course_id}/watch`}
                 aria-disabled={expiry?.label === "수강기간 만료"}
