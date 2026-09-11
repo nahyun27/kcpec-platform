@@ -3,6 +3,7 @@ import ApplyButton from "./ApplyButton";
 import CertificateGrid from "./CertificateGrid";
 import type { CounselingType } from "@/types/counseling";
 import { CheckCircle2, FileSignature, Phone, ShieldCheck, Award } from "lucide-react";
+import { Reveal } from "@/components/ui/Reveal";
 
 export const metadata = {
   title: "전문가 심리상담 | KCPEC",
@@ -134,7 +135,7 @@ export default function CounselingPage() {
 
       {/* 2) Expert Intro */}
       <section className="bg-white pt-24 sm:pt-32">
-        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
+        <Reveal className="mx-auto max-w-3xl px-4 text-center sm:px-6">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[var(--color-primary)] ring-1 ring-inset ring-blue-500/20">
             <ShieldCheck className="h-4 w-4" />
             Certified Experts
@@ -157,22 +158,22 @@ export default function CounselingPage() {
               완전한 자기객관화와 성공적인 사회 복귀를 돕습니다.
             </p>
           </div>
-        </div>
+        </Reveal>
 
         {/* Certificates */}
-        <div className="mx-auto mt-16 max-w-6xl px-4 pb-24 sm:px-6 sm:pb-32">
+        <Reveal delay={150} className="mx-auto mt-16 max-w-6xl px-4 pb-24 sm:px-6 sm:pb-32">
           <div className="mb-8 flex items-center justify-center gap-2">
             <Award className="h-5 w-5 text-[var(--color-accent)]" />
             <h3 className="text-lg font-bold text-slate-900">상담사 보유 자격 및 면허</h3>
           </div>
           <CertificateGrid certificates={CERTIFICATES} />
-        </div>
+        </Reveal>
       </section>
 
       {/* 3) 상담 프로그램 — 서면(기본) / 전화 심화상담 */}
       <section className="bg-slate-50 py-24 sm:py-32">
         <div className="mx-auto max-w-3xl px-4 sm:px-6">
-          <header className="mb-10 text-center sm:mb-12">
+          <Reveal as="div" className="mb-10 text-center sm:mb-12">
             <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-accent)]">
               Product
             </p>
@@ -183,12 +184,14 @@ export default function CounselingPage() {
               온라인 설문 또는 전화 상담을 통해 전문 심리상담사가 법원 제출용
               의견서를 발급해 드립니다.
             </p>
-          </header>
+          </Reveal>
 
           <div className="space-y-8">
-            {COUNSELING_PRODUCTS.map((product) => (
-              <article
+            {COUNSELING_PRODUCTS.map((product, idx) => (
+              <Reveal
                 key={product.type}
+                delay={idx * 150}
+                as="div"
                 id={product.type}
                 className="relative overflow-hidden rounded-[2rem] border-2 border-[var(--color-primary)] bg-white p-8 shadow-xl shadow-[var(--color-primary)]/10 sm:p-10 scroll-mt-28"
               >
@@ -262,13 +265,13 @@ export default function CounselingPage() {
                     programTitle={product.title}
                   />
                 </div>
-              </article>
+              </Reveal>
             ))}
           </div>
 
           {/* 심리상담 의견서 샘플 — 실제로 어떤 문서를 받게 되는지 미리 볼 수 있게.
               서면/전화 두 상품이 서로 다른 양식이라 둘 다 보여준다. */}
-          <div className="mx-auto mt-16 grid max-w-2xl grid-cols-2 gap-8 text-center">
+          <Reveal className="mx-auto mt-16 grid max-w-2xl grid-cols-2 gap-8 text-center">
             <div>
               <p className="mb-4 text-sm font-bold text-slate-500">
                 서면 심리상담 의견서 샘플
@@ -291,7 +294,7 @@ export default function CounselingPage() {
                 className="aspect-[3/4] w-full rounded-2xl border border-zinc-200 object-cover shadow-sm"
               />
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
 
