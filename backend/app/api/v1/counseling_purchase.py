@@ -112,6 +112,11 @@ def my_counseling_orders(
         .where(
             Order.user_id == current_user.id,
             Order.order_type == OrderType.COUNSELING,
+            # 결제를 시작만 하고 완료하지 않은(PENDING) 주문이나 취소된
+            # 주문까지 여기 뜨면 "전문가 심리상담" 탭에 실제로 신청하지도
+            # 않은 상담이 나타나 보인다 — 결제내역 탭과 달리 이 탭은 "실제로
+            # 진행 중/완료된 상담"만 보여주는 게 맞다(2026-09 발견).
+            Order.status == OrderStatus.PAID,
         )
         .order_by(Order.created_at.desc())
     ).all()
