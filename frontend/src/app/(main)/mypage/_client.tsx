@@ -727,10 +727,13 @@ function EnrollmentRow({
               {enrollment.current_lecture_title ? (
                 <>
                   {" · "}
+                  다음 강의:{" "}
                   <span className="font-semibold text-[var(--color-primary)]">
+                    {enrollment.current_lecture_order != null
+                      ? `${enrollment.current_lecture_order + 1}차시 `
+                      : ""}
                     {enrollment.current_lecture_title}
-                  </span>{" "}
-                  진행 중
+                  </span>
                 </>
               ) : null}
             </p>
