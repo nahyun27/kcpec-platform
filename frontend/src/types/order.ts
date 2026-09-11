@@ -1,9 +1,19 @@
-export type PaymentMethod = "card" | "kakaopay" | "naverpay" | "bank_transfer";
+export type PaymentMethod =
+  | "card"
+  | "kakaopay"
+  | "naverpay"
+  | "samsungpay"
+  | "mobile_phone"
+  | "transfer"
+  | "bank_transfer";
 
 export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   card: "신용/체크카드",
   kakaopay: "카카오페이",
   naverpay: "네이버페이",
+  samsungpay: "삼성페이",
+  mobile_phone: "휴대폰 결제",
+  transfer: "실시간 계좌이체",
   bank_transfer: "무통장 입금",
 };
 

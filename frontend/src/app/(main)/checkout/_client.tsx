@@ -14,7 +14,7 @@ import {
   PAYMENT_METHOD_LABEL,
   type PaymentMethod,
 } from "@/types/order";
-import { CheckCircle2, ChevronLeft, CreditCard, Award, ChevronRight, ShieldCheck, Loader2, Landmark } from "lucide-react";
+import { CheckCircle2, ChevronLeft, CreditCard, Award, ChevronRight, ShieldCheck, Loader2, Landmark, Smartphone, Zap } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 
 function PaymentMethodIcon({
@@ -40,12 +40,29 @@ function PaymentMethodIcon({
       </span>
     );
   }
+  if (method === "samsungpay") {
+    return (
+      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-black text-[9px] font-bold text-white">
+        Pay
+      </span>
+    );
+  }
   const cls = `h-6 w-6 ${selected ? "text-[var(--color-primary)]" : "text-slate-400"}`;
+  if (method === "mobile_phone") return <Smartphone className={cls} />;
+  if (method === "transfer") return <Zap className={cls} />;
   if (method === "bank_transfer") return <Landmark className={cls} />;
   return <CreditCard className={cls} />;
 }
 
-const PAYMENT_METHODS: PaymentMethod[] = ["card", "kakaopay", "naverpay", "bank_transfer"];
+const PAYMENT_METHODS: PaymentMethod[] = [
+  "card",
+  "kakaopay",
+  "naverpay",
+  "samsungpay",
+  "mobile_phone",
+  "transfer",
+  "bank_transfer",
+];
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -154,8 +171,8 @@ export default function CheckoutPage() {
       const { loadTossPayments } = await import("@tosspayments/tosspayments-sdk");
       const toss = await loadTossPayments(tossClientKey);
       const widget = toss.payment({ customerKey: `kcpec-${order.id}` });
-      // 카카오페이/네이버페이는 별도 method 가 아니라, method:"CARD" 에
-      // card.flowMode:"DIRECT" + card.easyPay:"KAKAOPAY"/"NAVERPAY" 를
+      // 카카오페이/네이버페이/삼성페이는 별도 method 가 아니라, method:"CARD" 에
+      // card.flowMode:"DIRECT" + card.easyPay:"KAKAOPAY"/"NAVERPAY"/"SAMSUNGPAY" 를
       // 실어 보내는 방식이다(토스 SDK v2 결제창 스펙). 예전엔
       // method:"EASY_PAY" + easyPay:{provider:...} 형태로 보냈는데 이건
       // 이 SDK 버전에 없는 필드라 요청 자체가 즉시 실패하고 있었다
@@ -165,12 +182,22 @@ export default function CheckoutPage() {
           ? "KAKAOPAY"
           : paymentMethod === "naverpay"
             ? "NAVERPAY"
-            : undefined;
+            : paymentMethod === "samsungpay"
+              ? "SAMSUNGPAY"
+              : undefined;
+      // 휴대폰결제/실시간계좌이체는 card 의 easyPay 가 아니라 완전히 다른
+      // method 값 — 나머지(카드/카카오/네이버/삼성페이)는 전부 "CARD".
+      const tossMethod =
+        paymentMethod === "mobile_phone"
+          ? "MOBILE_PHONE"
+          : paymentMethod === "transfer"
+            ? "TRANSFER"
+            : "CARD";
 
       // Toss orderId 형식 요건: 영문/숫자/-/_, 최소 6자.
       // DB id 만으로는 너무 짧을 수 있어 "KCPEC-{id}" prefix 사용.
       await widget.requestPayment({
-        method: "CARD",
+        method: tossMethod,
         amount: { currency: "KRW", value: amount },
         orderId: `KCPEC-${order.id}`,
         orderName: course.title,

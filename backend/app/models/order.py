@@ -11,6 +11,9 @@ class PaymentMethod(str, enum.Enum):
     CARD = "card"
     KAKAOPAY = "kakaopay"
     NAVERPAY = "naverpay"
+    SAMSUNGPAY = "samsungpay"
+    MOBILE_PHONE = "mobile_phone"
+    TRANSFER = "transfer"
     BANK_TRANSFER = "bank_transfer"
 
 
