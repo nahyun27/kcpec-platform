@@ -329,14 +329,16 @@ export default function CourseDetailPage({
               </div>
               <ol className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-sm">
                 {course.lectures.map((lec, idx) => (
-                  <li key={lec.id} className="group flex items-center justify-between gap-4 border-b border-slate-100 px-6 py-5 last:border-none transition-colors hover:bg-slate-50/80">
-                    <div className="flex items-center gap-5">
+                  <li key={lec.id} className="group flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5 last:border-none transition-colors hover:bg-slate-50/80">
+                    <div className="flex min-w-0 flex-1 items-start gap-5">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-sm font-bold text-slate-400 ring-1 ring-inset ring-slate-200 group-hover:bg-[var(--color-primary)]/5 group-hover:text-[var(--color-primary)] group-hover:ring-[var(--color-primary)]/20 transition-all">
                         {String(idx + 1).padStart(2, "0")}
                       </div>
-                      <span className="text-[15px] font-bold text-slate-700 group-hover:text-slate-900">{lec.title}</span>
+                      <span className="min-w-0 break-keep pt-2 text-[15px] font-bold leading-snug text-slate-700 group-hover:text-slate-900">
+                        {lec.title}
+                      </span>
                     </div>
-                    <span className="flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1 text-[13px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-200">
+                    <span className="mt-2 flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-slate-50 px-3 py-1 text-[13px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-200">
                       <Clock className="h-3.5 w-3.5" />
                       {formatDuration(lec.duration_seconds)}
                     </span>
