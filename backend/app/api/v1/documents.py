@@ -1,3 +1,4 @@
+import logging
 import secrets
 from datetime import datetime, timezone
 
@@ -21,6 +22,7 @@ from app.models.user import User
 from app.schemas.document import DocumentIssueRequest, DocumentResponse
 
 router = APIRouter(prefix="/orders", tags=["documents"])
+logger = logging.getLogger(__name__)
 
 
 @router.post(
@@ -109,14 +111,21 @@ def issue_document(
 
     # 서약서 — 해당 강의에 등록된 템플릿이 있으면 수료증과 같은 증서번호로
     # 세트로 함께 발급한다(2026-09, 여태 수료증만 발급되고 서약서는 아예
-    # 생성되지 않던 문제 수정).
-    pledge_path = generate_pledge_pdf(
-        course_title=course.title,
-        file_token=doc.access_token,
-        recipient_name=payload.recipient_name,
-        issued_date=issued_date,
-        cert_number=issue_number,
-    )
+    # 생성되지 않던 문제 수정). 수료증은 이미 결제+수강 완료를 전제로 하는
+    # 핵심 발급물이라, 서약서 생성이 실패(템플릿 파일 문제, 변환 타임아웃
+    # 등)하더라도 수료증 발급 자체가 막혀서는 안 된다 — 실패 시 로그만
+    # 남기고 pledge_pdf_url 없이 계속 진행한다.
+    try:
+        pledge_path = generate_pledge_pdf(
+            course_title=course.title,
+            file_token=doc.access_token,
+            recipient_name=payload.recipient_name,
+            issued_date=issued_date,
+            cert_number=issue_number,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("서약서 생성 실패 — 수료증 발급은 계속 진행 (order_id=%s)", order.id)
+        pledge_path = None
     if pledge_path is not None:
         doc.pledge_pdf_url = str(request.url_for("static", path=f"pdfs/{pledge_path.name}"))
 

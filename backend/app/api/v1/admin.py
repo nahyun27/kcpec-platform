@@ -931,10 +931,15 @@ def regenerate_draft(
     course_title = course.title if course else "(강의 정보 없음)"
 
     try:
+        # 이 엔드포인트는 관리자가 브라우저에서 응답을 기다리는 동기 요청이라
+        # generate_counseling_draft 의 기본 재시도 횟수(최대 12초 대기)를
+        # 그대로 쓰면 요청이 너무 오래 걸린다 — 실패해도 관리자가 버튼을
+        # 다시 누르면 되므로 최소한만 재시도(최대 4초 대기)한다.
         draft = generate_counseling_draft(
             survey.responses,
             course_title,
             extra_instructions=payload.extra_instructions,
+            max_attempts=2,
         )
     except Exception as e:  # noqa: BLE001
         raise HTTPException(

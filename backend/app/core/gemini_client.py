@@ -187,6 +187,7 @@ def generate_counseling_draft(
     survey_responses: dict,
     course_title: str,
     extra_instructions: str = "",
+    max_attempts: int = 3,
 ) -> str:
     if not settings.GEMINI_API_KEY:
         logger.info("GEMINI_API_KEY 미설정 — 더미 초안 반환")
@@ -203,8 +204,13 @@ def generate_counseling_draft(
     # "다시 생성"을 누르면(그새 스파이크가 지나가) 멀쩡히 되는 문제가 있었다
     # (2026-09 발견). 최대 3회, 스파이크가 지나갈 시간을 주기 위해 점점
     # 늘어나는 간격(4초/8초)으로 재시도한 뒤에만 더미로 폴백한다.
+    #
+    # max_attempts 는 호출부가 조절한다 — 이건 백그라운드 태스크(설문 제출
+    # 직후 자동 생성) 기준값이고, 관리자가 브라우저에서 기다리는 동기 요청
+    # (admin.py regenerate_draft)은 재시도 대기(최대 12초)로 요청이 오래
+    # 걸리면 안 되니 거기서는 더 작은 값을 넘겨받는다.
     last_exc: Exception | None = None
-    for attempt in range(3):
+    for attempt in range(max_attempts):
         try:
             response = client.models.generate_content(
                 model=settings.GEMINI_MODEL,
@@ -215,7 +221,7 @@ def generate_counseling_draft(
             return text or _dummy_draft(survey_responses, course_title)
         except Exception as e:  # noqa: BLE001
             last_exc = e
-            if attempt < 2 and _is_worth_retrying(e):
+            if attempt < max_attempts - 1 and _is_worth_retrying(e):
                 delay = 4 * (attempt + 1)
                 logger.warning(
                     "Gemini API 호출 실패(%d번째 시도) — %d초 후 재시도: %s",
