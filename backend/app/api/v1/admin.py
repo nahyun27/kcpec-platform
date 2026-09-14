@@ -32,6 +32,7 @@ from app.core.gemini_client import (
 )
 from app.core.health import run_all_checks
 from app.core.pdf import PDF_DIR, convert_office_to_pdf
+from app.core.storage import issue_stream_url
 from app.models.community import Notice, Post
 from app.models.counseling import CounselingStatus, CounselingSurvey
 from app.models.course import Course
@@ -74,7 +75,7 @@ from app.schemas.admin import (
     VisitorStats,
 )
 from app.schemas.community import NoticeDetail, PostAdminReply, PostDetail
-from app.schemas.course import CourseDetail, CourseListItem, LectureItem
+from app.schemas.course import CourseDetail, CourseListItem, LectureItem, StreamUrlResponse
 from app.schemas.document import DocumentResponse
 from app.schemas.faq import FaqCreate, FaqPatch, FaqRead
 
@@ -384,15 +385,20 @@ def add_lecture(
     course = db.get(Course, course_id)
     if course is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="강의를 찾을 수 없습니다.")
-    # order_index 는 자동 할당: 현재 lecture 수 + 1.
+    # order_index 는 자동 할당: 현재 최댓값 + 1. 예전엔 "현재 lecture 수 + 1"
+    # 이었는데, 중간 차시를 삭제(hard delete, 재정렬 없음)한 뒤 새로 추가하면
+    # 남은 차시 중 하나와 order_index 가 그대로 충돌했다 — 예: 1,2,3 중 2번을
+    # 지우면 1,3 만 남는데 개수(2)+1=3 이 이미 있는 값과 겹침. 이 order_index
+    # 는 "다음 차시"/순차 잠금 해제 로직이 그대로 정렬 기준으로 쓰므로 충돌 시
+    # 순서가 불안정해진다(2026-09, 버그 감사 중 발견).
     # 페이로드의 값은 무시 (어드민 UI 가 더 이상 보내지 않음).
-    existing_count = db.scalar(
-        select(func.count(Lecture.id)).where(Lecture.course_id == course.id)
-    ) or 0
+    max_order = db.scalar(
+        select(func.max(Lecture.order_index)).where(Lecture.course_id == course.id)
+    )
     lecture = Lecture(
         course_id=course.id,
         title=payload.title,
-        order_index=existing_count + 1,
+        order_index=(max_order if max_order is not None else -1) + 1,
         video_url=payload.video_url,
         duration_seconds=payload.duration_seconds,
         is_active=True,
@@ -429,6 +435,23 @@ def patch_lecture(
     db.commit()
     db.refresh(lecture)
     return lecture
+
+
+@router.get("/lectures/{lecture_id}/stream-url", response_model=StreamUrlResponse)
+def admin_get_stream_url(lecture_id: int, db: Session = Depends(get_db)) -> StreamUrlResponse:
+    """관리자 전용 재생 URL 조회 — 학생용 /courses/lectures/{id}/stream-url 은
+    수강 등록(enrollment)이 있어야만 발급되는데, 관리자는 강의를 수강 중이
+    아니어도(예: 방금 등록한 영상의 길이를 자동 감지하려고) video_url 을
+    풀어봐야 한다. video_url 이 S3 오브젝트 키인 운영 환경(AWS 설정 시)에서는
+    <video src="{video_url}"> 로 직접 로드해도 재생되지 않고 조용히
+    실패해서, 길이 자동 감지가 항상 안 되고 있었다(2026-09, 버그 감사 중
+    발견).
+    """
+    lecture = db.get(Lecture, lecture_id)
+    if lecture is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="영상을 찾을 수 없습니다.")
+    url, expires = issue_stream_url(lecture.video_url, lecture.id)
+    return StreamUrlResponse(url=url, expires_in=expires)
 
 
 @router.delete("/lectures/{lecture_id}", response_model=OkResponse)

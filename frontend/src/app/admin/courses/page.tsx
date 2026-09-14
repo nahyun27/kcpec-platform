@@ -17,6 +17,7 @@ import {
   getAdminCourseLectures,
   getAdminCourseQuiz,
   getAdminCourses,
+  getAdminStreamUrl,
   getCourseDetail,
   patchAdminLecture,
   patchCourse,
@@ -468,13 +469,23 @@ function LectureList({
         /* URL 깨짐 등 — PATCH 없이도 완료 카운트에는 반영 */
         if (!cancelled) void maybeRefresh();
       };
-      video.src = lec.video_url!;
       cleanups.push(() => {
         cancelled = true;
         video.onloadedmetadata = null;
         video.onerror = null;
         video.removeAttribute("src");
       });
+      // video_url 을 그대로 <video src> 에 넣으면, 운영 환경(S3 설정 시)처럼
+      // video_url 이 공개 URL 이 아니라 비공개 오브젝트 키인 경우 로드가
+      // 조용히 실패해 길이 자동 감지가 항상 안 됐다(2026-09, 버그 감사 중
+      // 발견) — 학생용과 동일하게 서명된 재생 URL 을 먼저 받아온다.
+      getAdminStreamUrl(lec.id)
+        .then((res) => {
+          if (!cancelled) video.src = res.url;
+        })
+        .catch(() => {
+          if (!cancelled) video.onerror?.(new Event("error"));
+        });
     }
 
     return () => {
@@ -1078,13 +1089,17 @@ function NewLectureModal({
   onCreated: () => void;
 }) {
   const dialog = useDialog();
-  const DEFAULT_URL = "http://localhost:8000/static/videos/";
   const [title, setTitle] = useState("");
-  const [videoUrl, setVideoUrl] = useState(DEFAULT_URL);
+  // 예전엔 여기 기본값이 "http://localhost:8000/static/videos/" 로 채워져
+  // 있었는데, placeholder 가 아니라 실제 입력값이라 로컬이 아닌 환경에서
+  // 관리자가 그 뒤에 파일명만 이어 붙이면 재생 불가능한 localhost URL 로
+  // 영상이 등록되고 있었다(2026-09, 버그 감사 중 발견). 빈 값으로 시작하고
+  // 형식 예시는 아래 placeholder 로만 안내한다.
+  const [videoUrl, setVideoUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const isDirty = Boolean(title.trim()) || videoUrl !== DEFAULT_URL;
+  const isDirty = Boolean(title.trim()) || Boolean(videoUrl.trim());
   const safeClose = () => confirmClose(isDirty, onClose, dialog.confirm);
 
   async function handleSubmit(e: FormEvent) {
@@ -1121,16 +1136,18 @@ function NewLectureModal({
             className={inputCls}
           />
         </Field>
-        <Field label="video URL">
+        <Field label="영상 파일 경로 (S3 오브젝트 키)">
           <input
             value={videoUrl}
             onChange={(e) => setVideoUrl(e.target.value)}
-            placeholder="http://localhost:8000/static/videos/sample.mp4"
+            placeholder="lectures/school/01.mp4"
             className={`${inputCls} font-mono text-xs`}
           />
           <p className="text-xs text-zinc-500">
-            영상 길이는 사용자가 처음 재생할 때 자동으로 감지됩니다. 순서는 자동
-            부여되며, 추가 후 목록에서 드래그로 변경할 수 있습니다.
+            http:// 로 시작하는 전체 URL이 아니라, S3 버킷 안에서의 파일
+            경로만 입력하세요(예: lectures/카테고리/파일명.mp4). 영상 길이는
+            등록 후 자동으로 감지됩니다. 순서는 자동 부여되며, 추가 후
+            목록에서 드래그로 변경할 수 있습니다.
           </p>
         </Field>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
@@ -1199,14 +1216,16 @@ function EditLectureModal({
             className={inputCls}
           />
         </Field>
-        <Field label="video URL">
+        <Field label="영상 파일 경로 (S3 오브젝트 키)">
           <input
             value={videoUrl}
             onChange={(e) => setVideoUrl(e.target.value)}
+            placeholder="lectures/school/01.mp4"
             className={`${inputCls} font-mono text-xs`}
           />
           <p className="text-xs text-zinc-500">
-            영상 길이는 사용자가 재생할 때 자동으로 갱신됩니다.
+            http:// 로 시작하는 전체 URL이 아니라 S3 버킷 안에서의 파일
+            경로만 입력하세요. 영상 길이는 등록 후 자동으로 갱신됩니다.
           </p>
         </Field>
         <Field label="순서">

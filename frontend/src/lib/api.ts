@@ -666,6 +666,16 @@ export async function deleteAdminLecture(lectureId: number): Promise<void> {
   await api.delete(`/admin/lectures/${lectureId}`);
 }
 
+// 학생용 getStreamUrl 은 수강 등록이 있어야 발급된다 — 관리자가 방금 등록한
+// 영상의 길이를 자동 감지할 때는 수강 중이 아닐 수 있어 별도 관리자용
+// 엔드포인트를 쓴다(2026-09, 버그 감사 중 발견: video_url 을 <video src>에
+// 그대로 넣으면 운영 환경(S3 키)에서는 재생이 안 돼 길이 자동 감지가 항상
+// 조용히 실패하고 있었음).
+export async function getAdminStreamUrl(lectureId: number): Promise<StreamUrlResponse> {
+  const { data } = await api.get<StreamUrlResponse>(`/admin/lectures/${lectureId}/stream-url`);
+  return data;
+}
+
 export async function getAdminOrderDocuments(orderId: number): Promise<DocumentResponse[]> {
   const { data } = await api.get<DocumentResponse[]>(
     `/admin/orders/${orderId}/documents`,

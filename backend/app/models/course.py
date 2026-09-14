@@ -51,7 +51,12 @@ class Course(Base):
     lectures: Mapped[list["Lecture"]] = relationship(
         back_populates="course",
         cascade="all, delete-orphan",
-        order_by="Lecture.order_index",
+        # id 를 2차 정렬 기준으로 둬서, order_index 가 우연히 겹치는 경우에도
+        # (정상적으로는 이제 없어야 하지만) 매 조회마다 순서가 흔들리지 않고
+        # 항상 같은(생성 순) 순서로 정렬되게 한다 — 이 순서가 순차 잠금
+        # 해제/"다음 차시" 판정에 그대로 쓰이기 때문(2026-09, 버그 감사 중
+        # order_index 충돌 가능성 발견에 대한 방어적 보강).
+        order_by="Lecture.order_index, Lecture.id",
     )
     quiz: Mapped["Quiz | None"] = relationship(
         back_populates="course",
