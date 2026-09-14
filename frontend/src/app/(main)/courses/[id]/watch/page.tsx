@@ -563,8 +563,8 @@ export default function WatchPage({
               />
             </div>
             <p className="mt-2 text-[11px] text-zinc-500">
-              각 차시는 진행률 {course.min_progress_pct}% 이상이면 수강완료
-              처리되고, 모든 차시를 수강완료
+              각 차시는 90% 이상 시청하면 수강완료 처리되고, 전체 강의의{" "}
+              {course.min_progress_pct}% 이상을 수강완료
               {course.has_quiz ? "하고 퀴즈에 합격" : ""}하면 수료 처리됩니다.
             </p>
             {course.has_quiz ? (

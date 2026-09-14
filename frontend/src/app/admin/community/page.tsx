@@ -639,7 +639,8 @@ function FaqFormModal({
           <button
             type="button"
             onClick={safeClose}
-            className="rounded border border-zinc-300 px-4 py-2 text-sm"
+            disabled={submitting}
+            className="rounded border border-zinc-300 px-4 py-2 text-sm disabled:opacity-60"
           >
             취소
           </button>
@@ -892,7 +893,8 @@ function CreateModal({
           <button
             type="button"
             onClick={safeClose}
-            className="rounded border border-zinc-300 px-4 py-2 text-sm"
+            disabled={submitting}
+            className="rounded border border-zinc-300 px-4 py-2 text-sm disabled:opacity-60"
           >
             취소
           </button>
@@ -1039,7 +1041,8 @@ function EditModal({
           <button
             type="button"
             onClick={safeClose}
-            className="rounded border border-zinc-300 px-4 py-2 text-sm"
+            disabled={submitting}
+            className="rounded border border-zinc-300 px-4 py-2 text-sm disabled:opacity-60"
           >
             취소
           </button>
@@ -1127,7 +1130,8 @@ function ReplyModal({
           <button
             type="button"
             onClick={safeClose}
-            className="rounded border border-zinc-300 px-4 py-2 text-sm"
+            disabled={submitting}
+            className="rounded border border-zinc-300 px-4 py-2 text-sm disabled:opacity-60"
           >
             취소
           </button>
