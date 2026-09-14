@@ -645,14 +645,16 @@ function EnrollmentRow({
               </Link>
               {isComplete && issuedDoc ? (
                 <>
-                  <a
-                    href={absUrl(issuedDoc.pdf_url)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-900/10 transition-colors hover:from-blue-700 hover:to-blue-800"
-                  >
-                    <Download className="h-3.5 w-3.5" /> 수료증 다운로드
-                  </a>
+                  {issuedDoc.pdf_url ? (
+                    <a
+                      href={absUrl(issuedDoc.pdf_url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-900/10 transition-colors hover:from-blue-700 hover:to-blue-800"
+                    >
+                      <Download className="h-3.5 w-3.5" /> 수료증 다운로드
+                    </a>
+                  ) : null}
                   {issuedDoc.pledge_pdf_url ? (
                     <a
                       href={absUrl(issuedDoc.pledge_pdf_url)}

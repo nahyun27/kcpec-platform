@@ -580,25 +580,45 @@ def cancel_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
     return OkResponse()
 
 
-def _revoke_issued_document(doc: IssuedDocument) -> None:
+def _revoke_issued_document(doc: IssuedDocument, db: Session) -> None:
     """환불된 주문에 딸린 발급 서류 무효화 — DB 상태 변경 + 실제 PDF 파일 삭제.
 
     /static 은 인증 없이 공개 서빙되므로 상태만 바꾸고 파일을 안 지우면,
     이미 URL 을 알고 있는(저장해둔) 사람은 여전히 다운로드할 수 있다.
     document_type 별로 실제 저장 경로 규칙이 달라(수료증: PDF_DIR, 심리상담
-    의견서: FINALS_DIR — 둘 다 파일명은 doc.access_token 그대로 사용) 타입을
-    보고 분기한다.
+    의견서: FINALS_DIR) 타입을 보고 분기한다.
     """
-    if doc.access_token:
-        if doc.document_type == IssuedDocumentType.CERTIFICATE:
+    if doc.document_type == IssuedDocumentType.CERTIFICATE:
+        if doc.access_token:
             (PDF_DIR / f"cert_{doc.access_token}.pdf").unlink(missing_ok=True)
             # 수료증과 세트로 발급되는 서약서도 같은 access_token 으로 저장돼
             # 있는데, 여긴 지금까지 안 지우고 있었다 — 환불 후에도 pledge_pdf_url
             # 이 그대로 남아 무인증 /static 경로로 계속 다운로드 가능했음
             # (2026-09, 버그 감사 중 발견).
             (PDF_DIR / f"pledge_{doc.access_token}.pdf").unlink(missing_ok=True)
-        elif doc.document_type == IssuedDocumentType.COUNSELING:
-            (FINALS_DIR / f"{doc.access_token}.pdf").unlink(missing_ok=True)
+    elif doc.document_type == IssuedDocumentType.COUNSELING:
+        # 심리상담 의견서 파일은 doc.access_token 이 아니라 survey.access_token
+        # 으로 저장된다 — upload_final()이 재업로드 시 access_token unique
+        # 제약에 걸리지 않도록 IssuedDocument.access_token 을 survey 것과
+        # 일부러 독립적으로 발급하기 때문. 여기서 doc.access_token 으로
+        # 지우려 하면 실제 파일명과 달라 missing_ok=True 에 조용히 묻히고
+        # 파일이 그대로 남는다 — 환불된 심리상담 의견서(법원 제출용, 민감한
+        # 설문 응답 포함)가 무인증 /static 경로로 계속 다운로드 가능했음
+        # (2026-09, 버그 감사 중 발견). 같은 토큰으로 저장되는 AI 초안(.txt),
+        # 양식 출력본(.docx/.pdf)도 함께 지운다.
+        survey = db.scalar(
+            select(CounselingSurvey).where(CounselingSurvey.order_id == doc.order_id)
+        )
+        if survey is not None and survey.access_token:
+            token = survey.access_token
+            (FINALS_DIR / f"{token}.pdf").unlink(missing_ok=True)
+            (DRAFTS_DIR / f"{token}.txt").unlink(missing_ok=True)
+            (EXPORTS_DIR / f"counseling_{token}.docx").unlink(missing_ok=True)
+            (EXPORTS_DIR / f"counseling_{token}.pdf").unlink(missing_ok=True)
+        if survey is not None:
+            survey.final_pdf_url = None
+            survey.ai_draft_url = None
+            survey.access_token = None
     doc.status = IssuedDocumentStatus.REVOKED
     doc.access_token = None
     doc.pdf_url = None
@@ -687,7 +707,7 @@ def refund_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
             db.scalars(select(IssuedDocument).where(IssuedDocument.order_id == o.id)).all()
         )
         for doc in docs:
-            _revoke_issued_document(doc)
+            _revoke_issued_document(doc, db)
 
     db.commit()
     return OkResponse()

@@ -52,7 +52,7 @@ export type BundleCreateResponse = {
 };
 
 export type IssuedDocumentType = "certificate" | "guide" | "cbt";
-export type IssuedDocumentStatus = "pending" | "ready";
+export type IssuedDocumentStatus = "pending" | "ready" | "revoked";
 
 export type DocumentResponse = {
   id: number;

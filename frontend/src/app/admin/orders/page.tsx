@@ -90,6 +90,12 @@ function AdminOrdersPage() {
   }, [filter, page]);
 
   async function handleConfirm(row: AdminOrderRow) {
+    if (
+      !(await dialog.confirm(
+        `주문 #${row.id} (${row.username})의 입금을 확인 처리하시겠습니까?`,
+      ))
+    )
+      return;
     setConfirmingId(row.id);
     try {
       await confirmBankOrder(row.id);

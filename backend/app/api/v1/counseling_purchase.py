@@ -78,6 +78,11 @@ def purchase(
     requires_payment = (course.price or 0) > 0
     amount = course.price or 0
 
+    # (검토 후 의도적으로 미적용) orders.py는 카드/토스 결제에 대해 중복
+    # PENDING 주문을 일부러 막지 않는다 — 사용자가 체크아웃 도중 이탈/재시도
+    # 하는 게 흔한데, 자가 취소 수단이 없는 상태에서 막으면 재구매 자체가
+    # 막혀버리기 때문(orders.py 주석 참고). 이 엔드포인트도 항상
+    # PaymentMethod.CARD 를 쓰므로 같은 이유로 중복 PENDING 차단을 넣지 않는다.
     order = Order(
         user_id=current_user.id,
         course_id=course.id,
