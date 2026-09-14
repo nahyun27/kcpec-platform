@@ -481,7 +481,15 @@ def bank_confirm(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> Order:
-    order = db.get(Order, order_id)
+    # 관리자 두 명(또는 같은 관리자의 중복 클릭)이 같은 주문을 거의 동시에
+    # 확정하면, 커밋 전까지는 둘 다 status==PENDING 으로 읽어 아래 로직을
+    # 중복 실행할 수 있었다(2026-09, 버그 감사 중 발견 — 각 단계가
+    # 멱등적이라 실질적 피해는 적지만, row lock 으로 아예 막아둔다). 행
+    # 잠금을 걸어 두 번째 요청은 첫 번째가 커밋될 때까지 대기했다가, 이미
+    # PAID 로 바뀐 걸 보고 조용히 반환한다.
+    order = db.scalar(
+        select(Order).where(Order.id == order_id).with_for_update()
+    )
     if order is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="주문을 찾을 수 없습니다.")
     if order.payment_method != PaymentMethod.BANK_TRANSFER:
@@ -497,11 +505,13 @@ def bank_confirm(
     # 나머지 강의는 결제 안 된 채로 남는 사고가 나기 쉬웠다.
     if order.bundle_id:
         siblings = db.scalars(
-            select(Order).where(
+            select(Order)
+            .where(
                 Order.bundle_id == order.bundle_id,
                 Order.id != order.id,
                 Order.status == OrderStatus.PENDING,
             )
+            .with_for_update()
         ).all()
         for sib in siblings:
             _mark_paid(sib, payment_key=None)
