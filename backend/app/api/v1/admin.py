@@ -569,11 +569,17 @@ def _revoke_issued_document(doc: IssuedDocument) -> None:
     if doc.access_token:
         if doc.document_type == IssuedDocumentType.CERTIFICATE:
             (PDF_DIR / f"cert_{doc.access_token}.pdf").unlink(missing_ok=True)
+            # 수료증과 세트로 발급되는 서약서도 같은 access_token 으로 저장돼
+            # 있는데, 여긴 지금까지 안 지우고 있었다 — 환불 후에도 pledge_pdf_url
+            # 이 그대로 남아 무인증 /static 경로로 계속 다운로드 가능했음
+            # (2026-09, 버그 감사 중 발견).
+            (PDF_DIR / f"pledge_{doc.access_token}.pdf").unlink(missing_ok=True)
         elif doc.document_type == IssuedDocumentType.COUNSELING:
             (FINALS_DIR / f"{doc.access_token}.pdf").unlink(missing_ok=True)
     doc.status = IssuedDocumentStatus.REVOKED
     doc.access_token = None
     doc.pdf_url = None
+    doc.pledge_pdf_url = None
 
 
 @router.post("/orders/{order_id}/refund", response_model=OkResponse)

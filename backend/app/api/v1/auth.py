@@ -40,7 +40,6 @@ from app.schemas.auth import (
     ProfileUpdateRequest,
     ResetPasswordRequest,
     SignupRequest,
-    SocialLoginRequest,
     SocialProvider,
     TokenResponse,
     UserResponse,
@@ -651,14 +650,13 @@ def social_callback(
     return redirect
 
 
-@router.post("/social", response_model=TokenResponse)
-def social_login_internal(
-    payload: SocialLoginRequest, db: Session = Depends(get_db)
-) -> TokenResponse:
-    """find-or-create + JWT 발급. callback 외부에서 (예: 테스트 / 다른 SDK 통합)
-    에서도 같은 로직을 호출할 수 있도록 노출."""
-    user = _find_or_create_social_user(
-        db, payload.provider, payload.provider_id, payload.email
-    )
-    return _issue_tokens(user.id)
+# 예전엔 여기 POST /social 이 있었다 — payload 로 받은 provider/provider_id/
+# email 을 실제 소셜 provider 에 검증 한 번도 안 하고 그대로 _find_or_create_
+# social_user 에 넘겨 JWT 를 발급해줬다. _find_or_create_social_user 의
+# "동일 이메일 기존 계정이면 그대로 로그인" 로직은 콜백 플로우(위 함수, 실제
+# provider 토큰 교환을 거친 뒤에만 호출됨)에서는 안전하지만, 이 엔드포인트는
+# 인증 없이 누구나 임의 이메일을 자칭해 그 계정의 토큰을 그대로 받아갈 수
+# 있는 계정 탈취 구멍이었다 — 프론트엔드 어디서도 호출하지 않는 죽은
+# 엔드포인트였고 실제 provider 검증 없이는 안전하게 만들 방법이 없어 완전히
+# 제거함(2026-09, 버그 감사 중 발견).
 
