@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, get_current_user_optional
+from app.core.rate_limit import enforce_rate_limit
 from app.core.storage import issue_stream_url
 from app.models.community import Post, PostCategory
 from app.models.course import Course, CourseCategory
@@ -501,6 +502,17 @@ def submit_quiz(
     if enrollment is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="수강 등록이 필요합니다.")
     _check_enrollment_access(enrollment)
+
+    # 채점 결과(정답 여부 + 점수)를 매 제출마다 즉시 알려주는 구조라, 시도
+    # 횟수에 제한이 없으면 보기 id(GET /quiz 로 노출된, 순차 발급되는 PK)를
+    # 하나씩 바꿔가며 재제출하는 방식으로 정답을 무차별 대입할 수 있었다 —
+    # 이 강의들은 법원 제출용 수료 요건의 일부라 이해도 확인이라는 퀴즈의
+    # 목적 자체가 무력화된다(2026-09, 버그 감사 중 발견). 정상적으로 틀려서
+    # 다시 푸는 경우를 막지 않을 만큼 넉넉하게, 무차별 대입만 느리게 만드는
+    # 수준으로 제한한다.
+    enforce_rate_limit(
+        f"quiz-submit:enrollment:{enrollment.id}", max_attempts=20, window_seconds=3600
+    )
 
     quiz = _get_course_quiz(db, course.id)
     questions = quiz.questions
