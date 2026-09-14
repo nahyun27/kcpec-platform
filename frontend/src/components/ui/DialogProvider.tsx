@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 
 type DialogTone = "default" | "danger";
 
@@ -52,32 +52,44 @@ export function useDialog(): DialogContextValue {
 }
 
 export function DialogProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<DialogState | null>(null);
+  // 여러 컴포넌트가 거의 동시에 alert()/confirm()을 호출하면 뒤 호출이
+  // state를 통째로 덮어써서 앞 호출의 Promise(및 그걸 기다리던 await)가
+  // 영원히 멈춰있던 문제가 있었다 — 큐로 바꿔 순서대로 하나씩 띄운다
+  // (2026-09, 버그 감사 중 발견).
+  const [queue, setQueue] = useState<DialogState[]>([]);
+  const state = queue[0] ?? null;
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   function alert(message: string, options?: AlertOptions): Promise<void> {
     return new Promise((resolve) => {
-      setState({
-        kind: "alert",
-        message,
-        title: options?.title,
-        confirmText: options?.confirmText ?? "확인",
-        tone: options?.tone ?? "default",
-        resolve,
-      });
+      setQueue((q) => [
+        ...q,
+        {
+          kind: "alert",
+          message,
+          title: options?.title,
+          confirmText: options?.confirmText ?? "확인",
+          tone: options?.tone ?? "default",
+          resolve,
+        },
+      ]);
     });
   }
 
   function confirm(message: string, options?: ConfirmOptions): Promise<boolean> {
     return new Promise((resolve) => {
-      setState({
-        kind: "confirm",
-        message,
-        title: options?.title,
-        confirmText: options?.confirmText ?? "확인",
-        cancelText: options?.cancelText ?? "취소",
-        tone: options?.tone ?? "default",
-        resolve,
-      });
+      setQueue((q) => [
+        ...q,
+        {
+          kind: "confirm",
+          message,
+          title: options?.title,
+          confirmText: options?.confirmText ?? "확인",
+          cancelText: options?.cancelText ?? "취소",
+          tone: options?.tone ?? "default",
+          resolve,
+        },
+      ]);
     });
   }
 
@@ -85,8 +97,40 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
     if (!state) return;
     if (state.kind === "alert") state.resolve();
     else state.resolve(result);
-    setState(null);
+    setQueue((q) => q.slice(1));
   }
+
+  // Escape로 닫기(취소) + 포커스 트랩 — Tab이 다이얼로그 밖으로 빠져나가
+  // 뒤에 깔린(시각적으로는 가려진) 페이지 요소로 이동하지 못하게 막는다.
+  useEffect(() => {
+    if (!state) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        handleClose(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const root = dialogRef.current;
+      if (!root) return;
+      const focusable = root.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   return (
     <DialogContext.Provider value={{ alert, confirm }}>
@@ -97,6 +141,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
           onClick={() => handleClose(false)}
         >
           <div
+            ref={dialogRef}
             role="alertdialog"
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}

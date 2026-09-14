@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
@@ -17,6 +18,18 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
+
+
+def hash_lookup_token(raw_token: str) -> str:
+    """비밀번호 재설정/이메일 인증 토큰을 DB에 저장하기 전 해시.
+
+    이 토큰들은 이미 secrets.token_urlsafe(32)로 추측 불가능하지만, 평문
+    그대로 저장하면 DB 덤프가 유출됐을 때 그 자체로 바로 재사용 가능한
+    유효한 토큰이 된다 — 비밀번호 해시처럼 원문을 저장하지 않는다
+    (2026-09, 버그 감사 중 발견). 사용자에게 보내는 링크에는 원문을,
+    DB 조회에는 이 해시값을 쓴다.
+    """
+    return hashlib.sha256(raw_token.encode()).hexdigest()
 
 
 def _create_token(subject: str | int, token_type: TokenType, expires_delta: timedelta) -> str:

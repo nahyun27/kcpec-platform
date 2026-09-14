@@ -577,6 +577,8 @@ function PersonalSection({
           <FieldLabel required>생년월일</FieldLabel>
           <input
             type="date"
+            min="1900-01-01"
+            max={new Date().toISOString().slice(0, 10)}
             value={personal.birthdate}
             onChange={(e) => onChange("birthdate", e.target.value)}
             className={inputCls}

@@ -163,6 +163,8 @@ export default function IssuePage() {
               id="birth"
               type="date"
               required
+              min="1900-01-01"
+              max={new Date().toISOString().slice(0, 10)}
               value={birth}
               onChange={(e) => setBirth(e.target.value)}
               className="w-full rounded border border-[var(--color-border)] px-3 py-2.5 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"

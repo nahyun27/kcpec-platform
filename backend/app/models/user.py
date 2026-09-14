@@ -44,6 +44,9 @@ class User(Base):
     email_verify_token: Mapped[str | None] = mapped_column(
         String(64), unique=True, nullable=True
     )
+    email_verify_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

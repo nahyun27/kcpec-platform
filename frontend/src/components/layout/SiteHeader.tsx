@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Menu, X, ChevronRight } from "lucide-react";
 import { logout, tokenStorage } from "@/lib/api";
@@ -17,6 +17,7 @@ const NAV = [
 
 export default function SiteHeader() {
   const router = useRouter();
+  const pathname = usePathname();
   const [authed, setAuthed] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -31,10 +32,13 @@ export default function SiteHeader() {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  // 페이지 이동 시 메뉴 닫기
+  // 페이지 이동 시 메뉴 닫기 — router 객체는 경로가 바뀌어도 참조가
+  // 그대로라 [router]로는 절대 재실행되지 않았다(마운트 시 1회뿐).
+  // 실제 경로 변화를 감지하려면 usePathname()을 써야 한다
+  // (2026-09, 버그 감사 중 발견).
   useEffect(() => {
     setIsMenuOpen(false);
-  }, [router]);
+  }, [pathname]);
 
   function handleLogout() {
     logout();

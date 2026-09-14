@@ -39,21 +39,44 @@ def _now() -> datetime:
 
 
 def _ensure_enrollment(db: Session, user_id: int, course_id: int) -> None:
-    """결제 완료 시 자동으로 수강 등록(enrollment) 생성. 이미 있으면 no-op."""
+    """결제 완료 시 자동으로 수강 등록(enrollment) 생성/갱신.
+
+    수강기간이 이미 만료된 뒤 재결제한 경우 여기서 no-op 이면 결제만 되고
+    여전히 수강 불가 상태로 남는다 — 새 결제 시점부터 수강기간을 다시
+    부여한다(2026-09, 버그 감사 중 발견). expires_at 이 None(레거시,
+    기간 무제한)인 기존 enrollment 는 건드리지 않는다.
+    """
     existing = db.scalar(
         select(Enrollment).where(
             Enrollment.user_id == user_id,
             Enrollment.course_id == course_id,
         )
     )
+    new_expiry = _now() + timedelta(days=settings.ENROLLMENT_ACCESS_DAYS)
     if existing is None:
         db.add(
             Enrollment(
                 user_id=user_id,
                 course_id=course_id,
-                expires_at=_now() + timedelta(days=settings.ENROLLMENT_ACCESS_DAYS),
+                expires_at=new_expiry,
             )
         )
+    elif existing.expires_at is not None and existing.expires_at < new_expiry:
+        existing.expires_at = new_expiry
+
+
+def _enrollment_expired(db: Session, user_id: int, course_id: int) -> bool:
+    enrollment = db.scalar(
+        select(Enrollment).where(
+            Enrollment.user_id == user_id,
+            Enrollment.course_id == course_id,
+        )
+    )
+    return (
+        enrollment is not None
+        and enrollment.expires_at is not None
+        and _now() > enrollment.expires_at
+    )
 
 
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
@@ -74,7 +97,10 @@ def create_order(
             status.HTTP_400_BAD_REQUEST, detail="결제 금액이 강의 가격과 일치하지 않습니다."
         )
 
-    # 사전결제 — 동일 강의의 PAID 주문이 이미 있으면 중복 차단.
+    # 사전결제 — 동일 강의의 PAID 주문이 이미 있으면 중복 차단. 단, 그
+    # 수강권의 수강기간이 이미 만료됐다면 재결제로 다시 수강기간을 받을 수
+    # 있어야 한다 — 그렇지 않으면 정상적으로 만료된 유료 고객이 다시 결제할
+    # 방법이 관리자 문의밖에 없었다(2026-09, 버그 감사 중 발견).
     duplicate_paid = db.scalar(
         select(Order).where(
             Order.user_id == current_user.id,
@@ -82,7 +108,9 @@ def create_order(
             Order.status == OrderStatus.PAID,
         )
     )
-    if duplicate_paid is not None:
+    if duplicate_paid is not None and not _enrollment_expired(
+        db, current_user.id, course.id
+    ):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             detail="이미 결제 완료된 강의입니다.",
@@ -166,7 +194,9 @@ def create_order_bundle(
                 Order.status == OrderStatus.PAID,
             )
         )
-        if duplicate_paid is not None:
+        if duplicate_paid is not None and not _enrollment_expired(
+            db, current_user.id, cid
+        ):
             raise HTTPException(
                 status.HTTP_409_CONFLICT, detail=f"'{c.title}' 은(는) 이미 결제 완료된 강의입니다."
             )

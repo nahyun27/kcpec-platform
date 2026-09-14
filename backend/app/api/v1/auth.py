@@ -28,6 +28,7 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    hash_lookup_token,
     hash_password,
     verify_password,
 )
@@ -49,6 +50,7 @@ from app.schemas.auth import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 PASSWORD_RESET_EXPIRE_MINUTES = 60
+EMAIL_VERIFY_EXPIRE_HOURS = 24
 
 
 def _issue_tokens(user_id: int) -> TokenResponse:
@@ -84,7 +86,9 @@ def signup(
         email=payload.email,
         birth_date=payload.birth_date,
         is_verified=False,
-        email_verify_token=verify_token,
+        email_verify_token=hash_lookup_token(verify_token),
+        email_verify_expires_at=datetime.now(timezone.utc)
+        + timedelta(hours=EMAIL_VERIFY_EXPIRE_HOURS),
     )
     db.add(user)
     db.commit()
@@ -99,14 +103,25 @@ def signup(
 
 @router.post("/verify-email", status_code=status.HTTP_200_OK)
 def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)) -> dict[str, str]:
-    user = db.scalar(select(User).where(User.email_verify_token == payload.token))
-    if user is None:
+    user = db.scalar(
+        select(User).where(User.email_verify_token == hash_lookup_token(payload.token))
+    )
+    if user is None or user.email_verify_expires_at is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="유효하지 않은 인증 링크입니다.",
+            detail="유효하지 않거나 만료된 인증 링크입니다.",
+        )
+    expires_at = user.email_verify_expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유효하지 않거나 만료된 인증 링크입니다.",
         )
     user.is_verified = True
     user.email_verify_token = None
+    user.email_verify_expires_at = None
     db.commit()
     return {"detail": "이메일 인증이 완료되었습니다."}
 
@@ -121,7 +136,10 @@ def resend_verification(
     if current_user.is_verified:
         return {"detail": "이미 인증된 이메일입니다."}
     token = secrets.token_urlsafe(32)
-    current_user.email_verify_token = token
+    current_user.email_verify_token = hash_lookup_token(token)
+    current_user.email_verify_expires_at = datetime.now(timezone.utc) + timedelta(
+        hours=EMAIL_VERIFY_EXPIRE_HOURS
+    )
     db.commit()
     verify_url = f"{settings.FRONTEND_BASE_URL}/verify-email?token={token}"
     background_tasks.add_task(
@@ -205,7 +223,7 @@ def forgot_password(
     user = db.scalar(select(User).where(User.email == payload.email))
     if user is not None and user.is_active and user.social_provider is None:
         token = secrets.token_urlsafe(32)
-        user.password_reset_token = token
+        user.password_reset_token = hash_lookup_token(token)
         user.password_reset_expires_at = datetime.now(timezone.utc) + timedelta(
             minutes=PASSWORD_RESET_EXPIRE_MINUTES
         )
@@ -221,7 +239,9 @@ def forgot_password(
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
 def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)) -> dict[str, str]:
-    user = db.scalar(select(User).where(User.password_reset_token == payload.token))
+    user = db.scalar(
+        select(User).where(User.password_reset_token == hash_lookup_token(payload.token))
+    )
     if user is None or user.password_reset_expires_at is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -272,7 +292,10 @@ def patch_me(
         if not is_social:
             token = secrets.token_urlsafe(32)
             current_user.is_verified = False
-            current_user.email_verify_token = token
+            current_user.email_verify_token = hash_lookup_token(token)
+            current_user.email_verify_expires_at = datetime.now(timezone.utc) + timedelta(
+                hours=EMAIL_VERIFY_EXPIRE_HOURS
+            )
             verify_url = f"{settings.FRONTEND_BASE_URL}/verify-email?token={token}"
             background_tasks.add_task(
                 send_verification_email, to_email=current_user.email, verify_url=verify_url
@@ -351,6 +374,7 @@ def delete_me(
     current_user.password_reset_token = None
     current_user.password_reset_expires_at = None
     current_user.email_verify_token = None
+    current_user.email_verify_expires_at = None
     current_user.is_verified = False
     current_user.is_active = False
 

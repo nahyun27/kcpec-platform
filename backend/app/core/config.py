@@ -1,7 +1,12 @@
+import logging
 from functools import lru_cache
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+INSECURE_JWT_SECRET_DEFAULT = "change-me-in-production"
 
 
 class Settings(BaseSettings):
@@ -12,7 +17,7 @@ class Settings(BaseSettings):
         default="postgresql+psycopg2://kcpec:kcpec@localhost:5432/kcpec",
     )
 
-    JWT_SECRET_KEY: str = Field(default="change-me-in-production")
+    JWT_SECRET_KEY: str = Field(default=INSECURE_JWT_SECRET_DEFAULT)
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -87,3 +92,14 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
+
+# .env 에 JWT_SECRET_KEY 를 설정하지 않으면 이 기본값 그대로 배포될 수 있고,
+# 그러면 소스 코드를 아는 누구나 유효한 로그인 토큰을 위조할 수 있다 —
+# 예외를 던져 기동을 막지는 않되(로컬 개발 편의를 깨지 않기 위함), 로그로는
+# 반드시 눈에 띄게 경고한다(2026-09, 버그 감사 중 발견).
+if settings.JWT_SECRET_KEY == INSECURE_JWT_SECRET_DEFAULT:
+    logger.warning(
+        "JWT_SECRET_KEY가 기본값(%s)입니다 — 반드시 .env 에서 강력한 랜덤값으로 "
+        "재설정하세요. 이 상태로는 누구나 로그인 토큰을 위조할 수 있습니다.",
+        INSECURE_JWT_SECRET_DEFAULT,
+    )

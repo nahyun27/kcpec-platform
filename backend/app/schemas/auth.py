@@ -1,7 +1,9 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+from app.core.validators import validate_birth_date
 
 
 class SignupRequest(BaseModel):
@@ -9,6 +11,8 @@ class SignupRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     email: EmailStr
     birth_date: date
+
+    _validate_birth_date = field_validator("birth_date")(validate_birth_date)
 
 
 class LoginRequest(BaseModel):
