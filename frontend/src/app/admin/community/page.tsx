@@ -942,10 +942,11 @@ function EditModal({
     let cancelled = false;
     setLoaded(false);
     setLoadErr(null);
+    // 수정하려고 불러오는 것뿐이라 공개 조회수를 올리면 안 됨.
     const fetcher =
       row.table === "notice"
-        ? getNotice(row.id).then((d) => d.content)
-        : getPost(row.id).then((d) => d.content);
+        ? getNotice(row.id, { countView: false }).then((d) => d.content)
+        : getPost(row.id, { countView: false }).then((d) => d.content);
     fetcher
       .then((c) => {
         if (cancelled) return;

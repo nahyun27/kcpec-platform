@@ -734,8 +734,13 @@ export async function getNotices(
   return data;
 }
 
-export async function getNotice(id: number): Promise<NoticeDetail> {
-  const { data } = await api.get<NoticeDetail>(`/notices/${id}`);
+export async function getNotice(
+  id: number,
+  options?: { countView?: boolean },
+): Promise<NoticeDetail> {
+  const { data } = await api.get<NoticeDetail>(`/notices/${id}`, {
+    params: { count_view: options?.countView ?? true },
+  });
   return data;
 }
 
@@ -786,8 +791,13 @@ export async function deleteFaq(faqId: number): Promise<void> {
   await api.delete(`/admin/faq/${faqId}`);
 }
 
-export async function getPost(id: number): Promise<PostDetail> {
-  const { data } = await api.get<PostDetail>(`/posts/${id}`);
+export async function getPost(
+  id: number,
+  options?: { countView?: boolean },
+): Promise<PostDetail> {
+  const { data } = await api.get<PostDetail>(`/posts/${id}`, {
+    params: { count_view: options?.countView ?? true },
+  });
   return data;
 }
 

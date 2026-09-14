@@ -70,13 +70,22 @@ def list_notices(
 
 
 @router.get("/notices/{notice_id}", response_model=NoticeDetail)
-def get_notice(notice_id: int, db: Session = Depends(get_db)) -> NoticeDetail:
+def get_notice(
+    notice_id: int,
+    db: Session = Depends(get_db),
+    count_view: bool = Query(default=True),
+) -> NoticeDetail:
     notice = db.get(Notice, notice_id)
     if notice is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="공지를 찾을 수 없습니다.")
-    notice.view_count += 1
-    db.commit()
-    db.refresh(notice)
+    # 관리자 화면이 수정 폼에 내용을 채우려고 이 엔드포인트를 그대로
+    # 재사용하면서, 오타 하나 고치려고 열어봐도 매번 조회수가 올라가고
+    # 있었다 — count_view=false 로 호출하면 조회수를 건드리지 않는다
+    # (2026-09, 버그 감사 중 발견).
+    if count_view:
+        notice.view_count += 1
+        db.commit()
+        db.refresh(notice)
     return NoticeDetail.model_validate(notice)
 
 
@@ -135,13 +144,20 @@ def list_posts(
 
 
 @router.get("/posts/{post_id}", response_model=PostDetail)
-def get_post(post_id: int, db: Session = Depends(get_db)) -> PostDetail:
+def get_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    count_view: bool = Query(default=True),
+) -> PostDetail:
     post = db.get(Post, post_id)
     if post is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="게시글을 찾을 수 없습니다.")
-    post.view_count += 1
-    db.commit()
-    db.refresh(post)
+    # count_view=false 용도는 get_notice 와 동일 — 관리자가 수정하려고 열어볼
+    # 때 조회수가 같이 올라가던 문제 수정.
+    if count_view:
+        post.view_count += 1
+        db.commit()
+        db.refresh(post)
     return PostDetail.model_validate(post)
 
 
@@ -178,6 +194,23 @@ def create_post(
             raise HTTPException(
                 status.HTTP_403_FORBIDDEN,
                 detail="결제 완료한 강의에 대해서만 후기를 작성할 수 있습니다.",
+            )
+        # Post 에 user_id 컬럼이 없어(자유 게시판 성격상 author_name 만 저장)
+        # 같은 사람이 같은 강의에 후기를 몇 개든 반복 작성해 평균 별점을
+        # 마음대로 올리거나 내릴 수 있었다 — REVIEW 는 author_name 이 항상
+        # current_user.username(바로 아래에서 강제)이라 이 값으로 중복을
+        # 판별한다(2026-09, 버그 감사 중 발견).
+        already_reviewed = db.scalar(
+            select(func.count(Post.id)).where(
+                Post.category == PostCategory.REVIEW,
+                Post.course_id == payload.course_id,
+                Post.author_name == current_user.username,
+            )
+        )
+        if already_reviewed:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail="이미 이 강의에 후기를 작성하셨습니다.",
             )
     # author_name 우선순위:
     # - 칼럼: payload (관리자가 지정한 전문가명) 우선, 없으면 "관리자"
