@@ -49,6 +49,32 @@ MIN_LECTURE_WATCH_RATIO = 0.9
 # 재생 안 해 백필 안 된 상태)일 때 쓰는 절대 하한 — 이 경우라도 0초 즉시완료는
 # 막아야 한다.
 MIN_LECTURE_WATCH_SECONDS_FALLBACK = 10
+# watched_seconds 는 클라이언트가 보내는 그대로 신뢰돼 왔다 — 위 두 값으로
+# "0초 즉시완료"는 막았지만, watched_seconds 자체를 duration 만큼 통째로
+# 보내는 건 여전히 막지 못했다(실제로 한 프레임도 재생하지 않고 PATCH 한 번으로
+# 차시를 "완료" 처리 가능했음, 재생속도 조절 기능은 없으므로 실시간 1배속이
+# 유일한 정상 경로). 직전 갱신 이후 실제로 흐른 시간(첫 갱신이면 enrollment
+# 등록 시각 기준)만큼만 watched_seconds 증가를 허용해 이 우회를 막는다 —
+# 네트워크 재시도/탭 백그라운드 후 따라잡기 등 정상 케이스를 막지 않도록
+# 넉넉한 배율과 유예를 둔다(2026-09, 버그 감사 중 발견).
+WATCH_PROGRESS_MAX_RATE = 1.5
+WATCH_PROGRESS_GRACE_SECONDS = 30
+# 이 차시의 첫 진도 보고(진도 row 가 아직 없어 직전 갱신 시각 기준이 없는
+# 경우)는 수강 등록 시각을 기준으로 삼지 않는다 — 그러면 등록 후 한참 지나
+# 한 번에 여러 차시를 몰아서 완료 처리하는 게 여전히 가능해진다(각 차시의
+# "첫 보고"가 전부 등록 시각을 기준으로 큰 경과시간을 가지므로). 대신 첫
+# 보고에는 고정된 소량만 허용 — 프론트가 10초 간격으로 보고하므로 정상적인
+# 첫 보고나 재연결 직후 따라잡기는 이 안에 들어오지만, "등록 후 기다렸다가
+# 통째로 완료 신고"는 차시별로 막힌다.
+WATCH_PROGRESS_FIRST_TOUCH_ALLOWANCE_SECONDS = 120
+# 클라이언트가 감지한 duration 으로 lecture.duration_seconds 를 보정하는 로직은
+# "저장된 값보다 클 때만" 갱신하므로, 신규 등록 직후(0) 상태에서 아무 값이나
+# 한 번 보내면 그게 그대로 박제된다 — 터무니없이 큰 값을 보내면 그 차시는
+# 영원히 90% 를 못 채워 완료 불가능해지고(HIGH), 반대로 극단적으로 작은 값을
+# 보내면 그 즉시 "0.9초만 봐도 완료" 수준으로 완료 기준이 무력화된다. 이
+# 플랫폼의 실제 차시 길이(330~972초, 2026-09 기준)를 벗어나는 값은 무시한다.
+LECTURE_DURATION_SANE_MIN_SECONDS = 60
+LECTURE_DURATION_SANE_MAX_SECONDS = 3600
 
 
 # ---------- internal helpers ---------------------------------------------------
@@ -387,6 +413,7 @@ def update_lecture_progress(
     _check_enrollment_access(enrollment)
 
     progress = next((p for p in enrollment.progresses if p.lecture_id == lecture_id), None)
+    is_first_touch = progress is None
     if progress is None:
         progress = LectureProgress(
             enrollment_id=enrollment.id,
@@ -395,19 +422,36 @@ def update_lecture_progress(
         db.add(progress)
         enrollment.progresses.append(progress)
 
+    if is_first_touch:
+        max_watched_increase = WATCH_PROGRESS_FIRST_TOUCH_ALLOWANCE_SECONDS
+    else:
+        baseline_at = progress.updated_at
+        now = datetime.now(timezone.utc)
+        if baseline_at is not None and baseline_at.tzinfo is None:
+            baseline_at = baseline_at.replace(tzinfo=timezone.utc)
+        elapsed_seconds = max((now - baseline_at).total_seconds(), 0) if baseline_at else 0
+        max_watched_increase = elapsed_seconds * WATCH_PROGRESS_MAX_RATE + WATCH_PROGRESS_GRACE_SECONDS
+    watched_cap = (progress.watched_seconds or 0) + max_watched_increase
+
     # 새로 생성된 LectureProgress 는 flush 전까지 column default(0)가 적용되지 않아
     # 속성이 None 인 채로 max() 에 들어가 TypeError → 500 이 발생하던 케이스를 방어.
     progress.watched_seconds = max(
-        progress.watched_seconds or 0, payload.watched_seconds or 0
+        progress.watched_seconds or 0,
+        min(payload.watched_seconds or 0, int(watched_cap)),
     )
     progress.last_position_sec = max(
         progress.last_position_sec or 0, payload.last_position_sec or 0
     )
     # 클라이언트가 영상 메타데이터에서 감지한 duration 으로 lecture.duration_seconds
     # 를 보정. 어드민 백필 endpoint 와 달리 일반 유저도 호출 가능.
-    if payload.duration_seconds is not None and payload.duration_seconds > 0:
-        if (lecture.duration_seconds or 0) < payload.duration_seconds:
-            lecture.duration_seconds = payload.duration_seconds
+    if (
+        payload.duration_seconds is not None
+        and LECTURE_DURATION_SANE_MIN_SECONDS
+        <= payload.duration_seconds
+        <= LECTURE_DURATION_SANE_MAX_SECONDS
+        and (lecture.duration_seconds or 0) < payload.duration_seconds
+    ):
+        lecture.duration_seconds = payload.duration_seconds
     if payload.is_completed and not progress.is_completed:
         _check_sequential_unlock(course, lecture, enrollment)
         min_required = (

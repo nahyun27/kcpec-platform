@@ -148,6 +148,7 @@ export default function CheckoutPage() {
   async function handleCheckout() {
     if (!course) return;
     setSubmitting(true);
+    setPaymentFailMessage(null);
     try {
       const order = await createOrder({
         course_id: course.id,
@@ -209,10 +210,15 @@ export default function CheckoutPage() {
         ...(easyPayCode ? { card: { flowMode: "DIRECT", easyPay: easyPayCode } } : {}),
       } as unknown as Parameters<typeof widget.requestPayment>[0]);
     } catch (err) {
+      // 강의 조회 실패(치명적, 폼 전체를 에러 화면으로 대체)와 달리 결제
+      // 시도 실패(토스 SDK 로드 실패/네트워크 오류 등)는 결제수단을 다시
+      // 고를 필요 없이 그 자리에서 재시도할 수 있어야 하므로, 폼을
+      // 지워버리는 error 대신 인라인 배너(paymentFailMessage)로 보여준다
+      // (2026-09, 버그 감사 중 발견).
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
         : null;
-      setError(detail ?? "결제 진행에 실패했습니다.");
+      setPaymentFailMessage(detail ?? "결제 진행에 실패했습니다.");
       setSubmitting(false);
     }
   }

@@ -230,6 +230,10 @@ export default function WatchPage({
     const lectureId = activeLectureId;
 
     const interval = setInterval(async () => {
+      // 재생 중이 아니면(일시정지/탭 백그라운드) 보고할 새 진도가 없다 —
+      // 어차피 liveWatchedRef 는 재생 중일 때만 증가하므로 매번 같은 값을
+      // 그대로 다시 PATCH 하고 있었다(2026-09, 버그 감사 중 발견).
+      if (!isPlayingRef.current) return;
       const dur = playerDurationRef.current;
       const payload = {
         watched_seconds: Math.floor(liveWatchedRef.current),

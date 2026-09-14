@@ -302,8 +302,12 @@ def extend_enrollment_access(enrollment_id: int, db: Session = Depends(get_db)):
     enrollment = db.get(Enrollment, enrollment_id)
     if enrollment is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="수강 등록을 찾을 수 없습니다.")
-    enrollment.expires_at = _now() + timedelta(days=settings.ENROLLMENT_ACCESS_DAYS)
-    db.commit()
+    # expires_at 이 이미 None(레거시, 기간 무제한)이면 그대로 둔다 — 무조건
+    # "지금부터 30일" 로 재설정하면 오히려 무제한이던 수강권을 30일짜리로
+    # 깎아버리는 역효과가 났었다(2026-09, 버그 감사 중 발견).
+    if enrollment.expires_at is not None:
+        enrollment.expires_at = _now() + timedelta(days=settings.ENROLLMENT_ACCESS_DAYS)
+        db.commit()
 
     # 응답은 admin_user_enrollments 와 동일한 형태로 재사용을 위해 재조회.
     rows = admin_user_enrollments(enrollment.user_id, db)

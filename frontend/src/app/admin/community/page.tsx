@@ -375,6 +375,7 @@ function AdminCommunityPage() {
       {faqFormOpen ? (
         <FaqFormModal
           initial={faqFormOpen === "new" ? null : faqFormOpen}
+          existingFaqs={faqs}
           onClose={() => setFaqFormOpen(null)}
           onSaved={reload}
         />
@@ -521,10 +522,12 @@ function FaqAdminTable({
 
 function FaqFormModal({
   initial,
+  existingFaqs,
   onClose,
   onSaved,
 }: {
   initial: Faq | null;
+  existingFaqs: Faq[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -532,7 +535,15 @@ function FaqFormModal({
   const [category, setCategory] = useState<FaqCategory>(initial?.category ?? "docs");
   const [question, setQuestion] = useState(initial?.question ?? "");
   const [answer, setAnswer] = useState(initial?.answer ?? "");
-  const [orderIndex, setOrderIndex] = useState(initial?.order_index ?? 0);
+  // 신규 항목은 0으로 시작하면 기존 항목들보다 노출 순서가 앞서(가장 위로)
+  // 밀려 들어갔다 — 목록 맨 뒤(가장 큰 order_index + 1)를 기본값으로 한다
+  // (2026-09, 버그 감사 중 발견).
+  const [orderIndex, setOrderIndex] = useState(
+    initial?.order_index ??
+      (existingFaqs.length > 0
+        ? Math.max(...existingFaqs.map((f) => f.order_index)) + 1
+        : 0),
+  );
   const [isActive, setIsActive] = useState(initial?.is_active ?? true);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);

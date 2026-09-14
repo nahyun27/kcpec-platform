@@ -761,6 +761,8 @@ function NewCourseModal({
   const [originalPrice, setOriginalPrice] = useState(110_000);
   const [description, setDescription] = useState("");
   const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [minProgressPct, setMinProgressPct] = useState(90);
+  const [quizPassScore, setQuizPassScore] = useState(70);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -774,6 +776,14 @@ function NewCourseModal({
       setErr("정가(할인 전)는 판매가보다 커야 합니다.");
       return;
     }
+    if (minProgressPct < 0 || minProgressPct > 100) {
+      setErr("수료 기준 진도율은 0~100 사이여야 합니다.");
+      return;
+    }
+    if (quizPassScore < 0 || quizPassScore > 100) {
+      setErr("퀴즈 합격 점수는 0~100 사이여야 합니다.");
+      return;
+    }
     setSubmitting(true);
     try {
       await createCourse({
@@ -783,6 +793,8 @@ function NewCourseModal({
         original_price: hasDiscount ? originalPrice : null,
         description: description.trim() || undefined,
         thumbnail_url: thumbnailUrl.trim() || undefined,
+        min_progress_pct: minProgressPct,
+        quiz_pass_score: quizPassScore,
       });
       onCreated();
     } catch (caught) {
@@ -874,6 +886,26 @@ function NewCourseModal({
             className={inputCls}
           />
         </Field>
+        <Field label="수료 기준 진도율(%) — 전체 차시 중 이 비율 이상 완료해야 수료">
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={minProgressPct}
+            onChange={(e) => setMinProgressPct(Number(e.target.value))}
+            className={inputCls}
+          />
+        </Field>
+        <Field label="퀴즈 합격 점수(점, 100점 만점)">
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={quizPassScore}
+            onChange={(e) => setQuizPassScore(Number(e.target.value))}
+            className={inputCls}
+          />
+        </Field>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
         <FormActions onClose={safeClose} submitting={submitting} submitLabel="등록" />
       </form>
@@ -900,9 +932,16 @@ function EditCourseModal({
   );
   const [isActive, setIsActive] = useState(course.is_active);
   const [thumbnailUrl, setThumbnailUrl] = useState(course.thumbnail_url ?? "");
-  // description 은 list 응답에 없어 detail 을 별도 fetch.
+  // description/min_progress_pct/quiz_pass_score 는 list 응답에 없어 detail 을
+  // 별도 fetch — 이전까지는 min_progress_pct/quiz_pass_score 를 아예 폼에서
+  // 다루지 않아 관리자가 강의별 수료/합격 기준을 사이트에서 바꿀 방법이
+  // 없었다(2026-09, 버그 감사 중 발견).
   const [description, setDescription] = useState<string>("");
   const [originalDescription, setOriginalDescription] = useState<string>("");
+  const [minProgressPct, setMinProgressPct] = useState(90);
+  const [originalMinProgressPct, setOriginalMinProgressPct] = useState(90);
+  const [quizPassScore, setQuizPassScore] = useState(70);
+  const [originalQuizPassScore, setOriginalQuizPassScore] = useState(70);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   // fetch 가 끝나기 전에 admin이 이미 타이핑을 시작했으면, fetch 결과로
@@ -917,6 +956,10 @@ function EditCourseModal({
         const desc = d.description ?? "";
         if (!descriptionTouched.current) setDescription(desc);
         setOriginalDescription(desc);
+        setMinProgressPct(d.min_progress_pct);
+        setOriginalMinProgressPct(d.min_progress_pct);
+        setQuizPassScore(d.quiz_pass_score);
+        setOriginalQuizPassScore(d.quiz_pass_score);
       })
       .catch(() => {
         /* description 미로드 시 빈 값 유지 — 저장 시 실수 방지 위해 dirty 검사가 막아줌 */
@@ -934,7 +977,9 @@ function EditCourseModal({
     (hasDiscount && originalPrice !== (course.original_price ?? 0)) ||
     isActive !== course.is_active ||
     thumbnailUrl !== (course.thumbnail_url ?? "") ||
-    description !== originalDescription;
+    description !== originalDescription ||
+    minProgressPct !== originalMinProgressPct ||
+    quizPassScore !== originalQuizPassScore;
   const safeClose = () => confirmClose(isDirty, onClose, dialog.confirm);
 
   async function handleSubmit(e: FormEvent) {
@@ -942,6 +987,14 @@ function EditCourseModal({
     setErr(null);
     if (hasDiscount && originalPrice <= price) {
       setErr("정가(할인 전)는 판매가보다 커야 합니다.");
+      return;
+    }
+    if (minProgressPct < 0 || minProgressPct > 100) {
+      setErr("수료 기준 진도율은 0~100 사이여야 합니다.");
+      return;
+    }
+    if (quizPassScore < 0 || quizPassScore > 100) {
+      setErr("퀴즈 합격 점수는 0~100 사이여야 합니다.");
       return;
     }
     setSubmitting(true);
@@ -955,6 +1008,8 @@ function EditCourseModal({
         is_active: isActive,
         description: trimmed === "" ? undefined : trimmed,
         thumbnail_url: thumbnailUrl.trim(),
+        min_progress_pct: minProgressPct,
+        quiz_pass_score: quizPassScore,
       });
       onSaved();
     } catch (caught) {
@@ -1071,6 +1126,26 @@ function EditCourseModal({
               />
             </div>
           ) : null}
+        </Field>
+        <Field label="수료 기준 진도율(%) — 전체 차시 중 이 비율 이상 완료해야 수료">
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={minProgressPct}
+            onChange={(e) => setMinProgressPct(Number(e.target.value))}
+            className={inputCls}
+          />
+        </Field>
+        <Field label="퀴즈 합격 점수(점, 100점 만점)">
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={quizPassScore}
+            onChange={(e) => setQuizPassScore(Number(e.target.value))}
+            className={inputCls}
+          />
         </Field>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
         <FormActions onClose={safeClose} submitting={submitting} />
