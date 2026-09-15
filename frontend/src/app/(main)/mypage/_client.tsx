@@ -41,6 +41,7 @@ import { BookOpen, Check, Clock, CreditCard, Download, FileSignature, FileText, 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { useDialog } from "@/components/ui/DialogProvider";
+import { VirtualAccountNotice } from "@/components/features/VirtualAccountNotice";
 
 type OrderWithExtras = OrderResponse & {
   documents: DocumentResponse[];
@@ -805,18 +806,21 @@ function OrderRow({
           )}
         </div>
       ) : isPendingBankTransfer ? (
-        <div className="flex flex-col gap-3 p-6 bg-white sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm leading-relaxed text-slate-500">
-            입금 확인이 완료되면 자동으로 강의가 열립니다. 아직 입금 전이거나 실수로
-            신청하셨다면 아래에서 주문을 취소할 수 있습니다.
-          </p>
-          <button
-            type="button"
-            onClick={() => onCancel(order.id)}
-            className="shrink-0 rounded-lg border border-red-200 bg-white px-5 py-2.5 text-sm font-bold text-red-600 shadow-sm transition-colors hover:bg-red-50"
-          >
-            주문 취소
-          </button>
+        <div className="flex flex-col gap-4 p-6 bg-white">
+          {order.va_account_number ? <VirtualAccountNotice order={order} /> : null}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm leading-relaxed text-slate-500">
+              입금이 확인되면 자동으로 강의가 열립니다. 아직 입금 전이거나 실수로
+              신청하셨다면 아래에서 주문을 취소할 수 있습니다.
+            </p>
+            <button
+              type="button"
+              onClick={() => onCancel(order.id)}
+              className="shrink-0 rounded-lg border border-red-200 bg-white px-5 py-2.5 text-sm font-bold text-red-600 shadow-sm transition-colors hover:bg-red-50"
+            >
+              주문 취소
+            </button>
+          </div>
         </div>
       ) : null}
     </li>
@@ -993,19 +997,22 @@ function BundleOrderGroup({
           ) : null}
         </div>
       ) : isPendingBankTransfer ? (
-        <div className="flex flex-col gap-3 p-6 bg-white sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm leading-relaxed text-slate-500">
-            입금 확인이 완료되면 묶음 전체 강의가 한 번에 자동으로 열립니다. 아직
-            입금 전이거나 실수로 신청하셨다면 아래에서 묶음 전체를 취소할 수
-            있습니다.
-          </p>
-          <button
-            type="button"
-            onClick={() => onCancel(first.id)}
-            className="shrink-0 rounded-lg border border-red-200 bg-white px-5 py-2.5 text-sm font-bold text-red-600 shadow-sm transition-colors hover:bg-red-50"
-          >
-            묶음 전체 취소
-          </button>
+        <div className="flex flex-col gap-4 p-6 bg-white">
+          {first.va_account_number ? <VirtualAccountNotice order={first} /> : null}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm leading-relaxed text-slate-500">
+              입금이 확인되면 묶음 전체 강의가 한 번에 자동으로 열립니다. 아직
+              입금 전이거나 실수로 신청하셨다면 아래에서 묶음 전체를 취소할 수
+              있습니다.
+            </p>
+            <button
+              type="button"
+              onClick={() => onCancel(first.id)}
+              className="shrink-0 rounded-lg border border-red-200 bg-white px-5 py-2.5 text-sm font-bold text-red-600 shadow-sm transition-colors hover:bg-red-50"
+            >
+              묶음 전체 취소
+            </button>
+          </div>
         </div>
       ) : null}
     </li>

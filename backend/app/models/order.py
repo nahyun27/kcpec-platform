@@ -58,6 +58,16 @@ class Order(Base):
         index=True,
     )
     bank_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 무통장입금(BANK_TRANSFER)을 토스 가상계좌 자동입금확인 방식으로 전환하며
+    # 추가 — 주문마다 토스가 발급해주는 고유 계좌 정보. 카드 등 다른 결제수단과
+    # 마이그레이션 이전 레거시 무통장입금 주문은 전부 None으로 남는다.
+    # va_secret은 나중에 입금완료 웹훅(DEPOSIT_CALLBACK)을 검증하는 값이라
+    # API 응답(OrderResponse)에는 절대 포함하지 않는다.
+    va_account_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    va_bank_code: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    va_customer_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    va_due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    va_secret: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # 묶음결제(여러 강의를 한 번의 결제로 + 10만원 이상 할인)로 생성된 경우,
     # 같은 결제 세션에 속한 주문들을 하나로 묶어 식별하는 랜덤 토큰.
     # 단일 강의 주문은 None.

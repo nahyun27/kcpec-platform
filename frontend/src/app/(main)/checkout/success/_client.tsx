@@ -7,6 +7,7 @@ import { isAxiosError } from "axios";
 import { confirmTossPayment } from "@/lib/api";
 import type { OrderResponse } from "@/types/order";
 import { useDialog } from "@/components/ui/DialogProvider";
+import { VirtualAccountNotice } from "@/components/features/VirtualAccountNotice";
 
 export default function CheckoutSuccessPage() {
   const router = useRouter();
@@ -72,6 +73,24 @@ export default function CheckoutSuccessPage() {
       <div className="rounded-lg border border-[var(--color-border)] bg-white p-8 text-center shadow-sm">
         {!order ? (
           <p className="text-sm text-zinc-500">결제 승인 처리 중...</p>
+        ) : order.va_account_number ? (
+          <>
+            <p className="font-sans text-2xl font-bold text-[var(--color-primary)]">
+              가상계좌가 발급되었습니다
+            </p>
+            <p className="mt-3 text-sm text-zinc-600">
+              주문번호 #{order.id} · {order.amount.toLocaleString()}원
+            </p>
+            <VirtualAccountNotice order={order} />
+            <div className="mt-6 flex flex-col gap-2">
+              <Link
+                href="/mypage"
+                className="rounded border border-[var(--color-border)] py-3 text-sm text-zinc-700 hover:border-[var(--color-primary)]"
+              >
+                마이페이지로
+              </Link>
+            </div>
+          </>
         ) : (
           <>
             <p className="font-sans text-2xl font-bold text-[var(--color-primary)]">

@@ -1,3 +1,4 @@
+import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -23,6 +24,7 @@ from app.schemas.order import (
     OrderCreate,
     OrderResponse,
     TossConfirm,
+    TossWebhookPayload,
 )
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -289,6 +291,10 @@ def list_my_orders(
             paid_at=o.paid_at,
             course_title=course_titles.get(o.course_id),
             bundle_id=o.bundle_id,
+            va_account_number=o.va_account_number,
+            va_bank_code=o.va_bank_code,
+            va_customer_name=o.va_customer_name,
+            va_due_date=o.va_due_date,
         )
         for o in orders
     ]
@@ -344,6 +350,10 @@ def cancel_order(
         paid_at=order.paid_at,
         course_title=course.title if course else None,
         bundle_id=order.bundle_id,
+        va_account_number=order.va_account_number,
+        va_bank_code=order.va_bank_code,
+        va_customer_name=order.va_customer_name,
+        va_due_date=order.va_due_date,
     )
 
 
@@ -352,6 +362,23 @@ def _mark_paid(order: Order, payment_key: str | None) -> None:
     order.paid_at = _now()
     if payment_key:
         order.toss_payment_key = payment_key
+
+
+def _apply_virtual_account(order: Order, payment_key: str, confirm_data: dict) -> None:
+    """토스 가상계좌 confirm 응답(status=WAITING_FOR_DEPOSIT)을 주문에 반영.
+
+    실제 입금은 아직 안 됐으므로 PAID 처리는 하지 않는다 — 입금 완료는
+    나중에 DEPOSIT_CALLBACK 웹훅(toss_webhook)이 확인해준다. va_secret 은
+    그 웹훅을 검증하는 값이라 여기서 반드시 같이 저장해야 한다.
+    """
+    va = confirm_data.get("virtualAccount") or {}
+    order.toss_payment_key = payment_key
+    order.va_account_number = va.get("accountNumber")
+    order.va_bank_code = va.get("bankCode")
+    order.va_customer_name = va.get("customerName")
+    due_date = va.get("dueDate")
+    order.va_due_date = datetime.fromisoformat(due_date) if due_date else None
+    order.va_secret = confirm_data.get("secret")
 
 
 @router.post("/toss/confirm", response_model=OrderResponse)
@@ -411,8 +438,14 @@ def toss_confirm(
             detail=f"토스 결제 승인 실패: {res.text}",
         )
 
-    _mark_paid(order, payment_key=payload.payment_key)
-    _ensure_enrollment(db, order.user_id, order.course_id)
+    data = res.json()
+    if data.get("status") == "WAITING_FOR_DEPOSIT":
+        # 가상계좌 발급 완료, 입금 대기 — PAID 처리/수강등록은 입금 완료
+        # 웹훅(toss_webhook)에서 한다.
+        _apply_virtual_account(order, payload.payment_key, data)
+    else:
+        _mark_paid(order, payment_key=payload.payment_key)
+        _ensure_enrollment(db, order.user_id, order.course_id)
     db.commit()
     db.refresh(order)
     return order
@@ -435,6 +468,11 @@ def _with_course_titles(db: Session, orders: list[Order]) -> list[OrderResponse]
             created_at=o.created_at,
             paid_at=o.paid_at,
             course_title=titles.get(o.course_id),
+            bundle_id=o.bundle_id,
+            va_account_number=o.va_account_number,
+            va_bank_code=o.va_bank_code,
+            va_customer_name=o.va_customer_name,
+            va_due_date=o.va_due_date,
         )
         for o in orders
     ]
@@ -496,9 +534,15 @@ def bundle_toss_confirm(
             detail=f"토스 결제 승인 실패: {res.text}",
         )
 
-    for o in orders:
-        _mark_paid(o, payment_key=payload.payment_key)
-        _ensure_enrollment(db, o.user_id, o.course_id)
+    data = res.json()
+    if data.get("status") == "WAITING_FOR_DEPOSIT":
+        # 묶음결제 전체가 가상계좌 하나를 공유 — 모든 주문에 같은 계좌 정보를 저장.
+        for o in orders:
+            _apply_virtual_account(o, payload.payment_key, data)
+    else:
+        for o in orders:
+            _mark_paid(o, payment_key=payload.payment_key)
+            _ensure_enrollment(db, o.user_id, o.course_id)
     db.commit()
     for o in orders:
         db.refresh(o)
@@ -561,3 +605,45 @@ def bank_confirm_body(
     admin: User = Depends(require_admin),
 ) -> Order:
     return bank_confirm(payload.order_id, db=db, _=admin)
+
+
+@router.post("/webhook/toss", include_in_schema=False)
+def toss_webhook(payload: TossWebhookPayload, db: Session = Depends(get_db)) -> dict:
+    """토스 가상계좌 입금완료(DEPOSIT_CALLBACK) 웹훅 — 토스가 직접 호출.
+
+    로그인 세션이 없는 서버 대 서버 호출이라 인증 의존성을 두지 않는다.
+    토스 개발자센터에 이 URL을 DEPOSIT_CALLBACK 이벤트로만 등록해야 한다
+    (PAYMENT_STATUS_CHANGED 도 같이 등록하면 같은 입금건에 웹훅이 두 번 온다).
+    """
+    order_id_str = payload.orderId
+    is_bundle = order_id_str.startswith("KCPEC-BUNDLE-")
+    if is_bundle:
+        bundle_id = order_id_str.removeprefix("KCPEC-BUNDLE-")
+        orders = list(
+            db.scalars(
+                select(Order).where(Order.bundle_id == bundle_id).with_for_update()
+            ).all()
+        )
+    else:
+        order_id = int(order_id_str.removeprefix("KCPEC-"))
+        order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
+        orders = [order] if order is not None else []
+
+    if not orders:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="주문을 찾을 수 없습니다.")
+
+    # va_secret 대조 — HMAC 서명이 아니라 confirm 응답에서 미리 저장해둔
+    # 값과의 단순 문자열 비교(토스 DEPOSIT_CALLBACK 검증 방식). 불일치하면
+    # 위조/오발신으로 간주하고 아무 상태도 바꾸지 않는다.
+    if not orders[0].va_secret or not hmac.compare_digest(orders[0].va_secret, payload.secret):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="invalid secret")
+
+    if payload.status == "DONE":
+        for o in orders:
+            if o.status == OrderStatus.PAID:
+                continue  # 이미 처리됨 — 웹훅 재전송에 대한 멱등 처리
+            _mark_paid(o, payment_key=o.toss_payment_key)
+            _ensure_enrollment(db, o.user_id, o.course_id)
+        db.commit()
+
+    return {"status": "ok"}

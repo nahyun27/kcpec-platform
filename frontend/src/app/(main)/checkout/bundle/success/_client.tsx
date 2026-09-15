@@ -8,6 +8,7 @@ import { confirmBundleTossPayment } from "@/lib/api";
 import type { OrderResponse } from "@/types/order";
 import { counselingDisplayTitle } from "@/types/counseling";
 import { useDialog } from "@/components/ui/DialogProvider";
+import { VirtualAccountNotice } from "@/components/features/VirtualAccountNotice";
 
 export default function CheckoutBundleSuccessPage() {
   const router = useRouter();
@@ -75,6 +76,24 @@ export default function CheckoutBundleSuccessPage() {
       <div className="rounded-lg border border-[var(--color-border)] bg-white p-8 text-center shadow-sm">
         {!orders ? (
           <p className="text-sm text-zinc-500">결제 승인 처리 중...</p>
+        ) : orders[0]?.va_account_number ? (
+          <>
+            <p className="font-sans text-2xl font-bold text-[var(--color-primary)]">
+              가상계좌가 발급되었습니다
+            </p>
+            <p className="mt-3 text-sm text-zinc-600">
+              강의 {orders.length}건 · 총 {total.toLocaleString()}원
+            </p>
+            <VirtualAccountNotice order={orders[0]} />
+            <div className="mt-6 flex flex-col gap-2">
+              <Link
+                href="/mypage"
+                className="rounded border border-[var(--color-border)] py-3 text-sm text-zinc-700 hover:border-[var(--color-primary)]"
+              >
+                마이페이지로
+              </Link>
+            </div>
+          </>
         ) : (
           <>
             <p className="font-sans text-2xl font-bold text-[var(--color-primary)]">

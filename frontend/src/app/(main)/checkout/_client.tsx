@@ -156,11 +156,6 @@ export default function CheckoutPage() {
         amount,
       });
 
-      if (paymentMethod === "bank_transfer") {
-        router.push(`/checkout/pending?order_id=${order.id}`);
-        return;
-      }
-
       const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
       if (!tossClientKey) {
         router.push(
@@ -189,11 +184,13 @@ export default function CheckoutPage() {
       // 휴대폰결제/실시간계좌이체는 card 의 easyPay 가 아니라 완전히 다른
       // method 값 — 나머지(카드/카카오/네이버/삼성페이)는 전부 "CARD".
       const tossMethod =
-        paymentMethod === "mobile_phone"
-          ? "MOBILE_PHONE"
-          : paymentMethod === "transfer"
-            ? "TRANSFER"
-            : "CARD";
+        paymentMethod === "bank_transfer"
+          ? "VIRTUAL_ACCOUNT"
+          : paymentMethod === "mobile_phone"
+            ? "MOBILE_PHONE"
+            : paymentMethod === "transfer"
+              ? "TRANSFER"
+              : "CARD";
 
       // Toss orderId 형식 요건: 영문/숫자/-/_, 최소 6자.
       // DB id 만으로는 너무 짧을 수 있어 "KCPEC-{id}" prefix 사용.
@@ -390,7 +387,7 @@ export default function CheckoutPage() {
                   )}
                 </button>
 
-                {!process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY && paymentMethod !== "bank_transfer" ? (
+                {!process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ? (
                   <p className="mt-4 text-center text-xs font-medium text-amber-600 bg-amber-50 rounded-lg py-2">
                     개발 모드 (토스 클라이언트 키 미설정)
                   </p>

@@ -33,6 +33,11 @@ export type OrderResponse = {
   course_title?: string | null;
   // 맞춤강의찾기 묶음결제로 같이 생성된 주문끼리 공유하는 값.
   bundle_id?: string | null;
+  // 무통장입금(토스 가상계좌) 발급 정보 — 입금 대기 중일 때만 값이 있음.
+  va_account_number?: string | null;
+  va_bank_code?: string | null;
+  va_customer_name?: string | null;
+  va_due_date?: string | null;
 };
 
 export type BundleItem = {
