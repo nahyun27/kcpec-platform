@@ -614,23 +614,37 @@ def toss_webhook(payload: TossWebhookPayload, db: Session = Depends(get_db)) -> 
     로그인 세션이 없는 서버 대 서버 호출이라 인증 의존성을 두지 않는다.
     토스 개발자센터에 이 URL을 DEPOSIT_CALLBACK 이벤트로만 등록해야 한다
     (PAYMENT_STATUS_CHANGED 도 같이 등록하면 같은 입금건에 웹훅이 두 번 온다).
+
+    웹훅은 상점(MID) 단위로 등록되는데, 같은 MID를 기존 사이트(아임웹)에서도
+    이미 실 서비스로 쓰고 있어(API 로그에서 확인, 2026-09) orderId 형식이
+    우리 것("KCPEC-{id}"/"KCPEC-BUNDLE-{id}")과 다른 웹훅도 계속 들어온다.
+    그런 건 우리 주문이 아니므로 에러 없이 조용히 무시(200)해야 한다 —
+    안 그러면 실패 응답 때문에 토스가 최대 7회 재전송을 반복한다.
     """
     order_id_str = payload.orderId
-    is_bundle = order_id_str.startswith("KCPEC-BUNDLE-")
-    if is_bundle:
+    orders: list[Order] = []
+    if order_id_str.startswith("KCPEC-BUNDLE-"):
         bundle_id = order_id_str.removeprefix("KCPEC-BUNDLE-")
         orders = list(
             db.scalars(
                 select(Order).where(Order.bundle_id == bundle_id).with_for_update()
             ).all()
         )
-    else:
-        order_id = int(order_id_str.removeprefix("KCPEC-"))
-        order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
-        orders = [order] if order is not None else []
+    elif order_id_str.startswith("KCPEC-"):
+        try:
+            order_id = int(order_id_str.removeprefix("KCPEC-"))
+        except ValueError:
+            order_id = None
+        if order_id is not None:
+            order = db.scalar(
+                select(Order).where(Order.id == order_id).with_for_update()
+            )
+            orders = [order] if order is not None else []
 
     if not orders:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="주문을 찾을 수 없습니다.")
+        # 우리 시스템 주문이 아니거나(다른 사이트), 이미 지워진 주문 —
+        # 어느 쪽이든 우리가 할 일이 없으므로 정상 응답으로 재전송을 끊는다.
+        return {"status": "ignored"}
 
     # va_secret 대조 — HMAC 서명이 아니라 confirm 응답에서 미리 저장해둔
     # 값과의 단순 문자열 비교(토스 DEPOSIT_CALLBACK 검증 방식). 불일치하면
