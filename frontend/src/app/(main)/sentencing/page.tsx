@@ -248,6 +248,10 @@ export default function SentencingPage() {
   // 사용자가 골랐다가 결제 단계에서야 막히는 걸 방지할 수 있다
   // (2026-09, 실사용 중 발견).
   const [ownedCourseIds, setOwnedCourseIds] = useState<Set<CourseId>>(new Set());
+  // 예전에 구매했지만 수강기간이 만료된 강의 — 재구매 자체는 막지 않지만
+  // (수강기간 만료 후 재결제는 정상 시나리오), 모르고 또 결제하는 일이
+  // 없도록 "이전에 구매한 이력이 있다"는 걸 배지로 알려준다.
+  const [expiredCourseIds, setExpiredCourseIds] = useState<Set<CourseId>>(new Set());
 
   useEffect(() => {
     if (!tokenStorage.getAccess()) return;
@@ -257,13 +261,16 @@ export default function SentencingPage() {
         if (cancelled) return;
         const now = Date.now();
         const owned = new Set<CourseId>();
+        const expired = new Set<CourseId>();
         for (const e of enrollments) {
           const isActive = e.expires_at === null || new Date(e.expires_at).getTime() > now;
-          if (!isActive) continue;
           const id = COURSE_ID_BY_TITLE[e.course_title];
-          if (id) owned.add(id);
+          if (!id) continue;
+          if (isActive) owned.add(id);
+          else expired.add(id);
         }
         setOwnedCourseIds(owned);
+        setExpiredCourseIds(expired);
       })
       .catch(() => {
         /* 조회 실패해도 선택 자체는 계속 가능해야 하므로 조용히 무시 —
@@ -579,6 +586,7 @@ export default function SentencingPage() {
                 onToggleMain={toggleMain}
                 onToggleEtc={() => setEtcSelected((v) => !v)}
                 ownedCourseIds={ownedCourseIds}
+                expiredCourseIds={expiredCourseIds}
               />
             ) : null}
             {step === 2 ? (
@@ -588,6 +596,7 @@ export default function SentencingPage() {
                 onToggleAddon={toggleAddon}
                 etcOnly={etcSelected && selectedMain.size === 0}
                 ownedCourseIds={ownedCourseIds}
+                expiredCourseIds={expiredCourseIds}
               />
             ) : null}
             {step === 3 ? (
@@ -844,12 +853,14 @@ function Step1({
   onToggleMain,
   onToggleEtc,
   ownedCourseIds,
+  expiredCourseIds,
 }: {
   selectedMain: Set<CourseId>;
   etcSelected: boolean;
   onToggleMain: (id: CourseId) => void;
   onToggleEtc: () => void;
   ownedCourseIds: Set<CourseId>;
+  expiredCourseIds: Set<CourseId>;
 }) {
   return (
     <section className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm md:p-7">
@@ -865,6 +876,7 @@ function Step1({
           const course = COURSES[card.id];
           const active = selectedMain.has(card.id);
           const owned = ownedCourseIds.has(card.id);
+          const previouslyPurchased = expiredCourseIds.has(card.id);
           return (
             <button
               key={card.id}
@@ -900,6 +912,10 @@ function Step1({
                   {owned ? (
                     <span className="inline-flex items-center rounded-full bg-slate-200 px-1.5 py-0.5 text-[11px] font-bold text-slate-600">
                       이미 구매함
+                    </span>
+                  ) : previouslyPurchased ? (
+                    <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-bold text-amber-700">
+                      재구매 · 수강기간 만료
                     </span>
                   ) : null}
                 </div>
@@ -962,6 +978,7 @@ function Step2({
   onToggleAddon,
   etcOnly,
   ownedCourseIds,
+  expiredCourseIds,
 }: {
   selectedAddon: Set<CourseId>;
   recommendedIds: Set<CourseId>;
@@ -971,6 +988,7 @@ function Step2({
   // 자리이므로 문구를 다르게 안내한다.
   etcOnly: boolean;
   ownedCourseIds: Set<CourseId>;
+  expiredCourseIds: Set<CourseId>;
 }) {
   return (
     <section className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm md:p-7">
@@ -998,6 +1016,7 @@ function Step2({
           const active = selectedAddon.has(card.id);
           const recommended = recommendedIds.has(card.id);
           const owned = ownedCourseIds.has(card.id);
+          const previouslyPurchased = expiredCourseIds.has(card.id);
           return (
             <button
               key={card.id}
@@ -1035,6 +1054,10 @@ function Step2({
                   {owned ? (
                     <span className="inline-flex items-center rounded-full bg-slate-200 px-1.5 py-0.5 text-[11px] font-bold text-slate-600">
                       이미 구매함
+                    </span>
+                  ) : previouslyPurchased ? (
+                    <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-bold text-amber-700">
+                      재구매 · 수강기간 만료
                     </span>
                   ) : recommended ? (
                     <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[11px] font-bold text-white">
