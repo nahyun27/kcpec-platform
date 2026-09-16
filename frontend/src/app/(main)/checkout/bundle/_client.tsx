@@ -154,14 +154,20 @@ export default function CheckoutBundleClient() {
   const discount = subtotal >= BULK_DISCOUNT_THRESHOLD ? BULK_DISCOUNT_AMOUNT : 0;
   const total = subtotal - discount;
 
-  async function handleCheckout() {
-    if (courses.length === 0) return;
+  // 카드 선택 후 별도로 "결제하기" 버튼을 또 눌러야 하는 게 불필요한
+  // 한 단계로 느껴진다는 피드백 — 결제수단 카드를 누르는 즉시 그 수단의
+  // 결제창으로 바로 들어가게 한다. state(paymentMethod) 업데이트는
+  // 비동기라 곧바로 이어서 쓰면 이전 값을 읽을 수 있으므로, 클릭된
+  // 수단을 인자로 직접 받아서 사용한다(2026-09).
+  async function handleCheckout(method: PaymentMethod) {
+    if (courses.length === 0 || submitting) return;
+    setPaymentMethod(method);
     setSubmitting(true);
     setPaymentFailMessage(null);
     try {
       const bundle = await createOrderBundle({
         course_ids: courseIds,
-        payment_method: paymentMethod,
+        payment_method: method,
       });
 
       const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
@@ -182,21 +188,21 @@ export default function CheckoutBundleClient() {
       // 이 SDK 버전에 없는 필드라 요청 자체가 즉시 실패하고 있었다
       // (2026-09 발견 — "결제 진행에 실패했습니다" 즉시 에러).
       const easyPayCode =
-        paymentMethod === "kakaopay"
+        method === "kakaopay"
           ? "KAKAOPAY"
-          : paymentMethod === "naverpay"
+          : method === "naverpay"
             ? "NAVERPAY"
-            : paymentMethod === "samsungpay"
+            : method === "samsungpay"
               ? "SAMSUNGPAY"
               : undefined;
       // 휴대폰결제/실시간계좌이체는 card 의 easyPay 가 아니라 완전히 다른
       // method 값 — 나머지(카드/카카오/네이버/삼성페이)는 전부 "CARD".
       const tossMethod =
-        paymentMethod === "bank_transfer"
+        method === "bank_transfer"
           ? "VIRTUAL_ACCOUNT"
-          : paymentMethod === "mobile_phone"
+          : method === "mobile_phone"
             ? "MOBILE_PHONE"
-            : paymentMethod === "transfer"
+            : method === "transfer"
               ? "TRANSFER"
               : "CARD";
       const orderName =
@@ -351,30 +357,29 @@ export default function CheckoutBundleClient() {
                 {PAYMENT_METHODS.map((m) => {
                   const selected = paymentMethod === m;
                   return (
-                    <label
+                    <button
                       key={m}
-                      className={`relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 p-4 text-center transition-all duration-200 ${
+                      type="button"
+                      disabled={submitting}
+                      onClick={() => handleCheckout(m)}
+                      className={`relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 p-4 text-center transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${
                         selected
                           ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5 text-[var(--color-primary)] shadow-sm"
                           : "border-zinc-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
                       }`}
                     >
-                      <input
-                        type="radio"
-                        name="payment_method"
-                        value={m}
-                        checked={selected}
-                        onChange={() => setPaymentMethod(m)}
-                        className="sr-only"
-                      />
-                      <PaymentMethodIcon method={m} selected={selected} />
+                      {submitting && selected ? (
+                        <Loader2 className="h-6 w-6 animate-spin text-[var(--color-primary)]" />
+                      ) : (
+                        <PaymentMethodIcon method={m} selected={selected} />
+                      )}
                       <span className="text-sm font-bold">{PAYMENT_METHOD_LABEL[m]}</span>
                       {selected && (
                         <div className="absolute top-2 right-2 text-[var(--color-primary)]">
                           <CheckCircle2 className="h-4 w-4" />
                         </div>
                       )}
-                    </label>
+                    </button>
                   );
                 })}
               </div>
@@ -431,7 +436,7 @@ export default function CheckoutBundleClient() {
 
                 <button
                   type="button"
-                  onClick={handleCheckout}
+                  onClick={() => handleCheckout(paymentMethod)}
                   disabled={submitting}
                   className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[var(--color-primary)] py-4 font-bold text-white shadow-lg shadow-[var(--color-primary)]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-xl hover:shadow-[var(--color-primary)]/30 disabled:opacity-60 disabled:hover:translate-y-0"
                 >
