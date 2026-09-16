@@ -14,7 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { getCounselingCourses, getCourses, tokenStorage } from "@/lib/api";
+import { getCounselingCourses, getCourses, getMyEnrollments, tokenStorage } from "@/lib/api";
 import { useDialog } from "@/components/ui/DialogProvider";
 
 // ---------- 강의 카탈로그 -----------------------------------------------------
@@ -92,6 +92,15 @@ const COURSES: Record<CourseId, CourseInfo> = {
   counseling: { id: "counseling", name: "심리상담 의견서(서면)", price: 77_000 },
   counseling_phone: { id: "counseling_phone", name: "심화 상담(전화)", price: 330_000 },
 };
+
+// 백엔드 강의명(Course.title) → 이 페이지의 CourseId 역매핑. 이미 구매해
+// 수강기간이 남아있는 강의를 다시 담지 못하게 막는 데 사용(심리상담은
+// 반복 구매가 정상 시나리오라 제외 — counseling_purchase.py 참고).
+const COURSE_ID_BY_TITLE: Record<string, CourseId> = Object.fromEntries(
+  Object.values(COURSES)
+    .filter((c) => c.id !== "counseling" && c.id !== "counseling_phone")
+    .map((c) => [c.name, c.id]),
+);
 
 // ---------- Page 1: 메인 강의 --------------------------------------------------
 // "기타" 는 특정 CourseId 로 매핑되지 않아 별도 boolean(etcSelected)으로 관리.
@@ -234,6 +243,36 @@ export default function SentencingPage() {
   const [disabledCourses, setDisabledCourses] = useState<Set<CourseId>>(
     new Set(),
   );
+  // 이미 결제 완료 + 수강기간이 남은 강의 — 다시 담아 결제하면 백엔드가
+  // 어차피 거부하지만(중복 결제 방지), 프런트에서 애초에 선택을 막아야
+  // 사용자가 골랐다가 결제 단계에서야 막히는 걸 방지할 수 있다
+  // (2026-09, 실사용 중 발견).
+  const [ownedCourseIds, setOwnedCourseIds] = useState<Set<CourseId>>(new Set());
+
+  useEffect(() => {
+    if (!tokenStorage.getAccess()) return;
+    let cancelled = false;
+    getMyEnrollments()
+      .then((enrollments) => {
+        if (cancelled) return;
+        const now = Date.now();
+        const owned = new Set<CourseId>();
+        for (const e of enrollments) {
+          const isActive = e.expires_at === null || new Date(e.expires_at).getTime() > now;
+          if (!isActive) continue;
+          const id = COURSE_ID_BY_TITLE[e.course_title];
+          if (id) owned.add(id);
+        }
+        setOwnedCourseIds(owned);
+      })
+      .catch(() => {
+        /* 조회 실패해도 선택 자체는 계속 가능해야 하므로 조용히 무시 —
+           중복 결제는 어차피 백엔드가 최종적으로 막아준다. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 뭔가 선택했거나 첫 단계를 넘어갔으면 "진행 중"으로 본다 — 이 상태에서
   // 새로고침/탭 닫기/다른 메뉴로 이동하면 전부 초기화되므로 확인창을 띄운다.
@@ -296,6 +335,7 @@ export default function SentencingPage() {
   }
 
   function toggleMain(id: CourseId) {
+    if (ownedCourseIds.has(id)) return;
     setSelectedMain((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -309,6 +349,7 @@ export default function SentencingPage() {
   }
 
   function toggleAddon(id: CourseId) {
+    if (ownedCourseIds.has(id)) return;
     setSelectedAddon((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -362,15 +403,20 @@ export default function SentencingPage() {
 
   // 지금 선택 상태 기준으로 실제 포함되는 강의 id 집합.
   const currentCourseIds = useMemo(() => {
-    const s = new Set<CourseId>(["law"]); // 준법의식 항상 포함
-    selectedMain.forEach((k) => s.add(k));
-    selectedAddon.forEach((k) => s.add(k));
+    const s = new Set<CourseId>();
+    if (!ownedCourseIds.has("law")) s.add("law"); // 준법의식 항상 포함(이미 보유한 경우 제외)
+    selectedMain.forEach((k) => {
+      if (!ownedCourseIds.has(k)) s.add(k);
+    });
+    selectedAddon.forEach((k) => {
+      if (!ownedCourseIds.has(k)) s.add(k);
+    });
     if (counselingAnswer === "Y") {
       if (counselingTypes.has("basic")) s.add("counseling");
       if (counselingTypes.has("phone")) s.add("counseling_phone");
     }
     return s;
-  }, [selectedMain, selectedAddon, counselingAnswer, counselingTypes]);
+  }, [selectedMain, selectedAddon, counselingAnswer, counselingTypes, ownedCourseIds]);
 
   // 추천 결과 계산 — 심리상담도 이제 강의와 함께 한 번의 묶음결제로 처리되므로
   // (백엔드 /orders/bundle 이 심리상담 상품도 sibling Order 로 받아준다) 전부
@@ -532,6 +578,7 @@ export default function SentencingPage() {
                 etcSelected={etcSelected}
                 onToggleMain={toggleMain}
                 onToggleEtc={() => setEtcSelected((v) => !v)}
+                ownedCourseIds={ownedCourseIds}
               />
             ) : null}
             {step === 2 ? (
@@ -540,6 +587,7 @@ export default function SentencingPage() {
                 recommendedIds={recommendedAddonIds}
                 onToggleAddon={toggleAddon}
                 etcOnly={etcSelected && selectedMain.size === 0}
+                ownedCourseIds={ownedCourseIds}
               />
             ) : null}
             {step === 3 ? (
@@ -795,11 +843,13 @@ function Step1({
   etcSelected,
   onToggleMain,
   onToggleEtc,
+  ownedCourseIds,
 }: {
   selectedMain: Set<CourseId>;
   etcSelected: boolean;
   onToggleMain: (id: CourseId) => void;
   onToggleEtc: () => void;
+  ownedCourseIds: Set<CourseId>;
 }) {
   return (
     <section className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm md:p-7">
@@ -814,15 +864,19 @@ function Step1({
         {MAIN_CARDS.map((card) => {
           const course = COURSES[card.id];
           const active = selectedMain.has(card.id);
+          const owned = ownedCourseIds.has(card.id);
           return (
             <button
               key={card.id}
               type="button"
+              disabled={owned}
               onClick={() => onToggleMain(card.id)}
               className={`relative flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
-                active
-                  ? "border-[#1C3461] bg-[#1C3461]/5 shadow-sm"
-                  : "border-zinc-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                owned
+                  ? "cursor-not-allowed border-zinc-200 bg-zinc-50 opacity-60"
+                  : active
+                    ? "border-[#1C3461] bg-[#1C3461]/5 shadow-sm"
+                    : "border-zinc-200 bg-white hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
               <div
@@ -835,13 +889,20 @@ function Step1({
                 {active ? <Check className="h-2.5 w-2.5 text-white" /> : null}
               </div>
               <div className="min-w-0 flex-1">
-                <p
-                  className={`font-sans text-[15px] font-bold ${
-                    active ? "text-[#1C3461]" : "text-slate-900"
-                  }`}
-                >
-                  {course.name}
-                </p>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p
+                    className={`font-sans text-[15px] font-bold ${
+                      active ? "text-[#1C3461]" : "text-slate-900"
+                    }`}
+                  >
+                    {course.name}
+                  </p>
+                  {owned ? (
+                    <span className="inline-flex items-center rounded-full bg-slate-200 px-1.5 py-0.5 text-[11px] font-bold text-slate-600">
+                      이미 구매함
+                    </span>
+                  ) : null}
+                </div>
                 <p className="mt-0.5 text-[13px] text-slate-500 truncate">
                   {card.description}
                 </p>
@@ -900,6 +961,7 @@ function Step2({
   recommendedIds,
   onToggleAddon,
   etcOnly,
+  ownedCourseIds,
 }: {
   selectedAddon: Set<CourseId>;
   recommendedIds: Set<CourseId>;
@@ -908,6 +970,7 @@ function Step2({
   // "추가 교육"이 아니라 사실상 본인 사건에 맞는 강의를 직접 고르는
   // 자리이므로 문구를 다르게 안내한다.
   etcOnly: boolean;
+  ownedCourseIds: Set<CourseId>;
 }) {
   return (
     <section className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm md:p-7">
@@ -934,17 +997,21 @@ function Step2({
           const course = COURSES[card.id];
           const active = selectedAddon.has(card.id);
           const recommended = recommendedIds.has(card.id);
+          const owned = ownedCourseIds.has(card.id);
           return (
             <button
               key={card.id}
               type="button"
+              disabled={owned}
               onClick={() => onToggleAddon(card.id)}
               className={`relative flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
-                active
-                  ? "border-[#1C3461] bg-[#1C3461]/5 shadow-sm"
-                  : recommended
-                    ? "border-amber-300 bg-amber-50/50 hover:border-amber-400"
-                    : "border-zinc-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                owned
+                  ? "cursor-not-allowed border-zinc-200 bg-zinc-50 opacity-60"
+                  : active
+                    ? "border-[#1C3461] bg-[#1C3461]/5 shadow-sm"
+                    : recommended
+                      ? "border-amber-300 bg-amber-50/50 hover:border-amber-400"
+                      : "border-zinc-200 bg-white hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
               <div
@@ -965,7 +1032,11 @@ function Step2({
                   >
                     {course.name}
                   </p>
-                  {recommended ? (
+                  {owned ? (
+                    <span className="inline-flex items-center rounded-full bg-slate-200 px-1.5 py-0.5 text-[11px] font-bold text-slate-600">
+                      이미 구매함
+                    </span>
+                  ) : recommended ? (
                     <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[11px] font-bold text-white">
                       <Sparkles className="h-2.5 w-2.5" /> 추천
                     </span>
