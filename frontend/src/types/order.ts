@@ -14,7 +14,7 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   samsungpay: "삼성페이",
   mobile_phone: "휴대폰 결제",
   transfer: "실시간 계좌이체",
-  bank_transfer: "무통장 입금",
+  bank_transfer: "가상계좌",
 };
 
 export type OrderStatus = "pending" | "paid" | "cancelled" | "refunded";

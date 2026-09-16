@@ -40,7 +40,7 @@ from app.models.document import IssuedDocument, IssuedDocumentStatus, IssuedDocu
 from app.models.enrollment import Enrollment
 from app.models.faq import Faq
 from app.models.lecture import Lecture
-from app.models.order import Order, OrderStatus
+from app.models.order import Order, OrderStatus, PaymentMethod
 from app.models.quiz import Quiz, QuizOption, QuizQuestion
 from app.models.user import User
 from app.schemas.admin import (
@@ -666,13 +666,23 @@ def refund_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
     # 고객에게 돈이 돌아가게 한다. 이 호출 없이 DB 상태만 REFUNDED 로 바꾸면
     # 수강 권한/서류는 즉시 회수되는데 정작 결제된 돈은 그대로 남아있는 —
     # "환불 처리했다고 안내했는데 고객 카드에는 돈이 안 돌아온" 사고로 이어질
-    # 수 있었다(2026-09 발견). 무통장입금은 애초에 Toss 를 거치지 않아
-    # toss_payment_key 가 없으므로 자동화 대상이 아니고, 기존과 동일하게
-    # 관리자가 계좌로 직접 환불해야 한다. TOSS_SECRET_KEY 미설정(로컬 개발)
-    # 환경에서는 실 호출이 불가능하므로 기존처럼 DB 상태만 갱신한다.
+    # 수 있었다(2026-09 발견). TOSS_SECRET_KEY 미설정(로컬 개발) 환경에서는
+    # 실 호출이 불가능하므로 기존처럼 DB 상태만 갱신한다.
     # 묶음결제는 모든 구성 주문이 같은 paymentKey 를 공유하므로 취소 호출은
     # 한 번만 하면 된다.
-    if order.toss_payment_key and settings.TOSS_SECRET_KEY:
+    #
+    # 가상계좌(무통장입금 자동화 업그레이드 이후)는 toss_payment_key 가
+    # 있어도 이 자동 취소에서 제외한다 — 토스 결제취소 API는 가상계좌
+    # 결제 취소 시 refundReceiveAccount(환불 받을 계좌 bank/accountNumber/
+    # holderName)를 필수로 요구하는데, 우리는 그 정보를 안 받고 있어서
+    # 이 호출이 그대로 400 에러로 실패해 환불 전체가 막혀버린다
+    # (2026-09 발견). 환불계좌 입력 UI를 따로 만들기 전까진 기존처럼
+    # 관리자가 계좌로 직접 환불해야 한다.
+    if (
+        order.toss_payment_key
+        and settings.TOSS_SECRET_KEY
+        and order.payment_method != PaymentMethod.BANK_TRANSFER
+    ):
         try:
             with httpx.Client(timeout=10.0) as client:
                 res = client.post(

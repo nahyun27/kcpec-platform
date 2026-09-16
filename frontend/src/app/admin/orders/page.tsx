@@ -128,11 +128,13 @@ function AdminOrdersPage() {
 
   async function handleRefund(row: AdminOrderRow) {
     // 카드/간편결제(토스) 는 이 버튼으로 실제 결제 취소(고객에게 실제 환불)까지
-    // 자동으로 처리된다. 무통장입금은 토스를 거치지 않아 자동화가 안 되므로
-    // 계좌로 직접 환불해야 한다 — 관리자가 헷갈리지 않도록 안내에 명시.
+    // 자동으로 처리된다. 가상계좌(무통장입금)는 토스를 거치긴 하지만, 토스
+    // 결제취소 API가 가상계좌 건에는 환불받을 계좌 정보를 필수로 요구하는데
+    // 그 입력 UI가 아직 없어 자동화 대상에서 제외해뒀다 — 계좌로 직접
+    // 환불해야 한다(관리자가 헷갈리지 않도록 안내에 명시, 2026-09).
     const paymentNote =
       row.payment_method === "bank_transfer"
-        ? "무통장입금 건은 자동으로 환불되지 않으니, 계좌로 직접 환불해 주세요."
+        ? "가상계좌 건은 자동으로 환불되지 않으니, 계좌로 직접 환불해 주세요."
         : "토스 결제가 자동으로 취소되어 고객에게 실제 환불됩니다.";
     if (
       !(await dialog.confirm(
@@ -159,7 +161,7 @@ function AdminOrdersPage() {
       <header>
         <h1 className="font-sans text-2xl font-bold text-[var(--color-primary)]">주문</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          전체 주문 내역 / 무통장 입금 확인 / 발급 문서 조회
+          전체 주문 내역 / 가상계좌 입금 확인 / 발급 문서 조회
           {data ? <> · 총 {data.total.toLocaleString()}건</> : null}
         </p>
       </header>
