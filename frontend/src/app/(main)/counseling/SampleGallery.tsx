@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 type Sample = { src: string; caption: string };
 
@@ -32,34 +33,42 @@ export default function SampleGallery({ samples }: { samples: Sample[] }) {
         ))}
       </div>
 
-      {selected ? (
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-          onClick={() => setSelected(null)}
-        >
-          <div
-            className="relative max-h-[90vh] max-w-[95vw] overflow-hidden rounded-3xl bg-white p-2 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={selected.src}
-              alt={selected.caption}
-              className="max-h-[70vh] w-auto rounded-2xl object-contain mx-auto"
-            />
-            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 mt-2">
-              <span className="text-sm font-bold text-slate-800">{selected.caption}</span>
-              <button
-                type="button"
-                onClick={() => setSelected(null)}
-                className="rounded-full bg-slate-100 px-4 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
+      {selected
+        ? createPortal(
+            // 샘플 그리드가 Reveal(등장 애니메이션)로 감싸여 있는데, Reveal이
+            // 항상 transform(translate-y-*)을 걸어둬서 그 안에 있으면 이
+            // position:fixed 모달이 뷰포트가 아니라 Reveal 박스 기준으로
+            // 잡혀 배경이 화면 전체가 아니라 좁게만 어두워졌다 — body로
+            // 포털을 띄워 완전히 빠져나오게 한다(2026-09).
+            <div
+              className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+              onClick={() => setSelected(null)}
+            >
+              <div
+                className="relative max-h-[90vh] max-w-[95vw] overflow-hidden rounded-3xl bg-white p-2 shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
               >
-                닫기
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selected.src}
+                  alt={selected.caption}
+                  className="max-h-[70vh] w-auto rounded-2xl object-contain mx-auto"
+                />
+                <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 mt-2">
+                  <span className="text-sm font-bold text-slate-800">{selected.caption}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(null)}
+                    className="rounded-full bg-slate-100 px-4 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
+                  >
+                    닫기
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }
