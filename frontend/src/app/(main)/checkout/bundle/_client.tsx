@@ -2,41 +2,67 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
 import { createOrderBundle, getCourseDetail, tokenStorage } from "@/lib/api";
 import type { CourseDetail } from "@/types/course";
 import { PAYMENT_METHOD_LABEL, type PaymentMethod } from "@/types/order";
 import { counselingDisplayTitle } from "@/types/counseling";
-import { ChevronLeft, Award, ChevronRight, ShieldCheck, Loader2 } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronLeft,
+  CreditCard,
+  Award,
+  ChevronRight,
+  ShieldCheck,
+  Loader2,
+  Landmark,
+  Smartphone,
+  Zap,
+} from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import type {
-  TossPaymentsWidgets,
-  WidgetPaymentMethodWidget,
-  WidgetSelectedPaymentMethod,
-} from "@tosspayments/tosspayments-sdk";
 
-// 토스 결제위젯이 화면에 알려주는 결제수단 코드 → 우리 서버의 PaymentMethod.
-// 위젯은 우리 가맹점에 실제 계약된 수단만 보여주므로(카드/계좌이체/가상계좌),
-// 매핑에 없는 코드가 오면 일단 "card"로 처리한다(2026-09, 결제위젯 전환).
-function mapWidgetMethodCode(code: WidgetSelectedPaymentMethod["code"]): PaymentMethod {
-  switch (code) {
-    case "TRANSFER":
-      return "transfer";
-    case "VIRTUAL_ACCOUNT":
-      return "bank_transfer";
-    case "MOBILE_PHONE":
-      return "mobile_phone";
-    case "KAKAOPAY":
-      return "kakaopay";
-    case "NAVERPAY":
-      return "naverpay";
-    case "SAMSUNGPAY":
-      return "samsungpay";
-    default:
-      return "card";
+function PaymentMethodIcon({
+  method,
+  selected,
+}: {
+  method: PaymentMethod;
+  selected: boolean;
+}) {
+  if (method === "kakaopay") {
+    return (
+      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#FEE500]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/kakao.svg" alt="" className="h-3.5 w-3.5" />
+      </span>
+    );
   }
+  if (method === "naverpay") {
+    return (
+      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#03C75A]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/naver.svg" alt="" className="h-3.5 w-3.5" />
+      </span>
+    );
+  }
+  if (method === "samsungpay") {
+    return (
+      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-black text-[9px] font-bold text-white">
+        Pay
+      </span>
+    );
+  }
+  const cls = `h-6 w-6 ${selected ? "text-[var(--color-primary)]" : "text-slate-400"}`;
+  if (method === "mobile_phone") return <Smartphone className={cls} />;
+  if (method === "transfer") return <Zap className={cls} />;
+  if (method === "bank_transfer") return <Landmark className={cls} />;
+  return <CreditCard className={cls} />;
 }
+
+// 카카오페이/네이버페이는 애초에 제공한 적 없는 결제수단이고, 삼성페이/
+// 휴대폰결제는 별도 PG 연동이 아직 안 끝나 지금 선택하면 결제 시도 중
+// 에러가 난다 — 실제로 연동 완료되면 하나씩 다시 추가한다(2026-09).
+const PAYMENT_METHODS: PaymentMethod[] = ["card", "transfer", "bank_transfer"];
 
 // sentencing/page.tsx 의 BULK_DISCOUNT_* 와 동일 값 — 여기서는 결제 전 미리보기
 // 표시용일 뿐, 실제 금액은 /orders/bundle 서버 응답이 최종 기준.
@@ -52,15 +78,11 @@ export default function CheckoutBundleClient() {
     .map((s) => Number(s))
     .filter((n) => Number.isFinite(n));
   const [courses, setCourses] = useState<CourseDetail[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [paymentFailMessage, setPaymentFailMessage] = useState<string | null>(null);
-  const [widgetsReady, setWidgetsReady] = useState(false);
-  const [selectedMethodLabel, setSelectedMethodLabel] = useState<string | null>(null);
-
-  const widgetsRef = useRef<TossPaymentsWidgets | null>(null);
-  const paymentMethodWidgetRef = useRef<WidgetPaymentMethodWidget | null>(null);
 
   // 토스 결제창에서 실패/취소 시 failUrl(이 페이지 자체)로 code/message 를
   // 쿼리스트링에 실어 되돌아온다. 예전엔 이걸 그냥 무시해서, 사용자가
@@ -132,98 +154,51 @@ export default function CheckoutBundleClient() {
   const discount = subtotal >= BULK_DISCOUNT_THRESHOLD ? BULK_DISCOUNT_AMOUNT : 0;
   const total = subtotal - discount;
 
-  // 결제위젯(카드/계좌이체/가상계좌 선택 UI)을 페이지 안에 직접 심는다 —
-  // 예전 방식(우리가 만든 버튼 3개 → 토스 결제창 팝업 호출)은 카드를
-  // 골라도 토스 쪽에서 "결제 방법을 선택해주세요" 화면이 한 번 더 떴는데,
-  // 결제수단을 애초에 이 페이지 안에서 고르게 하면 그 재선택 화면 자체가
-  // 없어진다(2026-09, 실사용 중 발견한 문제의 근본 해결).
-  useEffect(() => {
-    const tossClientKey = process.env.NEXT_PUBLIC_TOSS_WIDGET_CLIENT_KEY;
-    if (courses.length === 0 || !tossClientKey) return;
-
-    let destroyed = false;
-
-    async function init() {
-      const { loadTossPayments, ANONYMOUS } = await import(
-        "@tosspayments/tosspayments-sdk"
-      );
-      const toss = await loadTossPayments(tossClientKey as string);
-      if (destroyed) return;
-      const widgets = toss.widgets({ customerKey: ANONYMOUS });
-      widgetsRef.current = widgets;
-
-      await widgets.setAmount({ currency: "KRW", value: total });
-      if (destroyed) return;
-
-      const paymentMethodWidget = await widgets.renderPaymentMethods({
-        selector: "#toss-payment-method",
-      });
-      if (destroyed) return;
-      paymentMethodWidgetRef.current = paymentMethodWidget;
-
-      const selected = await paymentMethodWidget.getSelectedPaymentMethod();
-      if (!destroyed) {
-        setSelectedMethodLabel(PAYMENT_METHOD_LABEL[mapWidgetMethodCode(selected.code)]);
-      }
-      paymentMethodWidget.on("paymentMethodSelect", (m) => {
-        setSelectedMethodLabel(PAYMENT_METHOD_LABEL[mapWidgetMethodCode(m.code)]);
-      });
-
-      await widgets.renderAgreement({ selector: "#toss-agreement" });
-      if (destroyed) return;
-
-      setWidgetsReady(true);
-    }
-
-    init().catch((err) => {
-      // 원인 파악 없이 배너만 띄우면 나중에 문제 생겨도 추적이 안 된다
-      // (2026-09, 위젯 전환 검증 중 겪은 실수 — 콘솔 로그 없이 배너만
-      // 띄웠다가 실제 원인을 놓칠 뻔했다).
-      // eslint-disable-next-line no-console
-      console.error("[checkout/bundle] 결제위젯 초기화 실패:", err);
-      if (!destroyed) {
-        setPaymentFailMessage("결제 UI를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.");
-      }
-    });
-
-    return () => {
-      destroyed = true;
-      widgetsRef.current = null;
-      paymentMethodWidgetRef.current = null;
-      setWidgetsReady(false);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courses.length]);
-
   async function handleCheckout() {
     if (courses.length === 0) return;
     setSubmitting(true);
     setPaymentFailMessage(null);
     try {
-      const tossClientKey = process.env.NEXT_PUBLIC_TOSS_WIDGET_CLIENT_KEY;
-      const widgets = widgetsRef.current;
-      const paymentMethodWidget = paymentMethodWidgetRef.current;
+      const bundle = await createOrderBundle({
+        course_ids: courseIds,
+        payment_method: paymentMethod,
+      });
 
-      // 개발 모드(테스트 키 미설정): 결제위젯 자체를 띄우지 않으므로 바로
-      // 결제완료로 시뮬레이션한다. 결제수단 선택 UI가 없어 기본값 사용.
-      if (!tossClientKey || !widgets || !paymentMethodWidget) {
-        const bundle = await createOrderBundle({
-          course_ids: courseIds,
-          payment_method: "card",
-        });
+      const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
+      if (!tossClientKey) {
         router.push(
           `/checkout/bundle/success?bundle_id=${bundle.bundle_id}&amount=${bundle.total}&simulated=1`,
         );
         return;
       }
 
-      const selected = await paymentMethodWidget.getSelectedPaymentMethod();
-      const method = mapWidgetMethodCode(selected.code);
-      const bundle = await createOrderBundle({
-        course_ids: courseIds,
-        payment_method: method,
-      });
-
+      const { loadTossPayments } = await import("@tosspayments/tosspayments-sdk");
+      const toss = await loadTossPayments(tossClientKey);
+      const widget = toss.payment({ customerKey: `kcpec-bundle-${bundle.bundle_id}` });
+      // 카카오페이/네이버페이/삼성페이는 별도 method 가 아니라, method:"CARD" 에
+      // card.flowMode:"DIRECT" + card.easyPay:"KAKAOPAY"/"NAVERPAY"/"SAMSUNGPAY" 를
+      // 실어 보내는 방식이다(토스 SDK v2 결제창 스펙). 예전엔
+      // method:"EASY_PAY" + easyPay:{provider:...} 형태로 보냈는데 이건
+      // 이 SDK 버전에 없는 필드라 요청 자체가 즉시 실패하고 있었다
+      // (2026-09 발견 — "결제 진행에 실패했습니다" 즉시 에러).
+      const easyPayCode =
+        paymentMethod === "kakaopay"
+          ? "KAKAOPAY"
+          : paymentMethod === "naverpay"
+            ? "NAVERPAY"
+            : paymentMethod === "samsungpay"
+              ? "SAMSUNGPAY"
+              : undefined;
+      // 휴대폰결제/실시간계좌이체는 card 의 easyPay 가 아니라 완전히 다른
+      // method 값 — 나머지(카드/카카오/네이버/삼성페이)는 전부 "CARD".
+      const tossMethod =
+        paymentMethod === "bank_transfer"
+          ? "VIRTUAL_ACCOUNT"
+          : paymentMethod === "mobile_phone"
+            ? "MOBILE_PHONE"
+            : paymentMethod === "transfer"
+              ? "TRANSFER"
+              : "CARD";
       const orderName =
         bundle.items.length > 1
           ? `${counselingDisplayTitle(bundle.items[0].course_title)} 외 ${bundle.items.length - 1}건`
@@ -232,7 +207,9 @@ export default function CheckoutBundleClient() {
       // Toss orderId 형식 요건: 영문/숫자/-/_, 최소 6자 — 체크아웃 페이지와
       // 동일 규칙("KCPEC-BUNDLE-{bundle_id}"). 서버 확인(orders/bundle/toss/confirm)
       // 도 동일 형식으로 Toss confirm API 를 호출하므로 반드시 일치해야 함.
-      await widgets.requestPayment({
+      await widget.requestPayment({
+        method: tossMethod,
+        amount: { currency: "KRW", value: bundle.total },
         orderId: `KCPEC-BUNDLE-${bundle.bundle_id}`,
         orderName,
         // courses 를 함께 실어 보내 — 카드 인증 중 취소(X) 등으로 승인이
@@ -240,10 +217,9 @@ export default function CheckoutBundleClient() {
         // 체크아웃(같은 강의 선택)으로 되돌아갈 수 있게 하기 위함.
         successUrl: `${window.location.origin}/checkout/bundle/success?courses=${coursesParam}`,
         failUrl: `${window.location.origin}/checkout/bundle?courses=${coursesParam}`,
-      });
+        ...(easyPayCode ? { card: { flowMode: "DIRECT", easyPay: easyPayCode } } : {}),
+      } as unknown as Parameters<typeof widget.requestPayment>[0]);
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error("[checkout/bundle] 결제 요청 실패:", err);
       // 결제창에서 X 눌러 그냥 닫기만 해도 SDK가 UserCancelError(code:
       // "USER_CANCEL")를 던진다 — 이건 실패가 아니라 사용자의 정상적인
       // 취소라, failUrl 리다이렉트 경로의 PAY_PROCESS_CANCELED와 동일하게
@@ -387,18 +363,37 @@ export default function CheckoutBundleClient() {
                 </div>
                 <h2 className="font-sans text-xl font-bold text-slate-900">결제 수단</h2>
               </div>
-              {!widgetsReady && process.env.NEXT_PUBLIC_TOSS_WIDGET_CLIENT_KEY ? (
-                <div className="flex h-40 items-center justify-center rounded-xl border border-zinc-200 bg-white">
-                  <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
-                </div>
-              ) : null}
-              <div id="toss-payment-method" />
-              <div id="toss-agreement" className="mt-4" />
-              {!process.env.NEXT_PUBLIC_TOSS_WIDGET_CLIENT_KEY ? (
-                <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
-                  개발 모드(토스 클라이언트 키 미설정) — 결제수단 선택 없이 바로 결제완료로 진행됩니다.
-                </p>
-              ) : null}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {PAYMENT_METHODS.map((m) => {
+                  const selected = paymentMethod === m;
+                  return (
+                    <label
+                      key={m}
+                      className={`relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 p-4 text-center transition-all duration-200 ${
+                        selected
+                          ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5 text-[var(--color-primary)] shadow-sm"
+                          : "border-zinc-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="payment_method"
+                        value={m}
+                        checked={selected}
+                        onChange={() => setPaymentMethod(m)}
+                        className="sr-only"
+                      />
+                      <PaymentMethodIcon method={m} selected={selected} />
+                      <span className="text-sm font-bold">{PAYMENT_METHOD_LABEL[m]}</span>
+                      {selected && (
+                        <div className="absolute top-2 right-2 text-[var(--color-primary)]">
+                          <CheckCircle2 className="h-4 w-4" />
+                        </div>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
             </section>
           </div>
 
@@ -432,12 +427,12 @@ export default function CheckoutBundleClient() {
                       </span>
                     </div>
                   ) : null}
-                  {selectedMethodLabel ? (
-                    <div className="flex justify-between pb-2">
-                      <span className="font-medium text-slate-500">결제 수단</span>
-                      <span className="font-bold text-slate-900">{selectedMethodLabel}</span>
-                    </div>
-                  ) : null}
+                  <div className="flex justify-between pb-2">
+                    <span className="font-medium text-slate-500">결제 수단</span>
+                    <span className="font-bold text-slate-900">
+                      {PAYMENT_METHOD_LABEL[paymentMethod]}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="mb-6 rounded-xl bg-slate-50 p-4 border border-slate-100">
@@ -453,7 +448,7 @@ export default function CheckoutBundleClient() {
                 <button
                   type="button"
                   onClick={handleCheckout}
-                  disabled={submitting || (!widgetsReady && Boolean(process.env.NEXT_PUBLIC_TOSS_WIDGET_CLIENT_KEY))}
+                  disabled={submitting}
                   className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[var(--color-primary)] py-4 font-bold text-white shadow-lg shadow-[var(--color-primary)]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-xl hover:shadow-[var(--color-primary)]/30 disabled:opacity-60 disabled:hover:translate-y-0"
                 >
                   {submitting ? (
@@ -468,6 +463,12 @@ export default function CheckoutBundleClient() {
                     </>
                   )}
                 </button>
+
+                {!process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ? (
+                  <p className="mt-4 text-center text-xs font-medium text-amber-600 bg-amber-50 rounded-lg py-2">
+                    개발 모드 (토스 클라이언트 키 미설정)
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>
