@@ -105,21 +105,22 @@ const COURSE_ID_BY_TITLE: Record<string, CourseId> = Object.fromEntries(
 // ---------- Page 1: 메인 강의 --------------------------------------------------
 // "기타" 는 특정 CourseId 로 매핑되지 않아 별도 boolean(etcSelected)으로 관리.
 
+// 강의 전체보기 페이지와 동일한 순서로 맞춤(2026-09).
 const MAIN_CARDS: { id: CourseId; description: string }[] = [
   { id: "drunk", description: "음주·약물 운전 적발" },
   { id: "sex", description: "성추행, 성폭력" },
   { id: "prostitution", description: "성매매 알선·이용" },
   { id: "digital_sex", description: "불법촬영 및 유포, 몰카, 딥페이크 등" },
+  { id: "stalking", description: "스토킹·접근금지 위반" },
   { id: "drug", description: "투약·소지·유통" },
   { id: "gambling", description: "도박·도박개장·사설사이트" },
   { id: "phishing", description: "보이스피싱, 대포통장 등" },
   { id: "property", description: "사기·횡령·배임 등 재산범죄" },
-  { id: "stalking", description: "스토킹·접근금지 위반" },
-  { id: "school", description: "교내 폭력·따돌림" },
   { id: "violence", description: "폭행, 상해 등 일반 폭력" },
+  { id: "defamation", description: "온·오프라인 명예훼손·모욕" },
+  { id: "school", description: "교내 폭력·따돌림" },
   { id: "youth", description: "소년 사건, 청소년 재범방지" },
   { id: "driving_habit", description: "무면허, 난폭운전, 도로교통법 위반 등" },
-  { id: "defamation", description: "온·오프라인 명예훼손·모욕" },
 ];
 
 // ---------- Page 2: 추가 강의 + 추천 알고리즘 ----------------------------------
