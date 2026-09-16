@@ -34,7 +34,7 @@ export default function SampleGallery({ samples }: { samples: Sample[] }) {
 
       {selected ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
           onClick={() => setSelected(null)}
         >
           <div
