@@ -217,14 +217,7 @@ export default function CheckoutBundleClient() {
         // 체크아웃(같은 강의 선택)으로 되돌아갈 수 있게 하기 위함.
         successUrl: `${window.location.origin}/checkout/bundle/success?courses=${coursesParam}`,
         failUrl: `${window.location.origin}/checkout/bundle?courses=${coursesParam}`,
-        // method:"CARD"에서 flowMode를 안 주면(기본값 DEFAULT) 카드/계좌이체/
-        // 가상계좌를 다시 고르는 토스 통합결제창이 한 번 더 뜬다 — 이미 우리
-        // 페이지에서 결제수단을 골랐으니 곧장 카드 입력(또는 간편결제 앱)으로
-        // 들어가게 DIRECT로 고정한다. TRANSFER/VIRTUAL_ACCOUNT는 애초에
-        // flowMode 옵션 자체가 없고 바로 해당 화면으로 열린다(2026-09).
-        ...(tossMethod === "CARD"
-          ? { card: { flowMode: "DIRECT", ...(easyPayCode ? { easyPay: easyPayCode } : {}) } }
-          : {}),
+        ...(easyPayCode ? { card: { flowMode: "DIRECT", easyPay: easyPayCode } } : {}),
       } as unknown as Parameters<typeof widget.requestPayment>[0]);
     } catch (err) {
       // 강의 조회 실패(치명적, 폼 전체를 에러 화면으로 대체)와 달리 결제
