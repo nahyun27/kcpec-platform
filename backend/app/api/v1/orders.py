@@ -118,13 +118,14 @@ def create_order(
             detail="이미 결제 완료된 강의입니다.",
         )
 
-    # 무통장입금 PENDING 주문은 동일 강의로 중복 생성을 막는다 — 카드/간편결제와
-    # 달리 무통장입금은 관리자가 "실제 입금 내역"과 매칭해 수동으로 확인하는데,
-    # 같은 강의로 대기 주문이 여러 건 쌓여 있으면 실제 입금은 1건뿐인데도
-    # 여러 건을 착오로 승인해 중복 결제(수강권 정상, 금액만 이상) 처리될 위험이
-    # 있다. 카드/토스는 결제 취소·이탈이 흔하고 사용자가 스스로 취소할 방법이
-    # 없어(주문 취소는 관리자 전용) 여기서 막으면 재시도 자체가 막혀버리므로
-    # 무통장입금에 한해서만 적용한다.
+    # 무통장입금(토스 가상계좌) PENDING 주문 중 "실제로 계좌가 발급된" 것만
+    # 중복으로 본다 — 계좌가 이미 발급된 상태에서 또 결제를 시도하면 손님이
+    # 계좌 두 개를 헷갈려 이중입금할 위험이 있어 막아야 하지만, 계좌 발급
+    # 전에(토스 결제창에서 취소/실패) 남은 PENDING 주문은 애초에 입금받을
+    # 계좌 자체가 없어 아무도 거기 입금할 수 없다 — 이런 "빈 시도"까지 막으면
+    # 결제 실패 후 재시도 자체가 막혀버린다(2026-09, 실사용 중 발견 — 결제
+    # 실패 후 같은 화면에서 바로 재시도가 안 되고 마이페이지 가서 취소부터
+    # 해야 했음).
     if payload.payment_method == PaymentMethod.BANK_TRANSFER:
         duplicate_pending_bank = db.scalar(
             select(Order).where(
@@ -132,6 +133,7 @@ def create_order(
                 Order.course_id == course.id,
                 Order.status == OrderStatus.PENDING,
                 Order.payment_method == PaymentMethod.BANK_TRANSFER,
+                Order.va_account_number.is_not(None),
             )
         )
         if duplicate_pending_bank is not None:
@@ -203,12 +205,14 @@ def create_order_bundle(
                 status.HTTP_409_CONFLICT, detail=f"'{c.title}' 은(는) 이미 결제 완료된 강의입니다."
             )
         if payload.payment_method == PaymentMethod.BANK_TRANSFER:
+            # 단건결제와 동일한 이유로 실제 계좌가 발급된 주문만 중복으로 본다.
             duplicate_pending_bank = db.scalar(
                 select(Order).where(
                     Order.user_id == current_user.id,
                     Order.course_id == cid,
                     Order.status == OrderStatus.PENDING,
                     Order.payment_method == PaymentMethod.BANK_TRANSFER,
+                    Order.va_account_number.is_not(None),
                 )
             )
             if duplicate_pending_bank is not None:
