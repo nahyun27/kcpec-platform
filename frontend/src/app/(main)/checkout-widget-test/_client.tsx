@@ -127,7 +127,7 @@ export default function CheckoutWidgetTestClient() {
   const amount = course?.price ?? 0;
 
   useEffect(() => {
-    const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
+    const tossClientKey = process.env.NEXT_PUBLIC_TOSS_WIDGET_CLIENT_KEY;
     if (!course || !tossClientKey) return;
 
     let destroyed = false;
@@ -186,7 +186,7 @@ export default function CheckoutWidgetTestClient() {
     setSubmitting(true);
     setPaymentFailMessage(null);
     try {
-      const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
+      const tossClientKey = process.env.NEXT_PUBLIC_TOSS_WIDGET_CLIENT_KEY;
       const widgets = widgetsRef.current;
       const paymentMethodWidget = paymentMethodWidgetRef.current;
 
@@ -319,14 +319,14 @@ export default function CheckoutWidgetTestClient() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">1</div>
                 <h2 className="font-sans text-xl font-bold text-slate-900">결제 수단</h2>
               </div>
-              {!widgetsReady && process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ? (
+              {!widgetsReady && process.env.NEXT_PUBLIC_TOSS_WIDGET_CLIENT_KEY ? (
                 <div className="flex h-40 items-center justify-center rounded-xl border border-zinc-200 bg-white">
                   <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
                 </div>
               ) : null}
               <div id="toss-payment-method" />
               <div id="toss-agreement" className="mt-4" />
-              {!process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ? (
+              {!process.env.NEXT_PUBLIC_TOSS_WIDGET_CLIENT_KEY ? (
                 <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
                   개발 모드(토스 클라이언트 키 미설정) — 결제수단 선택 없이 바로 결제완료로 진행됩니다.
                 </p>
@@ -369,7 +369,7 @@ export default function CheckoutWidgetTestClient() {
                 <button
                   type="button"
                   onClick={handleCheckout}
-                  disabled={submitting || (!widgetsReady && Boolean(process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY))}
+                  disabled={submitting || (!widgetsReady && Boolean(process.env.NEXT_PUBLIC_TOSS_WIDGET_CLIENT_KEY))}
                   className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[var(--color-primary)] py-4 font-bold text-white shadow-lg shadow-[var(--color-primary)]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-xl hover:shadow-[var(--color-primary)]/30 disabled:opacity-60 disabled:hover:translate-y-0"
                 >
                   {submitting ? (
