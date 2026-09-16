@@ -109,13 +109,19 @@ export default function MyPageClient() {
     [enrollments],
   );
   const [orders, setOrders] = useState<OrderWithExtras[]>([]);
-  // 무통장입금 대기(실제 입금을 기다리는 상태)만 노출하고, 카드/카카오페이/
-  // 네이버페이로 결제 시도했다가 중단·실패한 뒤 영구히 "대기중"으로 남는
-  // 재시도 불가 주문은 목록에서 숨긴다.
+  // 무통장입금 중 실제로 계좌가 발급된(입금을 실제로 기다리는) 것만 노출하고,
+  // 카드/카카오페이/네이버페이로 결제 시도했다가 중단·실패한 주문이나,
+  // 무통장입금이어도 토스 결제창만 열었다 닫아 계좌 발급 전에 중단된 주문은
+  // 목록에서 숨긴다 — 결제 시도할 때마다 빈 "대기중" 카드가 계속 쌓이는 걸
+  // 막기 위함(2026-09, 실사용 중 발견). 재시도 자체는 코스 상세 페이지에서
+  // 바로 다시 결제하면 되므로(중복 방지 가드가 실제 계좌 발급 여부만 봄)
+  // 여기서 숨겨도 재시도가 막히지 않는다.
   const visibleOrders = useMemo(
     () =>
       orders.filter(
-        (o) => o.status !== "pending" || o.payment_method === "bank_transfer",
+        (o) =>
+          o.status !== "pending" ||
+          (o.payment_method === "bank_transfer" && Boolean(o.va_account_number)),
       ),
     [orders],
   );
