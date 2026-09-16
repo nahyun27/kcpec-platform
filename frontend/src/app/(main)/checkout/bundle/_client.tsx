@@ -59,15 +59,10 @@ function PaymentMethodIcon({
   return <CreditCard className={cls} />;
 }
 
-const PAYMENT_METHODS: PaymentMethod[] = [
-  "card",
-  "kakaopay",
-  "naverpay",
-  "samsungpay",
-  "mobile_phone",
-  "transfer",
-  "bank_transfer",
-];
+// 카카오페이/네이버페이는 애초에 제공한 적 없는 결제수단이고, 삼성페이/
+// 휴대폰결제는 별도 PG 연동이 아직 안 끝나 지금 선택하면 결제 시도 중
+// 에러가 난다 — 실제로 연동 완료되면 하나씩 다시 추가한다(2026-09).
+const PAYMENT_METHODS: PaymentMethod[] = ["card", "transfer", "bank_transfer"];
 
 // sentencing/page.tsx 의 BULK_DISCOUNT_* 와 동일 값 — 여기서는 결제 전 미리보기
 // 표시용일 뿐, 실제 금액은 /orders/bundle 서버 응답이 최종 기준.
