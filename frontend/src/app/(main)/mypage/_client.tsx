@@ -433,6 +433,10 @@ export default function MyPageClient() {
                           enrollments.find((e) => e.course_id === g.order.course_id)
                             ?.is_completed ?? false
                         }
+                        progressPct={
+                          enrollments.find((e) => e.course_id === g.order.course_id)
+                            ?.overall_progress_pct ?? 0
+                        }
                         hasCounseling={counselingOrders.length > 0}
                         onViewAnswers={(id) => setAnswersSurveyId(id)}
                         onCancel={handleCancelOrder}
@@ -778,6 +782,7 @@ function EnrollmentRow({
 function OrderRow({
   order,
   isCourseCompleted,
+  progressPct,
   hasCounseling,
   onViewAnswers,
   onCancel,
@@ -785,6 +790,7 @@ function OrderRow({
 }: {
   order: OrderWithExtras;
   isCourseCompleted: boolean;
+  progressPct: number;
   hasCounseling: boolean;
   onViewAnswers: (surveyId: number) => void;
   onCancel: (orderId: number) => void;
@@ -830,7 +836,11 @@ function OrderRow({
             <CounselingOrderDetails order={order} onViewAnswers={onViewAnswers} />
           ) : (
             <>
-              <OrderPaidDetails order={order} isCourseCompleted={isCourseCompleted} />
+              <OrderPaidDetails
+                order={order}
+                isCourseCompleted={isCourseCompleted}
+                progressPct={progressPct}
+              />
               {!hasCounseling ? <CounselingUpsell /> : null}
             </>
           )}
@@ -882,10 +892,13 @@ function OrderRow({
 function OrderPaidDetails({
   order,
   isCourseCompleted,
+  progressPct,
 }: {
   order: OrderWithExtras;
   isCourseCompleted: boolean;
+  progressPct: number;
 }) {
+  const hasStarted = progressPct > 0;
   return (
     <>
       <div className="mb-3 flex items-center gap-2">
@@ -949,7 +962,7 @@ function OrderPaidDetails({
               href={`/courses/${order.course_id}/watch`}
               className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
             >
-              이어서 수강하기
+              {hasStarted ? "이어서 수강하기" : "수강하기"}
             </Link>
           </div>
         )}
@@ -1038,6 +1051,10 @@ function BundleOrderGroup({
                   order={o}
                   isCourseCompleted={
                     enrollments.find((e) => e.course_id === o.course_id)?.is_completed ?? false
+                  }
+                  progressPct={
+                    enrollments.find((e) => e.course_id === o.course_id)?.overall_progress_pct ??
+                    0
                   }
                 />
               </div>
