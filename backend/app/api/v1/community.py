@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.admin import require_admin
@@ -127,6 +127,15 @@ def list_posts(
         if not current_user.is_admin:
             base = base.where(Post.user_id == current_user.id)
             count_base = count_base.where(Post.user_id == current_user.id)
+    elif category is None:
+        # category 미지정(전체 조회) 시에도 QNA(1:1 문의)는 절대 새어나가면 안 됨.
+        if current_user is None:
+            base = base.where(Post.category != PostCategory.QNA)
+            count_base = count_base.where(Post.category != PostCategory.QNA)
+        elif not current_user.is_admin:
+            visible = or_(Post.category != PostCategory.QNA, Post.user_id == current_user.id)
+            base = base.where(visible)
+            count_base = count_base.where(visible)
     total = db.scalar(count_base) or 0
     items = list(
         db.scalars(
