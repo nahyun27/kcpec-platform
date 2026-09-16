@@ -47,18 +47,15 @@ export default function CertificateGrid({ certificates }: { certificates: Certif
           onClick={() => setSelected(null)}
         >
           <div
-            className="relative max-h-[90vh] max-w-[95vw] sm:max-w-md overflow-hidden rounded-3xl bg-white p-2 shadow-2xl"
+            className="relative max-h-[90vh] max-w-[95vw] overflow-hidden rounded-3xl bg-white p-2 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="relative aspect-[3/4] w-full max-h-[75vh]">
-              <Image
-                src={`/certs/${selected.slug}.jpg`}
-                alt={`${selected.title} 자격증`}
-                fill
-                sizes="90vw"
-                className="rounded-2xl object-contain"
-              />
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/certs/${selected.slug}.jpg`}
+              alt={`${selected.title} 자격증`}
+              className="max-h-[70vh] w-auto rounded-2xl object-contain mx-auto"
+            />
             <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 mt-2">
               <span className="text-sm font-bold text-slate-800">{selected.title}</span>
               <button

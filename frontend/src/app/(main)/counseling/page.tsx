@@ -1,6 +1,7 @@
 import Link from "next/link";
 import ApplyButton from "./ApplyButton";
 import CertificateGrid from "./CertificateGrid";
+import SampleGallery from "./SampleGallery";
 import type { CounselingType } from "@/types/counseling";
 import { CheckCircle2, FileSignature, Phone, ShieldCheck, Award } from "lucide-react";
 import { Reveal } from "@/components/ui/Reveal";
@@ -271,30 +272,18 @@ export default function CounselingPage() {
           </div>
 
           {/* 심리상담 의견서 샘플 — 실제로 어떤 문서를 받게 되는지 미리 볼 수 있게.
-              서면/전화 두 상품이 서로 다른 양식이라 둘 다 보여준다. */}
-          <Reveal className="mx-auto mt-16 grid max-w-2xl grid-cols-2 gap-8 text-center">
-            <div>
-              <p className="mb-4 text-sm font-bold text-slate-500">
-                서면 심리상담 의견서 샘플
-              </p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/images/sample-counseling.png"
-                alt="서면 심리상담 의견서 샘플"
-                className="aspect-[3/4] w-full rounded-2xl border border-zinc-200 object-cover shadow-sm"
-              />
-            </div>
-            <div>
-              <p className="mb-4 text-sm font-bold text-slate-500">
-                전화 심화상담 의견서 샘플(3회차)
-              </p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/images/sample-counseling-phone.png"
-                alt="전화 심화상담 의견서 샘플"
-                className="aspect-[3/4] w-full rounded-2xl border border-zinc-200 object-cover shadow-sm"
-              />
-            </div>
+              서면/전화 두 상품이 서로 다른 양식이라 둘 다 보여준다.
+              클릭 시 확대(메인 페이지 수료증 샘플과 동일한 방식). */}
+          <Reveal>
+            <SampleGallery
+              samples={[
+                { src: "/images/sample-counseling.png", caption: "서면 심리상담 의견서 샘플" },
+                {
+                  src: "/images/sample-counseling-phone.png",
+                  caption: "전화 심화상담 의견서 샘플(3회차)",
+                },
+              ]}
+            />
           </Reveal>
         </div>
       </section>

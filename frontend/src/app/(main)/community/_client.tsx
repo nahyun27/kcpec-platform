@@ -699,8 +699,16 @@ function StarRow({ rating }: { rating: number }) {
   );
 }
 
+// 후기 작성자 이름을 "김**"처럼 성만 남기고 익명 처리 — 후기는 누구나
+// 볼 수 있는 공개 게시판이라 실명이 그대로 노출되면 안 된다(2026-09).
+function maskName(name: string): string {
+  if (name.length <= 1) return name;
+  return name.charAt(0) + "*".repeat(name.length - 1);
+}
+
 function ReviewListItem({ post }: { post: PostListItem }) {
   const body = post.content ?? post.title;
+  const displayName = post.author_name ? maskName(post.author_name) : "익명";
   return (
     <li className="flex flex-col rounded-3xl border border-slate-200 bg-white p-5 md:p-7 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -709,7 +717,7 @@ function ReviewListItem({ post }: { post: PostListItem }) {
             {post.author_name ? post.author_name.charAt(0) : "익"}
           </div>
           <div>
-            <div className="text-sm font-bold text-slate-800">{post.author_name || "익명"}</div>
+            <div className="text-sm font-bold text-slate-800">{displayName}</div>
             <div className="text-[11px] text-slate-400">{new Date(post.created_at).toLocaleDateString("ko-KR")}</div>
           </div>
         </div>
