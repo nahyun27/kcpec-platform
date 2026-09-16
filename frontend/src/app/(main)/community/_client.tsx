@@ -524,7 +524,7 @@ function ReviewTab() {
           <select
             value={filter ?? ""}
             onChange={(e) => setFilter(e.target.value === "" ? null : e.target.value)}
-            className="min-w-[160px] rounded-full border border-zinc-200 bg-white px-4 py-2 pr-9 text-sm font-bold text-slate-700 shadow-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+            className="min-w-[160px] rounded-lg border border-zinc-200 bg-white px-4 py-2 pr-12 text-sm font-bold text-slate-700 shadow-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
           >
             <option value="">전체</option>
             {REVIEW_CATEGORIES.map((c) => (
