@@ -220,6 +220,22 @@ export default function CheckoutBundleClient() {
         ...(easyPayCode ? { card: { flowMode: "DIRECT", easyPay: easyPayCode } } : {}),
       } as unknown as Parameters<typeof widget.requestPayment>[0]);
     } catch (err) {
+      // 결제창에서 X 눌러 그냥 닫기만 해도 SDK가 UserCancelError(code:
+      // "USER_CANCEL")를 던진다 — 이건 실패가 아니라 사용자의 정상적인
+      // 취소라, failUrl 리다이렉트 경로의 PAY_PROCESS_CANCELED와 동일하게
+      // 조용히 폼으로 돌아가야 한다. 이걸 걸러내지 않으면 결제창을
+      // 열었다 닫기만 해도 매번 "결제에 실패했습니다" 배너가 뜬다
+      // (2026-09, 실사용 중 발견).
+      const codeOrName = (err as { code?: string; name?: string } | null) ?? {};
+      const message = err instanceof Error ? err.message : "";
+      const isUserCancel =
+        codeOrName.code === "USER_CANCEL" ||
+        codeOrName.name === "UserCancelError" ||
+        /사용자.*취소|결제창.*닫/.test(message);
+      if (isUserCancel) {
+        setSubmitting(false);
+        return;
+      }
       // 강의 조회 실패(치명적, 폼 전체를 에러 화면으로 대체)와 달리 결제
       // 시도 실패(토스 SDK 로드 실패/네트워크 오류 등)는 결제수단을 다시
       // 고를 필요 없이 그 자리에서 재시도할 수 있어야 하므로, 폼을
