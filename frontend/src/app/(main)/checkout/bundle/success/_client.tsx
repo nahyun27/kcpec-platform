@@ -42,7 +42,10 @@ export default function CheckoutBundleSuccessPage() {
     if (ranRef.current) return;
     ranRef.current = true;
 
-    if (!bundleId) {
+    // paymentKey 없이(즐겨찾기/방문기록에 남은 옛 URL, 주소창 직접 수정 등)
+    // 이 페이지에 들어오면 빈 문자열로 실 토스 API 를 호출하게 되던 문제 —
+    // 결제 시도 자체를 막는다(2026-09, 버그 감사 중 발견).
+    if (!bundleId || (!paymentKey && !simulated)) {
       dialog
         .alert("잘못된 접근입니다. 다시 시도해 주세요.", { title: "결제 승인 실패" })
         .then(backToCheckout);

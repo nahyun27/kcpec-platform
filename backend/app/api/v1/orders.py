@@ -335,6 +335,23 @@ def cancel_order(
 
     for o in orders_to_cancel:
         o.status = OrderStatus.CANCELLED
+        if o.va_account_number:
+            # 발급된 가상계좌가 있으면 토스 쪽에도 취소를 시도한다(베스트
+            # 에포트 — 실패해도 우리 쪽 취소 자체는 막지 않음). 실패하면
+            # 실제 계좌는 계속 열려있을 수 있지만, va_secret 을 지워두면
+            # 뒤늦게 입금돼 DEPOSIT_CALLBACK 이 와도(아래) 대조 실패로
+            # 무시되어 취소된 주문이 되살아나진 않는다.
+            if o.toss_payment_key and settings.TOSS_SECRET_KEY:
+                try:
+                    with httpx.Client(timeout=10.0) as client:
+                        client.post(
+                            f"{settings.TOSS_API_BASE}/v1/payments/{o.toss_payment_key}/cancel",
+                            auth=(settings.TOSS_SECRET_KEY, ""),
+                            json={"cancelReason": "고객 주문 취소"},
+                        )
+                except httpx.HTTPError:
+                    pass
+            o.va_secret = None
     db.commit()
     db.refresh(order)
 
@@ -413,6 +430,12 @@ def toss_confirm(
     # 실 결제 모드 — Toss 위젯이 받은 amount 와 DB amount 가 일치하는지 확인
     if order.amount != payload.amount:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제 금액이 일치하지 않습니다.")
+    if not payload.payment_key:
+        # paymentKey 없이(즐겨찾기/방문기록에 남은 옛 success URL 등) 이
+        # 엔드포인트가 호출되면 빈 문자열이 그대로 실 토스 API 로 나가고
+        # 있었다 — 프런트에서도 막았지만 서버단 방어도 추가(2026-09, 버그
+        # 감사 중 발견).
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제 정보가 없습니다.")
 
     try:
         with httpx.Client(timeout=10.0) as client:
@@ -439,13 +462,23 @@ def toss_confirm(
         )
 
     data = res.json()
-    if data.get("status") == "WAITING_FOR_DEPOSIT":
+    toss_status = data.get("status")
+    if toss_status == "DONE":
+        _mark_paid(order, payment_key=payload.payment_key)
+        _ensure_enrollment(db, order.user_id, order.course_id)
+    elif toss_status == "WAITING_FOR_DEPOSIT":
         # 가상계좌 발급 완료, 입금 대기 — PAID 처리/수강등록은 입금 완료
         # 웹훅(toss_webhook)에서 한다.
         _apply_virtual_account(order, payload.payment_key, data)
     else:
-        _mark_paid(order, payment_key=payload.payment_key)
-        _ensure_enrollment(db, order.user_id, order.course_id)
+        # DONE/WAITING_FOR_DEPOSIT 외의 상태(CANCELED/EXPIRED/ABORTED 등)를
+        # else 로 뭉쳐서 무조건 PAID 처리하고 있었다 — 실제로 결제가 안 된
+        # 상태인데도 수강등록까지 내줄 수 있었던 심각한 구멍이었음
+        # (2026-09, 버그 감사 중 발견 및 즉시 수정).
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=f"결제가 완료되지 않았습니다 (상태: {toss_status}).",
+        )
     db.commit()
     db.refresh(order)
     return order
@@ -510,6 +543,8 @@ def bundle_toss_confirm(
 
     if total != payload.amount:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제 금액이 일치하지 않습니다.")
+    if not payload.payment_key:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제 정보가 없습니다.")
 
     try:
         with httpx.Client(timeout=10.0) as client:
@@ -535,14 +570,20 @@ def bundle_toss_confirm(
         )
 
     data = res.json()
-    if data.get("status") == "WAITING_FOR_DEPOSIT":
+    toss_status = data.get("status")
+    if toss_status == "DONE":
+        for o in orders:
+            _mark_paid(o, payment_key=payload.payment_key)
+            _ensure_enrollment(db, o.user_id, o.course_id)
+    elif toss_status == "WAITING_FOR_DEPOSIT":
         # 묶음결제 전체가 가상계좌 하나를 공유 — 모든 주문에 같은 계좌 정보를 저장.
         for o in orders:
             _apply_virtual_account(o, payload.payment_key, data)
     else:
-        for o in orders:
-            _mark_paid(o, payment_key=payload.payment_key)
-            _ensure_enrollment(db, o.user_id, o.course_id)
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=f"결제가 완료되지 않았습니다 (상태: {toss_status}).",
+        )
     db.commit()
     for o in orders:
         db.refresh(o)
@@ -652,12 +693,29 @@ def toss_webhook(payload: TossWebhookPayload, db: Session = Depends(get_db)) -> 
     if not orders[0].va_secret or not hmac.compare_digest(orders[0].va_secret, payload.secret):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="invalid secret")
 
+    # 웹훅 처리 대상은 항상 "아직 PENDING인 주문"뿐이어야 한다. PAID 는
+    # 멱등 처리를 위해 건너뛰지만, 그 외 상태(특히 CANCELLED)는 절대 여기서
+    # 다시 건드리면 안 된다 — 예전엔 PAID 만 걸러서, 사용자가 주문을 취소한
+    # 뒤에도(가상계좌는 그대로 살아있어 실수/뒤늦게 입금 가능) 늦게 도착한
+    # DONE 웹훅이 취소된 주문을 그대로 PAID+수강등록 처리해버릴 수 있었다
+    # (2026-09, 버그 감사 중 발견 — 취소를 우회해 무료로 수강권을 얻는 구멍).
     if payload.status == "DONE":
         for o in orders:
-            if o.status == OrderStatus.PAID:
-                continue  # 이미 처리됨 — 웹훅 재전송에 대한 멱등 처리
+            if o.status != OrderStatus.PENDING:
+                continue
             _mark_paid(o, payment_key=o.toss_payment_key)
             _ensure_enrollment(db, o.user_id, o.course_id)
+        db.commit()
+    elif payload.status in ("CANCELED", "EXPIRED", "ABORTED"):
+        # 가상계좌 입금기한이 지나 토스가 자동으로 계좌를 회수하는 경우 등 —
+        # 처리 안 하면 주문이 영원히 PENDING으로 남아 마이페이지에 죽은
+        # 계좌 정보가 계속 표시되고, 같은 강의를 무통장입금으로 재주문도
+        # 막힌 채로 남는다(2026-09, 버그 감사 중 발견).
+        for o in orders:
+            if o.status != OrderStatus.PENDING:
+                continue
+            o.status = OrderStatus.CANCELLED
+            o.va_secret = None
         db.commit()
 
     return {"status": "ok"}
