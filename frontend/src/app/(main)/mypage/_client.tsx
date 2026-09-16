@@ -179,6 +179,32 @@ export default function MyPageClient() {
     }
   }
 
+  // 무통장입금(가상계좌) 선택 후 토스 결제창을 끝까지 진행하지 않고 나가면,
+  // 계좌가 아예 발급되지 않은 채로 주문만 PENDING 으로 남는다 — 이 상태에선
+  // 같은 강의로 재주문을 시도해도 "이미 입금 대기 중" 이라며 막힌다(중복
+  // 방지 가드). 기존 "주문 취소" 버튼만으로도 취소 후 재시도는 가능했지만,
+  // 그 사실이 안내되지 않아 헤매기 쉬웠다 — 이 버튼은 취소와 체크아웃 재진입을
+  // 한 번에 해준다(2026-09, 실사용 중 발견).
+  async function handleRetryPayment(orderId: number, courseId: number) {
+    try {
+      await cancelMyOrder(orderId);
+    } catch {
+      setToast("재시도 준비에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+    router.push(`/checkout?course_id=${courseId}`);
+  }
+
+  async function handleRetryBundlePayment(orderId: number, courseIds: number[]) {
+    try {
+      await cancelMyOrder(orderId);
+    } catch {
+      setToast("재시도 준비에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+    router.push(`/checkout/bundle?courses=${courseIds.join(",")}`);
+  }
+
   async function handleResendVerification() {
     setResending(true);
     try {
@@ -397,6 +423,7 @@ export default function MyPageClient() {
                         hasCounseling={counselingOrders.length > 0}
                         onViewAnswers={(id) => setAnswersSurveyId(id)}
                         onCancel={handleCancelOrder}
+                        onRetry={handleRetryBundlePayment}
                       />
                     ) : (
                       <OrderRow
@@ -409,6 +436,7 @@ export default function MyPageClient() {
                         hasCounseling={counselingOrders.length > 0}
                         onViewAnswers={(id) => setAnswersSurveyId(id)}
                         onCancel={handleCancelOrder}
+                        onRetry={handleRetryPayment}
                       />
                     ),
                   )}
@@ -753,12 +781,14 @@ function OrderRow({
   hasCounseling,
   onViewAnswers,
   onCancel,
+  onRetry,
 }: {
   order: OrderWithExtras;
   isCourseCompleted: boolean;
   hasCounseling: boolean;
   onViewAnswers: (surveyId: number) => void;
   onCancel: (orderId: number) => void;
+  onRetry: (orderId: number, courseId: number) => void;
 }) {
   const isPaid = order.status === "paid";
   const isPendingBankTransfer =
@@ -807,20 +837,42 @@ function OrderRow({
         </div>
       ) : isPendingBankTransfer ? (
         <div className="flex flex-col gap-4 p-6 bg-white">
-          {order.va_account_number ? <VirtualAccountNotice order={order} /> : null}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm leading-relaxed text-slate-500">
-              입금이 확인되면 자동으로 강의가 열립니다. 아직 입금 전이거나 실수로
-              신청하셨다면 아래에서 주문을 취소할 수 있습니다.
-            </p>
-            <button
-              type="button"
-              onClick={() => onCancel(order.id)}
-              className="shrink-0 rounded-lg border border-red-200 bg-white px-5 py-2.5 text-sm font-bold text-red-600 shadow-sm transition-colors hover:bg-red-50"
-            >
-              주문 취소
-            </button>
-          </div>
+          {order.va_account_number ? (
+            <>
+              <VirtualAccountNotice order={order} />
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm leading-relaxed text-slate-500">
+                  입금이 확인되면 자동으로 강의가 열립니다. 아직 입금 전이거나 실수로
+                  신청하셨다면 아래에서 주문을 취소할 수 있습니다.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onCancel(order.id)}
+                  className="shrink-0 rounded-lg border border-red-200 bg-white px-5 py-2.5 text-sm font-bold text-red-600 shadow-sm transition-colors hover:bg-red-50"
+                >
+                  주문 취소
+                </button>
+              </div>
+            </>
+          ) : (
+            // 계좌가 발급되지 않은 채 결제창을 닫고 나간 경우 — 입금할 계좌
+            // 자체가 없어 위 안내는 의미가 없다. 같은 강의로 재주문하면
+            // "이미 입금 대기 중" 으로 막히므로, 이 주문을 취소하고 바로
+            // 체크아웃으로 돌아가는 버튼을 대신 보여준다.
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm leading-relaxed text-slate-500">
+                결제가 완료되지 않았습니다. 계좌가 발급되지 않은 채로 결제창을
+                나가신 것 같아요 — 아래 버튼으로 다시 결제를 진행해 주세요.
+              </p>
+              <button
+                type="button"
+                onClick={() => onRetry(order.id, order.course_id)}
+                className="shrink-0 rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[var(--color-primary-hover)]"
+              >
+                다시 결제하기
+              </button>
+            </div>
+          )}
         </div>
       ) : null}
     </li>
@@ -914,12 +966,14 @@ function BundleOrderGroup({
   hasCounseling,
   onViewAnswers,
   onCancel,
+  onRetry,
 }: {
   orders: OrderWithExtras[];
   enrollments: EnrollmentWithProgress[];
   hasCounseling: boolean;
   onViewAnswers: (surveyId: number) => void;
   onCancel: (orderId: number) => void;
+  onRetry: (orderId: number, courseIds: number[]) => void;
 }) {
   const first = orders[0];
   const isPaid = first.status === "paid";
@@ -998,21 +1052,39 @@ function BundleOrderGroup({
         </div>
       ) : isPendingBankTransfer ? (
         <div className="flex flex-col gap-4 p-6 bg-white">
-          {first.va_account_number ? <VirtualAccountNotice order={first} /> : null}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm leading-relaxed text-slate-500">
-              입금이 확인되면 묶음 전체 강의가 한 번에 자동으로 열립니다. 아직
-              입금 전이거나 실수로 신청하셨다면 아래에서 묶음 전체를 취소할 수
-              있습니다.
-            </p>
-            <button
-              type="button"
-              onClick={() => onCancel(first.id)}
-              className="shrink-0 rounded-lg border border-red-200 bg-white px-5 py-2.5 text-sm font-bold text-red-600 shadow-sm transition-colors hover:bg-red-50"
-            >
-              묶음 전체 취소
-            </button>
-          </div>
+          {first.va_account_number ? (
+            <>
+              <VirtualAccountNotice order={first} />
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm leading-relaxed text-slate-500">
+                  입금이 확인되면 묶음 전체 강의가 한 번에 자동으로 열립니다. 아직
+                  입금 전이거나 실수로 신청하셨다면 아래에서 묶음 전체를 취소할 수
+                  있습니다.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onCancel(first.id)}
+                  className="shrink-0 rounded-lg border border-red-200 bg-white px-5 py-2.5 text-sm font-bold text-red-600 shadow-sm transition-colors hover:bg-red-50"
+                >
+                  묶음 전체 취소
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm leading-relaxed text-slate-500">
+                결제가 완료되지 않았습니다. 계좌가 발급되지 않은 채로 결제창을
+                나가신 것 같아요 — 아래 버튼으로 다시 결제를 진행해 주세요.
+              </p>
+              <button
+                type="button"
+                onClick={() => onRetry(first.id, orders.map((o) => o.course_id))}
+                className="shrink-0 rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[var(--color-primary-hover)]"
+              >
+                다시 결제하기
+              </button>
+            </div>
+          )}
         </div>
       ) : null}
     </li>
