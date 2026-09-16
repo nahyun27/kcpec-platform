@@ -48,8 +48,21 @@ export default function SiteHeader() {
     setIsMenuOpen(false);
   }
 
+  // 헤더 바로 아래가 흰색 히어로 없이 회색 배경으로 바로 이어지는 페이지
+  // (강의 시청 등)에서는, 떠 있는 캡슐 헤더 주변 여백에 body 기본 흰색이
+  // 그대로 비쳐 보였다. 레이아웃 전체를 회색으로 바꾸면 흰색 히어로가
+  // 있는 다른 페이지(맞춤 강의 찾기 등)에서 오히려 틈이 생기는 부작용이
+  // 있어, 헤더가 직접 현재 경로를 보고 이런 페이지에서만 배경을 채운다
+  // (2026-09, 실사용 중 발견 — 이전에 시도한 position:fixed 패치는 실제로
+  // 반영되지 않아 이 방식으로 교체).
+  const needsMutedBackdrop = /^\/courses\/[^/]+\/watch/.test(pathname);
+
   return (
-    <header className="sticky top-0 md:top-4 z-50 transition-all px-0 md:px-6 pointer-events-none">
+    <header
+      className={`sticky top-0 md:top-4 z-50 transition-all px-0 md:px-6 pointer-events-none ${
+        needsMutedBackdrop ? "bg-[var(--color-muted)]" : ""
+      }`}
+    >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between bg-white/80 backdrop-blur-lg border-b border-zinc-200 md:border md:border-zinc-200/50 md:rounded-full md:shadow-lg md:shadow-slate-900/5 px-4 md:px-6 pointer-events-auto">
         {/* 좌: 로고 — md~lg 구간(심볼 로고)에서는 flex-1로 우측 영역과 폭을
             강제로 맞추면 안 됨. 그러면 "마이페이지"/"로그아웃"이 좁아진 우측
