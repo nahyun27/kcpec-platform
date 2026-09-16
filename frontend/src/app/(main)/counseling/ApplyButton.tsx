@@ -111,6 +111,7 @@ export default function ApplyButton({
       }
 
       setOrder(created);
+      setSubmitting(false);
     } catch (err) {
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
