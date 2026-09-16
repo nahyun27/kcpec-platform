@@ -469,6 +469,14 @@ export default function WatchPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
+      {/* 이 페이지는 헤더 바로 아래에 흰색 히어로 섹션 없이 회색 배경이
+          바로 이어지는 몇 안 되는 페이지라, 떠 있는 캡슐 헤더 뒤로 body
+          기본 흰색이 비친다 — 공용 레이아웃을 바꾸면 흰색 히어로가 있는
+          다른 페이지들(맞춤 강의 찾기 등)에서 오히려 틈이 생기는 부작용이
+          있어서, 이 페이지에만 고정 배경 패치를 둔다(2026-09, 실사용 중
+          발견 + 후속 수정).
+          fixed + -z-10 이라 레이아웃/스크롤에는 영향 없음. */}
+      <div className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-24 bg-[var(--color-muted)]" />
       {/* 이미 결제해서 보는 페이지라, 공개 판매 페이지(강의 상세)보다
           마이페이지(내 강의실)로 돌아가는 게 실제로 더 유용한 목적지다. */}
       <Link
