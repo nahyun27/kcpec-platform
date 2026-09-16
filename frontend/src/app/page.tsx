@@ -72,7 +72,7 @@ function Hero() {
           <span>법원 및 수사기관 제출용 신뢰할 수 있는 양형자료</span>
         </div>
         <h1 className="mb-8 font-sans text-4xl font-extrabold leading-[1.15] tracking-tight sm:text-6xl md:text-7xl animate-in fade-in slide-in-from-top-4 duration-700 delay-300 ease-out">
-          수사대응 및<br className="md:hidden" /> 재판 준비
+          수사대응 및<br className="lg:hidden" /> 재판 준비
           <br />
           <span className="bg-gradient-to-r from-blue-200 via-white to-blue-100 bg-clip-text text-transparent">
             전문 교육으로 시작하세요

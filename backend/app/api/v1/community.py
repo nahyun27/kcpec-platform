@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.admin import require_admin
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_current_user_optional
 from app.models.community import Notice, NoticeCategory, Post, PostCategory
 from app.models.faq import Faq, FaqCategory
 from app.models.order import Order, OrderStatus
@@ -112,12 +112,21 @@ def list_posts(
     page: int = Query(default=1, ge=1),
     size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> PaginatedPosts:
     base = select(Post)
     count_base = select(func.count(Post.id))
     if category is not None:
         base = base.where(Post.category == category)
         count_base = count_base.where(Post.category == category)
+    # Q&A는 공개 게시판이 아니라 마이페이지 1:1 문의다 — 본인 글만, 관리자는
+    # 전체를 본다. 다른 카테고리(칼럼/후기)는 그대로 공개(2026-09 전환).
+    if category == PostCategory.QNA:
+        if current_user is None:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="로그인이 필요합니다.")
+        if not current_user.is_admin:
+            base = base.where(Post.user_id == current_user.id)
+            count_base = count_base.where(Post.user_id == current_user.id)
     total = db.scalar(count_base) or 0
     items = list(
         db.scalars(
@@ -148,10 +157,18 @@ def get_post(
     post_id: int,
     db: Session = Depends(get_db),
     count_view: bool = Query(default=True),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> PostDetail:
     post = db.get(Post, post_id)
     if post is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="게시글을 찾을 수 없습니다.")
+    # Q&A(1:1 문의)는 본인 또는 관리자만 조회 가능 — 다른 사람 글이 존재하는지
+    # 자체를 노출하지 않기 위해 403이 아니라 404로 응답한다(2026-09).
+    if post.category == PostCategory.QNA:
+        is_owner = current_user is not None and current_user.id == post.user_id
+        is_admin = current_user is not None and current_user.is_admin
+        if not is_owner and not is_admin:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="게시글을 찾을 수 없습니다.")
     # count_view=false 용도는 get_notice 와 동일 — 관리자가 수정하려고 열어볼
     # 때 조회수가 같이 올라가던 문제 수정.
     if count_view:
@@ -195,11 +212,10 @@ def create_post(
                 status.HTTP_403_FORBIDDEN,
                 detail="결제 완료한 강의에 대해서만 후기를 작성할 수 있습니다.",
             )
-        # Post 에 user_id 컬럼이 없어(자유 게시판 성격상 author_name 만 저장)
-        # 같은 사람이 같은 강의에 후기를 몇 개든 반복 작성해 평균 별점을
-        # 마음대로 올리거나 내릴 수 있었다 — REVIEW 는 author_name 이 항상
-        # current_user.username(바로 아래에서 강제)이라 이 값으로 중복을
-        # 판별한다(2026-09, 버그 감사 중 발견).
+        # author_name 으로 중복을 판별한다(REVIEW 는 author_name 이 항상
+        # current_user.username — 바로 아래에서 강제) — 같은 사람이 같은
+        # 강의에 후기를 몇 개든 반복 작성해 평균 별점을 마음대로 올리거나
+        # 내릴 수 있었다(2026-09, 버그 감사 중 발견).
         already_reviewed = db.scalar(
             select(func.count(Post.id)).where(
                 Post.category == PostCategory.REVIEW,
@@ -230,6 +246,8 @@ def create_post(
         course_category=payload.course_category,
         course_id=payload.course_id if payload.category == PostCategory.REVIEW else None,
         rating=payload.rating,
+        # 1:1 문의 소유자 — 본인/관리자만 조회 가능하게 하는 기준(2026-09).
+        user_id=current_user.id if payload.category == PostCategory.QNA else None,
     )
     db.add(post)
     db.commit()

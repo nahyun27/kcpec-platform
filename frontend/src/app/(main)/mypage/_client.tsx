@@ -7,6 +7,7 @@ import { isAxiosError } from "axios";
 import {
   absUrl,
   cancelMyOrder,
+  createPost,
   deleteMe,
   getMe,
   getMyCounselingOrders,
@@ -14,12 +15,14 @@ import {
   getMyOrders,
   getMySurvey,
   getOrderDocuments,
+  getPosts,
   getSurveyStatus,
   resendVerification,
   tokenStorage,
   updateMe,
   type UserResponse,
 } from "@/lib/api";
+import type { PostListItem } from "@/types/community";
 import type {
   CounselingOrderItem,
   CounselingStatus,
@@ -37,7 +40,7 @@ import {
   type DocumentResponse,
   type OrderResponse,
 } from "@/types/order";
-import { BookOpen, Check, Clock, CreditCard, Download, FileSignature, FileText, Phone, User, ChevronRight, PlayCircle, Loader2, MailWarning } from "lucide-react";
+import { BookOpen, Check, Clock, CreditCard, Download, FileSignature, FileText, Phone, User, ChevronRight, PlayCircle, Loader2, MailWarning, MessageSquare, Edit3, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { useDialog } from "@/components/ui/DialogProvider";
@@ -60,16 +63,17 @@ function CounselingStatusText({ status }: { status: CounselingStatus }) {
   );
 }
 
-type TabKey = "courses" | "counseling" | "orders";
+type TabKey = "courses" | "counseling" | "orders" | "inquiry";
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   { key: "courses", label: "내 강의실", icon: <BookOpen className="h-4 w-4" /> },
   { key: "counseling", label: "전문가 심리상담", icon: <FileText className="h-4 w-4" /> },
   { key: "orders", label: "결제 내역", icon: <CreditCard className="h-4 w-4" /> },
+  { key: "inquiry", label: "1:1 문의", icon: <MessageSquare className="h-4 w-4" /> },
 ];
 
 function isTabKey(s: string | null): s is TabKey {
-  return s === "courses" || s === "counseling" || s === "orders";
+  return s === "courses" || s === "counseling" || s === "orders" || s === "inquiry";
 }
 
 export default function MyPageClient() {
@@ -454,6 +458,8 @@ export default function MyPageClient() {
               )}
             </Section>
           ) : null}
+
+          {tab === "inquiry" ? <InquiryTab /> : null}
         </div>
 
         {/* Right Column (Sidebar) */}
@@ -579,6 +585,222 @@ function EmptyState({
           <ChevronRight className="h-4 w-4" />
         </Link>
       ) : null}
+    </div>
+  );
+}
+
+// ---------- 1:1 문의 ---------------------------------------------------------
+// 예전엔 커뮤니티에 공개 Q&A 게시판이 있었는데, 개인 사정(수감 여부, 환불
+// 사유 등)이 담긴 질문이 다른 방문자에게도 그대로 보였다 — 본인/관리자만
+// 볼 수 있게 마이페이지 안으로 옮김(2026-09). 백엔드가 category=qna 요청을
+// 로그인한 본인 것만 돌려주므로 이 페이지는 별도 필터링 없이 그대로 쓴다.
+
+function InquiryTab() {
+  const [items, setItems] = useState<PostListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [showWrite, setShowWrite] = useState(false);
+
+  async function load() {
+    try {
+      const r = await getPosts("qna", 1, 100);
+      setItems(r.items);
+    } catch {
+      /* ignore */
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => {
+    load();
+  }, []);
+
+  return (
+    <Section icon={<MessageSquare className="h-6 w-6 text-[var(--color-accent)]" />} title="1:1 문의">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-medium text-slate-500">
+          궁금한 점을 남겨주시면 관리자가 답변해 드립니다. 본인만 볼 수 있어요.
+        </p>
+        <button
+          type="button"
+          onClick={() => setShowWrite((v) => !v)}
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-[var(--color-primary)]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-lg"
+        >
+          <Edit3 className="h-4 w-4" />
+          {showWrite ? "취소" : "문의하기"}
+        </button>
+      </div>
+
+      {showWrite && (
+        <InquiryWriteForm
+          onCancel={() => setShowWrite(false)}
+          onCreated={() => {
+            setShowWrite(false);
+            load();
+          }}
+        />
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
+        </div>
+      ) : items.length === 0 ? (
+        <EmptyState text="등록된 문의가 없습니다. 궁금한 점을 남겨보세요!" />
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <ul className="divide-y divide-zinc-100">
+            {items.map((p) => (
+              <InquiryAccordionRow
+                key={p.id}
+                post={p}
+                open={openId === p.id}
+                onToggle={() => setOpenId(openId === p.id ? null : p.id)}
+              />
+            ))}
+          </ul>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+function InquiryAccordionRow({
+  post,
+  open,
+  onToggle,
+}: {
+  post: PostListItem;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-start justify-between gap-3 px-4 py-4 text-left transition-colors hover:bg-slate-50/80 sm:px-6"
+      >
+        <div className="flex w-full flex-col gap-2">
+          <div className="flex items-start gap-3">
+            <span
+              className={`mt-0.5 shrink-0 inline-flex items-center justify-center rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide ${
+                post.admin_reply
+                  ? "bg-slate-100 text-slate-600"
+                  : "bg-[var(--color-primary)]/10 text-[var(--color-primary)] ring-1 ring-[var(--color-primary)]/20"
+              }`}
+            >
+              {post.admin_reply ? "답변완료" : "답변대기"}
+            </span>
+            <span className="flex-1 text-[15px] font-bold text-slate-800 leading-snug break-words">
+              {post.title}
+            </span>
+          </div>
+          <span className="text-[12px] font-medium text-slate-400">
+            {new Date(post.created_at).toLocaleDateString("ko-KR")}
+          </span>
+        </div>
+        <ChevronRight
+          className={`mt-1 h-4 w-4 shrink-0 text-slate-300 transition-transform ${open ? "rotate-90" : ""}`}
+        />
+      </button>
+      {open ? (
+        <div className="px-4 pb-5 sm:px-6">
+          <div className="whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-[14px] leading-relaxed text-slate-700">
+            {post.content}
+          </div>
+          {post.admin_reply ? (
+            <div className="mt-3 rounded-xl border-l-4 border-emerald-500 bg-emerald-50/60 p-4">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-700">
+                관리자 답변
+              </p>
+              <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-slate-800">
+                {post.admin_reply}
+              </p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+function InquiryWriteForm({
+  onCancel,
+  onCreated,
+}: {
+  onCancel: () => void;
+  onCreated: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    if (!title.trim() || !content.trim()) {
+      setError("제목과 내용을 모두 입력해 주세요.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await createPost({ category: "qna", title: title.trim(), content: content.trim() });
+      onCreated();
+    } catch (err) {
+      const detail = isAxiosError(err)
+        ? (err.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      setError(detail ?? "등록에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <div className="space-y-1.5 text-sm">
+        <label className="font-bold text-slate-700">제목</label>
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="제목을 입력하세요"
+          className="w-full h-11 rounded-xl border border-zinc-200 bg-slate-50 px-4 font-medium placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+        />
+      </div>
+      <div className="space-y-1.5 text-sm">
+        <label className="font-bold text-slate-700">내용</label>
+        <textarea
+          rows={5}
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="내용을 자세히 적어주시면 더 정확한 답변을 받을 수 있습니다."
+          className="w-full resize-y rounded-xl border border-zinc-200 bg-slate-50 p-4 font-medium leading-relaxed placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+        />
+      </div>
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-600 flex items-center gap-2">
+          <AlertCircle className="h-4 w-4" /> {error}
+        </div>
+      )}
+      <div className="flex justify-end gap-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-xl border border-zinc-200 px-6 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+        >
+          취소
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-8 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-lg disabled:opacity-60 disabled:hover:translate-y-0"
+        >
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {submitting ? "등록 중..." : "문의 등록"}
+        </button>
+      </div>
     </div>
   );
 }

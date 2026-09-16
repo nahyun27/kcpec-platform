@@ -3,9 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { isAxiosError } from "axios";
 import {
-  createPost,
   getFaqs,
   getNotices,
   getPosts,
@@ -29,11 +27,10 @@ import {
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ReviewWriteForm } from "@/components/features/ReviewWriteForm";
 
-type TabKey = "notice" | "qna" | "column" | "review" | "faq";
+type TabKey = "notice" | "column" | "review" | "faq";
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   { key: "notice", label: "공지사항 및 자료실", icon: <Pin className="w-4 h-4" /> },
-  { key: "qna", label: "Q&A", icon: <MessageSquare className="w-4 h-4" /> },
   { key: "column", label: "전문가 칼럼", icon: <FileText className="w-4 h-4" /> },
   { key: "review", label: "강의 수강 및 상담 후기", icon: <Star className="w-4 h-4" /> },
   { key: "faq", label: "자주 묻는 질문", icon: <HelpCircle className="w-4 h-4" /> },
@@ -42,7 +39,6 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
 function isTabKey(s: string | null): s is TabKey {
   return (
     s === "notice" ||
-    s === "qna" ||
     s === "column" ||
     s === "review" ||
     s === "faq"
@@ -102,7 +98,6 @@ export default function CommunityClient() {
 
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
         {tab === "notice" ? <NoticeTab /> : null}
-        {tab === "qna" ? <QnaTab /> : null}
         {tab === "column" ? <ColumnTab /> : null}
         {tab === "review" ? <ReviewTab /> : null}
         {tab === "faq" ? <FaqTab /> : null}
@@ -300,102 +295,6 @@ function NoticeAccordion({
 }
 
 
-
-// ---------- Q&A --------------------------------------------------------------
-
-function QnaTab() {
-  const router = useRouter();
-  const [items, setItems] = useState<PostListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [openId, setOpenId] = useState<number | null>(null);
-  const [showWrite, setShowWrite] = useState(false);
-
-  async function load() {
-    try {
-      const r = await getPosts("qna", 1, 100);
-      setItems(r.items);
-    } catch {
-      /* ignore */
-    } finally {
-      setLoading(false);
-    }
-  }
-  useEffect(() => {
-    load();
-  }, []);
-
-  function handleWrite() {
-    if (!tokenStorage.getAccess()) {
-      router.push("/login?next=/community?tab=qna");
-      return;
-    }
-    setShowWrite(true);
-  }
-
-  if (loading) return <Loading />;
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm font-medium text-slate-500">
-          궁금한 점을 자유롭게 남겨주시면 관리자가 답변해 드립니다.
-        </p>
-        {/* 데스크톱: 인라인 버튼 / 모바일: 하단 fixed FAB (아래) */}
-        <button
-          type="button"
-          onClick={handleWrite}
-          className="hidden items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-[var(--color-primary)]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-lg sm:inline-flex"
-        >
-          <Edit3 className="h-4 w-4" />
-          질문하기
-        </button>
-      </div>
-
-      {/* 모바일 전용 floating action button — 폼이 열려있을 땐 숨김 */}
-      {!showWrite ? (
-        <button
-          type="button"
-          onClick={handleWrite}
-          aria-label="질문하기"
-          className="fixed bottom-6 right-4 z-50 inline-flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-[var(--color-primary)]/30 transition-transform active:scale-95 sm:hidden"
-        >
-          <Edit3 className="h-4 w-4" />
-          질문하기
-        </button>
-      ) : null}
-
-      {showWrite && (
-        <div className="animate-in fade-in slide-in-from-top-4 duration-300">
-          <InlinePostForm
-            category="qna"
-            onCancel={() => setShowWrite(false)}
-            onCreated={() => {
-              setShowWrite(false);
-              load();
-            }}
-          />
-        </div>
-      )}
-
-      {items.length === 0 ? (
-        <EmptyMessage text="등록된 질문이 없습니다. 첫 번째 질문을 남겨보세요!" icon={<MessageSquare className="h-10 w-10 text-slate-300" />} />
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-          <ul className="divide-y divide-zinc-100">
-            {items.map((p) => (
-              <PostAccordion
-                key={p.id}
-                post={p}
-                open={openId === p.id}
-                onToggle={() => setOpenId(openId === p.id ? null : p.id)}
-              />
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ---------- 전문가 칼럼 ------------------------------------------------------
 
@@ -853,118 +752,6 @@ function FaqTab() {
   );
 }
 
-// ---------- Write Forms ------------------------------------------------------
-
-function InlinePostForm({
-  category,
-  onCancel,
-  onCreated,
-}: {
-  category: "qna" | "review";
-  onCancel: () => void;
-  onCreated: () => void;
-}) {
-  const [title, setTitle] = useState("");
-  const [author, setAuthor] = useState("");
-  const [content, setContent] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit() {
-    if (!title.trim() || !content.trim()) {
-      setError("제목과 내용을 모두 입력해 주세요.");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-    try {
-      await createPost({
-        category,
-        title: title.trim(),
-        content: content.trim(),
-        author_name: author.trim() || "익명",
-      });
-      onCreated();
-    } catch (err) {
-      const detail = isAxiosError(err)
-        ? (err.response?.data as { detail?: string } | undefined)?.detail
-        : null;
-      setError(detail ?? "등록에 실패했습니다.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div className="space-y-5 rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-lg shadow-slate-200/40 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-1.5 bg-[var(--color-primary)]" />
-      
-      <div className="flex items-center gap-2 mb-2">
-        <Edit3 className="h-5 w-5 text-[var(--color-primary)]" />
-        <h3 className="font-sans text-xl font-bold text-slate-900">
-          {category === "qna" ? "새 질문 작성하기" : "작성하기"}
-        </h3>
-      </div>
-
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <div className="space-y-1.5 text-sm">
-          <label className="font-bold text-slate-700">제목</label>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="제목을 입력하세요"
-            className="w-full h-11 rounded-xl border border-zinc-200 bg-slate-50 px-4 font-medium placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
-          />
-        </div>
-        <div className="space-y-1.5 text-sm">
-          <label className="font-bold text-slate-700">작성자 <span className="text-slate-400 font-normal">(선택)</span></label>
-          <input
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-            placeholder="비워두면 '익명'"
-            className="w-full h-11 rounded-xl border border-zinc-200 bg-slate-50 px-4 font-medium placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
-          />
-        </div>
-      </div>
-      
-      <div className="space-y-1.5 text-sm">
-        <label className="font-bold text-slate-700">본문</label>
-        <textarea
-          rows={6}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="내용을 자세히 적어주시면 더 정확한 답변을 받을 수 있습니다."
-          className="w-full resize-y rounded-xl border border-zinc-200 bg-slate-50 p-4 font-medium leading-relaxed placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 custom-scrollbar"
-        />
-      </div>
-
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-600 flex items-center gap-2">
-          <AlertCircle className="h-4 w-4" /> {error}
-        </div>
-      )}
-
-      <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-xl border border-zinc-200 px-6 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
-        >
-          취소
-        </button>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={submitting}
-          className="flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-8 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-lg disabled:opacity-60 disabled:hover:translate-y-0"
-        >
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          {submitting ? "등록 중..." : "질문 등록"}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 // ---------- shared status panes ---------------------------------------------
 
