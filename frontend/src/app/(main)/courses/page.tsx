@@ -8,7 +8,7 @@ import { COURSE_CATEGORIES, type CourseCategory, type CourseListItem } from "@/t
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { Spinner } from "@/components/ui/Spinner";
-import { GraduationCap, BookOpen, BadgeCheck, Search } from "lucide-react";
+import { GraduationCap, BookOpen, BadgeCheck, Search, X } from "lucide-react";
 
 // 강의 제목 → 검색 키워드 사전. 카테고리 통합 후에도 강의 제목은
 // 변하지 않으므로 그대로 키로 사용한다. 키워드는 모두 lowercase 비교.
@@ -240,7 +240,7 @@ function CoursesListInner() {
 
           <div className="flex flex-wrap items-center gap-1.5 md:gap-2.5">
             <CategoryTab
-              active={tierKey === null}
+              active={tierKey === null && category === null}
               onClick={() => {
                 setTierKey(null);
                 setCategory(null);
@@ -262,6 +262,26 @@ function CoursesListInner() {
             ))}
           </div>
         </div>
+
+        {/* 큐레이션 모달 등 외부에서 ?category= 로 들어왔을 때만 뜨는 필터 표시 —
+            위 탭(상품 구성)과는 다른 축이라 탭 하이라이트만으로는 지금 어떤
+            카테고리로 걸러진 건지 알 수 없었다(2026-09). */}
+        {category !== null && tierKey === null ? (
+          <div className="-mt-6 mb-8 flex items-center gap-2 text-sm">
+            <span className="text-slate-500">필터</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary)]/10 px-3 py-1 font-bold text-[var(--color-primary)]">
+              {category}
+              <button
+                type="button"
+                onClick={() => setCategory(null)}
+                aria-label="필터 해제"
+                className="rounded-full p-0.5 hover:bg-[var(--color-primary)]/20"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </span>
+          </div>
+        ) : null}
 
         {loading ? (
           <div className="flex min-h-[400px] items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white/50">

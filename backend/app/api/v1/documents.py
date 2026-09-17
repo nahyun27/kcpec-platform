@@ -38,7 +38,12 @@ def issue_document(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> DocumentResponse:
-    order = db.get(Order, order_id)
+    # 행 잠금 — 아래 "이미 발급된 서류가 있으면 반환" 체크와 실제 insert
+    # 사이에 잠금이 없으면, 동시에 두 번 요청(탭 두 개 등)했을 때 둘 다
+    # existing=None 을 보고 서로 다른 이름으로 "정식" 서류를 하나씩 더
+    # 찍어낼 수 있었다(2026-09). 같은 order_id 에 대한 동시 요청을
+    # 직렬화해서 두 번째 요청은 첫 번째가 커밋한 뒤의 existing 을 보게 한다.
+    order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
     if order is None or order.user_id != current_user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="주문을 찾을 수 없습니다.")
     if order.status != OrderStatus.PAID:

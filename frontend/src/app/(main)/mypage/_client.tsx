@@ -657,7 +657,13 @@ function InquiryTab() {
                 key={p.id}
                 post={p}
                 open={openId === p.id}
-                onToggle={() => setOpenId(openId === p.id ? null : p.id)}
+                onToggle={() => {
+                  // 접거나 다른 문의로 넘어갈 때는 수정 모드도 같이 닫는다 —
+                  // 안 그러면 편집 중이던 글을 벗어났다가 다시 펼쳤을 때
+                  // 저장하지도 않았는데 편집 폼이 그대로 다시 뜨는 문제가 있었음.
+                  setOpenId(openId === p.id ? null : p.id);
+                  setEditingId(null);
+                }}
                 editing={editingId === p.id}
                 onStartEdit={() => setEditingId(p.id)}
                 onCancelEdit={() => setEditingId(null)}
