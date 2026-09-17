@@ -712,13 +712,13 @@ function RowActions({
 
   // 카테고리별 액션:
   // - notice / resource / column : 수정 + 삭제
-  // - qna : 수정 + 답변 + 삭제 (질문 자체에 오타/민감정보가 있어도
-  //   고칠 방법이 없었다 — 삭제밖에 안 되면 재작성을 요청해야 해서
-  //   불편했음, 2026-09 사용자 요청으로 추가)
+  // - qna : 답변 + 삭제만 — 1:1 문의라 작성자 본인만 보는 글이고, 질문
+  //   내용 자체는 관리자가 아니라 작성자가 마이페이지에서 직접 고친다
+  //   (답변이 달리기 전까지만). 관리자는 답변만 남긴다(2026-09).
   // - review : 삭제만
   const actions =
     row.category === "qna"
-      ? [editBtn, replyBtn, deleteBtn]
+      ? [replyBtn, deleteBtn]
       : row.category === "review"
         ? [deleteBtn]
         : [editBtn, deleteBtn];

@@ -85,6 +85,10 @@ export type PostCreate = {
   course_id?: number;
   rating?: number;
 };
+export type PostUpdate = {
+  title?: string;
+  content?: string;
+};
 
 export type FaqCategory = "docs" | "refund" | "counseling" | "etc";
 

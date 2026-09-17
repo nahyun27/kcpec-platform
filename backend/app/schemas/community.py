@@ -58,6 +58,11 @@ class PostAdminReply(BaseModel):
     reply: str = Field(min_length=1)
 
 
+class PostUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    content: str | None = Field(default=None, min_length=1)
+
+
 class PostCreate(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     content: str = Field(min_length=1)

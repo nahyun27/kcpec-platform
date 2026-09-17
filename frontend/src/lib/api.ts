@@ -59,6 +59,7 @@ import type {
   PostCategory,
   PostCreate,
   PostDetail,
+  PostUpdate,
 } from "@/types/community";
 
 export const API_BASE_URL =
@@ -803,5 +804,13 @@ export async function getPost(
 
 export async function createPost(payload: PostCreate): Promise<PostDetail> {
   const { data } = await api.post<PostDetail>("/posts", payload);
+  return data;
+}
+
+export async function updatePost(
+  id: number,
+  payload: PostUpdate,
+): Promise<PostDetail> {
+  const { data } = await api.patch<PostDetail>(`/posts/${id}`, payload);
   return data;
 }

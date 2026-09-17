@@ -18,6 +18,7 @@ from app.schemas.community import (
     PostCreate,
     PostDetail,
     PostListItem,
+    PostUpdate,
 )
 from app.schemas.faq import FaqRead
 
@@ -184,6 +185,33 @@ def get_post(
         post.view_count += 1
         db.commit()
         db.refresh(post)
+    return PostDetail.model_validate(post)
+
+
+@router.patch("/posts/{post_id}", response_model=PostDetail)
+def update_own_post(
+    post_id: int,
+    payload: PostUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PostDetail:
+    # 1:1 문의 작성자 본인이 자기 글을 고치는 용도 — 관리자용 수정은
+    # /admin/posts/{id} 로 별도(관리자는 질문 내용을 고칠 수 없고 답변만 가능).
+    post = db.get(Post, post_id)
+    # 다른 사람 글 존재 여부를 노출하지 않기 위해 get_post 와 동일하게 404.
+    if post is None or post.category != PostCategory.QNA or post.user_id != current_user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="게시글을 찾을 수 없습니다.")
+    if post.admin_reply is not None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="이미 답변이 달린 문의는 수정할 수 없습니다.",
+        )
+    if payload.title is not None:
+        post.title = payload.title
+    if payload.content is not None:
+        post.content = payload.content
+    db.commit()
+    db.refresh(post)
     return PostDetail.model_validate(post)
 
 

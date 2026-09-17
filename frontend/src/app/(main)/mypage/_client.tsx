@@ -20,6 +20,7 @@ import {
   resendVerification,
   tokenStorage,
   updateMe,
+  updatePost,
   type UserResponse,
 } from "@/lib/api";
 import type { PostListItem } from "@/types/community";
@@ -599,6 +600,7 @@ function InquiryTab() {
   const [items, setItems] = useState<PostListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [showWrite, setShowWrite] = useState(false);
 
   async function load() {
@@ -656,6 +658,13 @@ function InquiryTab() {
                 post={p}
                 open={openId === p.id}
                 onToggle={() => setOpenId(openId === p.id ? null : p.id)}
+                editing={editingId === p.id}
+                onStartEdit={() => setEditingId(p.id)}
+                onCancelEdit={() => setEditingId(null)}
+                onSaved={() => {
+                  setEditingId(null);
+                  load();
+                }}
               />
             ))}
           </ul>
@@ -669,10 +678,18 @@ function InquiryAccordionRow({
   post,
   open,
   onToggle,
+  editing,
+  onStartEdit,
+  onCancelEdit,
+  onSaved,
 }: {
   post: PostListItem;
   open: boolean;
   onToggle: () => void;
+  editing: boolean;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSaved: () => void;
 }) {
   return (
     <li>
@@ -706,19 +723,36 @@ function InquiryAccordionRow({
       </button>
       {open ? (
         <div className="px-4 pb-5 sm:px-6">
-          <div className="whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-[14px] leading-relaxed text-slate-700">
-            {post.content}
-          </div>
-          {post.admin_reply ? (
-            <div className="mt-3 rounded-xl border-l-4 border-emerald-500 bg-emerald-50/60 p-4">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-700">
-                관리자 답변
-              </p>
-              <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-slate-800">
-                {post.admin_reply}
-              </p>
-            </div>
-          ) : null}
+          {editing ? (
+            <InquiryWriteForm post={post} onCancel={onCancelEdit} onSaved={onSaved} />
+          ) : (
+            <>
+              <div className="whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-[14px] leading-relaxed text-slate-700">
+                {post.content}
+              </div>
+              {post.admin_reply ? (
+                <div className="mt-3 rounded-xl border-l-4 border-emerald-500 bg-emerald-50/60 p-4">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-700">
+                    관리자 답변
+                  </p>
+                  <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-slate-800">
+                    {post.admin_reply}
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={onStartEdit}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" />
+                    수정
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       ) : null}
     </li>
@@ -726,14 +760,18 @@ function InquiryAccordionRow({
 }
 
 function InquiryWriteForm({
+  post,
   onCancel,
   onCreated,
+  onSaved,
 }: {
+  post?: PostListItem;
   onCancel: () => void;
-  onCreated: () => void;
+  onCreated?: () => void;
+  onSaved?: () => void;
 }) {
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [title, setTitle] = useState(post?.title ?? "");
+  const [content, setContent] = useState(post?.content ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -745,13 +783,18 @@ function InquiryWriteForm({
     setSubmitting(true);
     setError(null);
     try {
-      await createPost({ category: "qna", title: title.trim(), content: content.trim() });
-      onCreated();
+      if (post) {
+        await updatePost(post.id, { title: title.trim(), content: content.trim() });
+        onSaved?.();
+      } else {
+        await createPost({ category: "qna", title: title.trim(), content: content.trim() });
+        onCreated?.();
+      }
     } catch (err) {
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
         : null;
-      setError(detail ?? "등록에 실패했습니다.");
+      setError(detail ?? (post ? "수정에 실패했습니다." : "등록에 실패했습니다."));
     } finally {
       setSubmitting(false);
     }
@@ -798,7 +841,7 @@ function InquiryWriteForm({
           className="flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-8 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-lg disabled:opacity-60 disabled:hover:translate-y-0"
         >
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          {submitting ? "등록 중..." : "문의 등록"}
+          {submitting ? (post ? "저장 중..." : "등록 중...") : post ? "수정 저장" : "문의 등록"}
         </button>
       </div>
     </div>
