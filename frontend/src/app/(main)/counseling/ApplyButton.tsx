@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
-import { purchaseCounseling, tokenStorage } from "@/lib/api";
-import type { CounselingType } from "@/types/counseling";
+import { getMyOrders, purchaseCounseling, tokenStorage } from "@/lib/api";
+import { counselingDisplayTitle, type CounselingType } from "@/types/counseling";
 import { useDialog } from "@/components/ui/DialogProvider";
 
 export default function ApplyButton({
@@ -19,6 +19,19 @@ export default function ApplyButton({
   const router = useRouter();
   const dialog = useDialog();
   const [submitting, setSubmitting] = useState(false);
+  const [alreadyPurchased, setAlreadyPurchased] = useState(false);
+
+  useEffect(() => {
+    if (!tokenStorage.getAccess()) return;
+    getMyOrders()
+      .then((orders) => {
+        const purchased = orders.some(
+          (o) => o.status === "paid" && counselingDisplayTitle(o.course_title) === programTitle,
+        );
+        setAlreadyPurchased(purchased);
+      })
+      .catch(() => {});
+  }, [programTitle]);
 
   // 가격이 없는 프로그램(예: 대면 심화상담)은 별도 문의 — tel 링크 버튼.
   if (price == null || price <= 0) {
@@ -78,13 +91,20 @@ export default function ApplyButton({
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleApply}
-      disabled={submitting}
-      className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
-    >
-      {submitting ? "신청 처리 중..." : `${price.toLocaleString()}원 신청하기`}
-    </button>
+    <div className="mt-6">
+      {alreadyPurchased && (
+        <p className="mb-2 text-center text-xs font-semibold text-[var(--color-primary)]">
+          이미 신청하신 프로그램입니다 · 추가로 신청하실 수 있습니다
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={handleApply}
+        disabled={submitting}
+        className="inline-flex w-full items-center justify-center rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+      >
+        {submitting ? "신청 처리 중..." : `${price.toLocaleString()}원 신청하기`}
+      </button>
+    </div>
   );
 }
