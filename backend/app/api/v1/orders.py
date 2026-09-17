@@ -81,12 +81,37 @@ def _enrollment_expired(db: Session, user_id: int, course_id: int) -> bool:
     )
 
 
+# 결제창을 열었다가 그냥 닫거나 이탈하면 서버는 알 방법이 없어 PENDING 주문이
+# 그대로 남는다 — 특히 실패 후 재시도할 때마다 새 주문을 또 만들다 보니 같은
+# 사람이 짧은 시간에 PENDING 을 여러 개 쌓는 경우가 많았다(2026-09, 실사용
+# 데이터에서 확인). 계좌가 실제로 발급된(va_account_number 있음) 무통장입금
+# 건은 손님이 입금할 방법이 있으니 그대로 두고, 그 외 PENDING 이 일정 시간
+# 지나도록 남아있으면 "그냥 들어갔다 나온 것"으로 보고 자동으로 취소 처리한다.
+_STALE_PENDING_MINUTES = 30
+
+
+def _cancel_stale_pending(db: Session, user_id: int) -> None:
+    cutoff = _now() - timedelta(minutes=_STALE_PENDING_MINUTES)
+    stale = db.scalars(
+        select(Order).where(
+            Order.user_id == user_id,
+            Order.status == OrderStatus.PENDING,
+            Order.created_at < cutoff,
+            Order.va_account_number.is_(None),
+        )
+    ).all()
+    for o in stale:
+        o.status = OrderStatus.CANCELLED
+
+
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 def create_order(
     payload: OrderCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Order:
+    _cancel_stale_pending(db, current_user.id)
+
     course = db.get(Course, payload.course_id)
     if course is None or not course.is_active:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="강의를 찾을 수 없습니다.")
@@ -171,6 +196,8 @@ def create_order_bundle(
     할인 금액은 클라이언트가 보내는 값을 신뢰하지 않고 여기서 다시 계산한다
     (create_order 의 amount 위변조 방지 원칙과 동일).
     """
+    _cancel_stale_pending(db, current_user.id)
+
     course_ids = list(dict.fromkeys(payload.course_ids))  # 중복 제거, 순서 유지
     courses = {
         c.id: c

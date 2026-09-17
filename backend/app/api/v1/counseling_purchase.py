@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.v1.counseling import _process_draft
+from app.api.v1.orders import _cancel_stale_pending
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.counseling import CounselingStatus, CounselingSurvey
@@ -71,6 +72,8 @@ def purchase(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> CounselingPurchaseResponse:
+    _cancel_stale_pending(db, current_user.id)
+
     course = _resolve_course(db, payload.counseling_type)
 
     # 가격이 매겨진 상품만 즉시 결제 흐름 — price 가 없거나 0인 상품(예: 대면

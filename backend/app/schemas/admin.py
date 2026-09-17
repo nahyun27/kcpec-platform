@@ -17,6 +17,7 @@ class AdminUser(BaseModel):
     birth_date: date | None
     is_active: bool
     is_admin: bool
+    is_legacy_member: bool = False
     created_at: datetime
     enrollment_count: int = 0
     payment_count: int = 0
@@ -115,6 +116,7 @@ class AdminOrderRow(BaseModel):
     id: int
     user_id: int
     username: str
+    name: str | None = None
     email: EmailStr | None = None
     course_title: str
     amount: int

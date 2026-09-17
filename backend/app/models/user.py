@@ -34,6 +34,9 @@ class User(Base):
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # 구 사이트에서 이관된 회원인지 표시(2026-09) — 관리자 화면에서 신규 가입과
+    # 구분해서 보여주기 위함. import_legacy_customers.py 로 이관된 계정만 True.
+    is_legacy_member: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # 이메일 인증 — 수료증/상담의견서가 가입 이메일로 발송되는데 인증 없이는
     # 오타/타인 이메일로도 바로 가입이 돼버려 서류가 조용히 안 갈 수 있었음.

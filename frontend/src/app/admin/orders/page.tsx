@@ -92,7 +92,7 @@ function AdminOrdersPage() {
   async function handleConfirm(row: AdminOrderRow) {
     if (
       !(await dialog.confirm(
-        `주문 #${row.id} (${row.username})의 입금을 확인 처리하시겠습니까?`,
+        `주문 #${row.id} (${row.name ?? row.username})의 입금을 확인 처리하시겠습니까?`,
       ))
     )
       return;
@@ -111,7 +111,7 @@ function AdminOrdersPage() {
   }
 
   async function handleCancel(row: AdminOrderRow) {
-    if (!(await dialog.confirm(`주문 #${row.id} (${row.username})을(를) 취소하시겠습니까?`))) return;
+    if (!(await dialog.confirm(`주문 #${row.id} (${row.name ?? row.username})을(를) 취소하시겠습니까?`))) return;
     setMutatingId(row.id);
     try {
       await cancelAdminOrder(row.id);
@@ -138,7 +138,7 @@ function AdminOrdersPage() {
         : "토스 결제가 자동으로 취소되어 고객에게 실제 환불됩니다.";
     if (
       !(await dialog.confirm(
-        `주문 #${row.id} (${row.username})을(를) 환불 처리하시겠습니까?\n${paymentNote}\n수강 등록이 취소되고, 이미 발급된 서류가 있다면 함께 무효화됩니다.`,
+        `주문 #${row.id} (${row.name ?? row.username})을(를) 환불 처리하시겠습니까?\n${paymentNote}\n수강 등록이 취소되고, 이미 발급된 서류가 있다면 함께 무효화됩니다.`,
       ))
     )
       return;
@@ -216,7 +216,7 @@ function AdminOrdersPage() {
                     <td className="px-4 py-3 text-slate-500">
                       {new Date(r.created_at).toLocaleString("ko-KR")}
                     </td>
-                    <td className="px-4 py-3 font-semibold text-slate-900">{r.username}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-900">{r.name ?? r.username}</td>
                     <td className="px-4 py-3 text-slate-500">
                       {r.email ?? "-"}
                     </td>
@@ -380,7 +380,7 @@ function DocumentsModal({
           </button>
         </div>
         <p className="mt-1 text-xs text-zinc-500">
-          주문 #{order.id} · {order.username} · {order.course_title}
+          주문 #{order.id} · {order.name ?? order.username} · {order.course_title}
         </p>
 
         <div className="mt-4">

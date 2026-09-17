@@ -17,7 +17,7 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.admin import require_admin
@@ -95,6 +95,7 @@ def _row_from_order(o: Order, user: User, course: Course) -> AdminOrderRow:
         id=o.id,
         user_id=user.id,
         username=user.username,
+        name=user.name,
         email=user.email,
         course_title=course.title,
         amount=o.amount,
@@ -107,17 +108,50 @@ def _row_from_order(o: Order, user: User, course: Course) -> AdminOrderRow:
 # ---------- users -------------------------------------------------------------
 
 
+_USER_SORT_MAP = {
+    "created_at_desc": (User.created_at, True),
+    "created_at_asc": (User.created_at, False),
+    "username_asc": (User.username, False),
+    "username_desc": (User.username, True),
+    "name_asc": (User.name, False),
+    "name_desc": (User.name, True),
+}
+
+
 @router.get("/users", response_model=AdminUsersResponse)
 def list_users(
     page: int = Query(default=1, ge=1),
     size: int = Query(default=20, ge=1, le=200),
     course_id: int | None = Query(default=None),
+    search: str | None = Query(default=None, max_length=100),
+    sort: str = Query(default="created_at_desc"),
     db: Session = Depends(get_db),
 ) -> AdminUsersResponse:
     # course_id 가 오면 해당 강의를 수강 등록한 사용자만 필터링 (사이드바 "강의별
     # 수강생" 클릭). user_id+course_id 에 unique constraint 가 있어 join 해도
     # row 가 중복되지 않는다.
-    user_query = select(User)
+    # 결제 횟수/누적 결제금액 순 정렬을 페이지네이션 전에 적용하려면 집계를
+    # 서브쿼리로 미리 만들어 outer join 해야 한다(원래는 현재 페이지 유저에
+    # 대해서만 별도 조회했는데, 그러면 이 두 기준으로 전체 정렬이 불가능함).
+    enroll_agg = (
+        select(Enrollment.user_id, func.count(Enrollment.id).label("cnt"))
+        .group_by(Enrollment.user_id)
+        .subquery()
+    )
+    pay_agg = (
+        select(
+            Order.user_id,
+            func.count(Order.id).label("cnt"),
+            func.coalesce(func.sum(Order.amount), 0).label("total"),
+        )
+        .where(Order.status == OrderStatus.PAID)
+        .group_by(Order.user_id)
+        .subquery()
+    )
+
+    user_query = select(User).outerjoin(enroll_agg, enroll_agg.c.user_id == User.id).outerjoin(
+        pay_agg, pay_agg.c.user_id == User.id
+    )
     count_query = select(func.count(User.id))
     if course_id is not None:
         user_query = user_query.join(Enrollment, Enrollment.user_id == User.id).where(
@@ -126,11 +160,26 @@ def list_users(
         count_query = count_query.join(
             Enrollment, Enrollment.user_id == User.id
         ).where(Enrollment.course_id == course_id)
+    if search:
+        like = f"%{search.strip()}%"
+        term = or_(User.username.ilike(like), User.email.ilike(like), User.name.ilike(like))
+        user_query = user_query.where(term)
+        count_query = count_query.where(term)
+
+    if sort in ("payment_desc", "payment_asc"):
+        col = func.coalesce(pay_agg.c.total, 0)
+        order_clause = col.desc() if sort == "payment_desc" else col.asc()
+    elif sort in ("enrollment_desc", "enrollment_asc"):
+        col = func.coalesce(enroll_agg.c.cnt, 0)
+        order_clause = col.desc() if sort == "enrollment_desc" else col.asc()
+    else:
+        col, desc = _USER_SORT_MAP.get(sort, _USER_SORT_MAP["created_at_desc"])
+        order_clause = col.desc() if desc else col.asc()
 
     total = db.scalar(count_query) or 0
     items = list(
         db.scalars(
-            user_query.order_by(User.id.desc())
+            user_query.order_by(order_clause, User.id.desc())
             .offset((page - 1) * size)
             .limit(size)
         ).all()
@@ -171,6 +220,7 @@ def list_users(
                 birth_date=u.birth_date,
                 is_active=u.is_active,
                 is_admin=u.is_admin,
+                is_legacy_member=u.is_legacy_member,
                 created_at=u.created_at,
                 enrollment_count=enroll_counts.get(u.id, 0),
                 payment_count=pay_counts.get(u.id, 0),

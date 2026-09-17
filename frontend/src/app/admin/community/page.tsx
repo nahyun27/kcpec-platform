@@ -277,7 +277,7 @@ function AdminCommunityPage() {
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_1fr]">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[220px_1fr]">
         <aside className="space-y-1 rounded-lg border border-zinc-200 bg-white p-3 text-sm">
           {SIDEBAR.map((s) => (
             <button

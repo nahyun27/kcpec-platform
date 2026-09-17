@@ -16,35 +16,66 @@ import type {
 } from "@/types/admin";
 import { useDialog } from "@/components/ui/DialogProvider";
 
+type SortKey =
+  | "created_at_desc"
+  | "created_at_asc"
+  | "username_asc"
+  | "username_desc"
+  | "name_asc"
+  | "name_desc"
+  | "payment_desc"
+  | "payment_asc"
+  | "enrollment_desc"
+  | "enrollment_asc";
+
 export default function AdminUsersPage() {
   const [page, setPage] = useState(1);
-  const size = 20;
+  const size = 25;
   const [data, setData] = useState<AdminUsersResponse | null>(null);
   const [courseCounts, setCourseCounts] = useState<CourseEnrollmentCount[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [openUser, setOpenUser] = useState<AdminUser | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sort, setSort] = useState<SortKey>("created_at_desc");
   // "전체 사용자" 사이드바 행은 강의로 필터링 중에도 항상 전체 인원수를 보여줘야
   // 하므로, data.total(필터된 개수)과 별도로 전체 개수를 한 번 따로 들고 있는다.
   const [grandTotal, setGrandTotal] = useState<number | null>(null);
 
   useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
     let cancelled = false;
-    getAdminUsers(page, size, selectedCourseId ?? undefined)
+    getAdminUsers(page, size, selectedCourseId ?? undefined, debouncedSearch, sort)
       .then((d) => {
         if (cancelled) return;
         setData(d);
-        if (selectedCourseId == null) setGrandTotal(d.total);
+        if (selectedCourseId == null && !debouncedSearch) setGrandTotal(d.total);
       })
       .catch(() => !cancelled && setError("회원 목록을 불러오지 못했습니다."));
     return () => {
       cancelled = true;
     };
-  }, [page, selectedCourseId]);
+  }, [page, selectedCourseId, debouncedSearch, sort]);
 
   function selectCourse(courseId: number | null) {
     setSelectedCourseId(courseId);
     setPage(1);
+  }
+
+  function toggleSort(asc: SortKey, desc: SortKey) {
+    setSort((cur) => (cur === desc ? asc : desc));
+    setPage(1);
+  }
+
+  function sortIndicator(asc: SortKey, desc: SortKey) {
+    if (sort === asc) return " ▲";
+    if (sort === desc) return " ▼";
+    return "";
   }
 
   useEffect(() => {
@@ -82,7 +113,20 @@ export default function AdminUsersPage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr]">
+      <div className="flex items-center gap-3">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          placeholder="닉네임, 이름, 이메일로 검색"
+          className="w-full max-w-xs rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[260px_1fr]">
         <aside className="space-y-1 rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm">
           <p className="mb-3 px-3 py-1 text-[12px] font-bold uppercase tracking-widest text-slate-400">
             강의별 수강생
@@ -113,21 +157,48 @@ export default function AdminUsersPage() {
           <table className="w-full text-left text-[13px]">
             <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3">닉네임</th>
-                <th className="px-4 py-3">이름</th>
+                <th
+                  className="cursor-pointer select-none px-4 py-3 hover:text-slate-700"
+                  onClick={() => toggleSort("username_asc", "username_desc")}
+                >
+                  닉네임{sortIndicator("username_asc", "username_desc")}
+                </th>
+                <th
+                  className="cursor-pointer select-none px-4 py-3 hover:text-slate-700"
+                  onClick={() => toggleSort("name_asc", "name_desc")}
+                >
+                  이름{sortIndicator("name_asc", "name_desc")}
+                </th>
                 <th className="px-4 py-3">연락처</th>
                 <th className="px-4 py-3">이메일</th>
-                <th className="px-4 py-3">가입일</th>
-                <th className="px-4 py-3 text-right">수강 강의</th>
+                <th
+                  className="cursor-pointer select-none px-4 py-3 hover:text-slate-700"
+                  onClick={() => toggleSort("created_at_asc", "created_at_desc")}
+                >
+                  가입일{sortIndicator("created_at_asc", "created_at_desc")}
+                </th>
+                <th
+                  className="cursor-pointer select-none px-4 py-3 text-right hover:text-slate-700"
+                  onClick={() => toggleSort("enrollment_asc", "enrollment_desc")}
+                >
+                  수강 강의{sortIndicator("enrollment_asc", "enrollment_desc")}
+                </th>
                 <th className="px-4 py-3 text-right">결제 횟수</th>
-                <th className="px-4 py-3 text-right">누적 결제금액</th>
+                <th
+                  className="cursor-pointer select-none px-4 py-3 text-right hover:text-slate-700"
+                  onClick={() => toggleSort("payment_asc", "payment_desc")}
+                >
+                  누적 결제금액{sortIndicator("payment_asc", "payment_desc")}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {data.items.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-12 text-center text-sm text-slate-400">
-                    이 강의를 수강 중인 사용자가 없습니다.
+                    {debouncedSearch
+                      ? "검색 결과가 없습니다."
+                      : "이 강의를 수강 중인 사용자가 없습니다."}
                   </td>
                 </tr>
               ) : null}
@@ -143,6 +214,11 @@ export default function AdminUsersPage() {
                       {u.is_admin && (
                         <span className="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-blue-700 ring-1 ring-inset ring-blue-600/20">
                           ADMIN
+                        </span>
+                      )}
+                      {u.is_legacy_member && (
+                        <span className="inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-amber-700 ring-1 ring-inset ring-amber-600/20">
+                          구회원
                         </span>
                       )}
                     </div>

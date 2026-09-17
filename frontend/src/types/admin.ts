@@ -23,6 +23,7 @@ export type AdminUser = {
   birth_date: string | null;
   is_active: boolean;
   is_admin: boolean;
+  is_legacy_member: boolean;
   created_at: string;
   enrollment_count: number;
   payment_count: number;
@@ -40,6 +41,7 @@ export type AdminOrderRow = {
   id: number;
   user_id: number;
   username: string;
+  name: string | null;
   email: string | null;
   course_title: string;
   amount: number;
