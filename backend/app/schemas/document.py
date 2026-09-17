@@ -21,5 +21,6 @@ class DocumentResponse(BaseModel):
     pdf_url: str | None
     pledge_pdf_url: str | None = None
     issued_at: datetime | None
+    downloaded_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)

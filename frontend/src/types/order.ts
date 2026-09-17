@@ -56,7 +56,7 @@ export type BundleCreateResponse = {
   items: BundleItem[];
 };
 
-export type IssuedDocumentType = "certificate" | "guide" | "cbt";
+export type IssuedDocumentType = "certificate" | "guide" | "cbt" | "counseling";
 export type IssuedDocumentStatus = "pending" | "ready" | "revoked";
 
 export type DocumentResponse = {
@@ -67,4 +67,5 @@ export type DocumentResponse = {
   pdf_url: string | null;
   pledge_pdf_url: string | null;
   issued_at: string | null;
+  downloaded_at: string | null;
 };

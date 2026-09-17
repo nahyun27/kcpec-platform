@@ -153,6 +153,7 @@ export default function AdminUsersPage() {
           )}
         </aside>
 
+        <div>
         <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
           <table className="w-full text-left text-[13px]">
             <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
@@ -243,34 +244,35 @@ export default function AdminUsersPage() {
             </tbody>
           </table>
         </div>
+
+        {totalPages > 1 ? (
+          <div className="mt-4 flex items-center justify-end gap-3 text-sm">
+            <button
+              type="button"
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page <= 1}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2 font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white"
+            >
+              이전
+            </button>
+            <span className="font-medium text-slate-500">
+              {page} <span className="mx-1 font-normal text-slate-300">/</span> {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage(Math.min(totalPages, page + 1))}
+              disabled={page >= totalPages}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2 font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white"
+            >
+              다음
+            </button>
+          </div>
+        ) : null}
+        </div>
       </div>
 
       {openUser ? (
         <UserEnrollmentsModal user={openUser} onClose={() => setOpenUser(null)} />
-      ) : null}
-
-      {totalPages > 1 ? (
-        <div className="flex items-center justify-end gap-3 text-sm">
-          <button
-            type="button"
-            onClick={() => setPage(Math.max(1, page - 1))}
-            disabled={page <= 1}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white"
-          >
-            이전
-          </button>
-          <span className="font-medium text-slate-500">
-            {page} <span className="mx-1 font-normal text-slate-300">/</span> {totalPages}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPage(Math.min(totalPages, page + 1))}
-            disabled={page >= totalPages}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white"
-          >
-            다음
-          </button>
-        </div>
       ) : null}
     </div>
   );
@@ -389,16 +391,20 @@ function UserEnrollmentsModal({
                             수료
                           </span>
                         ) : (
-                          <span className="text-xs text-slate-300">—</span>
+                          <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold tracking-wide text-slate-500 ring-1 ring-inset ring-slate-500/10">
+                            미수료
+                          </span>
                         )}
                       </div>
                       <div className="text-center">
                         {r.quiz_passed ? (
                           <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-bold tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
-                            통과
+                            퀴즈 통과
                           </span>
                         ) : (
-                          <span className="text-xs text-slate-300">—</span>
+                          <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold tracking-wide text-slate-500 ring-1 ring-inset ring-slate-500/10">
+                            퀴즈 미통과
+                          </span>
                         )}
                       </div>
                       <span className="flex items-center justify-center text-slate-400">
@@ -429,6 +435,63 @@ function UserEnrollmentsModal({
                           >
                             {extendingId === r.enrollment_id ? "연장 중..." : "30일 연장"}
                           </button>
+                        </div>
+                        <div className="mb-3 rounded-lg bg-white px-3 py-2.5 text-[12px] shadow-sm ring-1 ring-slate-200/50">
+                          {r.document ? (
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span
+                                  className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wide ring-1 ring-inset ${
+                                    r.document.status === "revoked"
+                                      ? "bg-red-50 text-red-600 ring-red-500/10"
+                                      : "bg-blue-50 text-blue-700 ring-blue-500/10"
+                                  }`}
+                                >
+                                  {r.document.status === "revoked"
+                                    ? "무효화됨"
+                                    : r.document.document_type === "counseling"
+                                      ? "의견서 발급됨"
+                                      : "수료증 발급됨"}
+                                </span>
+                                <span className="font-medium text-slate-500">{r.document.issue_number}</span>
+                                <span
+                                  className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wide ring-1 ring-inset ${
+                                    r.document.downloaded_at
+                                      ? "bg-emerald-50 text-emerald-700 ring-emerald-500/10"
+                                      : "bg-amber-50 text-amber-700 ring-amber-500/10"
+                                  }`}
+                                >
+                                  {r.document.downloaded_at
+                                    ? `다운로드함 (${new Date(r.document.downloaded_at).toLocaleDateString("ko-KR")})`
+                                    : "미다운로드"}
+                                </span>
+                              </div>
+                              <div className="flex gap-2">
+                                {r.document.pdf_url ? (
+                                  <a
+                                    href={r.document.pdf_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-bold text-[var(--color-primary)] hover:underline"
+                                  >
+                                    서류 보기
+                                  </a>
+                                ) : null}
+                                {r.document.pledge_pdf_url ? (
+                                  <a
+                                    href={r.document.pledge_pdf_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-bold text-[var(--color-primary)] hover:underline"
+                                  >
+                                    서약서 보기
+                                  </a>
+                                ) : null}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="font-medium text-slate-400">아직 발급된 서류 없음</span>
+                          )}
                         </div>
                         {r.lectures.length === 0 ? (
                           <p className="py-2 text-center text-xs text-slate-400">

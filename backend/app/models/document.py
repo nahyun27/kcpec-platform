@@ -60,6 +60,9 @@ class IssuedDocument(Base):
         default=IssuedDocumentStatus.PENDING,
     )
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 다운로드 버튼을 실제로 눌렀는지(관리자가 발급은 됐는데 정작 당사자가
+    # 받아갔는지 확인하고 싶어함, 2026-09) — 최초 클릭 시각만 기록.
+    downloaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     order: Mapped["Order"] = relationship(back_populates="documents")
 

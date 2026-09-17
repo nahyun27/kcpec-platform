@@ -169,3 +169,25 @@ def list_order_documents(
         ).all()
     )
     return [DocumentResponse.model_validate(d) for d in docs]
+
+
+@router.post("/{order_id}/documents/{document_id}/downloaded", response_model=DocumentResponse)
+def mark_document_downloaded(
+    order_id: int,
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> DocumentResponse:
+    """다운로드 버튼 클릭 시 최초 1회만 downloaded_at 기록 — 관리자가 실제로
+    당사자가 받아갔는지 확인하고 싶어함(2026-09)."""
+    order = db.get(Order, order_id)
+    if order is None or order.user_id != current_user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="주문을 찾을 수 없습니다.")
+    doc = db.get(IssuedDocument, document_id)
+    if doc is None or doc.order_id != order_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="서류를 찾을 수 없습니다.")
+    if doc.downloaded_at is None:
+        doc.downloaded_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(doc)
+    return DocumentResponse.model_validate(doc)

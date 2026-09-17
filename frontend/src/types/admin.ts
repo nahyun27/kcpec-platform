@@ -1,6 +1,12 @@
 import type { CourseCategory } from "@/types/course";
 import type { CounselingStatus } from "@/types/counseling";
-import type { OrderStatus, OrderType, PaymentMethod } from "@/types/order";
+import type {
+  IssuedDocumentStatus,
+  IssuedDocumentType,
+  OrderStatus,
+  OrderType,
+  PaymentMethod,
+} from "@/types/order";
 
 export type HealthItem = {
   name: string;
@@ -111,6 +117,17 @@ export type AdminLectureProgressDetail = {
   is_completed: boolean;
 };
 
+export type AdminIssuedDocumentSummary = {
+  id: number;
+  document_type: IssuedDocumentType;
+  issue_number: string;
+  status: IssuedDocumentStatus;
+  issued_at: string | null;
+  downloaded_at: string | null;
+  pdf_url: string | null;
+  pledge_pdf_url: string | null;
+};
+
 export type AdminUserEnrollmentRow = {
   enrollment_id: number;
   course_id: number;
@@ -122,6 +139,7 @@ export type AdminUserEnrollmentRow = {
   // null 이면 수강기간 제한 없음(레거시 enrollment).
   expires_at: string | null;
   lectures: AdminLectureProgressDetail[];
+  document: AdminIssuedDocumentSummary | null;
 };
 
 export type NoticePatch = {

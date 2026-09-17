@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from app.models.counseling import CounselingStatus
 from app.models.course import CourseCategory
+from app.models.document import IssuedDocumentStatus, IssuedDocumentType
 from app.models.order import OrderStatus, OrderType, PaymentMethod
 
 
@@ -132,6 +133,30 @@ class AdminOrdersResponse(BaseModel):
     size: int
 
 
+class AdminIssuedDocumentRow(BaseModel):
+    id: int
+    order_id: int
+    user_id: int
+    username: str
+    name: str | None = None
+    email: EmailStr | None = None
+    recipient_name: str
+    document_type: IssuedDocumentType
+    course_title: str
+    issue_number: str
+    status: IssuedDocumentStatus
+    issued_at: datetime | None
+    pdf_url: str | None
+    pledge_pdf_url: str | None
+
+
+class AdminIssuedDocumentsResponse(BaseModel):
+    items: list[AdminIssuedDocumentRow]
+    total: int
+    page: int
+    size: int
+
+
 class AdminUsersResponse(BaseModel):
     items: list[AdminUser]
     total: int
@@ -251,6 +276,17 @@ class LectureProgressDetail(BaseModel):
     is_completed: bool
 
 
+class AdminIssuedDocumentSummary(BaseModel):
+    id: int
+    document_type: IssuedDocumentType
+    issue_number: str
+    status: IssuedDocumentStatus
+    issued_at: datetime | None
+    downloaded_at: datetime | None
+    pdf_url: str | None
+    pledge_pdf_url: str | None
+
+
 class AdminUserEnrollmentRow(BaseModel):
     enrollment_id: int
     course_id: int
@@ -262,6 +298,8 @@ class AdminUserEnrollmentRow(BaseModel):
     # None 이면 수강기간 제한 없음(레거시 enrollment).
     expires_at: datetime | None = None
     lectures: list[LectureProgressDetail] = []
+    # 발급된 수료증/의견서 — 아직 발급 안 됐으면 None.
+    document: AdminIssuedDocumentSummary | None = None
 
 
 class NoticePatch(BaseModel):

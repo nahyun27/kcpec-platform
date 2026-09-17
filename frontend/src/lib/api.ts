@@ -393,6 +393,16 @@ export async function getOrderDocuments(orderId: number): Promise<DocumentRespon
   return data;
 }
 
+export async function markDocumentDownloaded(
+  orderId: number,
+  documentId: number,
+): Promise<DocumentResponse> {
+  const { data } = await api.post<DocumentResponse>(
+    `/orders/${orderId}/documents/${documentId}/downloaded`,
+  );
+  return data;
+}
+
 // ---------- counseling + my -------------------------------------------------
 
 export async function getMyEnrollments(): Promise<EnrollmentWithProgress[]> {

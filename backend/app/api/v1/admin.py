@@ -44,6 +44,9 @@ from app.models.order import Order, OrderStatus, PaymentMethod
 from app.models.quiz import Quiz, QuizOption, QuizQuestion
 from app.models.user import User
 from app.schemas.admin import (
+    AdminIssuedDocumentRow,
+    AdminIssuedDocumentsResponse,
+    AdminIssuedDocumentSummary,
     AdminOrderRow,
     AdminOrdersResponse,
     AdminStats,
@@ -280,6 +283,18 @@ def admin_user_enrollments(
     ).all()
     passed_set = {eid for (eid,) in pass_rows}
 
+    # 발급된 수료증/의견서 — 강의(course_id) 별 최신 1건. IssuedDocument 는
+    # course_id 가 아니라 order_id 로만 연결돼 있어 Order 를 거쳐 조인한다.
+    doc_by_course: dict[int, IssuedDocument] = {}
+    doc_rows = db.execute(
+        select(IssuedDocument, Order.course_id)
+        .join(Order, Order.id == IssuedDocument.order_id)
+        .where(Order.user_id == user_id, Order.course_id.in_(course_ids))
+        .order_by(IssuedDocument.id.desc())
+    ).all()
+    for doc, cid in doc_rows:
+        doc_by_course.setdefault(cid, doc)
+
     out: list[AdminUserEnrollmentRow] = []
     for e in enrollments:
         course = courses_map.get(e.course_id)
@@ -326,6 +341,7 @@ def admin_user_enrollments(
         quiz_passed = (
             True if not has_quiz_map.get(e.id, False) else (e.id in passed_set)
         )
+        doc = doc_by_course.get(course.id)
         out.append(
             AdminUserEnrollmentRow(
                 enrollment_id=e.id,
@@ -337,6 +353,20 @@ def admin_user_enrollments(
                 quiz_passed=quiz_passed,
                 expires_at=e.expires_at,
                 lectures=lecture_rows,
+                document=(
+                    AdminIssuedDocumentSummary(
+                        id=doc.id,
+                        document_type=doc.document_type,
+                        issue_number=doc.issue_number,
+                        status=doc.status,
+                        issued_at=doc.issued_at,
+                        downloaded_at=doc.downloaded_at,
+                        pdf_url=doc.pdf_url,
+                        pledge_pdf_url=doc.pledge_pdf_url,
+                    )
+                    if doc is not None
+                    else None
+                ),
             )
         )
     return out
@@ -1509,6 +1539,73 @@ def admin_order_documents(order_id: int, db: Session = Depends(get_db)) -> list[
         ).all()
     )
     return [DocumentResponse.model_validate(d) for d in docs]
+
+
+@router.get("/certificates", response_model=AdminIssuedDocumentsResponse)
+def list_issued_documents(
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=50, ge=1, le=200),
+    document_type: IssuedDocumentType | None = Query(default=None),
+    doc_status: IssuedDocumentStatus | None = Query(default=None, alias="status"),
+    search: str | None = Query(default=None, max_length=100),
+    db: Session = Depends(get_db),
+) -> AdminIssuedDocumentsResponse:
+    """법원 제출용 수료증/심리상담 의견서를 발급 건 단위로 전부 조회 —
+    지금까지는 주문(Order) 하나씩 열어봐야만 발급 서류를 확인할 수 있어서
+    "누구한테 뭐가 발급됐는지" 전체를 한눈에 볼 방법이 없었다(2026-09).
+    """
+    query = (
+        select(IssuedDocument, User, Order, Course)
+        .join(User, User.id == IssuedDocument.user_id)
+        .join(Order, Order.id == IssuedDocument.order_id)
+        .join(Course, Course.id == Order.course_id)
+    )
+    count_query = (
+        select(func.count(IssuedDocument.id))
+        .select_from(IssuedDocument)
+        .join(User, User.id == IssuedDocument.user_id)
+    )
+    if document_type is not None:
+        query = query.where(IssuedDocument.document_type == document_type)
+        count_query = count_query.where(IssuedDocument.document_type == document_type)
+    if doc_status is not None:
+        query = query.where(IssuedDocument.status == doc_status)
+        count_query = count_query.where(IssuedDocument.status == doc_status)
+    if search:
+        like = f"%{search.strip()}%"
+        term = or_(
+            IssuedDocument.recipient_name.ilike(like),
+            User.username.ilike(like),
+            User.email.ilike(like),
+        )
+        query = query.where(term)
+        count_query = count_query.where(term)
+
+    total = db.scalar(count_query) or 0
+    rows = db.execute(
+        query.order_by(IssuedDocument.id.desc()).offset((page - 1) * size).limit(size)
+    ).all()
+
+    items = [
+        AdminIssuedDocumentRow(
+            id=doc.id,
+            order_id=doc.order_id,
+            user_id=user.id,
+            username=user.username,
+            name=user.name,
+            email=user.email,
+            recipient_name=doc.recipient_name,
+            document_type=doc.document_type,
+            course_title=course.title,
+            issue_number=doc.issue_number,
+            status=doc.status,
+            issued_at=doc.issued_at,
+            pdf_url=doc.pdf_url,
+            pledge_pdf_url=doc.pledge_pdf_url,
+        )
+        for doc, user, order, course in rows
+    ]
+    return AdminIssuedDocumentsResponse(items=items, total=total, page=page, size=size)
 
 
 @router.patch("/notices/{notice_id}", response_model=NoticeDetail)

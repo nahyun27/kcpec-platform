@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Bar,
   BarChart,
@@ -363,11 +364,19 @@ function RecentActivitiesList({ items }: { items: AdminActivity[] }) {
           colorClass = "bg-red-50 text-red-600 ring-red-100";
         }
 
-        return (
-          <li key={i} className="relative flex items-start gap-3 pb-4 last:pb-0">
-            {i !== items.length - 1 && (
-              <span className="absolute left-[13px] top-7 -ml-px h-full w-0.5 bg-slate-100" aria-hidden="true" />
-            )}
+        const href =
+          a.type === "order_paid"
+            ? "/admin/orders?status=paid"
+            : a.type === "course_completed"
+              ? "/admin/users"
+              : a.type === "qna_posted"
+                ? "/admin/community?tab=qna"
+                : a.type === "user_deleted"
+                  ? "/admin/users"
+                  : null;
+
+        const content = (
+          <>
             <span
               className={`relative mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ring-1 ${colorClass}`}
             >
@@ -377,6 +386,21 @@ function RecentActivitiesList({ items }: { items: AdminActivity[] }) {
               <p className="text-[13px] leading-snug text-slate-700">{a.message}</p>
               <p className="mt-1 text-[11px] font-medium text-slate-400">{timeAgo(a.created_at)}</p>
             </div>
+          </>
+        );
+
+        return (
+          <li key={i} className="relative pb-4 last:pb-0">
+            {i !== items.length - 1 && (
+              <span className="absolute left-[13px] top-7 -ml-px h-full w-0.5 bg-slate-100" aria-hidden="true" />
+            )}
+            {href ? (
+              <Link href={href} className="flex items-start gap-3 rounded-lg transition-colors hover:bg-slate-50">
+                {content}
+              </Link>
+            ) : (
+              <div className="flex items-start gap-3">{content}</div>
+            )}
           </li>
         );
       })}
