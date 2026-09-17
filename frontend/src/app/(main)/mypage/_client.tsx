@@ -43,7 +43,7 @@ import {
   type DocumentResponse,
   type OrderResponse,
 } from "@/types/order";
-import { BookOpen, Check, Clock, CreditCard, Download, FileSignature, FileText, Phone, User, ChevronRight, PlayCircle, Loader2, MailWarning, MessageSquare, Edit3, AlertCircle } from "lucide-react";
+import { BookOpen, Check, Clock, CreditCard, Download, FileSignature, FileText, Phone, User, ChevronRight, PlayCircle, Loader2, MailWarning, MessageSquare, Edit3, AlertCircle, Star } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { useDialog } from "@/components/ui/DialogProvider";
@@ -904,6 +904,16 @@ function EnrollmentRow({
 
   return (
     <li className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-all hover:border-[var(--color-primary)]/30 hover:shadow-md sm:p-5">
+      {isComplete ? (
+        <button
+          type="button"
+          onClick={() => setShowReview((v) => !v)}
+          className="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-amber-400 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-amber-500"
+        >
+          <Star className="h-3.5 w-3.5 fill-white" />
+          {showReview ? "후기 작성 취소" : "후기 쓰기"}
+        </button>
+      ) : null}
       <div className="flex flex-col gap-4 sm:flex-row">
         {/* 썸네일 (모바일에서는 가로 100%, 태블릿 이상 w-32) */}
         <div className="w-full shrink-0 overflow-hidden rounded-xl sm:w-32 sm:self-start">
@@ -1017,15 +1027,6 @@ function EnrollmentRow({
                     퀴즈 응시
                   </span>
                 )
-              ) : null}
-              {isComplete ? (
-                <button
-                  type="button"
-                  onClick={() => setShowReview((v) => !v)}
-                  className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition-colors hover:border-[var(--color-primary)] hover:bg-slate-50 hover:text-[var(--color-primary)] shadow-sm"
-                >
-                  {showReview ? "후기 작성 취소" : "후기 쓰기"}
-                </button>
               ) : null}
             </div>
           </div>
