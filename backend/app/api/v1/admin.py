@@ -234,6 +234,38 @@ def list_users(
     return AdminUsersResponse(items=out, total=total, page=page, size=size)
 
 
+@router.get("/users/{user_id}", response_model=AdminUser)
+def get_admin_user(user_id: int, db: Session = Depends(get_db)) -> AdminUser:
+    """주문 목록 등에서 고객명 클릭 시 사용자 상세 모달로 바로 이동하기
+    위한 단건 조회(2026-09) — list_users 의 집계 로직을 한 명분만 계산."""
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="사용자를 찾을 수 없습니다.")
+    enrollment_count = db.scalar(
+        select(func.count(Enrollment.id)).where(Enrollment.user_id == user_id)
+    ) or 0
+    pay_count, pay_amount = db.execute(
+        select(func.count(Order.id), func.coalesce(func.sum(Order.amount), 0)).where(
+            Order.user_id == user_id, Order.status == OrderStatus.PAID
+        )
+    ).one()
+    return AdminUser(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        name=user.name,
+        phone=user.phone,
+        birth_date=user.birth_date,
+        is_active=user.is_active,
+        is_admin=user.is_admin,
+        is_legacy_member=user.is_legacy_member,
+        created_at=user.created_at,
+        enrollment_count=enrollment_count,
+        payment_count=pay_count,
+        total_payment=pay_amount,
+    )
+
+
 @router.get("/users/{user_id}/enrollments", response_model=list[AdminUserEnrollmentRow])
 def admin_user_enrollments(
     user_id: int, db: Session = Depends(get_db)

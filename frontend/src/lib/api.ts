@@ -39,6 +39,7 @@ import type {
   VisitorStats,
   AdminSurveyDetail,
   AdminSurveyRow,
+  AdminUser,
   AdminUserEnrollmentRow,
   AdminUsersResponse,
   CourseEnrollmentCount,
@@ -615,6 +616,11 @@ export async function getCourseEnrollmentCounts(): Promise<CourseEnrollmentCount
   const { data } = await api.get<CourseEnrollmentCount[]>(
     "/admin/courses/enrollment-counts",
   );
+  return data;
+}
+
+export async function getAdminUser(userId: number): Promise<AdminUser> {
+  const { data } = await api.get<AdminUser>(`/admin/users/${userId}`);
   return data;
 }
 

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.admin import require_admin
@@ -84,20 +84,34 @@ def _enrollment_expired(db: Session, user_id: int, course_id: int) -> bool:
 # 결제창을 열었다가 그냥 닫거나 이탈하면 서버는 알 방법이 없어 PENDING 주문이
 # 그대로 남는다 — 특히 실패 후 재시도할 때마다 새 주문을 또 만들다 보니 같은
 # 사람이 짧은 시간에 PENDING 을 여러 개 쌓는 경우가 많았다(2026-09, 실사용
-# 데이터에서 확인). 계좌가 실제로 발급된(va_account_number 있음) 무통장입금
-# 건은 손님이 입금할 방법이 있으니 그대로 두고, 그 외 PENDING 이 일정 시간
-# 지나도록 남아있으면 "그냥 들어갔다 나온 것"으로 보고 자동으로 취소 처리한다.
+# 데이터에서 확인). 무통장입금(계좌 미발급 상태)은 va_account_number 유무로
+# "포기했다"는 확실한 신호가 있어 30분만 지나도 취소해도 안전하지만, 카드/
+# 간편결제는 그런 신호가 없어 짧게 잡으면 3DS·앱전환 등으로 오래 걸리는
+# 정상 결제 도중 주문이 취소돼버릴 위험이 있다(2026-09, 버그 감사 중 발견 —
+# 30분 기준을 결제수단 구분 없이 적용했었음). 그래서 카드/간편결제는 훨씬
+# 긴 기준(24시간)으로만 정리한다.
 _STALE_PENDING_MINUTES = 30
+_STALE_PENDING_HOURS_OTHER = 24
 
 
 def _cancel_stale_pending(db: Session, user_id: int) -> None:
-    cutoff = _now() - timedelta(minutes=_STALE_PENDING_MINUTES)
+    cutoff_bank = _now() - timedelta(minutes=_STALE_PENDING_MINUTES)
+    cutoff_other = _now() - timedelta(hours=_STALE_PENDING_HOURS_OTHER)
     stale = db.scalars(
         select(Order).where(
             Order.user_id == user_id,
             Order.status == OrderStatus.PENDING,
-            Order.created_at < cutoff,
-            Order.va_account_number.is_(None),
+            or_(
+                and_(
+                    Order.payment_method == PaymentMethod.BANK_TRANSFER,
+                    Order.va_account_number.is_(None),
+                    Order.created_at < cutoff_bank,
+                ),
+                and_(
+                    Order.payment_method != PaymentMethod.BANK_TRANSFER,
+                    Order.created_at < cutoff_other,
+                ),
+            ),
         )
     ).all()
     for o in stale:

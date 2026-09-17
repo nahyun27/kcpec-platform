@@ -25,6 +25,7 @@ import {
   type UserResponse,
 } from "@/lib/api";
 import type { PostListItem } from "@/types/community";
+import { ReviewWriteForm } from "@/components/features/ReviewWriteForm";
 import type {
   CounselingOrderItem,
   CounselingStatus,
@@ -885,6 +886,7 @@ function EnrollmentRow({
   order?: OrderWithExtras;
 }) {
   const dialog = useDialog();
+  const [showReview, setShowReview] = useState(false);
   const isComplete = enrollment.is_completed;
   const issuedDoc = order?.documents?.[0];
   const progressPct = enrollment.overall_progress_pct;
@@ -1016,8 +1018,31 @@ function EnrollmentRow({
                   </span>
                 )
               ) : null}
+              {isComplete ? (
+                <button
+                  type="button"
+                  onClick={() => setShowReview((v) => !v)}
+                  className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition-colors hover:border-[var(--color-primary)] hover:bg-slate-50 hover:text-[var(--color-primary)] shadow-sm"
+                >
+                  {showReview ? "후기 작성 취소" : "후기 쓰기"}
+                </button>
+              ) : null}
             </div>
           </div>
+
+          {showReview ? (
+            <div className="mt-2">
+              <ReviewWriteForm
+                fixedCourseId={enrollment.course_id}
+                fixedCourseTitle={enrollment.course_title}
+                fixedCourseCategory={enrollment.category}
+                onCancel={() => setShowReview(false)}
+                onCreated={() => {
+                  setShowReview(false);
+                }}
+              />
+            </div>
+          ) : null}
 
           {/* 진도율 한 줄: 라벨 | 바 | 퍼센트 */}
           <div className="mt-1.5 flex items-center gap-3">

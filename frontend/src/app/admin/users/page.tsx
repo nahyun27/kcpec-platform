@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   extendEnrollmentAccess,
+  getAdminUser,
   getAdminUserEnrollments,
   getAdminUsers,
   getCourseEnrollmentCounts,
@@ -29,6 +31,15 @@ type SortKey =
   | "enrollment_asc";
 
 export default function AdminUsersPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminUsersPageInner />
+    </Suspense>
+  );
+}
+
+function AdminUsersPageInner() {
+  const searchParams = useSearchParams();
   const [page, setPage] = useState(1);
   const size = 25;
   const [data, setData] = useState<AdminUsersResponse | null>(null);
@@ -47,6 +58,19 @@ export default function AdminUsersPage() {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => clearTimeout(t);
   }, [search]);
+
+  // 주문 목록 등 다른 화면에서 고객명을 클릭해 ?user_id= 로 들어온 경우,
+  // 그 사용자의 수강현황 모달을 바로 열어준다(2026-09).
+  useEffect(() => {
+    const userId = searchParams.get("user_id");
+    if (!userId) return;
+    getAdminUser(Number(userId))
+      .then(setOpenUser)
+      .catch(() => {
+        /* 사용자를 못 찾아도 목록 화면은 정상 동작해야 함 */
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

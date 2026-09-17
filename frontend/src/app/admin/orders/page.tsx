@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isAxiosError } from "axios";
 import {
@@ -216,7 +217,15 @@ function AdminOrdersPage() {
                     <td className="px-4 py-3 text-slate-500">
                       {new Date(r.created_at).toLocaleString("ko-KR")}
                     </td>
-                    <td className="px-4 py-3 font-semibold text-slate-900">{r.name ?? r.username}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-900">
+                      <Link
+                        href={`/admin/users?user_id=${r.user_id}`}
+                        className="hover:text-[var(--color-primary)] hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {r.name ?? r.username}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3 text-slate-500">
                       {r.email ?? "-"}
                     </td>
