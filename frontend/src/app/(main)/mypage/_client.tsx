@@ -1481,6 +1481,16 @@ function OrderStatusBadge({ status }: { status: OrderResponse["status"] }) {
   );
 }
 
+// 심리상담 의견서와 함께 무료 제공되는 부가 자료(양형자료 페이지에서 안내하는
+// "4가지 서류") — 전부 본인이 직접 작성하는 빈 양식이라 개인화 없이 그대로
+// 첨부 다운로드로 제공한다(2026-09).
+const COUNSELING_BONUS_MATERIALS: { label: string; path: string }[] = [
+  { label: "자기성찰 리포트", path: "/static/resources/self_reflection_report.pdf" },
+  { label: "교육이수 소감문", path: "/static/resources/course_completion_journal.pdf" },
+  { label: "CBT 자가진단 검사지", path: "/static/resources/cbt_self_assessment.pdf" },
+  { label: "양형자료 준비 가이드북", path: "/static/resources/sentencing_materials_guidebook.pdf" },
+];
+
 function CounselingOrderCard({
   order,
   onViewAnswers,
@@ -1559,14 +1569,27 @@ function CounselingOrderCard({
                 </button>
               ) : null}
               {isCompleted && order.final_pdf_url ? (
-                <a
-                  href={absUrl(order.final_pdf_url)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[var(--color-accent-hover)]"
-                >
-                  <Download className="h-3.5 w-3.5" /> 의견서 다운로드
-                </a>
+                <>
+                  <a
+                    href={absUrl(order.final_pdf_url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[var(--color-accent-hover)]"
+                  >
+                    <Download className="h-3.5 w-3.5" /> 의견서 다운로드
+                  </a>
+                  {COUNSELING_BONUS_MATERIALS.map((m) => (
+                    <a
+                      key={m.path}
+                      href={absUrl(m.path)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50"
+                    >
+                      <Download className="h-3.5 w-3.5" /> {m.label}
+                    </a>
+                  ))}
+                </>
               ) : !isCompleted ? (
                 <span className="rounded-lg bg-slate-100 px-3.5 py-2 text-xs font-bold text-slate-700">
                   검토 중
