@@ -364,7 +364,7 @@ function UserEnrollmentsModal({
                       onClick={() =>
                         setExpandedCourseId(isExpanded ? null : r.course_id)
                       }
-                      className="grid w-full grid-cols-[1fr_180px_60px_60px_24px] items-center gap-4 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50/50"
+                      className="grid w-full grid-cols-[1fr_180px_88px_88px_24px] items-center gap-4 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50/50"
                     >
                       <div>
                         <p className="text-[11px] font-bold text-blue-600">
@@ -387,22 +387,22 @@ function UserEnrollmentsModal({
                       </div>
                       <div className="text-center">
                         {r.is_completed ? (
-                          <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-bold tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
+                          <span className="inline-flex items-center whitespace-nowrap rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-bold tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
                             수료
                           </span>
                         ) : (
-                          <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold tracking-wide text-slate-500 ring-1 ring-inset ring-slate-500/10">
+                          <span className="inline-flex items-center whitespace-nowrap rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold tracking-wide text-slate-500 ring-1 ring-inset ring-slate-500/10">
                             미수료
                           </span>
                         )}
                       </div>
                       <div className="text-center">
                         {r.quiz_passed ? (
-                          <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-bold tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
+                          <span className="inline-flex items-center whitespace-nowrap rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-bold tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
                             퀴즈 통과
                           </span>
                         ) : (
-                          <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold tracking-wide text-slate-500 ring-1 ring-inset ring-slate-500/10">
+                          <span className="inline-flex items-center whitespace-nowrap rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold tracking-wide text-slate-500 ring-1 ring-inset ring-slate-500/10">
                             퀴즈 미통과
                           </span>
                         )}

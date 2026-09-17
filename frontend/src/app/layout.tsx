@@ -6,7 +6,7 @@ import "./globals.css";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 const TITLE = "한국범죄예방교육센터 KCPEC";
 const DESCRIPTION =
-  "범죄예방교육 및 전문가 심리상담, 양형자료 준비, 교육수료증, 심리상담 의견서 발급 플랫폼";
+  "범죄예방교육 및 전문가 심리상담, 양형자료 준비, 교육수료증, 심리상담의견서, 서약서, 반성문, 탄원서.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
