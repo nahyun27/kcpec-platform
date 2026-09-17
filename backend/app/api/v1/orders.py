@@ -11,6 +11,7 @@ from app.core.admin import require_admin
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.email import send_new_order_notification
 from app.models.course import Course, CourseCategory
 from app.models.enrollment import Enrollment
 from app.models.order import Order, OrderStatus, OrderType, PaymentMethod
@@ -426,6 +427,24 @@ def _mark_paid(order: Order, payment_key: str | None) -> None:
         order.toss_payment_key = payment_key
 
 
+def _notify_new_order(db: Session, order: Order) -> None:
+    """주문이 방금 PAID 로 확정된 뒤(커밋 이후) 관리자에게 알림 메일 발송.
+
+    SMTP 실패는 send_new_order_notification 내부에서 삼켜지므로 여기서
+    예외가 나갈 일은 없다 — 결제 확정 자체를 이 알림 때문에 실패시키지 않는다.
+    """
+    course = db.get(Course, order.course_id)
+    buyer = db.get(User, order.user_id)
+    send_new_order_notification(
+        order_id=order.id,
+        course_title=course.title if course else f"course#{order.course_id}",
+        amount=order.amount,
+        payment_method=order.payment_method.value,
+        buyer_email=buyer.email if buyer else "(알 수 없음)",
+        buyer_name=buyer.name if buyer else None,
+    )
+
+
 def _apply_virtual_account(order: Order, payment_key: str, confirm_data: dict) -> None:
     """토스 가상계좌 confirm 응답(status=WAITING_FOR_DEPOSIT)을 주문에 반영.
 
@@ -470,6 +489,7 @@ def toss_confirm(
         _ensure_enrollment(db, order.user_id, order.course_id)
         db.commit()
         db.refresh(order)
+        _notify_new_order(db, order)
         return order
 
     # 실 결제 모드 — Toss 위젯이 받은 amount 와 DB amount 가 일치하는지 확인
@@ -508,9 +528,11 @@ def toss_confirm(
 
     data = res.json()
     toss_status = data.get("status")
+    just_paid = False
     if toss_status == "DONE":
         _mark_paid(order, payment_key=payload.payment_key)
         _ensure_enrollment(db, order.user_id, order.course_id)
+        just_paid = True
     elif toss_status == "WAITING_FOR_DEPOSIT":
         # 가상계좌 발급 완료, 입금 대기 — PAID 처리/수강등록은 입금 완료
         # 웹훅(toss_webhook)에서 한다.
@@ -526,6 +548,8 @@ def toss_confirm(
         )
     db.commit()
     db.refresh(order)
+    if just_paid:
+        _notify_new_order(db, order)
     return order
 
 
@@ -584,6 +608,7 @@ def bundle_toss_confirm(
         db.commit()
         for o in orders:
             db.refresh(o)
+            _notify_new_order(db, o)
         return _with_course_titles(db, orders)
 
     if total != payload.amount:
@@ -616,10 +641,12 @@ def bundle_toss_confirm(
 
     data = res.json()
     toss_status = data.get("status")
+    just_paid = False
     if toss_status == "DONE":
         for o in orders:
             _mark_paid(o, payment_key=payload.payment_key)
             _ensure_enrollment(db, o.user_id, o.course_id)
+        just_paid = True
     elif toss_status == "WAITING_FOR_DEPOSIT":
         # 묶음결제 전체가 가상계좌 하나를 공유 — 모든 주문에 같은 계좌 정보를 저장.
         for o in orders:
@@ -632,6 +659,8 @@ def bundle_toss_confirm(
     db.commit()
     for o in orders:
         db.refresh(o)
+        if just_paid:
+            _notify_new_order(db, o)
     return _with_course_titles(db, orders)
 
 
@@ -663,6 +692,7 @@ def bank_confirm(
     # 묶음결제의 일부면 같은 입금 1건에 대응하는 나머지 강의 주문들도 함께
     # 확정한다 — 하나씩 따로 확정하게 두면 관리자가 첫 강의만 승인하고 끝내
     # 나머지 강의는 결제 안 된 채로 남는 사고가 나기 쉬웠다.
+    siblings: list[Order] = []
     if order.bundle_id:
         siblings = db.scalars(
             select(Order)
@@ -680,6 +710,10 @@ def bank_confirm(
 
     db.commit()
     db.refresh(order)
+    _notify_new_order(db, order)
+    for sib in siblings:
+        db.refresh(sib)
+        _notify_new_order(db, sib)
     return order
 
 
@@ -745,12 +779,17 @@ def toss_webhook(payload: TossWebhookPayload, db: Session = Depends(get_db)) -> 
     # DONE 웹훅이 취소된 주문을 그대로 PAID+수강등록 처리해버릴 수 있었다
     # (2026-09, 버그 감사 중 발견 — 취소를 우회해 무료로 수강권을 얻는 구멍).
     if payload.status == "DONE":
+        newly_paid = []
         for o in orders:
             if o.status != OrderStatus.PENDING:
                 continue
             _mark_paid(o, payment_key=o.toss_payment_key)
             _ensure_enrollment(db, o.user_id, o.course_id)
+            newly_paid.append(o)
         db.commit()
+        for o in newly_paid:
+            db.refresh(o)
+            _notify_new_order(db, o)
     elif payload.status in ("CANCELED", "EXPIRED", "ABORTED"):
         # 가상계좌 입금기한이 지나 토스가 자동으로 계좌를 회수하는 경우 등 —
         # 처리 안 하면 주문이 영원히 PENDING으로 남아 마이페이지에 죽은

@@ -2,14 +2,13 @@ import logging
 import secrets
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.cert_sequence import reserve_next_sequence
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.core.email import send_certificate_to_user
 from app.core.pdf import cert_course_code, generate_certificate_pdf, generate_pledge_pdf
 from app.models.course import Course
 from app.models.document import (
@@ -35,7 +34,6 @@ def issue_document(
     order_id: int,
     payload: DocumentIssueRequest,
     request: Request,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> DocumentResponse:
@@ -139,18 +137,6 @@ def issue_document(
 
     db.commit()
     db.refresh(doc)
-
-    # FAQ("익일 24시까지 이메일로 보내드립니다")에 실제로 발송 코드가 없던
-    # 문제를 고침(2026-09) — 심리상담 의견서(admin.py upload_final)는 이미
-    # 발송되고 있었는데 수료증만 빠져 있었음.
-    background_tasks.add_task(
-        send_certificate_to_user,
-        to_email=current_user.email,
-        recipient_name=payload.recipient_name,
-        course_title=course.title,
-        pdf_url=doc.pdf_url,
-        pledge_pdf_url=doc.pledge_pdf_url,
-    )
 
     return DocumentResponse.model_validate(doc)
 
