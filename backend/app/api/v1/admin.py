@@ -25,7 +25,7 @@ from app.core.cert_sequence import reserve_next_sequence
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.document_generator import fill_counseling_template
-from app.core.email import send_final_to_user
+from app.core.email import send_final_to_user, send_qna_reply_notification
 from app.core.gemini_client import (
     generate_counseling_draft,
     is_dummy_draft,
@@ -1722,9 +1722,21 @@ def patch_post_reply(
     post = db.get(Post, post_id)
     if post is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="게시글을 찾을 수 없습니다.")
+    is_first_reply = not post.admin_reply
     post.admin_reply = payload.reply.strip()
     db.commit()
     db.refresh(post)
+
+    # 답변 수정(이미 답변이 달려있던 경우)은 매번 메일 보내면 스팸이 되므로
+    # 최초 답변 등록일 때만 알림을 보낸다. 과거(익명 허용 시절) 글은
+    # user_id 가 NULL 이라 보낼 대상이 없다.
+    if is_first_reply and post.user_id is not None:
+        author = db.get(User, post.user_id)
+        if author is not None:
+            send_qna_reply_notification(
+                to_email=author.email, title=post.title, reply=post.admin_reply
+            )
+
     return PostDetail.model_validate(post)
 
 

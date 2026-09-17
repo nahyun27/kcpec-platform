@@ -250,6 +250,57 @@ def send_draft_to_staff(
     return True
 
 
+def send_qna_reply_notification(
+    *,
+    to_email: str,
+    title: str,
+    reply: str,
+) -> bool:
+    subject = f"[KCPEC] 1:1 문의에 답변이 등록되었습니다 - {title}"
+    body = dedent(
+        f"""\
+        안녕하세요.
+
+        남겨주신 1:1 문의 '{title}'에 답변이 등록되었습니다.
+
+        [답변 내용]
+        {reply}
+
+        사이트 마이페이지 또는 커뮤니티 게시판에서 전체 내용을 확인하실 수 있습니다.
+        추가 문의사항은 admin@kcpec.co.kr 로 보내주세요.
+
+        — 한국범죄예방교육센터 —
+        """
+    )
+
+    if not (settings.SMTP_HOST and to_email):
+        logger.info("[EMAIL DEV MODE] 1:1 문의 답변 알림 — 콘솔 출력")
+        print("=" * 60)
+        print(f"To: {to_email or '(미설정)'}")
+        print(f"Subject: {subject}")
+        print("-" * 60)
+        print(body)
+        print("=" * 60)
+        return True
+
+    msg = EmailMessage()
+    msg["From"] = settings.SMTP_FROM or settings.SMTP_USER or "no-reply@kcpec.kr"
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg.set_content(body)
+
+    try:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
+            smtp.starttls()
+            if settings.SMTP_USER and settings.SMTP_PASSWORD:
+                smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            smtp.send_message(msg)
+    except Exception as exc:  # noqa: BLE001 — 발송 실패는 호출 측에서 status 로 표현
+        logger.exception("SMTP 발송 실패: %s", exc)
+        return False
+    return True
+
+
 def send_new_order_notification(
     *,
     order_id: int,
