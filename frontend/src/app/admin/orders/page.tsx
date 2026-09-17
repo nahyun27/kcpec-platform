@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isAxiosError } from "axios";
 import {
@@ -10,11 +9,13 @@ import {
   confirmBankOrder,
   getAdminOrderDocuments,
   getAdminOrders,
+  getAdminUser,
   refundAdminOrder,
 } from "@/lib/api";
-import type { AdminOrderRow, AdminOrdersResponse } from "@/types/admin";
+import type { AdminOrderRow, AdminOrdersResponse, AdminUser } from "@/types/admin";
 import { PAYMENT_METHOD_LABEL, type DocumentResponse, type OrderStatus } from "@/types/order";
 import { useDialog } from "@/components/ui/DialogProvider";
+import { UserEnrollmentsModal } from "@/components/features/UserEnrollmentsModal";
 
 type FilterValue = OrderStatus | "all";
 
@@ -69,6 +70,7 @@ function AdminOrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [mutatingId, setMutatingId] = useState<number | null>(null);
+  const [openUser, setOpenUser] = useState<AdminUser | null>(null);
   const [docsOrder, setDocsOrder] = useState<AdminOrderRow | null>(null);
 
   async function load() {
@@ -218,13 +220,13 @@ function AdminOrdersPage() {
                       {new Date(r.created_at).toLocaleString("ko-KR")}
                     </td>
                     <td className="px-4 py-3 font-semibold text-slate-900">
-                      <Link
-                        href={`/admin/users?user_id=${r.user_id}`}
+                      <button
+                        type="button"
+                        onClick={() => getAdminUser(r.user_id).then(setOpenUser).catch(() => {})}
                         className="hover:text-[var(--color-primary)] hover:underline"
-                        onClick={(e) => e.stopPropagation()}
                       >
                         {r.name ?? r.username}
-                      </Link>
+                      </button>
                     </td>
                     <td className="px-4 py-3 text-slate-500">
                       {r.email ?? "-"}
@@ -322,6 +324,9 @@ function AdminOrdersPage() {
 
       {docsOrder ? (
         <DocumentsModal order={docsOrder} onClose={() => setDocsOrder(null)} />
+      ) : null}
+      {openUser ? (
+        <UserEnrollmentsModal user={openUser} onClose={() => setOpenUser(null)} />
       ) : null}
     </div>
   );
