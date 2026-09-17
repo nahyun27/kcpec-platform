@@ -1642,6 +1642,34 @@ def list_issued_documents(
     return AdminIssuedDocumentsResponse(items=items, total=total, page=page, size=size)
 
 
+_NOTICE_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024  # 20MB
+NOTICE_ATTACHMENTS_DIR = Path(__file__).resolve().parents[3] / "static" / "notice_attachments"
+
+
+@router.post("/notices/upload-attachment")
+async def upload_notice_attachment(file: UploadFile = File(...)) -> dict[str, str]:
+    """자료실(자료 첨부) 게시물용 파일 업로드 — 지금까지는 이미 어딘가에
+    올라가 있는 파일의 URL 을 직접 입력해야만 첨부할 수 있었다(2026-09,
+    "자료실인데 파일 첨부가 안 된다" 는 지적으로 발견). /static 이 인증 없이
+    공개 서빙되므로 파일명은 추측 불가능한 랜덤 토큰을 사용한다.
+    """
+    data = await file.read()
+    if len(data) > _NOTICE_ATTACHMENT_MAX_BYTES:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail="파일 크기는 20MB를 초과할 수 없습니다."
+        )
+    NOTICE_ATTACHMENTS_DIR.mkdir(parents=True, exist_ok=True)
+    suffix = Path(file.filename or "").suffix[:20]
+    token = secrets.token_urlsafe(16)
+    target = NOTICE_ATTACHMENTS_DIR / f"{token}{suffix}"
+    target.write_bytes(data)
+    original_name = Path(file.filename or "").name or "첨부파일"
+    return {
+        "file_url": f"/static/notice_attachments/{target.name}",
+        "file_name": original_name,
+    }
+
+
 @router.patch("/notices/{notice_id}", response_model=NoticeDetail)
 def patch_notice(notice_id: int, payload: NoticePatch, db: Session = Depends(get_db)) -> NoticeDetail:
     notice = db.get(Notice, notice_id)

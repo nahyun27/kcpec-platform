@@ -56,9 +56,7 @@ const COUNSELING_PRODUCTS: CounselingProduct[] = [
   {
     type: "basic",
     title: "서면 심리상담 의견서",
-    // TODO: 테스트용 1,000원 — 실결제 테스트 끝나면 77_000으로 되돌릴 것
-    // (2026-09, DB courses.price 도 같이 1,000원으로 맞춰둠).
-    price: 1_000,
+    price: 77_000,
     originalPrice: 154_000,
     composition: "범죄심리상담 · 서면상담",
     goals: [
@@ -75,9 +73,7 @@ const COUNSELING_PRODUCTS: CounselingProduct[] = [
   {
     type: "phone",
     title: "전화 심화상담 의견서",
-    // TODO: 테스트용 1,000원 — 실결제 테스트 끝나면 330_000으로 되돌릴 것
-    // (2026-09, DB courses.price 도 같이 1,000원으로 맞춰둠).
-    price: 1_000,
+    price: 330_000,
     originalPrice: 660_000,
     composition: "전화 상담 · 회당 15분 · 총 3회",
     goals: [

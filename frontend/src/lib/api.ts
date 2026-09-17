@@ -768,6 +768,19 @@ export async function createNotice(payload: NoticeCreate): Promise<NoticeDetail>
   return data;
 }
 
+export async function uploadNoticeAttachment(
+  file: File,
+): Promise<{ file_url: string; file_name: string }> {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await api.post<{ file_url: string; file_name: string }>(
+    "/admin/notices/upload-attachment",
+    form,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  return data;
+}
+
 export async function getPosts(
   category?: PostCategory,
   page = 1,

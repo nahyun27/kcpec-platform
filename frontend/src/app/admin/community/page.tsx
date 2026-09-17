@@ -20,6 +20,7 @@ import {
   patchAdminPost,
   patchAdminPostReply,
   patchFaq,
+  uploadNoticeAttachment,
 } from "@/lib/api";
 import {
   COMMUNITY_LABEL,
@@ -791,6 +792,7 @@ function CreateModal({
   const [content, setContent] = useState("");
   const [pinned, setPinned] = useState(false);
   const [fileUrl, setFileUrl] = useState("");
+  const [fileName, setFileName] = useState<string | null>(null);
   const [author, setAuthor] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -882,14 +884,14 @@ function CreateModal({
         </Field>
         {isNotice ? (
           <>
-            <Field label="첨부파일 URL (선택)">
-              <input
-                value={fileUrl}
-                onChange={(e) => setFileUrl(e.target.value)}
-                className={inputCls}
-                placeholder="https://..."
-              />
-            </Field>
+            <AttachmentField
+              fileUrl={fileUrl}
+              fileName={fileName}
+              onChange={(url, name) => {
+                setFileUrl(url);
+                setFileName(name);
+              }}
+            />
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -938,15 +940,20 @@ function EditModal({
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [pinned, setPinned] = useState(row.is_pinned ?? false);
+  const [fileUrl, setFileUrl] = useState("");
+  const [originalFileUrl, setOriginalFileUrl] = useState("");
+  const [fileName, setFileName] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const isNotice = row.table === "notice";
 
   const isDirty =
     title !== row.title ||
     content !== originalContent ||
-    pinned !== (row.is_pinned ?? false);
+    pinned !== (row.is_pinned ?? false) ||
+    fileUrl !== originalFileUrl;
   const safeClose = () => confirmClose(isDirty, onClose, dialog.confirm);
 
   // 마운트 시 상세를 받아와 TipTap 초기 콘텐츠로 채워준다.
@@ -956,15 +963,22 @@ function EditModal({
     setLoaded(false);
     setLoadErr(null);
     // 수정하려고 불러오는 것뿐이라 공개 조회수를 올리면 안 됨.
-    const fetcher =
-      row.table === "notice"
-        ? getNotice(row.id, { countView: false }).then((d) => d.content)
-        : getPost(row.id, { countView: false }).then((d) => d.content);
+    const fetcher = isNotice
+      ? getNotice(row.id, { countView: false }).then((d) => ({
+          content: d.content,
+          fileUrl: d.file_url ?? "",
+        }))
+      : getPost(row.id, { countView: false }).then((d) => ({
+          content: d.content,
+          fileUrl: "",
+        }));
     fetcher
-      .then((c) => {
+      .then(({ content: c, fileUrl: f }) => {
         if (cancelled) return;
         setContent(c ?? "");
         setOriginalContent(c ?? "");
+        setFileUrl(f);
+        setOriginalFileUrl(f);
         setLoaded(true);
       })
       .catch(() => {
@@ -975,7 +989,7 @@ function EditModal({
     return () => {
       cancelled = true;
     };
-  }, [row.table, row.id]);
+  }, [row.table, row.id, isNotice]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -986,11 +1000,12 @@ function EditModal({
     }
     setSubmitting(true);
     try {
-      if (row.table === "notice") {
+      if (isNotice) {
         await patchAdminNotice(row.id, {
           title: title.trim(),
           content: content.trim(),
           is_pinned: pinned,
+          file_url: fileUrl.trim() || null,
         });
       } else {
         await patchAdminPost(row.id, {
@@ -1039,16 +1054,26 @@ function EditModal({
             <p className="mt-1 text-xs text-red-600">{loadErr}</p>
           ) : null}
         </Field>
-        {row.table === "notice" ? (
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={pinned}
-              onChange={(e) => setPinned(e.target.checked)}
-              className="accent-[var(--color-primary)]"
+        {isNotice ? (
+          <>
+            <AttachmentField
+              fileUrl={fileUrl}
+              fileName={fileName}
+              onChange={(url, name) => {
+                setFileUrl(url);
+                setFileName(name);
+              }}
             />
-            상단 고정 (📌)
-          </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={pinned}
+                onChange={(e) => setPinned(e.target.checked)}
+                className="accent-[var(--color-primary)]"
+              />
+              상단 고정 (📌)
+            </label>
+          </>
         ) : null}
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
         <div className="flex justify-end gap-2">
@@ -1168,5 +1193,80 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <label className="block text-sm font-medium text-zinc-800">{label}</label>
       {children}
     </div>
+  );
+}
+
+// 자료실 게시물 첨부파일 — 파일 선택 즉시 업로드하고 반환된 URL을 저장한다.
+// URL을 직접 입력하는 대체 입력란도 남겨둬 이미 어딘가 올라간 파일을 그대로
+// 연결하고 싶은 경우에도 대응한다(2026-09).
+function AttachmentField({
+  fileUrl,
+  fileName,
+  onChange,
+}: {
+  fileUrl: string;
+  fileName: string | null;
+  onChange: (fileUrl: string, fileName: string | null) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleFile(file: File) {
+    setUploading(true);
+    setError(null);
+    try {
+      const res = await uploadNoticeAttachment(file);
+      onChange(res.file_url, res.file_name);
+    } catch (caught) {
+      const detail = isAxiosError(caught)
+        ? (caught.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      setError(detail ?? "업로드에 실패했습니다.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <Field label="첨부파일 (선택)">
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <label className="cursor-pointer rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 hover:bg-zinc-50">
+            {uploading ? "업로드 중..." : "파일 선택"}
+            <input
+              type="file"
+              className="hidden"
+              disabled={uploading}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void handleFile(f);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          {fileUrl ? (
+            <span className="flex items-center gap-2 text-xs text-zinc-600">
+              {fileName ?? fileUrl}
+              <button
+                type="button"
+                onClick={() => onChange("", null)}
+                className="text-red-500 hover:underline"
+              >
+                제거
+              </button>
+            </span>
+          ) : (
+            <span className="text-xs text-zinc-400">선택된 파일 없음</span>
+          )}
+        </div>
+        {error ? <p className="text-xs text-red-600">{error}</p> : null}
+        <input
+          value={fileUrl}
+          onChange={(e) => onChange(e.target.value, null)}
+          placeholder="또는 이미 업로드된 파일의 URL을 직접 입력"
+          className={inputCls}
+        />
+      </div>
+    </Field>
   );
 }
