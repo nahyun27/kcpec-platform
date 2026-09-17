@@ -87,11 +87,11 @@ function Hero() {
         <div className="flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-700 ease-out">
           <Link
             href="/sentencing"
-            className="group flex items-center justify-center gap-2 rounded-full bg-[#1C3461] px-8 py-4 text-lg font-semibold text-white ring-2 ring-white/40 shadow-xl shadow-black/20 transition-all hover:-translate-y-1 hover:bg-[var(--color-primary-hover)] hover:shadow-2xl"
+            className="group flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#1C3461] px-4 py-3 text-sm font-semibold text-white ring-2 ring-white/40 shadow-xl shadow-black/20 transition-all hover:-translate-y-1 hover:bg-[var(--color-primary-hover)] hover:shadow-2xl sm:gap-2 sm:px-8 sm:py-4 sm:text-lg"
           >
-            <Sparkles className="h-5 w-5 shrink-0 text-white transition-transform group-hover:rotate-12" />
+            <Sparkles className="h-4 w-4 shrink-0 text-white transition-transform group-hover:rotate-12 sm:h-5 sm:w-5" />
             <span>내 사건에 맞는 교육과정 추천 받기</span>
-            <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+            <ArrowRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
           </Link>
         </div>
       </div>

@@ -59,11 +59,21 @@ def _find_soffice() -> str:
     )
 
 
-def build_issue_number(course_title: str, doc_id: int, issued: date) -> str:
-    """{year}-kcpec-{과정코드}-{doc_id 5자리} 형식의 증서번호."""
+def cert_course_code(course_title: str) -> str:
+    """course_title 로 과정코드 조회. 등록 안 된 강의(예: 심리상담류)는 "00"."""
     cfg = get_cert_template(course_title)
-    code = cfg["code"] if cfg else "00"
-    return f"{issued.year}-kcpec-{code}-{doc_id:05d}"
+    return cfg["code"] if cfg else "00"
+
+
+def build_issue_number(course_title: str, sequence: int, issued: date) -> str:
+    """{year}-kcpec-{과정코드}-{순번 5자리} 형식의 증서번호.
+
+    sequence 는 doc.id(전체 발급 문서 기준 전역 순번)가 아니라, 과정코드별로
+    구 사이트 발급 이력을 이어받아 세는 순번이다(2026-09) —
+    app.core.cert_sequence.reserve_next_sequence 로 발급 전 미리 채번한다.
+    """
+    code = cert_course_code(course_title)
+    return f"{issued.year}-kcpec-{code}-{sequence:05d}"
 
 
 def _format_korean_date(d: date) -> str:
@@ -176,7 +186,7 @@ _convert_to_pdf = convert_office_to_pdf
 def generate_certificate_pdf(
     *,
     course_title: str,
-    doc_id: int,
+    sequence: int,
     file_token: str,
     recipient_name: str,
     birth_date: date,
@@ -186,9 +196,11 @@ def generate_certificate_pdf(
 
     course_title: DB course.title 원문 — 템플릿 조회 키(course_id 는 로컬/운영
     DB마다 다른 강의를 가리킬 수 있어 쓰면 안 됨. cert_config.py 참고).
+    sequence: 과정코드별 발급 순번(cert_sequence.reserve_next_sequence 로
+    미리 채번) — 증서번호의 마지막 5자리에 그대로 들어간다.
     file_token: 저장 파일명에 쓰는 랜덤 토큰. /static 이 인증 없이 공개
-    서빙되므로 doc_id(순차 정수)를 파일명에 쓰면 정수를 늘려가며 전체
-    발급 문서를 스캔당할 수 있어, 반드시 추측 불가능한 값을 넘겨야 함.
+    서빙되므로 순차적인 값을 파일명에 쓰면 정수를 늘려가며 전체 발급 문서를
+    스캔당할 수 있어, 반드시 추측 불가능한 값을 넘겨야 함.
     """
     cfg = get_cert_template(course_title)
     if cfg is None:
@@ -198,7 +210,7 @@ def generate_certificate_pdf(
     if not src.exists():
         raise RuntimeError(f"템플릿 파일 누락: {src}")
 
-    cert_number = build_issue_number(course_title, doc_id, issued_date)
+    cert_number = build_issue_number(course_title, sequence, issued_date)
 
     PDF_DIR.mkdir(parents=True, exist_ok=True)
     final_path = PDF_DIR / f"cert_{file_token}.pdf"

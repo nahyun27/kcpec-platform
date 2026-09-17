@@ -21,6 +21,7 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.admin import require_admin
+from app.core.cert_sequence import reserve_next_sequence
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.document_generator import fill_counseling_template
@@ -31,7 +32,7 @@ from app.core.gemini_client import (
     is_transient_overload_draft,
 )
 from app.core.health import run_all_checks
-from app.core.pdf import PDF_DIR, convert_office_to_pdf
+from app.core.pdf import PDF_DIR, build_issue_number, cert_course_code, convert_office_to_pdf
 from app.core.storage import issue_stream_url
 from app.models.community import Notice, Post
 from app.models.counseling import CounselingStatus, CounselingSurvey
@@ -911,10 +912,11 @@ async def upload_final(
         if existing_doc is not None:
             existing_doc.pdf_url = pdf_url
         else:
-            issue_number = (
-                f"KCPEC-CNSL-{datetime.now(timezone.utc).strftime('%Y%m%d')}-"
-                f"{secrets.token_hex(3).upper()}"
-            )
+            # 심리상담 의견서도 구 사이트 발급 이력을 이어받는 동일 채번
+            # 규칙을 쓴다 — 과정코드 "00"(cert_course_code 가 등록 안 된
+            # 강의명에 기본으로 부여, 2026-09).
+            sequence = reserve_next_sequence(db, cert_course_code(""))
+            issue_number = build_issue_number("", sequence, _now().date())
             doc = IssuedDocument(
                 order_id=order.id,
                 user_id=user.id,

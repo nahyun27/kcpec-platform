@@ -1,7 +1,7 @@
 import enum
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, String, func
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -65,6 +65,22 @@ class IssuedDocument(Base):
     downloaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     order: Mapped["Order"] = relationship(back_populates="documents")
+
+
+class CertificateSequence(Base):
+    """과정코드별 증서번호 순번 카운터.
+
+    구 사이트에서 이미 발급된 증서번호를 이어받기 위한 것 — 예: 준법의식
+    강의는 구 사이트에서 이미 241번까지 발급됐으므로 새 플랫폼은 242번부터
+    시작해야 한다(2026-09, 의뢰인 확인). 새로 생긴 강의(구 사이트에 없던
+    강의)는 0부터 시작. 수료증+서약서는 세트로 같은 번호를 공유하므로 세트당
+    1씩만 증가시킨다 — SELECT ... FOR UPDATE 로 동시 발급 시 경합 방지.
+    """
+
+    __tablename__ = "certificate_sequences"
+
+    course_code: Mapped[str] = mapped_column(String(10), primary_key=True)
+    next_number: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
 
 from app.models.order import Order  # noqa: E402,F401
