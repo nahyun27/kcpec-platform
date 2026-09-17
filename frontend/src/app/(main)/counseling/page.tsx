@@ -160,8 +160,9 @@ export default function CounselingPage() {
             <p>
               KCPEC의 모든 상담은 국가 및 공인 기관에서 엄격하게 검증받은
               <br />
-              <strong>최고 수준의 1급 전문 심리상담사</strong>가 직접 진행하며, 내담자의
-              완전한 자기객관화와 성공적인 사회 복귀를 돕습니다.
+              <strong>최고 수준의 1급 전문 심리상담사</strong>가 직접 진행하며,
+              <br />
+              내담자의 완전한 자기객관화와 성공적인 사회 복귀를 돕습니다.
             </p>
           </div>
         </Reveal>
