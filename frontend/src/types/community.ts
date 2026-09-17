@@ -6,7 +6,7 @@ export type CommunityCategory = NoticeCategory | PostCategory;
 export const COMMUNITY_LABEL: Record<CommunityCategory, string> = {
   notice: "공지사항",
   resource: "자료실",
-  qna: "Q&A",
+  qna: "1:1 문의",
   column: "전문가 칼럼",
   review: "수강 후기",
 };

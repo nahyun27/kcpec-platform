@@ -886,7 +886,7 @@ function NewCourseModal({
             className={inputCls}
           />
         </Field>
-        <Field label="수료 기준 진도율(%) — 전체 차시 중 이 비율 이상 완료해야 수료">
+        <Field label="수료 기준 진도율(%) (전체 차시 중 이 비율 이상 완료해야 수료)">
           <input
             type="number"
             min={0}
@@ -1025,7 +1025,7 @@ function EditCourseModal({
   }
 
   return (
-    <ModalShell title={`강의 수정 — #${course.id}`} onClose={safeClose}>
+    <ModalShell title={`강의 수정 (#${course.id})`} onClose={safeClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="제목">
           <input
@@ -1127,7 +1127,7 @@ function EditCourseModal({
             </div>
           ) : null}
         </Field>
-        <Field label="수료 기준 진도율(%) — 전체 차시 중 이 비율 이상 완료해야 수료">
+        <Field label="수료 기준 진도율(%) (전체 차시 중 이 비율 이상 완료해야 수료)">
           <input
             type="number"
             min={0}
@@ -1201,7 +1201,7 @@ function NewLectureModal({
   }
 
   return (
-    <ModalShell title={`영상 추가 — ${course.title}`} onClose={safeClose}>
+    <ModalShell title={`영상 추가 (${course.title})`} onClose={safeClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="영상 제목">
           <input
@@ -1281,7 +1281,7 @@ function EditLectureModal({
   }
 
   return (
-    <ModalShell title={`영상 수정 — #${lecture.id}`} onClose={safeClose}>
+    <ModalShell title={`영상 수정 (#${lecture.id})`} onClose={safeClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="영상 제목">
           <input
@@ -1448,7 +1448,7 @@ function QuizModal({
 
   return (
     <ModalShell
-      title={`${isEdit ? "퀴즈 수정" : "퀴즈 등록"} — ${course.title}`}
+      title={`${isEdit ? "퀴즈 수정" : "퀴즈 등록"} (${course.title})`}
       onClose={safeClose}
       maxWidth="max-w-2xl"
     >

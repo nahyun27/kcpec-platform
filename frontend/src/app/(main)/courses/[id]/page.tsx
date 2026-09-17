@@ -273,7 +273,7 @@ export default function CourseDetailPage({
                 {course.title}
               </h1>
               <p className="whitespace-pre-wrap text-lg leading-relaxed text-slate-600 max-w-xl">
-                {course.description ?? "— 자세한 설명은 추후 업데이트됩니다."}
+                {course.description ?? "자세한 설명은 추후 업데이트됩니다."}
               </p>
               <div className="flex flex-wrap items-center gap-6 pt-4 text-sm font-medium text-slate-600">
                 <div className="flex items-center gap-2">
@@ -470,7 +470,7 @@ export default function CourseDetailPage({
                 <h3 className="font-sans text-xl font-extrabold text-slate-900 mb-2">수강 신청</h3>
                 <p className="text-[13px] font-medium text-slate-500">
                   {isEnrolled
-                    ? "결제 완료 — 바로 학습을 시작할 수 있습니다."
+                    ? "결제가 완료되었습니다. 바로 학습을 시작할 수 있습니다."
                     : "결제 즉시 학습을 시작할 수 있습니다."}
                 </p>
               </div>

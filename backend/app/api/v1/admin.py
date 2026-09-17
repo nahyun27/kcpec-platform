@@ -1205,7 +1205,7 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
         activities.append(
             AdminActivity(
                 type="qna_posted",
-                message=f"{p.author_name}님이 Q&A 문의 등록",
+                message=f"{p.author_name}님이 1:1 문의 등록",
                 created_at=p.created_at,
             )
         )

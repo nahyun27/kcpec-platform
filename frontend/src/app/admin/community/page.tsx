@@ -73,7 +73,7 @@ const SIDEBAR: { key: Filter; label: string }[] = [
   { key: "all", label: "전체 게시물" },
   { key: "notice", label: "공지사항" },
   { key: "resource", label: "자료실" },
-  { key: "qna", label: "Q&A" },
+  { key: "qna", label: "1:1 문의" },
   { key: "column", label: "전문가 칼럼" },
   { key: "review", label: "수강 후기" },
   { key: "faq", label: "자주 묻는 질문" },
@@ -1011,7 +1011,7 @@ function EditModal({
   }
 
   return (
-    <ModalShell title={`수정 — ${COMMUNITY_LABEL[row.category]}`} onClose={safeClose}>
+    <ModalShell title={`수정 (${COMMUNITY_LABEL[row.category]})`} onClose={safeClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="제목">
           <input

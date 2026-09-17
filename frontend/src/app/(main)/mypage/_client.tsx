@@ -1149,7 +1149,7 @@ function OrderRow({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm leading-relaxed text-slate-500">
                 결제가 완료되지 않았습니다. 계좌가 발급되지 않은 채로 결제창을
-                나가신 것 같아요 — 아래 버튼으로 다시 결제를 진행해 주세요.
+                나가신 것 같아요. 아래 버튼으로 다시 결제를 진행해 주세요.
               </p>
               <button
                 type="button"
@@ -1222,7 +1222,7 @@ function OrderPaidDetails({
           </ul>
         ) : isCourseCompleted ? (
           <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
-            <p className="text-sm text-slate-500 mb-3">수료 완료 — 수료증을 발급받을 수 있습니다.</p>
+            <p className="text-sm text-slate-500 mb-3">수료를 완료했습니다. 수료증을 발급받을 수 있습니다.</p>
             <Link
               href={`/issue?order_id=${order.id}`}
               className="inline-flex items-center justify-center rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[var(--color-primary-hover)] transition-colors"
@@ -1368,7 +1368,7 @@ function BundleOrderGroup({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm leading-relaxed text-slate-500">
                 결제가 완료되지 않았습니다. 계좌가 발급되지 않은 채로 결제창을
-                나가신 것 같아요 — 아래 버튼으로 다시 결제를 진행해 주세요.
+                나가신 것 같아요. 아래 버튼으로 다시 결제를 진행해 주세요.
               </p>
               <button
                 type="button"
