@@ -124,6 +124,7 @@ class AdminOrderRow(BaseModel):
     payment_method: PaymentMethod
     status: OrderStatus
     created_at: datetime
+    bundle_id: str | None = None
 
 
 class AdminOrdersResponse(BaseModel):

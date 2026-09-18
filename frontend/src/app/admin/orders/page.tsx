@@ -231,7 +231,17 @@ function AdminOrdersPage() {
                     <td className="px-4 py-3 text-slate-500">
                       {r.email ?? "-"}
                     </td>
-                    <td className="px-4 py-3 text-slate-700">{r.course_title}</td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {r.course_title}
+                      {r.bundle_id ? (
+                        <span
+                          title={`묶음결제 ID: ${r.bundle_id}`}
+                          className="ml-2 inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-bold text-indigo-600 ring-1 ring-inset ring-indigo-200"
+                        >
+                          묶음결제 · {r.bundle_id.slice(-4)}
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="px-4 py-3 text-slate-500">
                       {PAYMENT_METHOD_LABEL[r.payment_method]}
                     </td>

@@ -54,6 +54,7 @@ export type AdminOrderRow = {
   payment_method: PaymentMethod;
   status: OrderStatus;
   created_at: string;
+  bundle_id: string | null;
 };
 
 export type AdminOrdersResponse = {

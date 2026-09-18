@@ -106,6 +106,7 @@ def _row_from_order(o: Order, user: User, course: Course) -> AdminOrderRow:
         payment_method=o.payment_method,
         status=o.status,
         created_at=o.created_at,
+        bundle_id=o.bundle_id,
     )
 
 
