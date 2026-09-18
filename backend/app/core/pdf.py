@@ -103,20 +103,33 @@ COURSE_TITLE_LINE_BREAKS: dict[str, tuple[str, str]] = {
 
 
 def _fill_two_line_cell(text_frame, line1: str, line2: str) -> None:
-    """이미 2개 문단으로 나뉜 셀에 지정된 두 줄을 각각 채운다.
+    """셀에 지정된 두 줄을 각각 별도 문단으로 채운다.
 
-    문단을 하나로 합치고 남는 문단을 지우는 대신, 기존 두 문단을 그대로
-    재사용한다 — 템플릿 제작자가 이 셀들만 애초에 2문단으로 만들어 둔
-    이유이기도 하다.
+    템플릿에 이미 2개 문단이 있으면(제작자가 애초에 2문단으로 나눠둔
+    경우) 그대로 재사용하고, 1개 문단뿐이면 첫 문단의 서식(폰트/크기)을
+    그대로 복사한 문단을 하나 추가한다 — 문단이 하나뿐인 셀에 이 함수를
+    썼을 때 zip() 이 둘째 줄을 조용히 버려서 이수과정명 뒷부분이 통째로
+    사라지는 문제가 있었다(2026-09, "알코올중독습관교정교육" 발급 확인
+    중 발견 — "습관교정교육"이 안 보이고 "알코올중독"만 남았었음).
     """
-    paragraphs = text_frame.paragraphs
+    paragraphs = list(text_frame.paragraphs)
+    if len(paragraphs) < 2:
+        new_para = text_frame.add_paragraph()
+        new_para.alignment = paragraphs[0].alignment
+        paragraphs.append(new_para)
     for para, text in zip(paragraphs[:2], (line1, line2)):
         if para.runs:
             para.runs[0].text = text
             for r in para.runs[1:]:
                 r.text = ""
         else:
-            para.add_run().text = text
+            run = para.add_run()
+            run.text = text
+            if paragraphs[0].runs:
+                src_font = paragraphs[0].runs[0].font
+                run.font.size = src_font.size
+                run.font.name = src_font.name
+                run.font.bold = src_font.bold
     for para in paragraphs[2:]:
         para._p.getparent().remove(para._p)
 
