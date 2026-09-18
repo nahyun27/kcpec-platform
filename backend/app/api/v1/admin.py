@@ -371,10 +371,13 @@ def admin_user_enrollments(
                 )
             )
 
-        # 퀴즈가 없으면 quiz_passed=True 로 취급 (수료 조건에 영향 없음)
-        quiz_passed = (
-            True if not has_quiz_map.get(e.id, False) else (e.id in passed_set)
-        )
+        # 퀴즈가 없으면 quiz_passed=True 로 취급(수료 조건에 영향 없음) —
+        # 단 이건 내부 수료 판정용 값이라, 화면에 그대로 쓰면 퀴즈가 아예
+        # 없는 과정(심리상담 등)도 "퀴즈 통과"로 잘못 보인다(2026-09, 관리자
+        # 페이지에서 발견). has_quiz 를 같이 내려줘서 프론트가 퀴즈 자체가
+        # 없는 경우를 구분해 다르게 표시할 수 있게 한다.
+        has_quiz = has_quiz_map.get(e.id, False)
+        quiz_passed = True if not has_quiz else (e.id in passed_set)
         doc = doc_by_course.get(course.id)
         out.append(
             AdminUserEnrollmentRow(
@@ -385,6 +388,7 @@ def admin_user_enrollments(
                 overall_progress_pct=pct,
                 is_completed=e.is_completed,
                 quiz_passed=quiz_passed,
+                has_quiz=has_quiz,
                 expires_at=e.expires_at,
                 lectures=lecture_rows,
                 document=(

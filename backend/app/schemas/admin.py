@@ -296,6 +296,7 @@ class AdminUserEnrollmentRow(BaseModel):
     overall_progress_pct: int
     is_completed: bool
     quiz_passed: bool
+    has_quiz: bool
     # None 이면 수강기간 제한 없음(레거시 enrollment).
     expires_at: datetime | None = None
     lectures: list[LectureProgressDetail] = []

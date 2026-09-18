@@ -137,6 +137,7 @@ export type AdminUserEnrollmentRow = {
   overall_progress_pct: number;
   is_completed: boolean;
   quiz_passed: boolean;
+  has_quiz: boolean;
   // null 이면 수강기간 제한 없음(레거시 enrollment).
   expires_at: string | null;
   lectures: AdminLectureProgressDetail[];

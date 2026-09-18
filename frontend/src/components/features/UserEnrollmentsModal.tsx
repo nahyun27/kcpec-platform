@@ -130,7 +130,11 @@ export function UserEnrollmentsModal({
                         )}
                       </div>
                       <div className="text-center">
-                        {r.quiz_passed ? (
+                        {!r.has_quiz ? (
+                          <span className="inline-flex items-center whitespace-nowrap rounded-md bg-slate-50 px-2 py-1 text-[10px] font-bold tracking-wide text-slate-400 ring-1 ring-inset ring-slate-500/10">
+                            퀴즈 없음
+                          </span>
+                        ) : r.quiz_passed ? (
                           <span className="inline-flex items-center whitespace-nowrap rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-bold tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
                             퀴즈 통과
                           </span>
