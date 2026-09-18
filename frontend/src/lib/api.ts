@@ -397,11 +397,18 @@ export async function getOrderDocuments(orderId: number): Promise<DocumentRespon
 export async function markDocumentDownloaded(
   orderId: number,
   documentId: number,
-): Promise<DocumentResponse> {
-  const { data } = await api.post<DocumentResponse>(
-    `/orders/${orderId}/documents/${documentId}/downloaded`,
+): Promise<void> {
+  // 다운로드 버튼이 target="_blank" 로 새 탭을 열기 때문에, 탭이 열리는
+  // 순간 현재 페이지 컨텍스트가 넘어가면서 일반 axios 요청이 전송되기
+  // 전에 취소되는 경우가 있었다(특히 iOS Safari) — 실제로는 파일이 정상
+  // 다운로드됐는데도 서버에는 기록 요청이 아예 도착하지 않아 마이페이지/
+  // 관리자 페이지에 "미다운로드"로 잘못 표시됨(2026-09, nginx 접근로그
+  // 대조로 확인 — PDF GET은 있는데 downloaded POST가 없었음). keepalive
+  // 옵션을 쓰면 페이지가 넘어가도 브라우저가 요청 전송을 보장해준다.
+  await fetch(
+    `${API_BASE_URL}/orders/${orderId}/documents/${documentId}/downloaded`,
+    { method: "POST", credentials: "include", keepalive: true },
   );
-  return data;
 }
 
 // ---------- counseling + my -------------------------------------------------
