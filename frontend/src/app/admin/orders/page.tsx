@@ -16,6 +16,7 @@ import type { AdminOrderRow, AdminOrdersResponse, AdminUser } from "@/types/admi
 import { PAYMENT_METHOD_LABEL, type DocumentResponse, type OrderStatus } from "@/types/order";
 import { useDialog } from "@/components/ui/DialogProvider";
 import { UserEnrollmentsModal } from "@/components/features/UserEnrollmentsModal";
+import { OrderStatusBadge } from "@/components/features/OrderStatusBadge";
 
 type FilterValue = OrderStatus | "all";
 
@@ -249,7 +250,7 @@ function AdminOrdersPage() {
                       {r.amount.toLocaleString()}원
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={r.status} pendingBank={isPendingBank} />
+                      <OrderStatusBadge status={r.status} pendingBank={isPendingBank} />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1.5">
@@ -340,30 +341,6 @@ function AdminOrdersPage() {
       ) : null}
     </div>
   );
-}
-
-function StatusBadge({
-  status,
-  pendingBank,
-}: {
-  status: OrderStatus;
-  pendingBank: boolean;
-}) {
-  if (pendingBank) {
-    return (
-      <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
-        입금 대기
-      </span>
-    );
-  }
-  const map: Record<OrderStatus, { label: string; cls: string }> = {
-    paid: { label: "결제완료", cls: "bg-emerald-100 text-emerald-700" },
-    pending: { label: "결제대기", cls: "bg-amber-100 text-amber-700" },
-    cancelled: { label: "취소", cls: "bg-zinc-200 text-zinc-700" },
-    refunded: { label: "환불", cls: "bg-zinc-200 text-zinc-700" },
-  };
-  const { label, cls } = map[status];
-  return <span className={`rounded px-2 py-0.5 text-xs font-semibold ${cls}`}>{label}</span>;
 }
 
 function DocumentsModal({

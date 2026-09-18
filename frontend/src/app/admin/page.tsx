@@ -32,6 +32,7 @@ import type {
   SalesStats,
 } from "@/types/admin";
 import { PAYMENT_METHOD_LABEL } from "@/types/order";
+import { OrderStatusBadge } from "@/components/features/OrderStatusBadge";
 
 const AVATAR_COLORS = [
   "bg-gradient-to-br from-blue-500 to-blue-600",
@@ -438,19 +439,7 @@ function RecentOrdersTable({ rows }: { rows: AdminOrderRow[] }) {
                   {r.amount.toLocaleString()}원
                 </td>
                 <td className="px-4 py-3">
-                  {isPendingBank ? (
-                    <span className="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700 ring-1 ring-inset ring-red-600/10">
-                      입금 대기
-                    </span>
-                  ) : r.status === "paid" ? (
-                    <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
-                      결제완료
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded-md bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-500/10">
-                      {r.status}
-                    </span>
-                  )}
+                  <OrderStatusBadge status={r.status} pendingBank={isPendingBank} />
                 </td>
               </tr>
             );
