@@ -124,10 +124,14 @@ def _replace_text_frame(
         run.text = new_text
         if font_size is not None:
             run.font.size = font_size
-    # 추가 paragraph 들 안의 run 도 모두 비움
+    # 추가 paragraph 는 통째로 제거한다 — 텍스트만 비우면 빈 문단이 그대로
+    # 한 줄 분량의 세로 공간을 차지해서, 세로 가운데 정렬(anchor=ctr)된
+    # 셀에서 실제 텍스트가 위쪽으로 쏠려 보이는 원인이 된다(2026-09, 일부
+    # 이수과정명은 템플릿 제작 시점에 이미 2개 문단으로 미리 나뉘어 있었는데
+    # — 예: "개인정보보호·" / "사이버금융범죄 예방교육" — 우리는 그 중
+    # 첫 문단에만 전체 제목을 채워 넣고 둘째 문단은 비우기만 해서 발견됨).
     for para in paragraphs[1:]:
-        for r in para.runs:
-            r.text = ""
+        para._p.getparent().remove(para._p)
 
 
 def _fill_template(
