@@ -646,11 +646,24 @@ def set_quiz(course_id: int, payload: QuizSet, db: Session = Depends(get_db)) ->
 # ---------- orders ------------------------------------------------------------
 
 
+# 카드/간편결제 등 무통장입금이 아닌 결제대기(PENDING)는 관리자가 할 일이
+# 없다 — 무통장입금만 "입금 확인" 버튼이 필요하고, 나머지는 토스가 알아서
+# 승인하거나 24시간 뒤 자동취소된다(orders.py _cancel_stale_pending).
+# 결제창만 열었다 닫아도 주문이 하나 생기는 구조라(토스 위젯 호출 전에
+# orderId 로 쓸 Order row 부터 미리 만들어야 함) 목록에 이런 "빈 시도"가
+# 계속 쌓여서 관리자 화면을 어지럽혔다(2026-09, 실사용 중 지적) — 관리자
+# 화면에서만 안 보이게 걸러내고, 데이터/자동취소 로직은 그대로 둔다.
 def _order_query_for_admin(db: Session, *, status_filter: OrderStatus | None):
     base = (
         select(Order, User, Course)
         .join(User, User.id == Order.user_id)
         .join(Course, Course.id == Order.course_id)
+        .where(
+            or_(
+                Order.status != OrderStatus.PENDING,
+                Order.payment_method == PaymentMethod.BANK_TRANSFER,
+            )
+        )
     )
     if status_filter is not None:
         base = base.where(Order.status == status_filter)
@@ -664,7 +677,12 @@ def list_orders(
     size: int = Query(default=20, ge=1, le=200),
     db: Session = Depends(get_db),
 ) -> AdminOrdersResponse:
-    count_stmt = select(func.count(Order.id))
+    count_stmt = select(func.count(Order.id)).where(
+        or_(
+            Order.status != OrderStatus.PENDING,
+            Order.payment_method == PaymentMethod.BANK_TRANSFER,
+        )
+    )
     if status_filter is not None:
         count_stmt = count_stmt.where(Order.status == status_filter)
     total = db.scalar(count_stmt) or 0
