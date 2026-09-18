@@ -25,6 +25,8 @@ from pathlib import Path
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN
+from pptx.util import Pt
 
 from app.core.cert_config import get_cert_template, get_pledge_file
 
@@ -85,20 +87,43 @@ def _spaced_name(name: str) -> str:
     return " ".join(list(name.strip()))
 
 
-def _replace_text_frame(text_frame, new_text: str) -> None:
+def _replace_text_frame(
+    text_frame,
+    new_text: str,
+    *,
+    align: PP_ALIGN | None = None,
+    font_size: Pt | None = None,
+) -> None:
     """텍스트 프레임의 텍스트를 새 문자열로 교체.
     첫 paragraph 의 첫 run 포맷(폰트/크기/색상)을 보존한다.
+
+    align/font_size 를 주면 원본 템플릿 서식을 덮어쓴다 — 이수일자/생년월일/
+    성명 셀은 템플릿 제작자가 고정된 예시 값(예: "최 명 환", "1997년  5월
+    29일") 길이에 맞춰 왼쪽 정렬 + 수동으로 앞에 공백을 채워 넣는 방식으로
+    "센터에 가깝게" 보이게 만들어둔 것이었다. 실제 이름/날짜는 길이가
+    제각각이라(이름 2~4자, 일자가 한 자리/두 자리 등) 이 수동 패딩 방식으로는
+    항상 어긋나고, 두 자리 월/일이 들어오면 셀 너비를 넘겨 줄바꿈까지
+    일어났다(2026-09, 실제 발급 건에서 발견). 정렬은 명시적으로 가운데로
+    고정하고, 두 자리 일자에도 한 줄에 들어가도록 셀 폰트 크기를 살짝
+    줄인다.
     """
     paragraphs = text_frame.paragraphs
     if not paragraphs:
         return
     first_para = paragraphs[0]
+    if align is not None:
+        first_para.alignment = align
     if first_para.runs:
         first_para.runs[0].text = new_text
+        if font_size is not None:
+            first_para.runs[0].font.size = font_size
         for r in first_para.runs[1:]:
             r.text = ""
     else:
-        first_para.add_run().text = new_text
+        run = first_para.add_run()
+        run.text = new_text
+        if font_size is not None:
+            run.font.size = font_size
     # 추가 paragraph 들 안의 run 도 모두 비움
     for para in paragraphs[1:]:
         for r in para.runs:
@@ -134,7 +159,12 @@ def _fill_template(
         elif sid == 92 and shape.has_table:
             table = shape.table
             _replace_text_frame(table.cell(0, 1).text_frame, course_title)
-            _replace_text_frame(table.cell(0, 3).text_frame, issued_str)
+            _replace_text_frame(
+                table.cell(0, 3).text_frame,
+                issued_str,
+                align=PP_ALIGN.CENTER,
+                font_size=Pt(10.5),
+            )
             # row 1(성명/생년월일)의 회색 음영은 셀 자체 fill 이 아니라 테이블
             # 스타일의 band1H(테마 dk1 색 20% 투명도)에서 나온다 — 화면/PNG
             # 렌더링은 정상인데 LibreOffice의 PPTX→PDF 변환에서만 이 alpha가
@@ -146,8 +176,13 @@ def _fill_template(
                 cell = table.cell(1, col)
                 cell.fill.solid()
                 cell.fill.fore_color.rgb = RGBColor(0xCC, 0xCC, 0xCC)
-            _replace_text_frame(table.cell(1, 1).text_frame, name_str)
-            _replace_text_frame(table.cell(1, 3).text_frame, birth_str)
+            _replace_text_frame(table.cell(1, 1).text_frame, name_str, align=PP_ALIGN.CENTER)
+            _replace_text_frame(
+                table.cell(1, 3).text_frame,
+                birth_str,
+                align=PP_ALIGN.CENTER,
+                font_size=Pt(10.5),
+            )
 
     prs.save(str(pptx_path))
 
