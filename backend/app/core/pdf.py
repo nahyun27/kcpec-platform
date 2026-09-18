@@ -87,6 +87,39 @@ def _spaced_name(name: str) -> str:
     return " ".join(list(name.strip()))
 
 
+# 이수과정 셀(1.71in 폭, 12pt)에 한 줄로 안 들어가는 긴 과정명 — LibreOffice의
+# 자동 줄바꿈은 한글을 글자 수 기준으로만 끊어서 "…사이버금" / "융범죄…"처럼
+# 단어 중간이 잘리므로, 자연스러운 단어 경계에서 직접 두 줄로 나눠 채운다
+# (2026-09, 실제 발급 대상 6개 과정에서 확인 — 그 외 과정명은 한 줄에 들어감).
+COURSE_TITLE_LINE_BREAKS: dict[str, tuple[str, str]] = {
+    "운전습관도로교통법교육": ("운전습관", "도로교통법교육"),
+    "분노조절감정통제교육": ("분노조절", "감정통제교육"),
+    "경제관념사행성방지교육": ("경제관념", "사행성방지교육"),
+    "비즈니스직장윤리교육": ("비즈니스", "직장윤리교육"),
+    "디지털저작권정보통신윤리교육": ("디지털저작권", "정보통신윤리교육"),
+    "개인정보보호사이버금융범죄예방교육": ("개인정보보호사이버", "금융범죄예방교육"),
+}
+
+
+def _fill_two_line_cell(text_frame, line1: str, line2: str) -> None:
+    """이미 2개 문단으로 나뉜 셀에 지정된 두 줄을 각각 채운다.
+
+    문단을 하나로 합치고 남는 문단을 지우는 대신, 기존 두 문단을 그대로
+    재사용한다 — 템플릿 제작자가 이 셀들만 애초에 2문단으로 만들어 둔
+    이유이기도 하다.
+    """
+    paragraphs = text_frame.paragraphs
+    for para, text in zip(paragraphs[:2], (line1, line2)):
+        if para.runs:
+            para.runs[0].text = text
+            for r in para.runs[1:]:
+                r.text = ""
+        else:
+            para.add_run().text = text
+    for para in paragraphs[2:]:
+        para._p.getparent().remove(para._p)
+
+
 def _replace_text_frame(
     text_frame,
     new_text: str,
@@ -162,7 +195,12 @@ def _fill_template(
         # 메인 표 — 4셀만 갱신, 교육내용(Row 2) 은 템플릿 그대로
         elif sid == 92 and shape.has_table:
             table = shape.table
-            _replace_text_frame(table.cell(0, 1).text_frame, course_title)
+            if course_title in COURSE_TITLE_LINE_BREAKS:
+                _fill_two_line_cell(
+                    table.cell(0, 1).text_frame, *COURSE_TITLE_LINE_BREAKS[course_title]
+                )
+            else:
+                _replace_text_frame(table.cell(0, 1).text_frame, course_title)
             _replace_text_frame(
                 table.cell(0, 3).text_frame,
                 issued_str,
