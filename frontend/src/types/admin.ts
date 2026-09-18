@@ -133,11 +133,16 @@ export type AdminUserEnrollmentRow = {
   enrollment_id: number;
   course_id: number;
   course_title: string;
-  category: CourseCategory;
+  // 백엔드 CourseCategory 는 일반 6개 카테고리 + "심리상담"(COUNSELING)이
+  // 있는데, 공개 강의 탐색용 CourseCategory 타입(types/course.ts)은
+  // 심리상담을 일부러 빼뒀다(그 필터/탐색 화면엔 상담 강의가 아예 안
+  // 나오므로) — 이 관리자 전용 필드는 그 타입을 그대로 못 쓴다.
+  category: CourseCategory | "심리상담";
   overall_progress_pct: number;
   is_completed: boolean;
   quiz_passed: boolean;
   has_quiz: boolean;
+  survey_status: CounselingStatus | null;
   // null 이면 수강기간 제한 없음(레거시 enrollment).
   expires_at: string | null;
   lectures: AdminLectureProgressDetail[];

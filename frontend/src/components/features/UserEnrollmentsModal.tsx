@@ -7,6 +7,7 @@ import type {
   AdminUser,
   AdminUserEnrollmentRow,
 } from "@/types/admin";
+import { COUNSELING_STATUS_LABEL } from "@/types/counseling";
 import { useDialog } from "@/components/ui/DialogProvider";
 
 // 관리자 사용자 목록 / 주문 목록 등 여러 화면에서 "고객 클릭 → 수강현황 모달"
@@ -130,7 +131,15 @@ export function UserEnrollmentsModal({
                         )}
                       </div>
                       <div className="text-center">
-                        {!r.has_quiz ? (
+                        {r.category === "심리상담" && r.survey_status ? (
+                          <span className="inline-flex items-center whitespace-nowrap rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-bold tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
+                            설문 {COUNSELING_STATUS_LABEL[r.survey_status]}
+                          </span>
+                        ) : r.category === "심리상담" ? (
+                          <span className="inline-flex items-center whitespace-nowrap rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold tracking-wide text-slate-500 ring-1 ring-inset ring-slate-500/10">
+                            설문 미제출
+                          </span>
+                        ) : !r.has_quiz ? (
                           <span className="inline-flex items-center whitespace-nowrap rounded-md bg-slate-50 px-2 py-1 text-[10px] font-bold tracking-wide text-slate-400 ring-1 ring-inset ring-slate-500/10">
                             퀴즈 없음
                           </span>

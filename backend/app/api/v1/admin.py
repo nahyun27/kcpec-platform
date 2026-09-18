@@ -329,6 +329,18 @@ def admin_user_enrollments(
     for doc, cid in doc_rows:
         doc_by_course.setdefault(cid, doc)
 
+    # 심리상담은 퀴즈 개념이 없는 대신 설문(CounselingSurvey) 제출 여부가
+    # 그 자리를 대신한다 — course_id 별 최신 1건(Order 를 거쳐 조인).
+    survey_by_course: dict[int, CounselingSurvey] = {}
+    survey_rows = db.execute(
+        select(CounselingSurvey, Order.course_id)
+        .join(Order, Order.id == CounselingSurvey.order_id)
+        .where(Order.user_id == user_id, Order.course_id.in_(course_ids))
+        .order_by(CounselingSurvey.id.desc())
+    ).all()
+    for survey, cid in survey_rows:
+        survey_by_course.setdefault(cid, survey)
+
     out: list[AdminUserEnrollmentRow] = []
     for e in enrollments:
         course = courses_map.get(e.course_id)
@@ -379,6 +391,7 @@ def admin_user_enrollments(
         has_quiz = has_quiz_map.get(e.id, False)
         quiz_passed = True if not has_quiz else (e.id in passed_set)
         doc = doc_by_course.get(course.id)
+        survey = survey_by_course.get(course.id)
         out.append(
             AdminUserEnrollmentRow(
                 enrollment_id=e.id,
@@ -389,6 +402,7 @@ def admin_user_enrollments(
                 is_completed=e.is_completed,
                 quiz_passed=quiz_passed,
                 has_quiz=has_quiz,
+                survey_status=survey.status if survey else None,
                 expires_at=e.expires_at,
                 lectures=lecture_rows,
                 document=(

@@ -297,6 +297,8 @@ class AdminUserEnrollmentRow(BaseModel):
     is_completed: bool
     quiz_passed: bool
     has_quiz: bool
+    # 심리상담(퀴즈 없는 과정)의 설문 제출 여부 — 미제출이면 None.
+    survey_status: CounselingStatus | None = None
     # None 이면 수강기간 제한 없음(레거시 enrollment).
     expires_at: datetime | None = None
     lectures: list[LectureProgressDetail] = []
