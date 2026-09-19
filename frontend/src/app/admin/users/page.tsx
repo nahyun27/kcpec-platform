@@ -235,6 +235,11 @@ function AdminUsersPageInner() {
                           구회원
                         </span>
                       )}
+                      {!u.is_active && (
+                        <span className="inline-flex items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-zinc-500 ring-1 ring-inset ring-zinc-400/20">
+                          탈퇴회원
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-slate-500">{u.name ?? "-"}</td>
