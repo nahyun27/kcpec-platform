@@ -479,15 +479,20 @@ export async function getAdminStats(): Promise<AdminStats> {
   return data;
 }
 
-export async function getAdminSalesStats(days: number = 30): Promise<SalesStats> {
+export async function getAdminSalesStats(
+  days: number = 30,
+  courseDays?: number,
+): Promise<SalesStats> {
   const { data } = await api.get<SalesStats>("/admin/statistics/sales", {
-    params: { days },
+    params: { days, course_days: courseDays },
   });
   return data;
 }
 
-export async function getAdminVisitorStats(): Promise<VisitorStats> {
-  const { data } = await api.get<VisitorStats>("/admin/statistics/visitors");
+export async function getAdminVisitorStats(days: number = 30): Promise<VisitorStats> {
+  const { data } = await api.get<VisitorStats>("/admin/statistics/visitors", {
+    params: { days },
+  });
   return data;
 }
 

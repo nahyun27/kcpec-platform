@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { getAdminUsers, getCourseEnrollmentCounts } from "@/lib/api";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { getAdminUser, getAdminUsers, getCourseEnrollmentCounts } from "@/lib/api";
 import type { AdminUser, AdminUsersResponse, CourseEnrollmentCount } from "@/types/admin";
 import { UserEnrollmentsModal } from "@/components/features/UserEnrollmentsModal";
 
@@ -18,6 +19,18 @@ type SortKey =
   | "enrollment_asc";
 
 export default function AdminUsersPage() {
+  // 대시보드 "최근 가입 회원"에서 ?user_id= 로 넘어와 특정 사용자 모달을
+  // 바로 여는 딥링크를 지원하려면 useSearchParams 가 필요한데, Next.js는
+  // 이걸 쓰는 컴포넌트를 Suspense 로 감싸야 한다.
+  return (
+    <Suspense fallback={null}>
+      <AdminUsersPageInner />
+    </Suspense>
+  );
+}
+
+function AdminUsersPageInner() {
+  const searchParams = useSearchParams();
   const [page, setPage] = useState(1);
   const size = 25;
   const [data, setData] = useState<AdminUsersResponse | null>(null);
@@ -31,6 +44,17 @@ export default function AdminUsersPage() {
   // "전체 사용자" 사이드바 행은 강의로 필터링 중에도 항상 전체 인원수를 보여줘야
   // 하므로, data.total(필터된 개수)과 별도로 전체 개수를 한 번 따로 들고 있는다.
   const [grandTotal, setGrandTotal] = useState<number | null>(null);
+
+  useEffect(() => {
+    const userIdParam = searchParams.get("user_id");
+    if (!userIdParam) return;
+    const userId = Number(userIdParam);
+    if (!Number.isFinite(userId)) return;
+    getAdminUser(userId)
+      .then(setOpenUser)
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);

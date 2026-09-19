@@ -77,6 +77,7 @@ from app.schemas.admin import (
     SalesStatsByPayment,
     SalesStatsDaily,
     VisitorStats,
+    VisitorStatsDaily,
 )
 from app.schemas.community import NoticeDetail, PostAdminReply, PostDetail
 from app.schemas.course import CourseDetail, CourseListItem, LectureItem, StreamUrlResponse
@@ -1298,7 +1299,7 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
             select(User)
             .where(User.is_admin.is_(False))
             .order_by(User.created_at.desc())
-            .limit(4)
+            .limit(5)
         ).all()
     )
     recent_users = [
@@ -1385,11 +1386,15 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
 @router.get("/statistics/sales", response_model=SalesStats)
 def admin_sales_stats(
     days: int = Query(default=30, ge=1, le=365),
+    course_days: int | None = Query(default=None, ge=1, le=365),
     db: Session = Depends(get_db),
 ) -> SalesStats:
     """매출 통계 — 이번달/전월/일별(기간 선택 가능)/상품별/결제수단별 집계.
 
     paid 상태 주문만 대상으로 함. paid_at 이 비어있는 데이터는 제외.
+    course_days 는 상품별/결제수단별/심리상담 집계에만 적용되는 별도
+    기간 — 일별 매출 그래프의 days 와는 독립적으로 "전체" vs "최근 N일"을
+    고를 수 있게 한다(생략하면 기존과 동일하게 전체 기간).
     """
     now = _now()
     today = now.date()
@@ -1440,28 +1445,45 @@ def admin_sales_stats(
         int(round(this_month_revenue / this_month_orders)) if this_month_orders > 0 else 0
     )
 
-    # 일별 매출 (최근 30일) — DB 에서 Python 으로 집계 (DB 호환성 단순화)
+    # 일별 매출(+심리상담 몫) — DB 에서 Python 으로 집계 (DB 호환성 단순화)
     rows = db.execute(
-        select(Order.paid_at, Order.amount).where(
+        select(Order.paid_at, Order.amount, Course.category)
+        .join(Course, Course.id == Order.course_id)
+        .where(
             Order.status == OrderStatus.PAID,
             Order.paid_at.is_not(None),
             Order.paid_at >= thirty_days_ago,
         )
     ).all()
     daily: dict[str, dict[str, int]] = {}
-    for paid_at, amount in rows:
+    for paid_at, amount, category in rows:
         key = paid_at.date().isoformat()
-        bucket = daily.setdefault(key, {"revenue": 0, "orders": 0})
+        bucket = daily.setdefault(key, {"revenue": 0, "orders": 0, "counseling_revenue": 0})
         bucket["revenue"] += amount
         bucket["orders"] += 1
+        if category == CourseCategory.COUNSELING:
+            bucket["counseling_revenue"] += amount
     daily_revenue: list[SalesStatsDaily] = []
     for i in range(days):
         d = (thirty_days_ago + timedelta(days=i)).date().isoformat()
-        b = daily.get(d, {"revenue": 0, "orders": 0})
-        daily_revenue.append(SalesStatsDaily(date=d, revenue=b["revenue"], orders=b["orders"]))
+        b = daily.get(d, {"revenue": 0, "orders": 0, "counseling_revenue": 0})
+        daily_revenue.append(
+            SalesStatsDaily(
+                date=d,
+                revenue=b["revenue"],
+                orders=b["orders"],
+                counseling_revenue=b["counseling_revenue"],
+            )
+        )
 
-    # 상품(강의) 별
-    by_course_rows = db.execute(
+    course_days_cutoff = (
+        datetime.combine(today, time.min, tzinfo=timezone.utc) - timedelta(days=course_days - 1)
+        if course_days is not None
+        else None
+    )
+
+    # 상품(강의) 별 — course_days 지정 시 그 기간만, 아니면 전체 기간.
+    by_course_stmt = (
         select(
             Course.title,
             Course.category,
@@ -1470,8 +1492,13 @@ def admin_sales_stats(
         )
         .join(Course, Course.id == Order.course_id)
         .where(Order.status == OrderStatus.PAID)
-        .group_by(Course.title, Course.category)
-        .order_by(func.coalesce(func.sum(Order.amount), 0).desc())
+    )
+    if course_days_cutoff is not None:
+        by_course_stmt = by_course_stmt.where(Order.paid_at >= course_days_cutoff)
+    by_course_rows = db.execute(
+        by_course_stmt.group_by(Course.title, Course.category).order_by(
+            func.coalesce(func.sum(Order.amount), 0).desc()
+        )
     ).all()
     by_course = [
         SalesStatsByCourse(course_title=ct, category=cat, count=cnt, revenue=rev)
@@ -1481,16 +1508,18 @@ def admin_sales_stats(
         row.revenue for row in by_course if row.category == CourseCategory.COUNSELING
     )
 
-    # 결제수단 별
+    # 결제수단 별 — 동일하게 course_days 적용.
+    by_payment_stmt = select(
+        Order.payment_method,
+        func.count(Order.id),
+        func.coalesce(func.sum(Order.amount), 0),
+    ).where(Order.status == OrderStatus.PAID)
+    if course_days_cutoff is not None:
+        by_payment_stmt = by_payment_stmt.where(Order.paid_at >= course_days_cutoff)
     by_payment_rows = db.execute(
-        select(
-            Order.payment_method,
-            func.count(Order.id),
-            func.coalesce(func.sum(Order.amount), 0),
+        by_payment_stmt.group_by(Order.payment_method).order_by(
+            func.count(Order.id).desc()
         )
-        .where(Order.status == OrderStatus.PAID)
-        .group_by(Order.payment_method)
-        .order_by(func.count(Order.id).desc())
     ).all()
     by_payment = [
         SalesStatsByPayment(method=method, count=cnt, revenue=rev)
@@ -1512,7 +1541,10 @@ def admin_sales_stats(
 
 
 @router.get("/statistics/visitors", response_model=VisitorStats)
-def admin_visitor_stats(db: Session = Depends(get_db)) -> VisitorStats:
+def admin_visitor_stats(
+    days: int = Query(default=30, ge=1, le=365),
+    db: Session = Depends(get_db),
+) -> VisitorStats:
     """방문자 통계 — GA4 연동 전 DB 기반 근사 지표.
 
     - 신규 가입자 (이번달 / 전월)
@@ -1523,6 +1555,7 @@ def admin_visitor_stats(db: Session = Depends(get_db)) -> VisitorStats:
       100% 를 넘어버리는 등 숫자가 의미를 안 갖는 문제가 있었음. 지금은 "이번달
       가입자" 코호트 안에서만 전환 여부(0/1)를 세므로 0~100% 로 항상 유효함.)
     - 활성 사용자 1인당 평균 수강 신청 수
+    - 일별 신규 가입자(기간 선택 가능) — 매출 통계의 일별 차트와 동일한 패턴
     """
     now = _now()
     today = now.date()
@@ -1579,11 +1612,29 @@ def admin_visitor_stats(db: Session = Depends(get_db)) -> VisitorStats:
         else 0.0
     )
 
+    # 일별 신규 가입자 (최근 days 일) — 매출 통계 daily_revenue 와 동일한
+    # 방식(DB 에서 Python 으로 집계)으로 구현.
+    signup_window_start = datetime.combine(today, time.min, tzinfo=timezone.utc) - timedelta(
+        days=days - 1
+    )
+    signup_rows = db.execute(
+        select(User.created_at).where(User.created_at >= signup_window_start)
+    ).all()
+    signups_by_day: dict[str, int] = {}
+    for (created_at,) in signup_rows:
+        key = created_at.date().isoformat()
+        signups_by_day[key] = signups_by_day.get(key, 0) + 1
+    daily_signups: list[VisitorStatsDaily] = []
+    for i in range(days):
+        d = (signup_window_start + timedelta(days=i)).date().isoformat()
+        daily_signups.append(VisitorStatsDaily(date=d, new_users=signups_by_day.get(d, 0)))
+
     return VisitorStats(
         new_users_this_month=new_users_this_month,
         new_users_last_month=new_users_last_month,
         total_enrollments=total_enrollments,
         conversion_rate=conversion_rate,
+        daily_signups=daily_signups,
         avg_courses_per_user=avg_courses_per_user,
     )
 

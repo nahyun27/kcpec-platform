@@ -239,6 +239,7 @@ export type SalesStatsDaily = {
   date: string;
   revenue: number;
   orders: number;
+  counseling_revenue: number;
 };
 
 export type SalesStatsByCourse = {
@@ -266,12 +267,18 @@ export type SalesStats = {
   counseling_revenue: number;
 };
 
+export type VisitorStatsDaily = {
+  date: string;
+  new_users: number;
+};
+
 export type VisitorStats = {
   new_users_this_month: number;
   new_users_last_month: number;
   total_enrollments: number;
   conversion_rate: number;
   avg_courses_per_user: number;
+  daily_signups: VisitorStatsDaily[];
 };
 
 export type AdminQuizOptionRead = {

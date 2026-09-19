@@ -69,13 +69,17 @@ function AdminStatsPage() {
   const [visitors, setVisitors] = useState<VisitorStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [days, setDays] = useState(30);
+  const [visitorDays, setVisitorDays] = useState(30);
+  // 상품별 판매현황 / 결제수단별 분포 전용 기간 — 일별 매출 그래프(days)와는
+  // 별개로, "전체"(기본값, 기존과 동일) 또는 "최근 30일" 중 고를 수 있다.
+  const [courseScope, setCourseScope] = useState<"all" | "recent">("all");
   // Recharts ResponsiveContainer 가 첫 렌더에서 부모 width 를 0/-1 로 읽는 케이스 회피
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     let cancelled = false;
-    getAdminSalesStats(days)
+    getAdminSalesStats(days, courseScope === "recent" ? 30 : undefined)
       .then((d) => {
         if (!cancelled) setData(d);
       })
@@ -85,11 +89,11 @@ function AdminStatsPage() {
     return () => {
       cancelled = true;
     };
-  }, [days]);
+  }, [days, courseScope]);
 
   useEffect(() => {
     let cancelled = false;
-    getAdminVisitorStats()
+    getAdminVisitorStats(visitorDays)
       .then((v) => {
         if (!cancelled) setVisitors(v);
       })
@@ -99,7 +103,7 @@ function AdminStatsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [visitorDays]);
 
   if (error) return <p className="py-20 text-center text-sm text-red-600">{error}</p>;
   if (!data) return <p className="py-20 text-center text-sm text-zinc-500">불러오는 중...</p>;
@@ -126,9 +130,16 @@ function AdminStatsPage() {
           mounted={mounted}
           days={days}
           onDaysChange={setDays}
+          courseScope={courseScope}
+          onCourseScopeChange={setCourseScope}
         />
       ) : (
-        <VisitorStatsView visitors={visitors} />
+        <VisitorStatsView
+          visitors={visitors}
+          mounted={mounted}
+          days={visitorDays}
+          onDaysChange={setVisitorDays}
+        />
       )}
     </div>
   );
@@ -170,18 +181,69 @@ function StatsTabs({
 
 const DAY_PRESETS = [7, 30, 90] as const;
 
+// 카테고리 axis(dataKey="date")에 토/일 배경 음영을 넣는 ReferenceArea 목록 —
+// 매출/방문자 그래프 둘 다 동일하게 써서 중복 안 되게 공용 함수로 뺐다.
+function weekendReferenceAreas(dates: string[]) {
+  return dates
+    .filter((d) => {
+      const dow = new Date(`${d}T00:00:00Z`).getUTCDay();
+      return dow === 0 || dow === 6;
+    })
+    .map((d) => (
+      <ReferenceArea
+        key={d}
+        x1={d}
+        x2={d}
+        fill="#f97316"
+        fillOpacity={0.08}
+        ifOverflow="visible"
+      />
+    ));
+}
+
+function DayRangePicker({
+  days,
+  onChange,
+}: {
+  days: number;
+  onChange: (days: number) => void;
+}) {
+  return (
+    <div className="inline-flex items-center gap-1 rounded-lg bg-slate-100/80 p-1">
+      {DAY_PRESETS.map((d) => (
+        <button
+          key={d}
+          type="button"
+          onClick={() => onChange(d)}
+          className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+            days === d
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          {d}일
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function SalesStatsView({
   data,
   totalByCourseRevenue,
   mounted,
   days,
   onDaysChange,
+  courseScope,
+  onCourseScopeChange,
 }: {
   data: SalesStats;
   totalByCourseRevenue: number;
   mounted: boolean;
   days: number;
   onDaysChange: (days: number) => void;
+  courseScope: "all" | "recent";
+  onCourseScopeChange: (scope: "all" | "recent") => void;
 }) {
   const momChange = (() => {
     const last = data.last_month_revenue;
@@ -243,9 +305,9 @@ function SalesStatsView({
         />
         <SummaryCard
           icon={<HeartHandshake className="h-4 w-4" />}
-          label="심리상담 누적 매출"
+          label={`심리상담 매출 (${courseScope === "all" ? "전체" : "최근 30일"})`}
           value={`${data.counseling_revenue.toLocaleString()}원`}
-          sub={`강의 누적 ${(totalByCourseRevenue - data.counseling_revenue).toLocaleString()}원`}
+          sub={`강의 ${(totalByCourseRevenue - data.counseling_revenue).toLocaleString()}원`}
         />
       </div>
 
@@ -255,22 +317,7 @@ function SalesStatsView({
           <h2 className="font-sans text-base font-bold text-[var(--color-primary)]">
             최근 {days}일 일별 매출
           </h2>
-          <div className="inline-flex items-center gap-1 rounded-lg bg-slate-100/80 p-1">
-            {DAY_PRESETS.map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => onDaysChange(d)}
-                className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
-                  days === d
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                {d}일
-              </button>
-            ))}
-          </div>
+          <DayRangePicker days={days} onChange={onDaysChange} />
         </div>
         <div className="h-72 w-full min-w-0" style={{ width: "100%", minWidth: 0 }}>
           {mounted ? (
@@ -280,21 +327,7 @@ function SalesStatsView({
               margin={{ top: 8, right: 16, bottom: 4, left: 0 }}
             >
               <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" vertical={false} />
-              {data.daily_revenue
-                .filter((r) => {
-                  const dow = new Date(`${r.date}T00:00:00Z`).getUTCDay();
-                  return dow === 0 || dow === 6;
-                })
-                .map((r) => (
-                  <ReferenceArea
-                    key={r.date}
-                    x1={r.date}
-                    x2={r.date}
-                    fill="#f97316"
-                    fillOpacity={0.08}
-                    ifOverflow="visible"
-                  />
-                ))}
+              {weekendReferenceAreas(data.daily_revenue.map((r) => r.date))}
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 10, fill: "#71717a" }}
@@ -307,14 +340,35 @@ function SalesStatsView({
                 width={48}
               />
               <Tooltip
-                formatter={(v) => `${Number(v).toLocaleString()}원`}
+                formatter={(v, name) => [
+                  `${Number(v).toLocaleString()}원`,
+                  name === "counseling_revenue" ? "심리상담 매출" : "전체 매출",
+                ]}
                 labelFormatter={(d) => String(d)}
                 contentStyle={{ fontSize: 12 }}
+              />
+              <Legend
+                verticalAlign="top"
+                height={28}
+                formatter={(value: string) =>
+                  value === "counseling_revenue" ? "심리상담 매출" : "전체 매출"
+                }
+                wrapperStyle={{ fontSize: 11 }}
               />
               <Line
                 type="monotone"
                 dataKey="revenue"
+                name="revenue"
                 stroke="#1C3461"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="counseling_revenue"
+                name="counseling_revenue"
+                stroke="#D9668E"
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 4 }}
@@ -329,6 +383,25 @@ function SalesStatsView({
         </p>
       </section>
 
+      <div className="flex items-center justify-end">
+        <div className="inline-flex items-center gap-1 rounded-lg bg-slate-100/80 p-1">
+          {(["all", "recent"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => onCourseScopeChange(s)}
+              className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                courseScope === s
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {s === "all" ? "전체" : "최근 30일"}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* 상품별 판매 현황 */}
         <section className="lg:col-span-2 overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
@@ -336,7 +409,9 @@ function SalesStatsView({
             <h2 className="font-sans text-sm font-bold tracking-wide text-slate-800">
               상품별 판매 현황
             </h2>
-            <p className="mt-0.5 text-xs text-slate-500">paid 누적 기준 · 매출 내림차순</p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {courseScope === "all" ? "전체 기간" : "최근 30일"} paid 기준 · 매출 내림차순
+            </p>
           </header>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-[13px]">
@@ -365,6 +440,9 @@ function SalesStatsView({
                       <tr key={row.course_title} className="transition-colors hover:bg-slate-50/80">
                         <td className="px-4 py-3 font-semibold text-slate-900">
                           {row.course_title}
+                          <span className="ml-2 inline-flex items-center whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 ring-1 ring-inset ring-slate-500/10">
+                            {row.category}
+                          </span>
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-slate-700">
                           {row.count.toLocaleString()}
@@ -472,7 +550,17 @@ function SalesStatsView({
   );
 }
 
-function VisitorStatsView({ visitors }: { visitors: VisitorStats | null }) {
+function VisitorStatsView({
+  visitors,
+  mounted,
+  days,
+  onDaysChange,
+}: {
+  visitors: VisitorStats | null;
+  mounted: boolean;
+  days: number;
+  onDaysChange: (days: number) => void;
+}) {
   if (visitors == null) {
     return (
       <p className="rounded-lg border border-zinc-200 bg-white p-6 text-center text-sm text-zinc-500">
@@ -508,8 +596,60 @@ function VisitorStatsView({ visitors }: { visitors: VisitorStats | null }) {
         />
       </div>
 
+      {/* 일별 신규 가입자 차트 */}
+      <section className="rounded-lg border border-zinc-200 bg-white p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-sans text-base font-bold text-[var(--color-primary)]">
+            최근 {days}일 일별 신규 가입자
+          </h2>
+          <DayRangePicker days={days} onChange={onDaysChange} />
+        </div>
+        <div className="h-64 w-full min-w-0" style={{ width: "100%", minWidth: 0 }}>
+          {mounted ? (
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <LineChart
+              data={visitors.daily_signups}
+              margin={{ top: 8, right: 16, bottom: 4, left: 0 }}
+            >
+              <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" vertical={false} />
+              {weekendReferenceAreas(visitors.daily_signups.map((r) => r.date))}
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 10, fill: "#71717a" }}
+                tickFormatter={(d: string) => d.slice(5)}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: "#71717a" }}
+                width={32}
+                allowDecimals={false}
+              />
+              <Tooltip
+                formatter={(v) => [`${Number(v).toLocaleString()}명`, "신규 가입"]}
+                labelFormatter={(d) => String(d)}
+                contentStyle={{ fontSize: 12 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="new_users"
+                stroke="#1C3461"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+          ) : null}
+        </div>
+        <p className="mt-1 text-right text-[11px] text-zinc-400">
+          <span className="mr-1 inline-block h-2 w-2 rounded-sm bg-orange-500/20 align-middle" />
+          주말
+        </p>
+      </section>
+
       <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
-        실시간 방문자 통계는 Google Analytics 대시보드에서 확인하세요.{" "}
+        위 지표는 회원가입 DB 기준입니다. 페이지뷰·세션 등 실시간 트래픽은
+        Google Analytics 대시보드에서 확인하세요.{" "}
         <a
           href="https://analytics.google.com"
           target="_blank"
@@ -519,9 +659,6 @@ function VisitorStatsView({ visitors }: { visitors: VisitorStats | null }) {
           analytics.google.com
           <ExternalLink className="h-3 w-3" />
         </a>
-        <p className="mt-1 text-xs text-zinc-500">
-          향후 GA4 Data API 연동 시 일별 방문자/이벤트 차트가 이 영역에 추가됩니다.
-        </p>
       </div>
     </div>
   );

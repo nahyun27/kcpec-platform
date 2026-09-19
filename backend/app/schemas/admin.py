@@ -187,8 +187,9 @@ class AdminSurveyDetail(AdminSurveyRow):
 
 class SalesStatsDaily(BaseModel):
     date: str  # ISO YYYY-MM-DD
-    revenue: int
+    revenue: int  # 강의+심리상담 합계(전체)
     orders: int
+    counseling_revenue: int  # revenue 중 심리상담 몫(부분집합)
 
 
 class SalesStatsByCourse(BaseModel):
@@ -218,6 +219,11 @@ class SalesStats(BaseModel):
     counseling_revenue: int
 
 
+class VisitorStatsDaily(BaseModel):
+    date: str  # ISO YYYY-MM-DD
+    new_users: int
+
+
 class VisitorStats(BaseModel):
     new_users_this_month: int
     new_users_last_month: int
@@ -226,6 +232,7 @@ class VisitorStats(BaseModel):
     conversion_rate: float
     # 활성 사용자 1인당 평균 수강 신청 수
     avg_courses_per_user: float
+    daily_signups: list[VisitorStatsDaily]
 
 
 class AdminUserBrief(BaseModel):

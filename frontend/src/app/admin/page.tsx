@@ -325,17 +325,22 @@ function RecentUsersList({ items }: { items: AdminUserBrief[] }) {
   return (
     <ul className="space-y-3">
       {items.map((u) => (
-        <li key={u.id} className="flex items-center gap-3.5">
-          <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm ${avatarColorFor(u.name)}`}
+        <li key={u.id}>
+          <Link
+            href={`/admin/users?user_id=${u.id}`}
+            className="flex items-center gap-3.5 rounded-lg -mx-1 px-1 py-0.5 transition-colors hover:bg-slate-50"
           >
-            {u.name.charAt(0).toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-bold text-slate-900">{u.name}</p>
-            <p className="truncate text-[12px] text-slate-500">{u.email}</p>
-          </div>
-          <span className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-500">{timeAgo(u.created_at)}</span>
+            <div
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm ${avatarColorFor(u.name)}`}
+            >
+              {u.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-bold text-slate-900">{u.name}</p>
+              <p className="truncate text-[12px] text-slate-500">{u.email}</p>
+            </div>
+            <span className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-500">{timeAgo(u.created_at)}</span>
+          </Link>
         </li>
       ))}
     </ul>
