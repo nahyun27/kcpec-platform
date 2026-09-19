@@ -112,7 +112,18 @@ export default function AdminDashboardPage() {
 
       {/* 2 + 3) 주간 매출 추이 + 인기 강의 */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card title="주간 매출 추이">
+        <Card
+          title="주간 매출 추이"
+          action={
+            <Link
+              href="/admin/statistics"
+              className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-800"
+            >
+              전체 통계 보기
+              <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          }
+        >
           {last7.length === 0 ? (
             <p className="py-10 text-center text-xs text-zinc-400">데이터 없음</p>
           ) : (
@@ -182,10 +193,21 @@ function avatarColorFor(name: string): string {
 
 // ---------- subcomponents --------------------------------------------------
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="rounded-xl border border-slate-200/60 bg-white p-6 shadow-sm">
-      <h2 className="mb-4 text-sm font-bold tracking-wide text-slate-800">{title}</h2>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h2 className="text-sm font-bold tracking-wide text-slate-800">{title}</h2>
+        {action}
+      </div>
       {children}
     </div>
   );
