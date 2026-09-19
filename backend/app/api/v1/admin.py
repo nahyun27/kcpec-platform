@@ -51,6 +51,7 @@ from app.schemas.admin import (
     AdminOrderRow,
     AdminOrdersResponse,
     AdminStats,
+    AdminTodoCounts,
     AdminSurveyDetail,
     AdminSurveyRow,
     AdminUser,
@@ -1364,6 +1365,38 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
     activities.sort(key=lambda a: a.created_at, reverse=True)
     recent_activities = activities[:5]
 
+    # "할 일" 배너용 — 지금 관리자가 실제로 처리해야 하는 항목 수.
+    pending_bank_transfer = (
+        db.scalar(
+            select(func.count(Order.id)).where(
+                Order.status == OrderStatus.PENDING,
+                Order.payment_method == PaymentMethod.BANK_TRANSFER,
+            )
+        )
+        or 0
+    )
+    counseling_draft_review = (
+        db.scalar(
+            select(func.count(CounselingSurvey.id)).where(
+                CounselingSurvey.status == CounselingStatus.DRAFT_GENERATED
+            )
+        )
+        or 0
+    )
+    unanswered_qna = (
+        db.scalar(
+            select(func.count(Post.id)).where(
+                Post.category == _PC.QNA, Post.admin_reply.is_(None)
+            )
+        )
+        or 0
+    )
+    todo = AdminTodoCounts(
+        pending_bank_transfer=pending_bank_transfer,
+        counseling_draft_review=counseling_draft_review,
+        unanswered_qna=unanswered_qna,
+    )
+
     return AdminStats(
         total_users=total_users,
         total_enrollments=total_enrollments,
@@ -1380,6 +1413,7 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
         top_courses=top_courses,
         recent_users=recent_users,
         recent_activities=recent_activities,
+        todo=todo,
     )
 
 

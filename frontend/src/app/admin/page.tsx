@@ -20,6 +20,8 @@ import {
   CheckCircle2,
   MessageCircle,
   UserX,
+  AlertCircle,
+  FileText,
 } from "lucide-react";
 
 import { getAdminSalesStats, getAdminStats } from "@/lib/api";
@@ -27,6 +29,7 @@ import type {
   AdminActivity,
   AdminOrderRow,
   AdminStats,
+  AdminTodoCounts,
   AdminTopCourse,
   AdminUserBrief,
   SalesStats,
@@ -80,6 +83,8 @@ export default function AdminDashboardPage() {
           {stats.total_revenue.toLocaleString()}원
         </p>
       </header>
+
+      <TodoBanner todo={stats.todo} />
 
       {/* 1) 상단 카드 4개 */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -209,6 +214,53 @@ function Card({
         {action}
       </div>
       {children}
+    </div>
+  );
+}
+
+function TodoBanner({ todo }: { todo: AdminTodoCounts }) {
+  const items = [
+    {
+      count: todo.pending_bank_transfer,
+      label: "무통장입금 확인 대기",
+      href: "/admin/orders?status=pending",
+      icon: <CreditCard className="h-3.5 w-3.5" />,
+    },
+    {
+      count: todo.counseling_draft_review,
+      label: "심리상담 초안 검토 대기",
+      href: "/admin/documents",
+      icon: <FileText className="h-3.5 w-3.5" />,
+    },
+    {
+      count: todo.unanswered_qna,
+      label: "답변 대기 1:1 문의",
+      href: "/admin/community?tab=qna",
+      icon: <MessageCircle className="h-3.5 w-3.5" />,
+    },
+  ].filter((item) => item.count > 0);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="-mt-2 mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800">
+        <AlertCircle className="h-4 w-4" />
+        오늘 할 일
+      </span>
+      {items.map((item) => (
+        <Link
+          key={item.label}
+          href={item.href}
+          className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-800 shadow-sm ring-1 ring-inset ring-amber-300 transition-colors hover:bg-amber-100"
+        >
+          {item.icon}
+          {item.label}
+          <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+            {item.count}
+          </span>
+        </Link>
+      ))}
     </div>
   );
 }

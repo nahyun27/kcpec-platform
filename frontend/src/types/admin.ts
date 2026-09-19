@@ -83,6 +83,12 @@ export type AdminActivity = {
   created_at: string;
 };
 
+export type AdminTodoCounts = {
+  pending_bank_transfer: number;
+  counseling_draft_review: number;
+  unanswered_qna: number;
+};
+
 export type AdminStats = {
   total_users: number;
   total_enrollments: number;
@@ -99,6 +105,7 @@ export type AdminStats = {
   top_courses: AdminTopCourse[];
   recent_users: AdminUserBrief[];
   recent_activities: AdminActivity[];
+  todo: AdminTodoCounts;
 };
 
 export type CourseEnrollmentCount = {

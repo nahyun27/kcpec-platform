@@ -254,6 +254,17 @@ class AdminActivity(BaseModel):
     created_at: datetime
 
 
+class AdminTodoCounts(BaseModel):
+    """관리자가 지금 처리해야 할 항목 수 — 대시보드 상단 "할 일" 배너용.
+
+    전부 0이면 배너 자체를 안 띄운다(프론트에서 판단).
+    """
+
+    pending_bank_transfer: int
+    counseling_draft_review: int
+    unanswered_qna: int
+
+
 class AdminStats(BaseModel):
     total_users: int
     total_enrollments: int
@@ -270,6 +281,7 @@ class AdminStats(BaseModel):
     top_courses: list[AdminTopCourse] = []
     recent_users: list[AdminUserBrief] = []
     recent_activities: list[AdminActivity] = []
+    todo: AdminTodoCounts
 
 
 class CourseEnrollmentCount(BaseModel):
