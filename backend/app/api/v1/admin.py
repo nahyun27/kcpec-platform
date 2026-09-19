@@ -1375,10 +1375,15 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
         )
         or 0
     )
+    # "검토 대기" = 아직 완료(관리자가 최종본 업로드) 안 된 전부. 정상
+    # 흐름에서는 SENT_TO_STAFF 로 남지만(초안 생성 + 직원 메일발송까지 끝난
+    # 상태), DRAFT_GENERATED 만으로 필터링했다가 실제로는 SENT_TO_STAFF 인
+    # 건을 놓쳤다(2026-09, 실사용 중 발견) — 초안 생성이 아예 실패해 계속
+    # SUBMITTED 로 멈춰있는 경우까지 포함해 "완료 아님"으로 넓게 잡는다.
     counseling_draft_review = (
         db.scalar(
             select(func.count(CounselingSurvey.id)).where(
-                CounselingSurvey.status == CounselingStatus.DRAFT_GENERATED
+                CounselingSurvey.status != CounselingStatus.COMPLETED
             )
         )
         or 0
