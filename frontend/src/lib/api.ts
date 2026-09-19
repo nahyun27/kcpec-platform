@@ -479,8 +479,10 @@ export async function getAdminStats(): Promise<AdminStats> {
   return data;
 }
 
-export async function getAdminSalesStats(): Promise<SalesStats> {
-  const { data } = await api.get<SalesStats>("/admin/statistics/sales");
+export async function getAdminSalesStats(days: number = 30): Promise<SalesStats> {
+  const { data } = await api.get<SalesStats>("/admin/statistics/sales", {
+    params: { days },
+  });
   return data;
 }
 

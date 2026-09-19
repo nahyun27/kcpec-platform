@@ -36,7 +36,7 @@ from app.core.pdf import PDF_DIR, build_issue_number, cert_course_code, convert_
 from app.core.storage import issue_stream_url
 from app.models.community import Notice, Post
 from app.models.counseling import CounselingStatus, CounselingSurvey
-from app.models.course import Course
+from app.models.course import Course, CourseCategory
 from app.models.document import IssuedDocument, IssuedDocumentStatus, IssuedDocumentType
 from app.models.enrollment import Enrollment
 from app.models.faq import Faq
@@ -1383,8 +1383,11 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
 
 
 @router.get("/statistics/sales", response_model=SalesStats)
-def admin_sales_stats(db: Session = Depends(get_db)) -> SalesStats:
-    """매출 통계 — 이번달/전월/일별 30일/상품별/결제수단별 집계.
+def admin_sales_stats(
+    days: int = Query(default=30, ge=1, le=365),
+    db: Session = Depends(get_db),
+) -> SalesStats:
+    """매출 통계 — 이번달/전월/일별(기간 선택 가능)/상품별/결제수단별 집계.
 
     paid 상태 주문만 대상으로 함. paid_at 이 비어있는 데이터는 제외.
     """
@@ -1397,8 +1400,10 @@ def admin_sales_stats(db: Session = Depends(get_db)) -> SalesStats:
         last_month_start = datetime(today.year - 1, 12, 1, tzinfo=timezone.utc)
     else:
         last_month_start = datetime(today.year, today.month - 1, 1, tzinfo=timezone.utc)
-    # 30일 전
-    thirty_days_ago = datetime.combine(today, time.min, tzinfo=timezone.utc) - timedelta(days=29)
+    # days 일 전
+    thirty_days_ago = datetime.combine(today, time.min, tzinfo=timezone.utc) - timedelta(
+        days=days - 1
+    )
 
     base = select(Order).where(Order.status == OrderStatus.PAID, Order.paid_at.is_not(None))
 
@@ -1450,7 +1455,7 @@ def admin_sales_stats(db: Session = Depends(get_db)) -> SalesStats:
         bucket["revenue"] += amount
         bucket["orders"] += 1
     daily_revenue: list[SalesStatsDaily] = []
-    for i in range(30):
+    for i in range(days):
         d = (thirty_days_ago + timedelta(days=i)).date().isoformat()
         b = daily.get(d, {"revenue": 0, "orders": 0})
         daily_revenue.append(SalesStatsDaily(date=d, revenue=b["revenue"], orders=b["orders"]))
@@ -1459,18 +1464,22 @@ def admin_sales_stats(db: Session = Depends(get_db)) -> SalesStats:
     by_course_rows = db.execute(
         select(
             Course.title,
+            Course.category,
             func.count(Order.id),
             func.coalesce(func.sum(Order.amount), 0),
         )
         .join(Course, Course.id == Order.course_id)
         .where(Order.status == OrderStatus.PAID)
-        .group_by(Course.title)
+        .group_by(Course.title, Course.category)
         .order_by(func.coalesce(func.sum(Order.amount), 0).desc())
     ).all()
     by_course = [
-        SalesStatsByCourse(course_title=ct, count=cnt, revenue=rev)
-        for (ct, cnt, rev) in by_course_rows
+        SalesStatsByCourse(course_title=ct, category=cat, count=cnt, revenue=rev)
+        for (ct, cat, cnt, rev) in by_course_rows
     ]
+    counseling_revenue = sum(
+        row.revenue for row in by_course if row.category == CourseCategory.COUNSELING
+    )
 
     # 결제수단 별
     by_payment_rows = db.execute(
@@ -1498,6 +1507,7 @@ def admin_sales_stats(db: Session = Depends(get_db)) -> SalesStats:
         daily_revenue=daily_revenue,
         by_course=by_course,
         by_payment=by_payment,
+        counseling_revenue=counseling_revenue,
     )
 
 

@@ -193,6 +193,7 @@ class SalesStatsDaily(BaseModel):
 
 class SalesStatsByCourse(BaseModel):
     course_title: str
+    category: CourseCategory
     count: int
     revenue: int
 
@@ -211,6 +212,10 @@ class SalesStats(BaseModel):
     daily_revenue: list[SalesStatsDaily]
     by_course: list[SalesStatsByCourse]
     by_payment: list[SalesStatsByPayment]
+    # by_course 는 강의/심리상담 구분 없이 다 섞여 있어서, 심리상담 누적
+    # 매출만 따로 보고 싶을 때 이 값(과 by_course 합계에서 뺀 나머지)으로
+    # 계산한다 — by_course 와 동일하게 전체 기간 paid 누적 기준.
+    counseling_revenue: int
 
 
 class VisitorStats(BaseModel):

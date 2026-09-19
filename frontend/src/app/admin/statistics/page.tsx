@@ -10,6 +10,7 @@ import {
   LineChart,
   Pie,
   PieChart,
+  ReferenceArea,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -21,6 +22,7 @@ import {
   CreditCard,
   ExternalLink,
   GraduationCap,
+  HeartHandshake,
   ReceiptText,
   Repeat,
   TrendingUp,
@@ -66,19 +68,27 @@ function AdminStatsPage() {
   const [data, setData] = useState<SalesStats | null>(null);
   const [visitors, setVisitors] = useState<VisitorStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [days, setDays] = useState(30);
   // Recharts ResponsiveContainer 가 첫 렌더에서 부모 width 를 0/-1 로 읽는 케이스 회피
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     let cancelled = false;
-    getAdminSalesStats()
+    getAdminSalesStats(days)
       .then((d) => {
         if (!cancelled) setData(d);
       })
       .catch(() => {
         if (!cancelled) setError("매출 통계를 불러오지 못했습니다.");
       });
+    return () => {
+      cancelled = true;
+    };
+  }, [days]);
+
+  useEffect(() => {
+    let cancelled = false;
     getAdminVisitorStats()
       .then((v) => {
         if (!cancelled) setVisitors(v);
@@ -102,7 +112,7 @@ function AdminStatsPage() {
         <h1 className="font-sans text-2xl font-bold text-[var(--color-primary)]">통계</h1>
         <p className="mt-1 text-sm text-zinc-500">
           {tab === "sales"
-            ? "paid 상태 주문 기준. 최근 30일 일별 분포 + 상품/결제수단 별 집계."
+            ? "paid 상태 주문 기준. 일별 분포 + 상품/결제수단 별 집계."
             : "신규 가입 / 수강 신청 / 전환율 요약. 실시간 방문자는 Google Analytics 에서 확인."}
         </p>
       </header>
@@ -114,6 +124,8 @@ function AdminStatsPage() {
           data={data}
           totalByCourseRevenue={totalByCourseRevenue}
           mounted={mounted}
+          days={days}
+          onDaysChange={setDays}
         />
       ) : (
         <VisitorStatsView visitors={visitors} />
@@ -156,14 +168,20 @@ function StatsTabs({
   );
 }
 
+const DAY_PRESETS = [7, 30, 90] as const;
+
 function SalesStatsView({
   data,
   totalByCourseRevenue,
   mounted,
+  days,
+  onDaysChange,
 }: {
   data: SalesStats;
   totalByCourseRevenue: number;
   mounted: boolean;
+  days: number;
+  onDaysChange: (days: number) => void;
 }) {
   const momChange = (() => {
     const last = data.last_month_revenue;
@@ -180,7 +198,7 @@ function SalesStatsView({
   return (
     <div className="space-y-6">
       {/* 요약 카드 */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <SummaryCard
           icon={<Wallet className="h-4 w-4" />}
           label="이번달 매출"
@@ -223,13 +241,37 @@ function SalesStatsView({
           label="평균 주문금액"
           value={`${data.avg_order_amount.toLocaleString()}원`}
         />
+        <SummaryCard
+          icon={<HeartHandshake className="h-4 w-4" />}
+          label="심리상담 누적 매출"
+          value={`${data.counseling_revenue.toLocaleString()}원`}
+          sub={`강의 누적 ${(totalByCourseRevenue - data.counseling_revenue).toLocaleString()}원`}
+        />
       </div>
 
       {/* 일별 매출 차트 */}
       <section className="rounded-lg border border-zinc-200 bg-white p-4">
-        <h2 className="mb-3 font-sans text-base font-bold text-[var(--color-primary)]">
-          최근 30일 일별 매출
-        </h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-sans text-base font-bold text-[var(--color-primary)]">
+            최근 {days}일 일별 매출
+          </h2>
+          <div className="inline-flex items-center gap-1 rounded-lg bg-slate-100/80 p-1">
+            {DAY_PRESETS.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => onDaysChange(d)}
+                className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                  days === d
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {d}일
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="h-72 w-full min-w-0" style={{ width: "100%", minWidth: 0 }}>
           {mounted ? (
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
@@ -238,6 +280,21 @@ function SalesStatsView({
               margin={{ top: 8, right: 16, bottom: 4, left: 0 }}
             >
               <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" vertical={false} />
+              {data.daily_revenue
+                .filter((r) => {
+                  const dow = new Date(`${r.date}T00:00:00Z`).getUTCDay();
+                  return dow === 0 || dow === 6;
+                })
+                .map((r) => (
+                  <ReferenceArea
+                    key={r.date}
+                    x1={r.date}
+                    x2={r.date}
+                    fill="#f97316"
+                    fillOpacity={0.08}
+                    ifOverflow="visible"
+                  />
+                ))}
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 10, fill: "#71717a" }}
@@ -266,6 +323,10 @@ function SalesStatsView({
           </ResponsiveContainer>
           ) : null}
         </div>
+        <p className="mt-1 text-right text-[11px] text-zinc-400">
+          <span className="mr-1 inline-block h-2 w-2 rounded-sm bg-orange-500/20 align-middle" />
+          주말
+        </p>
       </section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
