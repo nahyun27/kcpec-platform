@@ -34,6 +34,7 @@ import {
 import { getAdminSalesStats, getAdminVisitorStats } from "@/lib/api";
 import { PAYMENT_METHOD_LABEL } from "@/types/order";
 import type { SalesStats, VisitorStats } from "@/types/admin";
+import { getTierLabel } from "@/lib/courseTiers";
 
 const PIE_COLORS = ["#1C3461", "#2A4B8D", "#5B85C7", "#A6BFD9", "#D9A23E"];
 
@@ -257,6 +258,24 @@ function SalesStatsView({
     };
   })();
 
+  // 상품별 매출을 사건 카테고리가 아니라 강의 전체보기 탭 기준(기본/행동
+  // 교정/특수/단체 + 심리상담)으로 묶은 도넛 차트용 집계 — 25개 강의를
+  // 낱개로 보여주는 것보다 이 4~5개 묶음이 한눈에 들어와서 더 보기 편하다는
+  // 의견으로 추가(2026-09).
+  const byTier = (() => {
+    const totals = new Map<string, { revenue: number; count: number }>();
+    for (const row of data.by_course) {
+      const label = row.category === "심리상담" ? "심리상담" : getTierLabel(row.course_title);
+      const bucket = totals.get(label) ?? { revenue: 0, count: 0 };
+      bucket.revenue += row.revenue;
+      bucket.count += row.count;
+      totals.set(label, bucket);
+    }
+    return Array.from(totals, ([tier, v]) => ({ tier, ...v })).sort(
+      (a, b) => b.revenue - a.revenue,
+    );
+  })();
+
   return (
     <div className="space-y-6">
       {/* 요약 카드 */}
@@ -441,7 +460,7 @@ function SalesStatsView({
                         <td className="px-4 py-3 font-semibold text-slate-900">
                           {row.course_title}
                           <span className="ml-2 inline-flex items-center whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 ring-1 ring-inset ring-slate-500/10">
-                            {row.category}
+                            {row.category === "심리상담" ? "심리상담" : getTierLabel(row.course_title)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-slate-700">
@@ -472,6 +491,7 @@ function SalesStatsView({
           </div>
         </section>
 
+        <div className="space-y-6">
         {/* 결제수단별 분포 */}
         <section className="rounded-lg border border-zinc-200 bg-white p-4">
           <h2 className="mb-2 font-sans text-base font-bold text-[var(--color-primary)]">
@@ -544,6 +564,69 @@ function SalesStatsView({
             </>
           )}
         </section>
+
+        {/* 상품 카테고리(강의 전체보기 탭 기준)별 분포 */}
+        <section className="rounded-lg border border-zinc-200 bg-white p-4">
+          <h2 className="mb-2 font-sans text-base font-bold text-[var(--color-primary)]">
+            상품 카테고리별 분포
+          </h2>
+          {byTier.length === 0 ? (
+            <p className="py-12 text-center text-sm text-zinc-500">데이터 없음</p>
+          ) : (
+            <>
+              <div className="h-56 w-full min-w-0" style={{ width: "100%", minWidth: 0 }}>
+                {mounted ? (
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <PieChart>
+                    <Tooltip
+                      formatter={(v) => [`${Number(v).toLocaleString()}원`, "매출"]}
+                      contentStyle={{ fontSize: 12 }}
+                    />
+                    <Legend
+                      verticalAlign="bottom"
+                      height={24}
+                      wrapperStyle={{ fontSize: 11 }}
+                    />
+                    <Pie
+                      data={byTier}
+                      dataKey="revenue"
+                      nameKey="tier"
+                      cx="50%"
+                      cy="42%"
+                      innerRadius={32}
+                      outerRadius={64}
+                    >
+                      {byTier.map((_, i) => (
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                ) : null}
+              </div>
+              <ul className="mt-2 space-y-1 text-xs">
+                {byTier.map((r, i) => (
+                  <li
+                    key={r.tier}
+                    className="flex items-center justify-between border-t border-zinc-100 py-1"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="inline-block h-2 w-2 rounded-full"
+                        style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
+                      />
+                      {r.tier}
+                    </span>
+                    <span className="tabular-nums text-zinc-600">
+                      {r.count.toLocaleString()}건 · {r.revenue.toLocaleString()}원
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+        </div>
       </div>
 
     </div>
