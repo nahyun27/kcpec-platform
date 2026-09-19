@@ -451,7 +451,16 @@ def _apply_virtual_account(order: Order, payment_key: str, confirm_data: dict) -
     실제 입금은 아직 안 됐으므로 PAID 처리는 하지 않는다 — 입금 완료는
     나중에 DEPOSIT_CALLBACK 웹훅(toss_webhook)이 확인해준다. va_secret 은
     그 웹훅을 검증하는 값이라 여기서 반드시 같이 저장해야 한다.
+
+    이 함수가 호출됐다는 것 자체가 "실제로는 가상계좌로 결제됐다"는 확정
+    신호다(토스 결제위젯은 체크아웃 페이지에서 카드/기타를 먼저 선택해도
+    위젯 안에서 가상계좌 탭으로 바꿀 수 있어, 우리가 처음 저장해둔
+    payment_method 와 실제 결제수단이 달라질 수 있다 — 2026-09, 실사용
+    건에서 발견: 카드로 기록된 주문이 실제로는 가상계좌 입금으로
+    처리됨). 그래서 여기서 실제 확정값으로 덮어써야 관리자 화면의
+    결제수단 표시/통계/환불 분기가 정확해진다.
     """
+    order.payment_method = PaymentMethod.BANK_TRANSFER
     va = confirm_data.get("virtualAccount") or {}
     order.toss_payment_key = payment_key
     order.va_account_number = va.get("accountNumber")
