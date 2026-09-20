@@ -3,6 +3,8 @@
 import { Suspense, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
   Cell,
   Legend,
@@ -400,6 +402,45 @@ function SalesStatsView({
           <span className="mr-1 inline-block h-2 w-2 rounded-sm bg-orange-500/20 align-middle" />
           주말
         </p>
+      </section>
+
+      {/* 결제 발생 시간대 (한국 시간) — 일별 매출 그래프와 같은 기간(days) 기준 */}
+      <section className="rounded-lg border border-zinc-200 bg-white p-4">
+        <h2 className="mb-3 font-sans text-base font-bold text-[var(--color-primary)]">
+          최근 {days}일 결제 발생 시간대
+        </h2>
+        <div className="h-56 w-full min-w-0" style={{ width: "100%", minWidth: 0 }}>
+          {mounted ? (
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <BarChart data={data.hourly} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
+                <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="hour"
+                  tick={{ fontSize: 10, fill: "#71717a" }}
+                  tickFormatter={(h: number) => `${h}시`}
+                  interval={1}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "#71717a" }}
+                  width={32}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  formatter={(v, _n, item) => [
+                    `${Number(v).toLocaleString()}건 · ${(
+                      (item?.payload as { revenue?: number } | undefined)?.revenue ?? 0
+                    ).toLocaleString()}원`,
+                    "결제",
+                  ]}
+                  labelFormatter={(h) => `${h}시`}
+                  contentStyle={{ fontSize: 12 }}
+                />
+                <Bar dataKey="orders" fill="#1C3461" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : null}
+        </div>
+        <p className="mt-1 text-right text-[11px] text-zinc-400">한국 시간(KST) 기준</p>
       </section>
 
       <div className="flex items-center justify-end">

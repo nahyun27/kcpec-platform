@@ -249,6 +249,12 @@ export type SalesStatsDaily = {
   counseling_revenue: number;
 };
 
+export type SalesStatsHourly = {
+  hour: number;
+  orders: number;
+  revenue: number;
+};
+
 export type SalesStatsByCourse = {
   course_title: string;
   // AdminUserEnrollmentRow.category 와 동일한 이유로 "심리상담"까지 포함.
@@ -272,6 +278,7 @@ export type SalesStats = {
   by_course: SalesStatsByCourse[];
   by_payment: SalesStatsByPayment[];
   counseling_revenue: number;
+  hourly: SalesStatsHourly[];
 };
 
 export type VisitorStatsDaily = {

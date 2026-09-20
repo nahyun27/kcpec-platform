@@ -192,6 +192,12 @@ class SalesStatsDaily(BaseModel):
     counseling_revenue: int  # revenue 중 심리상담 몫(부분집합)
 
 
+class SalesStatsHourly(BaseModel):
+    hour: int  # 0~23 (한국 시간)
+    orders: int
+    revenue: int
+
+
 class SalesStatsByCourse(BaseModel):
     course_title: str
     category: CourseCategory
@@ -217,6 +223,8 @@ class SalesStats(BaseModel):
     # 매출만 따로 보고 싶을 때 이 값(과 by_course 합계에서 뺀 나머지)으로
     # 계산한다 — by_course 와 동일하게 전체 기간 paid 누적 기준.
     counseling_revenue: int
+    # 결제 발생 시간대(한국 시간 0~23시) — daily_revenue 와 같은 기간(days) 기준.
+    hourly: list[SalesStatsHourly]
 
 
 class VisitorStatsDaily(BaseModel):

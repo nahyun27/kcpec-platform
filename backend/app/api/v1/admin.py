@@ -77,6 +77,7 @@ from app.schemas.admin import (
     SalesStatsByCourse,
     SalesStatsByPayment,
     SalesStatsDaily,
+    SalesStatsHourly,
     VisitorStats,
     VisitorStatsDaily,
 )
@@ -1495,7 +1496,12 @@ def admin_sales_stats(
         )
     ).all()
     daily: dict[str, dict[str, int]] = {}
+    kst = timezone(timedelta(hours=9))
+    hourly_buckets = [{"orders": 0, "revenue": 0} for _ in range(24)]
     for paid_at, amount, category in rows:
+        hb = hourly_buckets[paid_at.astimezone(kst).hour]
+        hb["orders"] += 1
+        hb["revenue"] += amount
         key = paid_at.date().isoformat()
         bucket = daily.setdefault(key, {"revenue": 0, "orders": 0, "counseling_revenue": 0})
         bucket["revenue"] += amount
@@ -1576,6 +1582,10 @@ def admin_sales_stats(
         by_course=by_course,
         by_payment=by_payment,
         counseling_revenue=counseling_revenue,
+        hourly=[
+            SalesStatsHourly(hour=h, orders=b["orders"], revenue=b["revenue"])
+            for h, b in enumerate(hourly_buckets)
+        ],
     )
 
 
