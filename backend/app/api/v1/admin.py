@@ -17,7 +17,7 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.admin import require_admin
@@ -667,6 +667,8 @@ def set_quiz(course_id: int, payload: QuizSet, db: Session = Depends(get_db)) ->
 # ---------- orders ------------------------------------------------------------
 
 
+# (2026-09 갱신: 가상계좌도 계좌가 실제 발급된 건만 "입금 대기"로 본다 —
+# 결제창만 열었다 닫아 계좌가 없는 주문은 입금할 수 없어 빈 시도일 뿐이다.)
 # 카드/간편결제 등 무통장입금이 아닌 결제대기(PENDING)는 관리자가 할 일이
 # 없다 — 무통장입금만 "입금 확인" 버튼이 필요하고, 나머지는 토스가 알아서
 # 승인하거나 24시간 뒤 자동취소된다(orders.py _cancel_stale_pending).
@@ -682,7 +684,10 @@ def _order_query_for_admin(db: Session, *, status_filter: OrderStatus | None):
         .where(
             or_(
                 Order.status != OrderStatus.PENDING,
-                Order.payment_method == PaymentMethod.BANK_TRANSFER,
+                and_(
+                    Order.payment_method == PaymentMethod.BANK_TRANSFER,
+                    Order.va_account_number.is_not(None),
+                ),
             )
         )
     )
@@ -701,7 +706,10 @@ def list_orders(
     count_stmt = select(func.count(Order.id)).where(
         or_(
             Order.status != OrderStatus.PENDING,
-            Order.payment_method == PaymentMethod.BANK_TRANSFER,
+            and_(
+                Order.payment_method == PaymentMethod.BANK_TRANSFER,
+                Order.va_account_number.is_not(None),
+            ),
         )
     )
     if status_filter is not None:
@@ -1372,6 +1380,7 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
             select(func.count(Order.id)).where(
                 Order.status == OrderStatus.PENDING,
                 Order.payment_method == PaymentMethod.BANK_TRANSFER,
+                Order.va_account_number.is_not(None),
             )
         )
         or 0
