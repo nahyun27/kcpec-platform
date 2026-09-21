@@ -101,7 +101,7 @@ function Hero() {
           <span>리뉴얼 기념 할인 이벤트 · 40~60% 할인 중! 국내 최저가! + 10만원 이상 구매 시 10,000원 추가 할인</span>
         </div>
         <div className="mb-8 inline-flex items-center rounded-full border border-white bg-white/5 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-md animate-in fade-in slide-in-from-top-4 duration-700 delay-150 ease-out">
-          <span>법원 및 수사기관 제출용 신뢰할 수 있는 <b className="font-extrabold text-red-400">양형자료</b></span>
+          <span>법원 및 수사기관 제출용 신뢰할 수 있는 양형자료</span>
         </div>
         <h1 className="mb-8 font-sans text-4xl font-extrabold leading-[1.15] tracking-tight sm:text-6xl md:text-7xl animate-in fade-in slide-in-from-top-4 duration-700 delay-300 ease-out">
           수사대응 및<br className="lg:hidden" /> 재판 준비
