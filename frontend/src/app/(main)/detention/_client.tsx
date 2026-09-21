@@ -190,7 +190,7 @@ export default function DetentionClient() {
             {[
               { icon: FileCheck2, t: "1. 신청·결제", d: "수용자 정보 입력 후 결제" },
               { icon: PackageCheck, t: "2. 자료 발송", d: "교육자료를 수용시설로 우편 발송" },
-              { icon: Mail, t: "3. 수료증 발송", d: "발송 후 약 1주 뒤 이메일로 발급" },
+              { icon: Mail, t: "3. 학습 확인·수료증", d: "발송 7일 후 보호자 확인 → 수료증 이메일 발송" },
             ].map(({ icon: Icon, t, d }) => (
               <li key={t} className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-slate-50 p-4">
                 <Icon className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-primary)]" />
@@ -375,8 +375,9 @@ export default function DetentionClient() {
             )}
           </button>
           <p className="text-xs leading-relaxed text-zinc-500">
-            교육자료는 결제 확인 후 영업일 기준 순차 발송되며, 수용시설 사정에 따라 도착까지
-            시일이 걸릴 수 있습니다. 로그인이 필요합니다.
+            교육자료는 결제 확인 후 즉시 발송 준비에 들어가며(신청 당일~다음 날 발송), 수용시설 사정에
+            따라 도착까지 시일이 걸릴 수 있습니다. 수료증은 교육자료 발송 7일 후 신청하신 분이
+            &apos;학습 완료 확인&apos;을 해주셔야 발급됩니다. 로그인이 필요합니다.
           </p>
         </section>
       </form>

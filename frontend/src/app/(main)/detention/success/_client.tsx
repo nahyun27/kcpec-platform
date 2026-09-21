@@ -77,19 +77,20 @@ export default function DetentionSuccessClient() {
                 주소로 우편 발송합니다.
               </li>
               <li>
-                <b>2.</b> 수용자께서 교육자료를 학습하신 뒤 안내에 따라 진행해 주세요.
+                <b>2.</b> 수용자께서 교육자료를 학습합니다. (교육자료 안에 퀴즈가 포함되어 있습니다.)
               </li>
               <li>
-                <b>3.</b> 발송 후 약 1주일 뒤 수료증을 신청 시 입력하신 이메일로 보내드립니다.
+                <b>3.</b> 발송일로부터 7일이 지나면 마이페이지의 신청 내역에서 &apos;학습 완료 확인&apos;을 눌러
+                주세요. 확인 후 수료증을 신청 시 입력하신 이메일로 보내드립니다.
               </li>
             </ol>
 
             <div className="mt-8 flex flex-col gap-2">
               <Link
-                href="/mypage"
+                href="/detention/my"
                 className="rounded bg-[var(--color-accent)] py-3 font-semibold text-white hover:bg-[var(--color-accent-hover)]"
               >
-                마이페이지로
+                신청 내역 보기
               </Link>
             </div>
           </>

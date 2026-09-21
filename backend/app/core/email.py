@@ -402,3 +402,48 @@ def send_detention_certificates(
         logger.exception("SMTP 발송 실패: %s", exc)
         return False
     return True
+
+
+def send_detention_confirmed_notification(
+    *, application_id: int, inmate_name: str, buyer_email: str
+) -> bool:
+    """보호자가 학습 완료를 확인했음을 관리자에게 알린다(수료증 발급 대기)."""
+    subject = f"[KCPEC] 구속수용자 교육 학습 완료 확인 - {inmate_name} (#{application_id})"
+    body = dedent(
+        f"""\
+        보호자가 수용자의 학습 완료를 확인했습니다. 수료증을 발급해 주세요.
+
+        신청번호: {application_id}
+        수용자: {inmate_name}
+        신청자: {buyer_email}
+
+        관리자 페이지 > 구속수용자 교육에서 수료증 발급 후 이메일을 발송할 수 있습니다.
+
+        — KCPEC 플랫폼 —
+        """
+    )
+    if not (settings.SMTP_HOST and settings.STAFF_EMAIL):
+        logger.info("[EMAIL DEV MODE] 구속수용자 학습 완료 알림 — 콘솔 출력")
+        print("=" * 60)
+        print(f"To: {settings.STAFF_EMAIL or '(STAFF_EMAIL 미설정)'}")
+        print(f"Subject: {subject}")
+        print("-" * 60)
+        print(body)
+        print("=" * 60)
+        return True
+
+    msg = EmailMessage()
+    msg["From"] = settings.SMTP_FROM or settings.SMTP_USER or "no-reply@kcpec.kr"
+    msg["To"] = settings.STAFF_EMAIL
+    msg["Subject"] = subject
+    msg.set_content(body)
+    try:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
+            smtp.starttls()
+            if settings.SMTP_USER and settings.SMTP_PASSWORD:
+                smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            smtp.send_message(msg)
+    except Exception as exc:  # noqa: BLE001 — 알림 실패가 확인 처리를 막지 않게 삼킨다
+        logger.exception("SMTP 발송 실패: %s", exc)
+        return False
+    return True

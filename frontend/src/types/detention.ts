@@ -4,7 +4,7 @@ export type DetentionStatus = "received" | "materials_sent" | "completed" | "can
 
 export const DETENTION_STATUS_LABEL: Record<DetentionStatus, string> = {
   received: "접수(자료 발송 대기)",
-  materials_sent: "자료 발송 완료(회신 대기)",
+  materials_sent: "자료 발송 완료(학습 확인 대기)",
   completed: "수료증 발송 완료",
   cancelled: "취소",
 };
@@ -18,6 +18,7 @@ export type DetentionCourse = {
 
 export type DetentionInfo = {
   fee_amount: number;
+  wait_days: number;
   courses: DetentionCourse[];
   bulk_discount_threshold: number;
   bulk_discount_amount: number;
@@ -68,8 +69,25 @@ export type AdminDetentionRow = {
   tracking_number: string | null;
   admin_memo: string | null;
   materials_sent_at: string | null;
+  learning_confirmed_at: string | null;
+  confirm_available_at: string | null;
   completed_at: string | null;
   paid: boolean;
   total: number;
   orders: AdminDetentionOrder[];
+};
+
+export type DetentionMineRow = {
+  id: number;
+  status: DetentionStatus;
+  inmate_name: string;
+  course_titles: string[];
+  total: number;
+  paid: boolean;
+  tracking_number: string | null;
+  created_at: string;
+  materials_sent_at: string | null;
+  learning_confirmed_at: string | null;
+  confirm_available_at: string | null;
+  completed_at: string | null;
 };

@@ -1411,7 +1411,13 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
     detention_to_process = (
         db.scalar(
             select(func.count(DetentionApplication.id)).where(
-                DetentionApplication.status == DetentionStatus.RECEIVED,
+                or_(
+                    DetentionApplication.status == DetentionStatus.RECEIVED,
+                    and_(
+                        DetentionApplication.status == DetentionStatus.MATERIALS_SENT,
+                        DetentionApplication.learning_confirmed_at.is_not(None),
+                    ),
+                ),
                 select(Order.id)
                 .where(
                     Order.bundle_id == DetentionApplication.bundle_id,

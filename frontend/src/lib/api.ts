@@ -20,6 +20,7 @@ import type {
   AdminDetentionRow,
   DetentionApplyPayload,
   DetentionInfo,
+  DetentionMineRow,
   DetentionStatus,
 } from "@/types/detention";
 import type {
@@ -877,6 +878,16 @@ export async function applyDetention(
   payload: DetentionApplyPayload,
 ): Promise<BundleCreateResponse> {
   const { data } = await api.post<BundleCreateResponse>("/detention/apply", payload);
+  return data;
+}
+
+export async function getMyDetention(): Promise<DetentionMineRow[]> {
+  const { data } = await api.get<DetentionMineRow[]>("/detention/my");
+  return data;
+}
+
+export async function confirmDetentionLearning(id: number): Promise<DetentionMineRow> {
+  const { data } = await api.post<DetentionMineRow>(`/detention/${id}/confirm-learning`);
   return data;
 }
 

@@ -115,8 +115,8 @@ export default function AdminDetentionPage() {
           구속수용자 교육 관리
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
-          결제 완료된 신청만 표시됩니다. ① 교육자료 우편 발송 후 &apos;발송 완료&apos; 처리 → ② 약 1주 뒤
-          과정별 수료증 발급 → ③ 이메일 발송.
+          결제 완료된 신청만 표시됩니다. ① 교육자료 우편 발송 후 &apos;발송 완료&apos; 처리 → ② 발송 7일 후
+          보호자가 학습 완료를 확인하면 → ③ 과정별 수료증 발급 → ④ 이메일 발송.
         </p>
       </header>
 
@@ -144,6 +144,7 @@ export default function AdminDetentionPage() {
       ) : (
         shown.map((r) => {
           const courseOrders = r.orders.filter((o) => !o.is_fee && o.status === "paid");
+          const confirmed = !!r.learning_confirmed_at;
           const allIssued = courseOrders.length > 0 && courseOrders.every((o) => o.document_id);
           const d = drafts[r.id] ?? { tracking: "", memo: "" };
           return (
@@ -222,7 +223,14 @@ export default function AdminDetentionPage() {
                 ) : null}
               </div>
 
-              <ul className="space-y-2 border-t border-zinc-100 pt-4">
+              <p className={`border-t border-zinc-100 pt-4 text-sm font-semibold ${confirmed ? "text-emerald-700" : "text-zinc-500"}`}>
+                {confirmed
+                  ? `보호자 학습 완료 확인: ${new Date(r.learning_confirmed_at!).toLocaleString("ko-KR")}`
+                  : r.confirm_available_at
+                    ? `보호자 학습 완료 확인 대기 (${new Date(r.confirm_available_at).toLocaleDateString("ko-KR")} 이후 확인 가능)`
+                    : "교육자료 발송 후 보호자 확인이 가능합니다."}
+              </p>
+              <ul className="space-y-2">
                 {courseOrders.map((o) => (
                   <li key={o.order_id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                     <span className="font-semibold text-slate-800">{o.course_title}</span>
@@ -243,7 +251,7 @@ export default function AdminDetentionPage() {
                     ) : (
                       <button
                         type="button"
-                        disabled={busy !== null || r.status === "completed"}
+                        disabled={busy !== null || r.status === "completed" || !confirmed}
                         onClick={() => issue(r, o.order_id)}
                         className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
                       >
@@ -257,7 +265,7 @@ export default function AdminDetentionPage() {
               {r.status !== "completed" && r.status !== "cancelled" ? (
                 <button
                   type="button"
-                  disabled={busy !== null || !allIssued}
+                  disabled={busy !== null || !confirmed || !allIssued}
                   onClick={() => send(r)}
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
                 >

@@ -23,7 +23,7 @@ from app.core.cert_config import get_cert_template
 from app.core.cert_sequence import reserve_next_sequence
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.core.email import send_detention_certificates
+from app.core.email import send_detention_certificates, send_detention_confirmed_notification
 from app.core.pdf import cert_course_code, generate_certificate_pdf, generate_pledge_pdf
 from app.models.course import Course, CourseCategory
 from app.models.detention import DetentionApplication, DetentionStatus
@@ -68,6 +68,16 @@ def get_or_create_fee_course(db: Session) -> Course:
 # ---------- public --------------------------------------------------------
 
 
+# 교육자료 발송 후 이 기간이 지나야 보호자가 학습 완료를 확인할 수 있다.
+DETENTION_WAIT_DAYS = 7
+
+
+def _eligible_at(a: DetentionApplication) -> datetime | None:
+    if a.materials_sent_at is None:
+        return None
+    return a.materials_sent_at + timedelta(days=DETENTION_WAIT_DAYS)
+
+
 class DetentionCourse(BaseModel):
     id: int
     title: str
@@ -77,6 +87,7 @@ class DetentionCourse(BaseModel):
 
 class DetentionInfo(BaseModel):
     fee_amount: int
+    wait_days: int = DETENTION_WAIT_DAYS
     courses: list[DetentionCourse]
     bulk_discount_threshold: int
     bulk_discount_amount: int
@@ -243,6 +254,9 @@ class DetentionMineRow(BaseModel):
     tracking_number: str | None
     created_at: datetime
     materials_sent_at: datetime | None
+    learning_confirmed_at: datetime | None
+    # 이 시각 이후부터 학습 완료 확인 가능(자료 발송 전이면 None).
+    confirm_available_at: datetime | None
     completed_at: datetime | None
 
 
@@ -277,10 +291,52 @@ def my_detention_applications(
                 tracking_number=a.tracking_number,
                 created_at=a.created_at,
                 materials_sent_at=a.materials_sent_at,
+                learning_confirmed_at=a.learning_confirmed_at,
+                confirm_available_at=_eligible_at(a),
                 completed_at=a.completed_at,
             )
         )
     return rows
+
+
+@router.post("/{application_id}/confirm-learning", response_model=DetentionMineRow)
+def confirm_detention_learning(
+    application_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> DetentionMineRow:
+    """보호자가 수용자의 학습 완료를 확인한다. 자료 발송 후 7일이 지나야 가능."""
+    a = db.get(DetentionApplication, application_id)
+    if a is None or a.user_id != current_user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="신청을 찾을 수 없습니다.")
+    if a.status == DetentionStatus.COMPLETED or a.learning_confirmed_at is not None:
+        pass  # 이미 확인/완료 — 멱등
+    else:
+        if a.status != DetentionStatus.MATERIALS_SENT or a.materials_sent_at is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, detail="아직 교육자료가 발송되지 않았습니다."
+            )
+        available = _eligible_at(a)
+        if available is not None and datetime.now(timezone.utc) < available:
+            kst = available.astimezone(KST)
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"교육자료 발송 후 {DETENTION_WAIT_DAYS}일이 지난 뒤 확인할 수 있습니다. "
+                    f"({kst.month}월 {kst.day}일 이후)"
+                ),
+            )
+        a.learning_confirmed_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(a)
+        send_detention_confirmed_notification(
+            application_id=a.id, inmate_name=a.inmate_name, buyer_email=current_user.email
+        )
+    mine = my_detention_applications(db=db, current_user=current_user)
+    row = next((r for r in mine if r.id == a.id), None)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="신청을 찾을 수 없습니다.")
+    return row
 
 
 # ---------- admin ---------------------------------------------------------
@@ -316,6 +372,8 @@ class AdminDetentionRow(BaseModel):
     tracking_number: str | None
     admin_memo: str | None
     materials_sent_at: datetime | None
+    learning_confirmed_at: datetime | None
+    confirm_available_at: datetime | None
     completed_at: datetime | None
     paid: bool
     total: int
@@ -373,6 +431,8 @@ def _admin_row(db: Session, a: DetentionApplication) -> AdminDetentionRow:
         tracking_number=a.tracking_number,
         admin_memo=a.admin_memo,
         materials_sent_at=a.materials_sent_at,
+        learning_confirmed_at=a.learning_confirmed_at,
+        confirm_available_at=_eligible_at(a),
         completed_at=a.completed_at,
         paid=any(o.status == OrderStatus.PAID for o, _ in pairs),
         total=sum(o.amount for o, _ in pairs),
@@ -443,6 +503,11 @@ def admin_issue_detention_certificate(
     order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
     if order is None or order.bundle_id != a.bundle_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="주문을 찾을 수 없습니다.")
+    if a.learning_confirmed_at is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="보호자의 학습 완료 확인(발송 후 7일 경과 필요)이 있어야 수료증을 발급할 수 있습니다.",
+        )
     course = db.get(Course, order.course_id)
     if course is None or course.title == DETENTION_FEE_COURSE_TITLE:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="수료증 발급 대상이 아닙니다.")
@@ -510,6 +575,10 @@ def admin_send_detention_certificates(
     a = db.get(DetentionApplication, application_id)
     if a is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="신청을 찾을 수 없습니다.")
+    if a.learning_confirmed_at is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail="보호자의 학습 완료 확인이 아직 없습니다."
+        )
     row = _admin_row(db, a)
     course_orders = [o for o in row.orders if not o.is_fee and o.status == OrderStatus.PAID]
     if not course_orders:

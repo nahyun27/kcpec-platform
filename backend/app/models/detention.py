@@ -55,6 +55,11 @@ class DetentionApplication(Base):
     tracking_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     admin_memo: Mapped[str | None] = mapped_column(Text, nullable=True)
     materials_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 보호자가 "수용자가 학습을 마쳤다"고 확인한 시각 — 발송 후 7일이 지나야
+    # 확인할 수 있고, 이 값이 있어야 관리자가 수료증을 발급할 수 있다.
+    learning_confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

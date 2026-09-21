@@ -12,6 +12,7 @@ import {
   getMe,
   getMyCounselingOrders,
   getMyEnrollments,
+  getMyDetention,
   getMyOrders,
   getMySurvey,
   getOrderDocuments,
@@ -423,6 +424,7 @@ export default function MyPageClient() {
                   "대기중" 상태로 영구히 남는데, 재시도/취소 수단이 없어
                   사용자 입장에선 아무 의미 없는 죽은 행이다. 무통장입금
                   대기(진짜 입금을 기다리는 상태)만 남기고 감춘다. */}
+              <DetentionLink />
               {visibleOrders.length === 0 ? (
                 <EmptyState text="결제 내역이 존재하지 않습니다." />
               ) : (
@@ -1427,6 +1429,26 @@ function BundleOrderGroup({
 // 표시가 필요 없고, 렌더 여부는 호출부가 hasCounseling 으로 판단한다.
 // 묶음결제 안에서 강의마다 반복 렌더하면 같은 문구가 여러 번 뜨므로(예:
 // 강의 2개 묶음이면 동일 박스가 2번) 호출부는 카드/묶음당 한 번만 렌더할 것.
+// 구속수용자 교육 신청이 있는 사용자에게만 신청 내역(학습 완료 확인) 링크를 보여준다.
+function DetentionLink() {
+  const [has, setHas] = useState(false);
+  useEffect(() => {
+    getMyDetention()
+      .then((rows) => setHas(rows.length > 0))
+      .catch(() => {});
+  }, []);
+  if (!has) return null;
+  return (
+    <Link
+      href="/detention/my"
+      className="mb-4 flex items-center justify-between rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800 hover:bg-blue-100"
+    >
+      구속수용자 교육 신청 내역 · 학습 완료 확인
+      <span aria-hidden>→</span>
+    </Link>
+  );
+}
+
 function CounselingUpsell() {
   return (
     <div className="rounded-xl border border-dashed border-zinc-300 p-4 text-center bg-slate-50/60">
