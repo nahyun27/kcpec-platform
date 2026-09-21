@@ -7,8 +7,9 @@ import { CheckCircle2, FileSignature, Phone, ShieldCheck, Award } from "lucide-r
 import { Reveal } from "@/components/ui/Reveal";
 
 export const metadata = {
-  title: "전문가 심리상담 | KCPEC",
-  description: "전문 심리상담사가 진행하는 범죄심리·정신분석 상담 프로그램",
+  title: "심리상담 소견서·재범방지 심리상담 | KCPEC",
+  description:
+    "전문 심리상담사가 진행하는 범죄심리·재범방지 상담과 법원 제출용 심리상담 소견서(양형자료)를 서면·전화로 준비하세요.",
 };
 
 const CERTIFICATES: { slug: string; title: string; issuer: string }[] = [

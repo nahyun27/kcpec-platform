@@ -28,10 +28,10 @@ export async function generateMetadata({
   if (!course) {
     return { title: "교육 강의 | KCPEC" };
   }
-  const title = `${course.title} | KCPEC 교육 강의`;
+  const title = `${course.title} 재범방지교육 | KCPEC`;
   const description =
     course.description ??
-    `${course.title} 온라인 교육 — 법원 제출용 수료증을 발급받을 수 있습니다.`;
+    `${course.title} 재범방지교육 온라인 수강 — 법원·검찰 제출용 수료증(양형자료)을 발급받을 수 있습니다.`;
   return {
     title,
     description,
