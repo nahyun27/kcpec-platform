@@ -58,7 +58,7 @@ def _format_personal(personal: dict | None) -> str:
     parts: list[str] = []
     relation = personal.get("relation") or ""
     if relation and relation != "본인":
-        parts.append(f"상담 대상자: 사건 당사자의 {relation}(가족으로서 함께 노력하는 입장)")
+        parts.append(f"상담 대상자: 사건 당사자의 {relation}(가까운 사람으로서 함께 노력하는 입장)")
     name = personal.get("name") or ""
     gender = personal.get("gender") or ""
     age = personal.get("age")

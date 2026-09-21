@@ -375,11 +375,11 @@ export default function DetentionClient() {
               <input className={inputCls} value={form.contact_phone} maxLength={30}
                 onChange={(e) => set("contact_phone", e.target.value)} required />
             </Field>
-            <Field label="수용자와의 관계" required hint="신청자(보호자)가 수용자와 어떤 관계인지 선택해 주세요.">
+            <Field label="수용자와의 관계" required hint="신청하시는 분이 수용자와 어떤 관계인지 선택해 주세요.">
               <select className={inputCls} value={form.applicant_relation}
                 onChange={(e) => set("applicant_relation", e.target.value)} required>
                 <option value="">선택해 주세요</option>
-                {["배우자", "부모", "자녀", "형제·자매", "기타 가족"].map((r) => (
+                {["배우자", "부모", "자녀", "형제·자매", "연인(남자친구·여자친구)", "친구·지인", "기타"].map((r) => (
                   <option key={r} value={r}>{r}</option>
                 ))}
               </select>

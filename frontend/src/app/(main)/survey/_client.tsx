@@ -51,7 +51,7 @@ const EMPTY_PERSONAL: PersonalInfo = {
   military: "",
 };
 
-const RELATION_OPTIONS = ["본인", "배우자", "부모", "자녀", "형제·자매", "기타 가족"];
+const RELATION_OPTIONS = ["본인", "배우자", "부모", "자녀", "형제·자매", "연인(남자친구·여자친구)", "친구·지인", "기타"];
 
 const EDUCATION_OPTIONS = [
   "중졸 이하",
@@ -564,7 +564,7 @@ function PersonalSection({
             ))}
           </select>
           <p className="text-xs text-zinc-500">
-            사건 당사자 본인이 상담을 받으시면 '본인', 가족이 상담을 받으시면 당사자와의 관계를 선택해 주세요. 아래 인적사항과 답변은 상담을 받으시는 분 기준으로 입력해 주세요.
+            사건 당사자 본인이 상담을 받으시면 '본인', 가족이나 가까운 분이 상담을 받으시면 당사자와의 관계를 선택해 주세요. 아래 인적사항과 답변은 상담을 받으시는 분 기준으로 입력해 주세요.
           </p>
         </div>
 
