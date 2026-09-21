@@ -71,7 +71,7 @@ export default function DetentionClient() {
     address: "",
     delivery_note: "",
     contact_phone: "",
-    certificate_email: "",
+    applicant_relation: "",
   });
   const [agree, setAgree] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -321,7 +321,7 @@ export default function DetentionClient() {
             </Field>
             <div className="space-y-1.5 sm:col-span-2">
               <label className="text-sm font-bold text-slate-700">
-                수용시설 주소<span className="ml-0.5 text-red-500">*</span>
+                수용시설 주소 또는 우체국 사서함<span className="ml-0.5 text-red-500">*</span>
               </label>
               <div className="flex gap-2">
                 <input className={`${inputCls} max-w-[9rem]`} value={form.postal_code}
@@ -333,10 +333,10 @@ export default function DetentionClient() {
                 </button>
               </div>
               <input className={inputCls} value={form.address} maxLength={300} required
-                placeholder="주소 검색 후 상세 정보(동·호수 등)가 있으면 이어서 입력"
+                placeholder="시설 주소 또는 우체국 사서함 (예: ○○우체국 사서함 12호)"
                 onChange={(e) => set("address", e.target.value)} />
               <p className="text-xs text-zinc-500">
-                우체국 사서함 등 검색되지 않는 주소는 우편번호와 주소를 직접 입력해 주세요. (예: ○○우체국 사서함 12호)
+                검색되지 않는 주소나 우체국 사서함은 우편번호와 주소를 직접 입력해 주세요.
               </p>
             </div>
             <div className="sm:col-span-2">
@@ -355,9 +355,14 @@ export default function DetentionClient() {
               <input className={inputCls} value={form.contact_phone} maxLength={30}
                 onChange={(e) => set("contact_phone", e.target.value)} required />
             </Field>
-            <Field label="수료증 수신 이메일" required hint="수료증을 이 이메일로 보내드립니다.">
-              <input type="email" className={inputCls} value={form.certificate_email}
-                onChange={(e) => set("certificate_email", e.target.value)} required />
+            <Field label="수용자와의 관계" required hint="신청자(보호자)가 수용자와 어떤 관계인지 선택해 주세요.">
+              <select className={inputCls} value={form.applicant_relation}
+                onChange={(e) => set("applicant_relation", e.target.value)} required>
+                <option value="">선택해 주세요</option>
+                {["배우자", "부모", "자녀", "형제·자매", "기타 가족"].map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
             </Field>
           </div>
         </section>

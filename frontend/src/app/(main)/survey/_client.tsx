@@ -20,7 +20,7 @@ type Gender = "" | "남" | "여";
 type CriminalRecord = "" | "없음" | "있음";
 
 type PersonalInfo = {
-  relation: string;      // 작성자와 사건본인(성명 기재 대상)의 관계
+  relation: string;      // 상담을 받는 분과 사건 당사자의 관계(본인/가족)
   name: string;
   gender: Gender;
   birthdate: string;     // ISO yyyy-mm-dd
@@ -306,7 +306,7 @@ export default function SurveyClient() {
   const personalMissing = useMemo(() => {
     const missing: string[] = [];
     // 수정 모드의 기존 제출본에는 이 항목이 없어 신규 작성일 때만 필수로 본다.
-    if (!isEditMode && !personal.relation) missing.push("사건본인과의 관계");
+    if (!isEditMode && !personal.relation) missing.push("당사자와의 관계");
     if (!personal.name.trim()) missing.push("성명");
     if (!personal.gender) missing.push("성별");
     if (!personal.birthdate) missing.push("생년월일");
@@ -550,7 +550,7 @@ function PersonalSection({
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
-          <FieldLabel required>사건본인과의 관계</FieldLabel>
+          <FieldLabel required>사건 당사자와의 관계</FieldLabel>
           <select
             value={personal.relation}
             onChange={(e) => onChange("relation", e.target.value)}
@@ -564,7 +564,7 @@ function PersonalSection({
             ))}
           </select>
           <p className="text-xs text-zinc-500">
-            가족이 대신 작성하는 경우 아래 인적사항과 답변은 모두 사건본인(당사자) 기준으로 입력해 주세요.
+            사건 당사자 본인이 상담을 받으시면 '본인', 가족이 상담을 받으시면 당사자와의 관계를 선택해 주세요. 아래 인적사항과 답변은 상담을 받으시는 분 기준으로 입력해 주세요.
           </p>
         </div>
 

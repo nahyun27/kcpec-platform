@@ -40,7 +40,11 @@ class DetentionApplication(Base):
     # 최종 양형자료(수료증 등) 수령 경로 메모 — 자택/변호사사무실/법원 등.
     delivery_note: Mapped[str | None] = mapped_column(String(300), nullable=True)
     contact_phone: Mapped[str] = mapped_column(String(30), nullable=False)
+    # 수료증은 마이페이지에서 확인하므로 별도 입력을 받지 않고, 신청자 계정
+    # 이메일을 그대로 저장한다(발급 완료 안내 메일 수신용).
     certificate_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    # 신청자(보호자)와 수용자의 관계 — 배우자/부모/자녀/형제·자매/기타 가족.
+    applicant_relation: Mapped[str | None] = mapped_column(String(30), nullable=True)
 
     status: Mapped[DetentionStatus] = mapped_column(
         Enum(

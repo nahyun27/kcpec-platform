@@ -13,6 +13,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.email import send_new_order_notification
 from app.models.course import Course, CourseCategory
+from app.models.detention import DetentionApplication
 from app.models.enrollment import Enrollment
 from app.models.order import Order, OrderStatus, OrderType, PaymentMethod
 from app.models.user import User
@@ -47,7 +48,9 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _ensure_enrollment(db: Session, user_id: int, course_id: int) -> None:
+def _ensure_enrollment(
+    db: Session, user_id: int, course_id: int, bundle_id: str | None = None
+) -> None:
     """결제 완료 시 자동으로 수강 등록(enrollment) 생성/갱신.
 
     수강기간이 이미 만료된 뒤 재결제한 경우 여기서 no-op 이면 결제만 되고
@@ -58,6 +61,12 @@ def _ensure_enrollment(db: Session, user_id: int, course_id: int) -> None:
     fee_course = db.get(Course, course_id)
     if fee_course is not None and fee_course.title == DETENTION_FEE_COURSE_TITLE:
         # 구속수용자 교육 "자료·발송비" 항목은 강의가 아니라 수강 등록 대상이 아님.
+        return
+    if bundle_id is not None and db.scalar(
+        select(DetentionApplication.id).where(DetentionApplication.bundle_id == bundle_id)
+    ):
+        # 구속수용자 교육(우편 자료) 주문은 수용자 명의로 진행되므로 신청자에게 온라인
+        # 수강을 열어주지 않는다 — 가족이 본인 수강을 원하면 일반 주문으로 따로 결제.
         return
     existing = db.scalar(
         select(Enrollment).where(
@@ -505,7 +514,7 @@ def toss_confirm(
         # 값이라 신뢰 경계로 쓰면 안 됨). 위젯 호출 자체가 없으므로 amount 변조
         # 방어도 의미 없어 검증을 스킵한다.
         _mark_paid(order, payment_key=payload.payment_key or "SIMULATED")
-        _ensure_enrollment(db, order.user_id, order.course_id)
+        _ensure_enrollment(db, order.user_id, order.course_id, order.bundle_id)
         db.commit()
         db.refresh(order)
         _notify_new_order(db, order)
@@ -550,7 +559,7 @@ def toss_confirm(
     just_paid = False
     if toss_status == "DONE":
         _mark_paid(order, payment_key=payload.payment_key)
-        _ensure_enrollment(db, order.user_id, order.course_id)
+        _ensure_enrollment(db, order.user_id, order.course_id, order.bundle_id)
         just_paid = True
     elif toss_status == "WAITING_FOR_DEPOSIT":
         # 가상계좌 발급 완료, 입금 대기 — PAID 처리/수강등록은 입금 완료
@@ -623,7 +632,7 @@ def bundle_toss_confirm(
         # 모드 트리거.
         for o in orders:
             _mark_paid(o, payment_key=payload.payment_key or "SIMULATED")
-            _ensure_enrollment(db, o.user_id, o.course_id)
+            _ensure_enrollment(db, o.user_id, o.course_id, o.bundle_id)
         db.commit()
         for o in orders:
             db.refresh(o)
@@ -664,7 +673,7 @@ def bundle_toss_confirm(
     if toss_status == "DONE":
         for o in orders:
             _mark_paid(o, payment_key=payload.payment_key)
-            _ensure_enrollment(db, o.user_id, o.course_id)
+            _ensure_enrollment(db, o.user_id, o.course_id, o.bundle_id)
         just_paid = True
     elif toss_status == "WAITING_FOR_DEPOSIT":
         # 묶음결제 전체가 가상계좌 하나를 공유 — 모든 주문에 같은 계좌 정보를 저장.
@@ -706,7 +715,7 @@ def bank_confirm(
         return order
     _mark_paid(order, payment_key=None)
     order.bank_confirmed_at = _now()
-    _ensure_enrollment(db, order.user_id, order.course_id)
+    _ensure_enrollment(db, order.user_id, order.course_id, order.bundle_id)
 
     # 묶음결제의 일부면 같은 입금 1건에 대응하는 나머지 강의 주문들도 함께
     # 확정한다 — 하나씩 따로 확정하게 두면 관리자가 첫 강의만 승인하고 끝내
@@ -725,7 +734,7 @@ def bank_confirm(
         for sib in siblings:
             _mark_paid(sib, payment_key=None)
             sib.bank_confirmed_at = _now()
-            _ensure_enrollment(db, sib.user_id, sib.course_id)
+            _ensure_enrollment(db, sib.user_id, sib.course_id, sib.bundle_id)
 
     db.commit()
     db.refresh(order)
@@ -803,7 +812,7 @@ def toss_webhook(payload: TossWebhookPayload, db: Session = Depends(get_db)) -> 
             if o.status != OrderStatus.PENDING:
                 continue
             _mark_paid(o, payment_key=o.toss_payment_key)
-            _ensure_enrollment(db, o.user_id, o.course_id)
+            _ensure_enrollment(db, o.user_id, o.course_id, o.bundle_id)
             newly_paid.append(o)
         db.commit()
         for o in newly_paid:

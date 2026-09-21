@@ -35,7 +35,7 @@ export type DetentionApplyPayload = {
   address: string;
   delivery_note?: string;
   contact_phone: string;
-  certificate_email: string;
+  applicant_relation: string;
   agree_privacy: boolean;
 };
 
@@ -66,6 +66,7 @@ export type AdminDetentionRow = {
   delivery_note: string | null;
   contact_phone: string;
   certificate_email: string;
+  applicant_relation: string | null;
   tracking_number: string | null;
   admin_memo: string | null;
   materials_sent_at: string | null;
@@ -79,6 +80,7 @@ export type AdminDetentionRow = {
 
 export type DetentionMineRow = {
   id: number;
+  bundle_id: string;
   status: DetentionStatus;
   inmate_name: string;
   course_titles: string[];

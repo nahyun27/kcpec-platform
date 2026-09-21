@@ -255,7 +255,7 @@ const ORDERED_KEYS = [
 ];
 
 const PERSONAL_LABELS: Record<string, string> = {
-  relation: "작성자 관계",
+  relation: "당사자와의 관계",
   name: "성명",
   gender: "성별",
   birthdate: "생년월일",

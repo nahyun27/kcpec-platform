@@ -37,8 +37,13 @@ export default function DetentionIntro() {
               있도록 만들었습니다.
             </p>
             <p>
-              신청하실 때 수용자의 정보와 수용시설 주소만 입력하시면, 교육자료 발송은 저희가
-              진행합니다. 결제부터 수료증 수령까지 이 페이지에서 순서대로 안내해 드립니다.
+              신청하실 때 수용자의 정보와 수용시설 주소(또는 우체국 사서함)만 입력하시면, 교육자료
+              발송은 저희가 진행합니다. 결제부터 수료증 수령까지 이 페이지에서 순서대로 안내해
+              드립니다.
+            </p>
+            <p>
+              신청하신 가족분께서도 본인 명의로 재범방지교육을 수강하고 심리상담을 받으실 수
+              있습니다. 신청 후 안내되는 링크나 상단 메뉴에서 별도로 신청해 주세요.
             </p>
           </div>
         </section>
@@ -65,7 +70,7 @@ export default function DetentionIntro() {
               {
                 icon: Mail,
                 t: "4. 학습 확인·수료증 발급",
-                d: "발송 7일 후 신청하신 분이 마이페이지에서 '학습 완료 확인'을 누르면, 수료증을 신청 시 입력한 이메일로 보내드립니다.",
+                d: "발송 7일 후 신청하신 분이 마이페이지에서 '학습 완료 확인'을 누르면, 수료증을 발급해 마이페이지에서 내려받으실 수 있습니다.",
               },
             ].map(({ icon: Icon, t, d }) => (
               <li key={t} className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white p-4">
@@ -86,7 +91,7 @@ export default function DetentionIntro() {
               ["교육자료 발송", "신청 당일 ~ 다음 날"],
               ["자료 도착", "수용시설·우편 사정에 따라 달라집니다"],
               ["학습 완료 확인", "교육자료 발송일로부터 7일 후부터 가능"],
-              ["수료증 발송", "학습 완료 확인 후 발급하여 이메일로 발송"],
+              ["수료증 확인", "학습 완료 확인 후 발급 — 마이페이지에서 다운로드"],
             ].map(([k, v]) => (
               <div key={k} className="flex flex-wrap justify-between gap-2 px-5 py-3">
                 <dt className="font-bold text-slate-700">{k}</dt>

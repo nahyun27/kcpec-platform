@@ -372,7 +372,7 @@ def send_detention_certificates(
     body = (
         f"안녕하세요.\n\n"
         f"신청하신 {inmate_name}님의 구속수용자 교육 수료증이 발급되었습니다.\n"
-        f"아래 링크에서 PDF 파일을 다운로드하여 인쇄·제출해 주세요.\n\n"
+        f"마이페이지 > 결제 내역에서도 확인·다운로드하실 수 있습니다. 아래 링크에서 PDF 파일을 내려받아 인쇄·제출해 주세요.\n\n"
         + "\n".join(lines)
         + "\n\n문의: admin@kcpec.co.kr\n\n— 한국범죄예방교육센터 —\n"
     )

@@ -37,7 +37,7 @@ export default function DetentionMyClient() {
     try {
       const updated = await confirmDetentionLearning(r.id);
       setRows((prev) => (prev ?? []).map((x) => (x.id === updated.id ? updated : x)));
-      await dialog.alert("학습 완료가 확인되었습니다. 수료증이 발급되면 신청 시 입력하신 이메일로 보내드립니다.");
+      await dialog.alert("학습 완료가 확인되었습니다. 수료증이 발급되면 마이페이지 결제 내역에서 내려받으실 수 있습니다.");
     } catch (err) {
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
@@ -115,11 +115,11 @@ export default function DetentionMyClient() {
                   </div>
                 ) : r.status === "completed" ? (
                   <p className="text-sm font-semibold text-emerald-700">
-                    수료증을 이메일로 발송했습니다. ({fmt(r.completed_at)})
+                    수료증이 발급되었습니다. 마이페이지 결제 내역에서 내려받으실 수 있습니다. ({fmt(r.completed_at)})
                   </p>
                 ) : (
                   <p className="text-sm text-slate-500">
-                    학습 완료가 확인되었습니다. 수료증이 발급되면 이메일로 보내드립니다.
+                    학습 완료가 확인되었습니다. 수료증이 발급되면 마이페이지 결제 내역에서 내려받으실 수 있습니다.
                   </p>
                 )}
               </li>

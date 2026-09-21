@@ -128,7 +128,7 @@ class DetentionApplyRequest(BaseModel):
     address: str = Field(min_length=1, max_length=300)
     delivery_note: str | None = Field(default=None, max_length=300)
     contact_phone: str = Field(min_length=1, max_length=30)
-    certificate_email: EmailStr
+    applicant_relation: str = Field(min_length=1, max_length=30)
     agree_privacy: bool
 
 
@@ -228,7 +228,8 @@ def apply_detention(
             address=payload.address.strip(),
             delivery_note=clean(payload.delivery_note),
             contact_phone=payload.contact_phone.strip(),
-            certificate_email=str(payload.certificate_email).strip(),
+            certificate_email=current_user.email,
+            applicant_relation=payload.applicant_relation.strip(),
             status=DetentionStatus.RECEIVED,
         )
     )
@@ -246,6 +247,7 @@ def apply_detention(
 
 class DetentionMineRow(BaseModel):
     id: int
+    bundle_id: str
     status: DetentionStatus
     inmate_name: str
     course_titles: list[str]
@@ -283,6 +285,7 @@ def my_detention_applications(
         rows.append(
             DetentionMineRow(
                 id=a.id,
+                bundle_id=a.bundle_id,
                 status=a.status,
                 inmate_name=a.inmate_name,
                 course_titles=[c.title for o, c in pairs if c.title != DETENTION_FEE_COURSE_TITLE],
@@ -369,6 +372,7 @@ class AdminDetentionRow(BaseModel):
     delivery_note: str | None
     contact_phone: str
     certificate_email: str
+    applicant_relation: str | None
     tracking_number: str | None
     admin_memo: str | None
     materials_sent_at: datetime | None
@@ -428,6 +432,7 @@ def _admin_row(db: Session, a: DetentionApplication) -> AdminDetentionRow:
         delivery_note=a.delivery_note,
         contact_phone=a.contact_phone,
         certificate_email=a.certificate_email,
+        applicant_relation=a.applicant_relation,
         tracking_number=a.tracking_number,
         admin_memo=a.admin_memo,
         materials_sent_at=a.materials_sent_at,
@@ -571,7 +576,8 @@ def admin_send_detention_certificates(
     application_id: int,
     db: Session = Depends(get_db),
 ) -> dict:
-    """발급된 수료증(+서약서) 링크를 수료증 수령 이메일로 발송하고 완료 처리."""
+    """수료증 발급을 완료 처리한다. 수료증은 신청자의 마이페이지에서 확인하므로
+    완료 처리는 메일 발송 결과와 무관하고, 안내 메일은 계정 이메일로 보내는 부가 기능."""
     a = db.get(DetentionApplication, application_id)
     if a is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="신청을 찾을 수 없습니다.")
@@ -594,8 +600,7 @@ def admin_send_detention_certificates(
         inmate_name=a.inmate_name,
         items=[(o.course_title, o.pdf_url or "", o.pledge_pdf_url) for o in course_orders],
     )
-    if sent:
-        a.status = DetentionStatus.COMPLETED
-        a.completed_at = a.completed_at or datetime.now(timezone.utc)
-        db.commit()
+    a.status = DetentionStatus.COMPLETED
+    a.completed_at = a.completed_at or datetime.now(timezone.utc)
+    db.commit()
     return {"emailed": sent}

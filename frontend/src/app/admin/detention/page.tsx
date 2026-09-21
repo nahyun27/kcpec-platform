@@ -93,13 +93,13 @@ export default function AdminDetentionPage() {
   const send = (r: AdminDetentionRow) =>
     run(`send-${r.id}`, async () => {
       const ok = await dialog.confirm(
-        `${r.certificate_email} 로 수료증을 발송하고 '수료증 발송 완료'로 처리합니다. 진행할까요?`,
+        `발급된 수료증을 신청자 마이페이지에 노출한 것으로 보고 '수료증 발급 완료'로 처리하고, ${r.certificate_email} 로 안내 메일을 보냅니다. 진행할까요?`,
       );
       if (!ok) return;
       const res = await sendDetentionCertificates(r.id);
       setRows(await getAdminDetentionList());
       await dialog.alert(
-        res.emailed ? "수료증을 이메일로 발송했습니다." : "메일 발송에 실패했습니다. 메일 설정을 확인해 주세요.",
+        res.emailed ? "완료 처리했고 안내 메일을 보냈습니다." : "완료 처리했습니다. (안내 메일 발송은 실패했습니다.)",
       );
     });
 
@@ -116,7 +116,7 @@ export default function AdminDetentionPage() {
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
           결제 완료된 신청만 표시됩니다. ① 교육자료 우편 발송 후 &apos;발송 완료&apos; 처리 → ② 발송 7일 후
-          보호자가 학습 완료를 확인하면 → ③ 과정별 수료증 발급 → ④ 이메일 발송.
+          보호자가 학습 완료를 확인하면 → ③ 과정별 수료증 발급 → ④ 완료 처리(신청자 마이페이지에서 다운로드, 안내 메일 자동 발송).
         </p>
       </header>
 
@@ -177,7 +177,7 @@ export default function AdminDetentionPage() {
                   ["배송 요청", r.delivery_note ?? "-"],
                   ["신청자", `${r.buyer_username} (${r.buyer_email})`],
                   ["연락처", r.contact_phone],
-                  ["수료증 이메일", r.certificate_email],
+                  ["수용자와의 관계", r.applicant_relation ?? "-"],
                 ].map(([k, v]) => (
                   <div key={k} className="flex gap-2">
                     <dt className="w-24 shrink-0 text-slate-500">{k}</dt>
@@ -269,7 +269,7 @@ export default function AdminDetentionPage() {
                   onClick={() => send(r)}
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
                 >
-                  {allIssued ? "수료증 이메일 발송" : "모든 과정 수료증 발급 후 발송 가능"}
+                  {allIssued ? "수료증 발급 완료 처리" : "모든 과정 수료증 발급 후 완료 처리 가능"}
                 </button>
               ) : null}
             </article>

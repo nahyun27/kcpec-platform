@@ -81,9 +81,25 @@ export default function DetentionSuccessClient() {
               </li>
               <li>
                 <b>3.</b> 발송일로부터 7일이 지나면 마이페이지의 신청 내역에서 &apos;학습 완료 확인&apos;을 눌러
-                주세요. 확인 후 수료증을 신청 시 입력하신 이메일로 보내드립니다.
+                주세요. 확인 후 수료증이 발급되면 마이페이지에서 내려받으실 수 있습니다.
               </li>
             </ol>
+
+            <div className="mt-6 rounded-lg border border-blue-100 bg-blue-50 p-4 text-left text-sm text-blue-900">
+              <p className="font-bold">가족분도 함께 준비하시겠어요?</p>
+              <p className="mt-1 text-xs leading-relaxed">
+                신청하신 분 본인 명의로 재범방지교육을 수강하고 심리상담을 받으실 수 있습니다. 심리상담
+                설문에서 수용자와의 관계를 입력하는 항목이 있습니다.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <Link href="/courses" className="rounded-md bg-white px-3 py-1.5 text-xs font-bold text-blue-800 ring-1 ring-blue-200 hover:bg-blue-100">
+                  교육 수강하기
+                </Link>
+                <Link href="/counseling" className="rounded-md bg-white px-3 py-1.5 text-xs font-bold text-blue-800 ring-1 ring-blue-200 hover:bg-blue-100">
+                  심리상담 신청하기
+                </Link>
+              </div>
+            </div>
 
             <div className="mt-8 flex flex-col gap-2">
               <Link

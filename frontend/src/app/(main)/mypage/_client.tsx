@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { isAxiosError } from "axios";
 import {
   absUrl,
@@ -88,6 +88,13 @@ export default function MyPageClient() {
   // 따라 클릭해도 탭이 안 바뀌는 문제가 있었다 — 실제 렌더링에 쓰는 값은
   // 로컬 state 로 분리해 클릭이 항상 즉시 반영되도록 하고, URL 은 공유용
   // best-effort 로만 맞춰준다(뒤로가기 등에서 완벽히 동기화되진 않음).
+  const [detentionBundles, setDetentionBundles] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!tokenStorage.getAccess()) return;
+    getMyDetention()
+      .then((rows) => setDetentionBundles(new Set(rows.map((r) => r.bundle_id))))
+      .catch(() => {});
+  }, []);
   const [tab, setTabState] = useState<TabKey>(() => {
     const initial = search.get("tab");
     return isTabKey(initial) ? initial : "courses";
@@ -313,6 +320,7 @@ export default function MyPageClient() {
   }
 
   return (
+    <DetentionBundlesContext.Provider value={detentionBundles}>
     <div className="min-h-screen bg-slate-50/50 pb-24 animate-in fade-in duration-300">
       <div className="bg-white pt-10 md:pt-16 relative z-10 border-b border-slate-100">
         <div className="mx-auto max-w-5xl px-4 md:px-6">
@@ -547,6 +555,7 @@ export default function MyPageClient() {
       ) : null}
       </div>
     </div>
+    </DetentionBundlesContext.Provider>
   );
 }
 
@@ -1201,6 +1210,10 @@ function OrderRow({
   );
 }
 
+// 구속수용자 교육(우편 자료) 주문의 묶음 id 집합 — 이 주문들은 온라인 수강 대상이
+// 아니라 신청 내역 페이지에서 진행 상황·수료증을 확인한다.
+const DetentionBundlesContext = createContext<Set<string>>(new Set());
+
 function OrderPaidDetails({
   order,
   isCourseCompleted,
@@ -1211,6 +1224,8 @@ function OrderPaidDetails({
   progressPct: number;
 }) {
   const hasStarted = progressPct > 0;
+  const detentionBundles = useContext(DetentionBundlesContext);
+  const isDetention = !!order.bundle_id && detentionBundles.has(order.bundle_id);
   return (
     <>
       <div className="mb-3 flex items-center gap-2">
@@ -1257,6 +1272,18 @@ function OrderPaidDetails({
               </li>
             ))}
           </ul>
+        ) : isDetention ? (
+          <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
+            <p className="text-sm text-slate-500 mb-3">
+              구속수용자 교육입니다. 진행 상황을 확인하고, 수료증이 발급되면 여기에서 내려받을 수 있습니다.
+            </p>
+            <Link
+              href="/detention/my"
+              className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+            >
+              신청 내역 보기
+            </Link>
+          </div>
         ) : isCourseCompleted ? (
           <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
             <p className="text-sm text-slate-500 mb-3">수료를 완료했습니다. 수료증을 발급받을 수 있습니다.</p>
@@ -1431,13 +1458,8 @@ function BundleOrderGroup({
 // 강의 2개 묶음이면 동일 박스가 2번) 호출부는 카드/묶음당 한 번만 렌더할 것.
 // 구속수용자 교육 신청이 있는 사용자에게만 신청 내역(학습 완료 확인) 링크를 보여준다.
 function DetentionLink() {
-  const [has, setHas] = useState(false);
-  useEffect(() => {
-    getMyDetention()
-      .then((rows) => setHas(rows.length > 0))
-      .catch(() => {});
-  }, []);
-  if (!has) return null;
+  const bundles = useContext(DetentionBundlesContext);
+  if (bundles.size === 0) return null;
   return (
     <Link
       href="/detention/my"
