@@ -8,6 +8,8 @@ import { useEffect, useState } from "react";
 import { getFaqs, getPosts } from "@/lib/api";
 import type { Faq, PostListItem } from "@/types/community";
 import SiteHeader from "@/components/layout/SiteHeader";
+import { FloatingContact } from "@/components/layout/FloatingContact";
+import { CASE_LANDINGS } from "@/lib/caseLandings";
 import {
   ArrowRight,
   ChevronDown,
@@ -37,13 +39,43 @@ export default function HomePage() {
     <div className="flex min-h-full flex-1 flex-col bg-[var(--color-muted)]">
       <SiteHeader />
       <Hero />
+      <CaseTypesSection />
       <TrustSection />
       <StepsSection />
       <ReviewsSection />
       <SamplesSection />
       <FaqSection />
       <SiteFooter />
+      <FloatingContact />
     </div>
+  );
+}
+
+// ---------- case types (사건 유형별 교육 바로가기) ---------------------------
+
+function CaseTypesSection() {
+  return (
+    <section className="bg-white px-6 py-12 md:py-16">
+      <div className="mx-auto max-w-5xl text-center">
+        <h2 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
+          사건 유형별 재범방지교육
+        </h2>
+        <p className="mt-2 text-sm text-slate-500">
+          내 사건과 같은 유형의 교육을 바로 확인하세요.
+        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
+          {CASE_LANDINGS.map((c) => (
+            <Link
+              key={c.slug}
+              href={`/education/${c.slug}`}
+              className="rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+            >
+              {c.name}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 

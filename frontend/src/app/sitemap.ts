@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { CASE_LANDINGS } from "@/lib/caseLandings";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 const API_BASE_URL =
@@ -34,5 +35,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  return [...staticRoutes, ...courseRoutes];
+  const landingRoutes: MetadataRoute.Sitemap = CASE_LANDINGS.map((c) => ({
+    url: `${SITE_URL}/education/${c.slug}`,
+    changeFrequency: "monthly",
+    priority: 0.9,
+  }));
+
+  return [...staticRoutes, ...landingRoutes, ...courseRoutes];
 }
