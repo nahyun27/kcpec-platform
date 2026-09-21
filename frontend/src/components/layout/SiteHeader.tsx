@@ -11,6 +11,7 @@ const NAV = [
   { href: "/sentencing", label: "맞춤 강의 찾기" },
   { href: "/counseling", label: "전문가 심리상담" },
   { href: "/courses", label: "강의 전체보기" },
+  { href: "/detention", label: "구속수용자 교육" },
   { href: "/community", label: "커뮤니티" },
   { href: "/guide", label: "이용 안내" },
 ];
@@ -74,7 +75,7 @@ export default function SiteHeader() {
         </div>
 
         {/* 중: 메뉴 */}
-        <nav className="hidden flex-[2] items-center justify-center gap-8 text-[15px] font-bold text-slate-600 md:flex">
+        <nav className="hidden flex-[2] items-center justify-center gap-4 text-sm font-bold lg:gap-8 lg:text-[15px] text-slate-600 md:flex">
           {NAV.map((item) => (
             <Link
               key={item.href}
