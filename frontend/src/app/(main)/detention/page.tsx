@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import DetentionClient from "./_client";
+import DetentionIntro from "./_intro";
 
 export const metadata = {
   title: "구속수용자 재범방지교육 (교육자료 우편 발송) | KCPEC",
@@ -9,8 +10,11 @@ export const metadata = {
 
 export default function Page() {
   return (
-    <Suspense fallback={<p className="py-20 text-center text-sm text-zinc-500">불러오는 중...</p>}>
-      <DetentionClient />
-    </Suspense>
+    <div className="min-h-screen bg-slate-50">
+      <DetentionIntro />
+      <Suspense fallback={<p className="py-20 text-center text-sm text-zinc-500">불러오는 중...</p>}>
+        <DetentionClient />
+      </Suspense>
+    </div>
   );
 }
