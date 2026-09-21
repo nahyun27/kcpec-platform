@@ -30,7 +30,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const landing = getCaseLanding(slug);
   if (!landing) return { title: "교육 안내 | KCPEC" };
-  const title = `${landing.heading} | 수료증·양형자료 | KCPEC`;
+  const title = `${landing.heading} 수료증 발급·양형자료 | KCPEC`;
   return {
     title,
     description: landing.intro,
