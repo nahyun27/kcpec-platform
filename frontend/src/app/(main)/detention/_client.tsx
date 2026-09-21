@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { isAxiosError } from "axios";
-import { Loader2, Mail, PackageCheck, FileCheck2 } from "lucide-react";
+import { BookOpenCheck, Loader2, Mail, PackageCheck, FileCheck2 } from "lucide-react";
 import { applyDetention, getDetentionInfo, tokenStorage } from "@/lib/api";
 import { TIER_SORT_INDEX } from "@/lib/courseTiers";
 import type { DetentionInfo } from "@/types/detention";
@@ -76,6 +76,12 @@ export default function DetentionClient() {
   const [agree, setAgree] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  // 오류(결제 실패 등)는 신청 폼 안에 표시되므로, 위 설명 영역에 있던 사용자를 그쪽으로 이동시킨다.
+  useEffect(() => {
+    if (error) formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [error]);
 
   useEffect(() => {
     getDetentionInfo()
@@ -225,30 +231,100 @@ export default function DetentionClient() {
           <h1 className="mt-2 font-sans text-3xl font-black text-slate-900">
             구속수용자 재범방지교육
           </h1>
-          <p className="mt-3 text-sm leading-relaxed text-slate-600">
+          <p className="mt-3 text-sm leading-relaxed text-slate-600 sm:text-base">
             구치소·교도소에 계셔서 온라인 수강이 어려운 분을 위해, 보호자께서 대신 신청하시면
             교육자료를 수용시설로 우편 발송해 드립니다. 교육 이수 후 수료증은 이메일로 발급해
             드립니다.
           </p>
-          <ol className="mt-6 grid gap-3 sm:grid-cols-3">
+          <a
+            href="#apply"
+            className="mt-6 inline-flex items-center rounded-xl bg-[var(--color-primary)] px-6 py-3 text-sm font-bold text-white shadow-md hover:bg-[var(--color-primary-hover)]"
+          >
+            신청하러 가기
+          </a>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-4xl space-y-12 px-6 pt-10">
+        <section>
+          <h2 className="font-sans text-xl font-bold text-slate-900">이용 절차</h2>
+          <ol className="mt-5 grid gap-3 sm:grid-cols-2">
             {[
-              { icon: FileCheck2, t: "1. 신청·결제", d: "수용자 정보 입력 후 결제" },
-              { icon: PackageCheck, t: "2. 자료 발송", d: "교육자료를 수용시설로 우편 발송" },
-              { icon: Mail, t: "3. 학습 확인·수료증", d: "발송 7일 후 보호자 확인 → 수료증 이메일 발송" },
+              {
+                icon: FileCheck2,
+                t: "1. 신청·결제",
+                d: "보호자가 수용자 정보를 입력하고 교육과정을 선택해 결제합니다.",
+              },
+              {
+                icon: PackageCheck,
+                t: "2. 교육자료 발송",
+                d: "결제 확인 후 발송을 준비해, 신청 당일~다음 날 수용시설 주소로 우편 발송합니다.",
+              },
+              {
+                icon: BookOpenCheck,
+                t: "3. 수용자 학습",
+                d: "수용자가 교육자료로 학습합니다. 교육자료 안에 퀴즈가 포함되어 있습니다.",
+              },
+              {
+                icon: Mail,
+                t: "4. 학습 확인·수료증 발급",
+                d: "발송 7일 후 신청하신 분이 마이페이지에서 '학습 완료 확인'을 누르면, 수료증을 신청 시 입력한 이메일로 보내드립니다.",
+              },
             ].map(({ icon: Icon, t, d }) => (
-              <li key={t} className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-slate-50 p-4">
+              <li key={t} className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white p-4">
                 <Icon className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-primary)]" />
                 <div>
                   <p className="text-sm font-bold text-slate-800">{t}</p>
-                  <p className="text-xs text-slate-500">{d}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{d}</p>
                 </div>
               </li>
             ))}
           </ol>
-        </div>
+        </section>
+
+        <section>
+          <h2 className="font-sans text-xl font-bold text-slate-900">이용 금액</h2>
+          <div className="mt-5 space-y-2 rounded-xl border border-zinc-200 bg-white p-5 text-sm text-slate-600">
+            <p>
+              <b className="text-slate-800">선택한 교육과정 금액</b> — 온라인 수강 금액과 같습니다.
+            </p>
+            <p>
+              <b className="text-slate-800">교육자료·발송비 {fee.toLocaleString()}원</b> — 신청 1건당
+              1회만 더해집니다. 여러 과정을 함께 신청해도 발송비는 한 번입니다.
+            </p>
+            {info ? (
+              <p>
+                합계가 {info.bulk_discount_threshold.toLocaleString()}원 이상이면{" "}
+                {info.bulk_discount_amount.toLocaleString()}원이 할인됩니다.
+              </p>
+            ) : null}
+          </div>
+        </section>
+
+        <section>
+          <h2 className="font-sans text-xl font-bold text-slate-900">유의사항</h2>
+          <ul className="mt-5 list-disc space-y-2 rounded-xl border border-amber-200 bg-amber-50 py-5 pl-9 pr-5 text-sm leading-relaxed text-amber-900">
+            <li>
+              교육자료는 신청 즉시 발송 준비에 들어가므로, 신청·결제 후에는 환불이 어렵습니다.
+            </li>
+            <li>수용시설의 규정과 우편 사정에 따라 자료 도착이 늦어지거나 반입이 제한될 수 있습니다.</li>
+            <li>
+              수료증은 교육 이수를 증명하는 자료이며, 재판·수사 결과를 보장하지 않습니다.
+            </li>
+            <li>
+              수용자의 성명·생년월일·수용번호·시설 정보는 교육자료 발송과 수료증 발급 목적으로만
+              사용됩니다.
+            </li>
+          </ul>
+        </section>
       </div>
 
-      <form onSubmit={handleSubmit} className="mx-auto max-w-4xl space-y-10 px-6 pt-10">
+      <form
+        id="apply"
+        ref={formRef}
+        onSubmit={handleSubmit}
+        className="mx-auto mt-12 max-w-4xl scroll-mt-24 space-y-10 px-6 pt-2"
+      >
         {error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
             {error}
