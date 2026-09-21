@@ -9,6 +9,23 @@ import { applyDetention, getDetentionInfo, tokenStorage } from "@/lib/api";
 import type { DetentionInfo } from "@/types/detention";
 import { PAYMENT_METHOD_LABEL, type PaymentMethod } from "@/types/order";
 
+type DaumPostcodeData = { zonecode: string; roadAddress: string; jibunAddress: string };
+type DaumWindow = Window & {
+  daum?: { Postcode: new (opts: { oncomplete: (d: DaumPostcodeData) => void }) => { open: () => void } };
+};
+
+// 다음(카카오) 우편번호 서비스 — 키 없이 무료. 스크립트는 처음 누를 때 한 번만 불러온다.
+function loadDaumPostcode(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if ((window as DaumWindow).daum?.Postcode) return resolve();
+    const el = document.createElement("script");
+    el.src = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+    el.onload = () => resolve();
+    el.onerror = () => reject(new Error("주소 검색을 불러오지 못했습니다."));
+    document.head.appendChild(el);
+  });
+}
+
 const PAYMENT_METHODS: PaymentMethod[] = ["card", "transfer", "bank_transfer"];
 
 const inputCls =
@@ -93,6 +110,23 @@ export default function DetentionClient() {
   const discount =
     info && subtotal >= info.bulk_discount_threshold ? info.bulk_discount_amount : 0;
   const total = subtotal - discount;
+
+  async function searchAddress() {
+    try {
+      await loadDaumPostcode();
+      new (window as DaumWindow).daum!.Postcode({
+        oncomplete: (d) => {
+          setForm((f) => ({
+            ...f,
+            postal_code: d.zonecode,
+            address: d.roadAddress || d.jibunAddress,
+          }));
+        },
+      }).open();
+    } catch {
+      setError("주소 검색을 불러오지 못했습니다. 직접 입력해 주세요.");
+    }
+  }
 
   function toggle(id: number) {
     setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
@@ -274,14 +308,25 @@ export default function DetentionClient() {
               <input className={inputCls} value={form.facility_name} maxLength={100}
                 onChange={(e) => set("facility_name", e.target.value)} required />
             </Field>
-            <Field label="우편번호">
-              <input className={inputCls} value={form.postal_code} maxLength={10}
-                onChange={(e) => set("postal_code", e.target.value)} />
-            </Field>
-            <Field label="수용시설 주소" required>
-              <input className={inputCls} value={form.address} maxLength={300}
-                onChange={(e) => set("address", e.target.value)} required />
-            </Field>
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="text-sm font-bold text-slate-700">
+                수용시설 주소<span className="ml-0.5 text-red-500">*</span>
+              </label>
+              <div className="flex gap-2">
+                <input className={`${inputCls} max-w-[9rem] bg-slate-50`} value={form.postal_code}
+                  placeholder="우편번호" readOnly onClick={searchAddress} />
+                <button type="button" onClick={searchAddress}
+                  className="shrink-0 rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-700">
+                  주소 검색
+                </button>
+              </div>
+              <input className={inputCls} value={form.address} maxLength={300} required
+                placeholder="주소 검색 후 상세 정보(동·호수 등)가 있으면 이어서 입력"
+                onChange={(e) => set("address", e.target.value)} />
+              <p className="text-xs text-zinc-500">
+                검색 결과에 없으면 주소를 직접 입력하셔도 됩니다.
+              </p>
+            </div>
             <div className="sm:col-span-2">
               <Field label="배송 요청사항" hint="시설 우편물 접수 관련 참고사항이 있으면 적어 주세요.">
                 <input className={inputCls} value={form.delivery_note} maxLength={300}
