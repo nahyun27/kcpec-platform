@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, false, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -72,6 +72,12 @@ class Order(Base):
     # 같은 결제 세션에 속한 주문들을 하나로 묶어 식별하는 랜덤 토큰.
     # 단일 강의 주문은 None.
     bundle_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    # 구속수용자 교육(우편 자료) 신청으로 만들어진 "수용자용" 주문 — 강의 주문·자료
+    # 발송비 모두 True. 같은 결제에 함께 담은 신청자 본인 수강/상담 주문은 False.
+    # True 인 주문은 온라인 수강 등록을 하지 않고 관리자가 수용자 명의로 수료증을 발급한다.
+    detention_inmate: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

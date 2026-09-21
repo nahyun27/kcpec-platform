@@ -143,7 +143,8 @@ export default function AdminDetentionPage() {
         </p>
       ) : (
         shown.map((r) => {
-          const courseOrders = r.orders.filter((o) => !o.is_fee && o.status === "paid");
+          const courseOrders = r.orders.filter((o) => !o.is_fee && !o.is_own && o.status === "paid");
+          const ownOrders = r.orders.filter((o) => o.is_own);
           const confirmed = !!r.learning_confirmed_at;
           const allIssued = courseOrders.length > 0 && courseOrders.every((o) => o.document_id);
           const d = drafts[r.id] ?? { tracking: "", memo: "" };
@@ -261,6 +262,19 @@ export default function AdminDetentionPage() {
                   </li>
                 ))}
               </ul>
+
+              {ownOrders.length > 0 ? (
+                <div className="rounded-lg bg-blue-50 p-3 text-xs text-blue-900">
+                  <p className="mb-1 font-bold">신청자 본인 수강·상담 (온라인, 수용자 수료증과 별개)</p>
+                  <ul className="space-y-0.5">
+                    {ownOrders.map((o) => (
+                      <li key={o.order_id}>
+                        {o.course_title} · {o.amount.toLocaleString()}원 · {o.status === "paid" ? "결제완료" : o.status}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
 
               {r.status !== "completed" && r.status !== "cancelled" ? (
                 <button

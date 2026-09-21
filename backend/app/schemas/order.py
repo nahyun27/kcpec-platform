@@ -25,6 +25,8 @@ class OrderResponse(BaseModel):
     # 맞춤강의찾기 묶음결제로 같이 생성된 주문끼리 공유하는 값 — 마이페이지에서
     # 한 카드로 묶어 보여주는 데 사용.
     bundle_id: str | None = None
+    # 구속수용자 교육(우편 자료) 수용자용 주문 — 온라인 수강 대상이 아님.
+    detention_inmate: bool = False
     # 무통장입금(토스 가상계좌) 발급 정보 — 입금 대기 중에만 값이 있음.
     # va_secret(웹훅 검증용)은 절대 포함하지 않는다.
     va_account_number: str | None = None

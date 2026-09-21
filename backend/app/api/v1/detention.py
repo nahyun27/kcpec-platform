@@ -17,6 +17,7 @@ from app.api.v1.orders import (
     DETENTION_FEE_COURSE_TITLE,
     DETENTION_FEE_DEFAULT,
     _cancel_stale_pending,
+    _enrollment_expired,
 )
 from app.core.admin import require_admin
 from app.core.cert_config import get_cert_template
@@ -89,6 +90,8 @@ class DetentionInfo(BaseModel):
     fee_amount: int
     wait_days: int = DETENTION_WAIT_DAYS
     courses: list[DetentionCourse]
+    # 신청자(가족) 본인이 함께 받을 수 있는 심리상담 프로그램.
+    counseling: list[DetentionCourse] = []
     bulk_discount_threshold: int
     bulk_discount_amount: int
 
@@ -109,9 +112,22 @@ def detention_info(db: Session = Depends(get_db)) -> DetentionInfo:
         for c in rows
         if c.title != DETENTION_FEE_COURSE_TITLE and get_cert_template(c.title) is not None
     ]
+    counseling = [
+        DetentionCourse(id=c.id, title=c.title, price=c.price, category=c.category)
+        for c in db.scalars(
+            select(Course)
+            .where(
+                Course.is_active.is_(True),
+                Course.category == CourseCategory.COUNSELING,
+                Course.price > 0,
+            )
+            .order_by(Course.id)
+        ).all()
+    ]
     return DetentionInfo(
         fee_amount=fee if fee is not None else DETENTION_FEE_DEFAULT,
         courses=courses,
+        counseling=counseling,
         bulk_discount_threshold=BULK_DISCOUNT_THRESHOLD,
         bulk_discount_amount=BULK_DISCOUNT_AMOUNT,
     )
@@ -119,6 +135,8 @@ def detention_info(db: Session = Depends(get_db)) -> DetentionInfo:
 
 class DetentionApplyRequest(BaseModel):
     course_ids: list[int] = Field(min_length=1, max_length=10)
+    # 신청자(가족) 본인이 함께 수강/상담받을 과정·심리상담 프로그램 — 선택.
+    own_course_ids: list[int] = Field(default_factory=list, max_length=15)
     payment_method: PaymentMethod
     inmate_name: str = Field(min_length=1, max_length=100)
     inmate_birth: date
@@ -169,29 +187,67 @@ def apply_detention(
                 detail=f"'{c.title}' 은(는) 구속수용자 교육으로 신청할 수 없는 과정입니다.",
             )
 
+    # 신청자 본인 수강/상담 — 수용자용 과정과 겹쳐도 된다(별도 주문).
+    own_ids = list(dict.fromkeys(payload.own_course_ids))
+    own_courses = {
+        c.id: c for c in db.scalars(select(Course).where(Course.id.in_(own_ids))).all()
+    } if own_ids else {}
+    for cid in own_ids:
+        c = own_courses.get(cid)
+        if c is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"과정을 찾을 수 없습니다: {cid}")
+        if not c.is_active or c.title == DETENTION_FEE_COURSE_TITLE:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail=f"'{c.title}' 은(는) 함께 신청할 수 없는 과정입니다.",
+            )
+        if c.category != CourseCategory.COUNSELING:
+            paid_own = db.scalar(
+                select(Order).where(
+                    Order.user_id == current_user.id,
+                    Order.course_id == cid,
+                    Order.status == OrderStatus.PAID,
+                    Order.detention_inmate.is_(False),
+                )
+            )
+            if paid_own is not None and not _enrollment_expired(db, current_user.id, cid):
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    detail=f"'{c.title}' 은(는) 이미 수강 중인 과정입니다. 본인 수강 선택에서 빼 주세요.",
+                )
+
     fee_course = get_or_create_fee_course(db)
     fee = fee_course.price or 0
-    subtotal = sum(courses[cid].price or 0 for cid in course_ids)
+    # 묶음 할인(10만원 이상 시 1만원)은 강의·상담 금액 합계 기준 — 발송비는 제외.
+    subtotal = sum(courses[cid].price or 0 for cid in course_ids) + sum(
+        own_courses[cid].price or 0 for cid in own_ids
+    )
     discount = BULK_DISCOUNT_AMOUNT if subtotal >= BULK_DISCOUNT_THRESHOLD else 0
     total = subtotal - discount + fee
 
     bundle_id = secrets.token_urlsafe(16)
     items: list[BundleItem] = []
-    for i, cid in enumerate(course_ids):
-        c = courses[cid]
-        amount = (c.price or 0) - (discount if i == len(course_ids) - 1 else 0)
+    # (course, 수용자용 여부) — 마지막 항목에서 할인액을 차감.
+    lines = [(courses[cid], True) for cid in course_ids] + [
+        (own_courses[cid], False) for cid in own_ids
+    ]
+    for i, (c, for_inmate) in enumerate(lines):
+        amount = (c.price or 0) - (discount if i == len(lines) - 1 else 0)
         order = Order(
             user_id=current_user.id,
-            course_id=cid,
-            order_type=OrderType.COURSE,
+            course_id=c.id,
+            order_type=(
+                OrderType.COUNSELING if c.category == CourseCategory.COUNSELING else OrderType.COURSE
+            ),
             payment_method=payload.payment_method,
             amount=amount,
             status=OrderStatus.PENDING,
             bundle_id=bundle_id,
+            detention_inmate=for_inmate,
         )
         db.add(order)
         db.flush()
-        items.append(BundleItem(order_id=order.id, course_id=cid, course_title=c.title, amount=amount))
+        items.append(BundleItem(order_id=order.id, course_id=c.id, course_title=c.title, amount=amount))
     fee_order = Order(
         user_id=current_user.id,
         course_id=fee_course.id,
@@ -200,6 +256,7 @@ def apply_detention(
         amount=fee,
         status=OrderStatus.PENDING,
         bundle_id=bundle_id,
+        detention_inmate=True,
     )
     db.add(fee_order)
     db.flush()
@@ -288,7 +345,11 @@ def my_detention_applications(
                 bundle_id=a.bundle_id,
                 status=a.status,
                 inmate_name=a.inmate_name,
-                course_titles=[c.title for o, c in pairs if c.title != DETENTION_FEE_COURSE_TITLE],
+                course_titles=[
+                    c.title
+                    for o, c in pairs
+                    if o.detention_inmate and c.title != DETENTION_FEE_COURSE_TITLE
+                ],
                 total=sum(o.amount for o, _ in pairs),
                 paid=paid,
                 tracking_number=a.tracking_number,
@@ -351,6 +412,8 @@ class AdminDetentionOrder(BaseModel):
     amount: int
     status: OrderStatus
     is_fee: bool
+    # 신청자(가족) 본인이 함께 결제한 수강/상담 주문 — 수용자 수료증 발급 대상이 아님.
+    is_own: bool = False
     document_id: int | None = None
     issue_number: str | None = None
     pdf_url: str | None = None
@@ -411,6 +474,7 @@ def _admin_row(db: Session, a: DetentionApplication) -> AdminDetentionRow:
                 amount=o.amount,
                 status=o.status,
                 is_fee=c.title == DETENTION_FEE_COURSE_TITLE,
+                is_own=not o.detention_inmate,
                 document_id=d.id if d else None,
                 issue_number=d.issue_number if d else None,
                 pdf_url=d.pdf_url if d else None,
@@ -514,7 +578,7 @@ def admin_issue_detention_certificate(
             detail="보호자의 학습 완료 확인(발송 후 7일 경과 필요)이 있어야 수료증을 발급할 수 있습니다.",
         )
     course = db.get(Course, order.course_id)
-    if course is None or course.title == DETENTION_FEE_COURSE_TITLE:
+    if course is None or course.title == DETENTION_FEE_COURSE_TITLE or not order.detention_inmate:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="수료증 발급 대상이 아닙니다.")
     if order.status != OrderStatus.PAID:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제 완료된 주문만 발급할 수 있습니다.")
@@ -586,7 +650,9 @@ def admin_send_detention_certificates(
             status.HTTP_400_BAD_REQUEST, detail="보호자의 학습 완료 확인이 아직 없습니다."
         )
     row = _admin_row(db, a)
-    course_orders = [o for o in row.orders if not o.is_fee and o.status == OrderStatus.PAID]
+    course_orders = [
+        o for o in row.orders if not o.is_fee and not o.is_own and o.status == OrderStatus.PAID
+    ]
     if not course_orders:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제 완료된 과정이 없습니다.")
     missing = [o.course_title for o in course_orders if o.pdf_url is None]

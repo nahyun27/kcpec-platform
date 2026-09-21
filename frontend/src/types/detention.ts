@@ -20,12 +20,14 @@ export type DetentionInfo = {
   fee_amount: number;
   wait_days: number;
   courses: DetentionCourse[];
+  counseling: DetentionCourse[];
   bulk_discount_threshold: number;
   bulk_discount_amount: number;
 };
 
 export type DetentionApplyPayload = {
   course_ids: number[];
+  own_course_ids: number[];
   payment_method: PaymentMethod;
   inmate_name: string;
   inmate_birth: string;
@@ -45,6 +47,7 @@ export type AdminDetentionOrder = {
   amount: number;
   status: OrderStatus;
   is_fee: boolean;
+  is_own: boolean;
   document_id: number | null;
   issue_number: string | null;
   pdf_url: string | null;

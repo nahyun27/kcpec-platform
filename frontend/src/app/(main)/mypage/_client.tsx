@@ -1224,8 +1224,7 @@ function OrderPaidDetails({
   progressPct: number;
 }) {
   const hasStarted = progressPct > 0;
-  const detentionBundles = useContext(DetentionBundlesContext);
-  const isDetention = !!order.bundle_id && detentionBundles.has(order.bundle_id);
+  const isDetention = !!order.detention_inmate;
   return (
     <>
       <div className="mb-3 flex items-center gap-2">

@@ -7,6 +7,7 @@ import { isAxiosError } from "axios";
 import { confirmBundleTossPayment } from "@/lib/api";
 import type { OrderResponse } from "@/types/order";
 import { useDialog } from "@/components/ui/DialogProvider";
+import { counselingDisplayTitle } from "@/types/counseling";
 import { VirtualAccountNotice } from "@/components/features/VirtualAccountNotice";
 
 export default function DetentionSuccessClient() {
@@ -56,6 +57,8 @@ export default function DetentionSuccessClient() {
 
   const total = orders?.reduce((sum, o) => sum + o.amount, 0) ?? 0;
   const pendingDeposit = !!orders?.[0]?.va_account_number;
+  // 같은 결제에 함께 담은 신청자 본인 수강/상담 주문(수용자용 주문과 구분).
+  const ownOrders = orders?.filter((o) => !o.detention_inmate) ?? [];
 
   return (
     <div className="mx-auto max-w-xl px-4 py-16">
@@ -85,6 +88,31 @@ export default function DetentionSuccessClient() {
               </li>
             </ol>
 
+            {ownOrders.length > 0 ? (
+              <div className="mt-6 rounded-lg border border-blue-100 bg-blue-50 p-4 text-left text-sm text-blue-900">
+                <p className="font-bold">신청하신 분 본인의 수강·상담</p>
+                <ul className="mt-2 space-y-2">
+                  {ownOrders.map((o) => (
+                    <li key={o.id} className="flex items-center justify-between gap-2">
+                      <span className="font-semibold">
+                        {o.course_title ? counselingDisplayTitle(o.course_title) : `주문 #${o.id}`}
+                      </span>
+                      {pendingDeposit ? (
+                        <span className="text-xs text-blue-700">입금 확인 후 이용 가능</span>
+                      ) : o.order_type === "counseling" ? (
+                        <Link href={`/survey?counseling_order_id=${o.id}`} className="font-bold underline">
+                          설문 작성하기 →
+                        </Link>
+                      ) : (
+                        <Link href={`/courses/${o.course_id}/watch`} className="font-bold underline">
+                          수강하기 →
+                        </Link>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
             <div className="mt-6 rounded-lg border border-blue-100 bg-blue-50 p-4 text-left text-sm text-blue-900">
               <p className="font-bold">가족분도 함께 준비하시겠어요?</p>
               <p className="mt-1 text-xs leading-relaxed">
@@ -100,6 +128,7 @@ export default function DetentionSuccessClient() {
                 </Link>
               </div>
             </div>
+            )}
 
             <div className="mt-8 flex flex-col gap-2">
               <Link

@@ -7,7 +7,8 @@ import { isAxiosError } from "axios";
 import { Loader2 } from "lucide-react";
 import { applyDetention, getDetentionInfo, tokenStorage } from "@/lib/api";
 import { TIER_SORT_INDEX } from "@/lib/courseTiers";
-import type { DetentionInfo } from "@/types/detention";
+import type { DetentionCourse, DetentionInfo } from "@/types/detention";
+import { counselingDisplayTitle } from "@/types/counseling";
 import { PAYMENT_METHOD_LABEL, type PaymentMethod } from "@/types/order";
 
 type DaumPostcodeData = { zonecode: string; roadAddress: string; jibunAddress: string };
@@ -55,12 +56,48 @@ function Field({
   );
 }
 
+function CheckList({
+  items,
+  selectedIds,
+  onToggle,
+}: {
+  items: DetentionCourse[];
+  selectedIds: number[];
+  onToggle: (id: number) => void;
+}) {
+  return (
+    <ul className="grid gap-2 sm:grid-cols-2">
+      {items.map((c) => {
+        const on = selectedIds.includes(c.id);
+        return (
+          <li key={c.id}>
+            <label
+              className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-sm transition-colors ${
+                on
+                  ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5"
+                  : "border-zinc-200 bg-white hover:border-slate-300"
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <input type="checkbox" checked={on} onChange={() => onToggle(c.id)} className="h-4 w-4" />
+                <span className="font-semibold text-slate-800">{counselingDisplayTitle(c.title)}</span>
+              </span>
+              <span className="shrink-0 font-bold text-slate-600">{c.price.toLocaleString()}원</span>
+            </label>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export default function DetentionClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [info, setInfo] = useState<DetentionInfo | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [selected, setSelected] = useState<number[]>([]);
+  const [ownSelected, setOwnSelected] = useState<number[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [form, setForm] = useState({
     inmate_name: "",
@@ -119,13 +156,19 @@ export default function DetentionClient() {
     () => (info?.courses ?? []).filter((c) => selected.includes(c.id)),
     [info, selected],
   );
+  const ownChosen = useMemo(
+    () => [...(info?.courses ?? []), ...(info?.counseling ?? [])].filter((c) => ownSelected.includes(c.id)),
+    [info, ownSelected],
+  );
   const coursesTotal = chosen.reduce((s, c) => s + c.price, 0);
+  const ownTotal = ownChosen.reduce((s, c) => s + c.price, 0);
   const fee = info?.fee_amount ?? 0;
-  const subtotal = chosen.length > 0 ? coursesTotal + fee : 0;
-  // 서버(/detention/apply) 와 동일 규칙 — 표시용일 뿐 최종 금액은 서버 응답 기준.
+  // 서버(/detention/apply) 와 동일 규칙 — 할인은 강의·상담 금액 합계(발송비 제외) 기준.
+  // 표시용일 뿐 최종 금액은 서버 응답 기준.
+  const itemsTotal = coursesTotal + ownTotal;
   const discount =
-    info && subtotal >= info.bulk_discount_threshold ? info.bulk_discount_amount : 0;
-  const total = subtotal - discount;
+    info && itemsTotal >= info.bulk_discount_threshold ? info.bulk_discount_amount : 0;
+  const total = chosen.length > 0 ? itemsTotal + fee - discount : 0;
 
   async function searchAddress() {
     try {
@@ -147,6 +190,9 @@ export default function DetentionClient() {
   function toggle(id: number) {
     setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   }
+  function toggleOwn(id: number) {
+    setOwnSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -167,6 +213,7 @@ export default function DetentionClient() {
     try {
       const bundle = await applyDetention({
         course_ids: selected,
+        own_course_ids: ownSelected,
         payment_method: paymentMethod,
         ...form,
         postal_code: form.postal_code || undefined,
@@ -236,8 +283,9 @@ export default function DetentionClient() {
             </p>
             {info ? (
               <p>
-                합계가 {info.bulk_discount_threshold.toLocaleString()}원 이상이면{" "}
-                {info.bulk_discount_amount.toLocaleString()}원이 할인됩니다.
+                교육·상담 금액 합계(발송비 제외)가 {info.bulk_discount_threshold.toLocaleString()}원
+                이상이면 {info.bulk_discount_amount.toLocaleString()}원이 할인됩니다. 신청자 본인이
+                함께 수강·상담을 받는 금액도 합산됩니다.
               </p>
             ) : null}
           </div>
@@ -257,41 +305,13 @@ export default function DetentionClient() {
         ) : null}
 
         <section className="space-y-4">
-          <h2 className="font-sans text-xl font-bold text-slate-900">1. 교육과정 선택</h2>
+          <h2 className="font-sans text-xl font-bold text-slate-900">1. 수용자 교육과정 선택</h2>
           {loadError ? (
             <p className="text-sm text-red-600">과정 목록을 불러오지 못했습니다. 새로고침해 주세요.</p>
           ) : !info ? (
             <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
           ) : (
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {info.courses.map((c) => {
-                const on = selected.includes(c.id);
-                return (
-                  <li key={c.id}>
-                    <label
-                      className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-sm transition-colors ${
-                        on
-                          ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5"
-                          : "border-zinc-200 bg-white hover:border-slate-300"
-                      }`}
-                    >
-                      <span className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={on}
-                          onChange={() => toggle(c.id)}
-                          className="h-4 w-4"
-                        />
-                        <span className="font-semibold text-slate-800">{c.title}</span>
-                      </span>
-                      <span className="shrink-0 font-bold text-slate-600">
-                        {c.price.toLocaleString()}원
-                      </span>
-                    </label>
-                  </li>
-                );
-              })}
-            </ul>
+            <CheckList items={info.courses} selectedIds={selected} onToggle={toggle} />
           )}
           <p className="text-xs text-zinc-500">
             과정별 금액은 온라인 수강 금액과 같으며, 교육자료 제작·우편 발송비{" "}
@@ -368,7 +388,32 @@ export default function DetentionClient() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="font-sans text-xl font-bold text-slate-900">4. 결제</h2>
+          <h2 className="font-sans text-xl font-bold text-slate-900">
+            4. 신청자 본인 수강·심리상담 <span className="text-sm font-medium text-zinc-500">(선택)</span>
+          </h2>
+          <p className="text-sm text-slate-600">
+            수용자 교육과 함께, 신청하시는 분도 본인 명의로 재범방지교육을 수강하거나 심리상담을 받으실 수
+            있습니다. 선택하신 항목은 같은 결제에 포함되며, 금액은 위 할인 기준에 합산됩니다.
+          </p>
+          {info ? (
+            <>
+              <p className="text-sm font-bold text-slate-700">교육 수강</p>
+              <CheckList items={info.courses} selectedIds={ownSelected} onToggle={toggleOwn} />
+              {info.counseling.length > 0 ? (
+                <>
+                  <p className="pt-2 text-sm font-bold text-slate-700">심리상담</p>
+                  <CheckList items={info.counseling} selectedIds={ownSelected} onToggle={toggleOwn} />
+                </>
+              ) : null}
+            </>
+          ) : null}
+          <p className="text-xs text-zinc-500">
+            결제 후 마이페이지에서 수강하시거나, 심리상담 설문을 작성하실 수 있습니다.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="font-sans text-xl font-bold text-slate-900">5. 결제</h2>
           <div className="grid grid-cols-3 gap-3">
             {PAYMENT_METHODS.map((m) => (
               <label
@@ -388,9 +433,15 @@ export default function DetentionClient() {
 
           <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-5 text-sm">
             <div className="flex justify-between text-slate-600">
-              <span>교육과정 {chosen.length}건</span>
+              <span>수용자 교육과정 {chosen.length}건</span>
               <span className="font-bold text-slate-900">{coursesTotal.toLocaleString()}원</span>
             </div>
+            {ownChosen.length > 0 ? (
+              <div className="flex justify-between text-slate-600">
+                <span>신청자 본인 수강·상담 {ownChosen.length}건</span>
+                <span className="font-bold text-slate-900">{ownTotal.toLocaleString()}원</span>
+              </div>
+            ) : null}
             <div className="flex justify-between text-slate-600">
               <span>교육자료·발송비</span>
               <span className="font-bold text-slate-900">
