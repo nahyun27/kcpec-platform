@@ -101,7 +101,7 @@ function Hero() {
           <span>리뉴얼 기념 할인 이벤트 · 40~60% 할인 중! 국내 최저가! + 10만원 이상 구매 시 10,000원 추가 할인</span>
         </div>
         <div className="mb-8 inline-flex items-center rounded-full border border-white bg-white/5 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-md animate-in fade-in slide-in-from-top-4 duration-700 delay-150 ease-out">
-          <span>법원 및 수사기관 제출용 신뢰할 수 있는 양형자료</span>
+          <span>법원 및 수사기관 제출용 신뢰할 수 있는 <b className="font-extrabold text-red-400">양형자료</b></span>
         </div>
         <h1 className="mb-8 font-sans text-4xl font-extrabold leading-[1.15] tracking-tight sm:text-6xl md:text-7xl animate-in fade-in slide-in-from-top-4 duration-700 delay-300 ease-out">
           수사대응 및<br className="lg:hidden" /> 재판 준비
@@ -111,9 +111,9 @@ function Hero() {
           </span>
         </h1>
         <p className="mb-12 max-w-2xl text-[13px] leading-relaxed text-slate-300 sm:text-lg md:text-xl animate-in fade-in slide-in-from-top-4 duration-700 delay-500 ease-out">
-          가장 확실한 양형 자료를 준비하세요. 재범방지교육을 이수하면 공공기관에
-          제출 가능한 교육이수 수료증, 서약서, 심리상담의견서를 과정을 마친 즉시
-          발급받을 수 있습니다. 반성문·감형 참고자료 준비까지 함께 도와드립니다.
+          가장 확실한 <b className="font-extrabold text-red-400">양형 자료</b>를 준비하세요. 재범방지교육을 이수하면 공공기관에
+          제출 가능한 교육이수 수료증, 서약서, 심리상담의견서를 과정을 마친{" "}
+          <b className="font-extrabold text-red-400">즉시 발급</b>받을 수 있습니다. 반성문·감형 참고자료 준비까지 함께 도와드립니다.
         </p>
 
         <div className="flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-700 ease-out">
