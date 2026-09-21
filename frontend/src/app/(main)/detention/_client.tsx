@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { isAxiosError } from "axios";
 import { Loader2, Mail, PackageCheck, FileCheck2 } from "lucide-react";
 import { applyDetention, getDetentionInfo, tokenStorage } from "@/lib/api";
+import { TIER_SORT_INDEX } from "@/lib/courseTiers";
 import type { DetentionInfo } from "@/types/detention";
 import { PAYMENT_METHOD_LABEL, type PaymentMethod } from "@/types/order";
 
@@ -78,7 +79,16 @@ export default function DetentionClient() {
 
   useEffect(() => {
     getDetentionInfo()
-      .then(setInfo)
+      .then((d) =>
+        // 강의 전체보기와 같은 순서(기본 → 행동 교정 → 특수 → 단체).
+        setInfo({
+          ...d,
+          courses: [...d.courses].sort(
+            (a, b) =>
+              (TIER_SORT_INDEX.get(a.title) ?? 9999) - (TIER_SORT_INDEX.get(b.title) ?? 9999),
+          ),
+        }),
+      )
       .catch(() => setLoadError(true));
   }, []);
 
