@@ -22,6 +22,7 @@ import {
   UserX,
   AlertCircle,
   FileText,
+  Package,
 } from "lucide-react";
 
 import { getAdminSalesStats, getAdminStats } from "@/lib/api";
@@ -237,6 +238,12 @@ function TodoBanner({ todo }: { todo: AdminTodoCounts }) {
       label: "답변 대기 1:1 문의",
       href: "/admin/community?tab=qna",
       icon: <MessageCircle className="h-3.5 w-3.5" />,
+    },
+    {
+      count: todo.detention_to_process ?? 0,
+      label: "구속수용자 교육 자료 발송 대기",
+      href: "/admin/detention",
+      icon: <Package className="h-3.5 w-3.5" />,
     },
   ].filter((item) => item.count > 0);
 

@@ -1,6 +1,7 @@
 from app.models.community import Notice, NoticeCategory, Post, PostCategory
 from app.models.counseling import CounselingStatus, CounselingSurvey
 from app.models.course import Course, CourseCategory
+from app.models.detention import DetentionApplication, DetentionStatus
 from app.models.document import IssuedDocument, IssuedDocumentStatus, IssuedDocumentType
 from app.models.enrollment import Enrollment, LectureProgress
 from app.models.faq import Faq, FaqCategory
@@ -18,6 +19,8 @@ __all__ = [
     "PostCategory",
     "Course",
     "CourseCategory",
+    "DetentionApplication",
+    "DetentionStatus",
     "Enrollment",
     "Faq",
     "FaqCategory",

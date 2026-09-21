@@ -17,6 +17,12 @@ import type {
   PaymentMethod,
 } from "@/types/order";
 import type {
+  AdminDetentionRow,
+  DetentionApplyPayload,
+  DetentionInfo,
+  DetentionStatus,
+} from "@/types/detention";
+import type {
   CounselingOrderItem,
   CounselingPurchaseResponse,
   CounselingType,
@@ -857,5 +863,50 @@ export async function updatePost(
   payload: PostUpdate,
 ): Promise<PostDetail> {
   const { data } = await api.patch<PostDetail>(`/posts/${id}`, payload);
+  return data;
+}
+
+// ---------- 구속수용자 교육 -------------------------------------------------
+
+export async function getDetentionInfo(): Promise<DetentionInfo> {
+  const { data } = await api.get<DetentionInfo>("/detention/info");
+  return data;
+}
+
+export async function applyDetention(
+  payload: DetentionApplyPayload,
+): Promise<BundleCreateResponse> {
+  const { data } = await api.post<BundleCreateResponse>("/detention/apply", payload);
+  return data;
+}
+
+export async function getAdminDetentionList(): Promise<AdminDetentionRow[]> {
+  const { data } = await api.get<AdminDetentionRow[]>("/admin/detention");
+  return data;
+}
+
+export async function patchAdminDetention(
+  id: number,
+  payload: { status?: DetentionStatus; tracking_number?: string | null; admin_memo?: string | null },
+): Promise<AdminDetentionRow> {
+  const { data } = await api.patch<AdminDetentionRow>(`/admin/detention/${id}`, payload);
+  return data;
+}
+
+// 수료증 PDF 변환이 과정당 수~십수 초 걸려 타임아웃을 넉넉히 둔다.
+export async function issueDetentionCertificate(
+  id: number,
+  orderId: number,
+): Promise<AdminDetentionRow> {
+  const { data } = await api.post<AdminDetentionRow>(
+    `/admin/detention/${id}/orders/${orderId}/issue`,
+    null,
+    { timeout: 120_000 },
+  );
+  return data;
+}
+
+export async function sendDetentionCertificates(id: number): Promise<{ emailed: boolean }> {
+  const { data } = await api.post<{ emailed: boolean }>(`/admin/detention/${id}/send-certificates`);
   return data;
 }

@@ -20,6 +20,7 @@ type Gender = "" | "남" | "여";
 type CriminalRecord = "" | "없음" | "있음";
 
 type PersonalInfo = {
+  relation: string;      // 작성자와 사건본인(성명 기재 대상)의 관계
   name: string;
   gender: Gender;
   birthdate: string;     // ISO yyyy-mm-dd
@@ -35,6 +36,7 @@ type PersonalInfo = {
 };
 
 const EMPTY_PERSONAL: PersonalInfo = {
+  relation: "",
   name: "",
   gender: "",
   birthdate: "",
@@ -48,6 +50,8 @@ const EMPTY_PERSONAL: PersonalInfo = {
   health: "",
   military: "",
 };
+
+const RELATION_OPTIONS = ["본인", "배우자", "부모", "자녀", "형제·자매", "기타 가족"];
 
 const EDUCATION_OPTIONS = [
   "중졸 이하",
@@ -301,11 +305,13 @@ export default function SurveyClient() {
   // ---------- 검증 ----------
   const personalMissing = useMemo(() => {
     const missing: string[] = [];
+    // 수정 모드의 기존 제출본에는 이 항목이 없어 신규 작성일 때만 필수로 본다.
+    if (!isEditMode && !personal.relation) missing.push("사건본인과의 관계");
     if (!personal.name.trim()) missing.push("성명");
     if (!personal.gender) missing.push("성별");
     if (!personal.birthdate) missing.push("생년월일");
     return missing;
-  }, [personal]);
+  }, [personal, isEditMode]);
 
   const freeMissing = QUESTIONS.filter(
     (q, i) => q.required && !answers[i].trim(),
@@ -543,6 +549,25 @@ function PersonalSection({
       description="의견서 기본 정보로 사용되는 항목입니다. 정확히 입력해 주세요."
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <FieldLabel required>사건본인과의 관계</FieldLabel>
+          <select
+            value={personal.relation}
+            onChange={(e) => onChange("relation", e.target.value)}
+            className={inputCls}
+          >
+            <option value="">선택해 주세요</option>
+            {RELATION_OPTIONS.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-zinc-500">
+            가족이 대신 작성하는 경우 아래 인적사항과 답변은 모두 사건본인(당사자) 기준으로 입력해 주세요.
+          </p>
+        </div>
+
         <div className="space-y-1.5">
           <FieldLabel required>성명</FieldLabel>
           <input

@@ -14,6 +14,7 @@ import {
   FileText,
   LayoutDashboard,
   MessageSquare,
+  Package,
   ShoppingCart,
   Users,
 } from "lucide-react";
@@ -66,6 +67,7 @@ const NAV: (SingleNav | GroupNav)[] = [
     ],
   },
   { kind: "single", href: "/admin/documents", label: "의견서", icon: <FileText className="h-4 w-4" /> },
+  { kind: "single", href: "/admin/detention", label: "구속수용자 교육", icon: <Package className="h-4 w-4" /> },
   {
     kind: "group",
     basePath: "/admin/community",

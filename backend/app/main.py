@@ -10,6 +10,7 @@ from app.api.v1 import community as community_v1
 from app.api.v1 import counseling as counseling_v1
 from app.api.v1 import counseling_purchase as counseling_purchase_v1
 from app.api.v1 import courses as courses_v1
+from app.api.v1 import detention as detention_v1
 from app.api.v1 import documents as documents_v1
 from app.api.v1 import orders as orders_v1
 from app.core.config import settings
@@ -37,6 +38,8 @@ app.include_router(counseling_v1.router, prefix=settings.API_V1_PREFIX)
 app.include_router(counseling_purchase_v1.router, prefix=settings.API_V1_PREFIX)
 app.include_router(community_v1.router, prefix=settings.API_V1_PREFIX)
 app.include_router(admin_v1.router, prefix=settings.API_V1_PREFIX)
+app.include_router(detention_v1.router, prefix=settings.API_V1_PREFIX)
+app.include_router(detention_v1.admin_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/health", tags=["health"])

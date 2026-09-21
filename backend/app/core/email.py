@@ -353,3 +353,52 @@ def send_new_order_notification(
         logger.exception("SMTP 발송 실패: %s", exc)
         return False
     return True
+
+
+def send_detention_certificates(
+    *,
+    to_email: str,
+    inmate_name: str,
+    items: list[tuple[str, str, str | None]],
+) -> bool:
+    """구속수용자 교육 수료증 발송 — items: (과정명, 수료증 URL, 서약서 URL|None)."""
+    subject = f"[KCPEC] {inmate_name}님 구속수용자 교육 수료증이 발급되었습니다"
+    lines = []
+    for title, pdf_url, pledge_url in items:
+        lines.append(f"■ {title}")
+        lines.append(f"  수료증: {pdf_url}")
+        if pledge_url:
+            lines.append(f"  서약서: {pledge_url}")
+    body = (
+        f"안녕하세요.\n\n"
+        f"신청하신 {inmate_name}님의 구속수용자 교육 수료증이 발급되었습니다.\n"
+        f"아래 링크에서 PDF 파일을 다운로드하여 인쇄·제출해 주세요.\n\n"
+        + "\n".join(lines)
+        + "\n\n문의: admin@kcpec.co.kr\n\n— 한국범죄예방교육센터 —\n"
+    )
+
+    if not (settings.SMTP_HOST and to_email):
+        logger.info("[EMAIL DEV MODE] 구속수용자 수료증 발송 — 콘솔 출력")
+        print("=" * 60)
+        print(f"To: {to_email or '(미설정)'}")
+        print(f"Subject: {subject}")
+        print("-" * 60)
+        print(body)
+        print("=" * 60)
+        return True
+
+    msg = EmailMessage()
+    msg["From"] = settings.SMTP_FROM or settings.SMTP_USER or "no-reply@kcpec.kr"
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg.set_content(body)
+    try:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
+            smtp.starttls()
+            if settings.SMTP_USER and settings.SMTP_PASSWORD:
+                smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            smtp.send_message(msg)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("SMTP 발송 실패: %s", exc)
+        return False
+    return True

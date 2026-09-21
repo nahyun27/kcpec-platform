@@ -1406,7 +1406,24 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
         )
         or 0
     )
+    from app.models.detention import DetentionApplication, DetentionStatus
+
+    detention_to_process = (
+        db.scalar(
+            select(func.count(DetentionApplication.id)).where(
+                DetentionApplication.status == DetentionStatus.RECEIVED,
+                select(Order.id)
+                .where(
+                    Order.bundle_id == DetentionApplication.bundle_id,
+                    Order.status == OrderStatus.PAID,
+                )
+                .exists(),
+            )
+        )
+        or 0
+    )
     todo = AdminTodoCounts(
+        detention_to_process=detention_to_process,
         pending_bank_transfer=pending_bank_transfer,
         counseling_draft_review=counseling_draft_review,
         unanswered_qna=unanswered_qna,

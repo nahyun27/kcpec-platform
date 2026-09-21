@@ -30,6 +30,12 @@ from app.schemas.order import (
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
+# 구속수용자 교육 신청(detention.py)의 교육자료·발송비 항목 — 강의가 아니라
+# 별도 상품 행(Course, 비공개)으로 두어 매출 통계에서 따로 잡히게 하고, 금액은
+# 관리자 강의 관리에서 수정할 수 있다. 수강 등록은 만들지 않는다.
+DETENTION_FEE_COURSE_TITLE = "구속수용자 교육자료·발송비"
+DETENTION_FEE_DEFAULT = 50_000
+
 # "맞춤 강의 찾기" 묶음결제 할인 — 프론트(sentencing/page.tsx)의 BULK_DISCOUNT_*
 # 와 반드시 같은 값을 유지할 것(그쪽은 결제 전 미리보기 표시용, 실제 금액은
 # 여기 서버 계산이 최종 기준).
@@ -49,6 +55,10 @@ def _ensure_enrollment(db: Session, user_id: int, course_id: int) -> None:
     부여한다(2026-09, 버그 감사 중 발견). expires_at 이 None(레거시,
     기간 무제한)인 기존 enrollment 는 건드리지 않는다.
     """
+    fee_course = db.get(Course, course_id)
+    if fee_course is not None and fee_course.title == DETENTION_FEE_COURSE_TITLE:
+        # 구속수용자 교육 "자료·발송비" 항목은 강의가 아니라 수강 등록 대상이 아님.
+        return
     existing = db.scalar(
         select(Enrollment).where(
             Enrollment.user_id == user_id,

@@ -271,6 +271,7 @@ class AdminTodoCounts(BaseModel):
     pending_bank_transfer: int
     counseling_draft_review: int
     unanswered_qna: int
+    detention_to_process: int = 0
 
 
 class AdminStats(BaseModel):

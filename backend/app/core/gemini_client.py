@@ -56,6 +56,9 @@ def _format_personal(personal: dict | None) -> str:
     if not isinstance(personal, dict) or not personal:
         return "(인적사항 미입력)"
     parts: list[str] = []
+    relation = personal.get("relation") or ""
+    if relation and relation != "본인":
+        parts.append(f"작성자: 사건본인의 {relation}(사건본인 기준으로 서술된 내용)")
     name = personal.get("name") or ""
     gender = personal.get("gender") or ""
     age = personal.get("age")
