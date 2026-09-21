@@ -324,8 +324,9 @@ export default function DetentionClient() {
                 수용시설 주소<span className="ml-0.5 text-red-500">*</span>
               </label>
               <div className="flex gap-2">
-                <input className={`${inputCls} max-w-[9rem] bg-slate-50`} value={form.postal_code}
-                  placeholder="우편번호" readOnly onClick={searchAddress} />
+                <input className={`${inputCls} max-w-[9rem]`} value={form.postal_code}
+                  placeholder="우편번호" maxLength={10}
+                  onChange={(e) => set("postal_code", e.target.value)} />
                 <button type="button" onClick={searchAddress}
                   className="shrink-0 rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-700">
                   주소 검색
@@ -335,7 +336,7 @@ export default function DetentionClient() {
                 placeholder="주소 검색 후 상세 정보(동·호수 등)가 있으면 이어서 입력"
                 onChange={(e) => set("address", e.target.value)} />
               <p className="text-xs text-zinc-500">
-                검색 결과에 없으면 주소를 직접 입력하셔도 됩니다.
+                우체국 사서함 등 검색되지 않는 주소는 우편번호와 주소를 직접 입력해 주세요. (예: ○○우체국 사서함 12호)
               </p>
             </div>
             <div className="sm:col-span-2">
