@@ -84,10 +84,11 @@ export default function DetentionIntro() {
   return (
     <>
       {/* 히어로 */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-[#0a1730] via-[#16295a] to-[#2a4b8d]">
+      {/* 헤더(h-16) 뒤로 히어로를 끌어올려 헤더 위 흰 띠가 생기지 않게 한다(홈 히어로와 동일). */}
+      <div className="relative -mt-16 overflow-hidden bg-gradient-to-br from-[#0a1730] via-[#16295a] to-[#2a4b8d]">
         <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-blue-400/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-32 -left-16 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl" />
-        <div className="relative mx-auto max-w-4xl px-6 py-14 sm:py-20">
+        <div className="relative mx-auto max-w-4xl px-6 pb-14 pt-28 sm:pb-20 sm:pt-36">
           <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold tracking-wider text-blue-100">
             DETENTION EDUCATION
           </span>
