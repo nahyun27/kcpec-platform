@@ -39,9 +39,9 @@ export default function HomePage() {
     <div className="flex min-h-full flex-1 flex-col bg-[var(--color-muted)]">
       <SiteHeader />
       <Hero />
-      <CaseTypesSection />
       <TrustSection />
       <StepsSection />
+      <CaseTypesSection />
       <ReviewsSection />
       <SamplesSection />
       <FaqSection />
