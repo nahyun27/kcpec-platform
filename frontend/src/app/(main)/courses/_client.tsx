@@ -71,10 +71,38 @@ function matchesQuery(course: CourseListItem, q: string): boolean {
 }
 
 export default function CoursesListPage() {
+  // 페이지 헤더(제목/설명/맞춤강의찾기 버튼)는 검색 파라미터가 필요 없는
+  // 고정 콘텐츠라, useSearchParams() 를 쓰는 목록 부분과 분리해서 Suspense
+  // 밖에 둔다. useSearchParams() 를 쓰는 컴포넌트는 정적 생성 시 폴백으로
+  // 대체되는데, 예전엔 헤더까지 그 안에 있어서 이 페이지가 정적으로
+  // 생성될 때 제목/설명/버튼 텍스트가 전부 빈 화면(null)으로 나가
+  // 검색엔진이 아무 내용도 못 읽는 문제가 있었다(2026-09, 버그 감사 중 발견).
   return (
-    <Suspense fallback={null}>
-      <CoursesListInner />
-    </Suspense>
+    <div className="min-h-screen bg-slate-50/50 pb-24">
+      <div className="bg-white pt-10 md:pt-16 relative z-10 border-b border-slate-100">
+        <div className="mx-auto max-w-6xl px-4 md:px-6">
+          <PageHeader
+            title="교육 강의"
+            subtitle="Courses"
+            icon={<BookOpen className="h-3.5 w-3.5" />}
+            description="전문가들이 감수한 범죄예방·준법교육 과정입니다. 원하시는 과정을 선택하고 바로 학습을 시작하세요."
+            rightContent={
+              <Link
+                href="/sentencing"
+                className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-primary)] px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-[var(--color-primary)]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-xl sm:w-auto"
+              >
+                <Sparkles className="h-4 w-4" />
+                내 사건에 맞는 강의 추천받기
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            }
+          />
+        </div>
+      </div>
+      <Suspense fallback={null}>
+        <CoursesListInner />
+      </Suspense>
+    </div>
   );
 }
 
@@ -139,31 +167,8 @@ function CoursesListInner() {
   const isQueryActive = trimmedQuery.length >= MIN_QUERY_LEN;
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-24">
-      {/* Page Header */}
-      <div className="bg-white pt-10 md:pt-16 relative z-10 border-b border-slate-100">
-        <div className="mx-auto max-w-6xl px-4 md:px-6">
-          <PageHeader
-            title="교육 강의"
-            subtitle="Courses"
-            icon={<BookOpen className="h-3.5 w-3.5" />}
-            description="전문가들이 감수한 범죄예방·준법교육 과정입니다. 원하시는 과정을 선택하고 바로 학습을 시작하세요."
-            rightContent={
-              <Link
-                href="/sentencing"
-                className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-primary)] px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-[var(--color-primary)]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-xl sm:w-auto"
-              >
-                <Sparkles className="h-4 w-4" />
-                내 사건에 맞는 강의 추천받기
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-            }
-          />
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-6xl px-4 md:px-6 pt-8 md:pt-12 pb-12">
-        {/* Controls: Search & Filter */}
+    <div className="mx-auto max-w-6xl px-4 md:px-6 pt-8 md:pt-12 pb-12">
+      {/* Controls: Search & Filter */}
         <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full max-w-md">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -265,7 +270,6 @@ function CoursesListInner() {
           </div>
         )}
       </div>
-    </div>
   );
 }
 
