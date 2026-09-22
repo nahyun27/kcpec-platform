@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Fragment, Suspense, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isAxiosError } from "axios";
 import {
@@ -70,27 +70,23 @@ function AdminOrdersPage() {
   const [data, setData] = useState<AdminOrdersResponse | null>(null);
 
   // 묶음결제(같은 bundle_id) 주문끼리는 목록에서 항상 붙어서 나온다(주문일시
-  // 내림차순 정렬 + 같은 결제 세션은 같은 created_at). 그룹마다 다른 색을 순환
-  // 적용해야 바로 옆에 붙은 서로 다른 묶음끼리 색이 이어져 보이지 않는다
-  // (2026-09, 실사용 중 발견 — 전부 같은 색이라 다른 주문까지 이어져 보였음).
-  const BUNDLE_COLORS = [
-    { bar: "border-l-indigo-400", bg: "bg-indigo-50/40", badge: "bg-indigo-100 text-indigo-700" },
-    { bar: "border-l-teal-400", bg: "bg-teal-50/40", badge: "bg-teal-100 text-teal-700" },
-    { bar: "border-l-amber-400", bg: "bg-amber-50/40", badge: "bg-amber-100 text-amber-700" },
-    { bar: "border-l-fuchsia-400", bg: "bg-fuchsia-50/40", badge: "bg-fuchsia-100 text-fuchsia-700" },
-  ] as const;
+  // 내림차순 정렬 + 같은 결제 세션은 같은 created_at). 전부 같은 인디고색 바로
+  // 표시하되, 바로 옆에 다른 묶음이 바로 이어지는 경우에만 그 사이에 얇은 흰
+  // 여백 행을 넣어 두 묶음의 바가 하나로 이어져 보이지 않게 한다(2026-09,
+  // 실사용 중 발견 — 색만으로 구분하면 옆 묶음까지 하나로 이어진 것처럼 보임).
   const rowMeta = useMemo(() => {
     const items = data?.items ?? [];
-    let colorIdx = -1;
     return items.map((r, idx) => {
       if (!r.bundle_id) return null;
-      const isGroupStart = items[idx - 1]?.bundle_id !== r.bundle_id;
-      if (isGroupStart) colorIdx++;
+      const prev = items[idx - 1];
+      const isGroupStart = prev?.bundle_id !== r.bundle_id;
       const groupSize = items.slice(idx).findIndex((x) => x.bundle_id !== r.bundle_id);
       return {
         isGroupStart,
+        // 바로 앞줄이 "다른" 묶음결제였을 때만 여백 행이 필요 — 앞줄이 묶음이
+        // 아닌 단건 주문이면 이미 바가 끊겨 있어 여백이 필요 없다.
+        needsGapBefore: isGroupStart && !!prev?.bundle_id,
         groupSize: groupSize === -1 ? items.length - idx : groupSize,
-        color: BUNDLE_COLORS[colorIdx % BUNDLE_COLORS.length],
       };
     });
   }, [data]);
@@ -244,12 +240,17 @@ function AdminOrdersPage() {
                 const meta = rowMeta[idx];
                 const isBundled = !!meta;
                 return (
-                  <tr
-                    key={r.id}
-                    className={`transition-colors hover:bg-slate-50/80 ${
-                      isPendingBank ? "bg-red-50/40" : meta ? meta.color.bg : ""
-                    } ${meta ? `border-l-[3px] ${meta.color.bar}` : ""}`}
-                  >
+                  <Fragment key={r.id}>
+                    {meta?.needsGapBefore ? (
+                      <tr aria-hidden="true">
+                        <td colSpan={8} className="h-2 border-none bg-white p-0" />
+                      </tr>
+                    ) : null}
+                    <tr
+                      className={`transition-colors hover:bg-slate-50/80 ${
+                        isPendingBank ? "bg-red-50/40" : meta ? "bg-indigo-50/40" : ""
+                      } ${meta ? "border-l-[3px] border-l-indigo-400" : ""}`}
+                    >
                     {!isBundled || meta.isGroupStart ? (
                       <>
                         <td
@@ -272,7 +273,7 @@ function AdminOrdersPage() {
                           {meta ? (
                             <span
                               title={`묶음결제 ID: ${r.bundle_id}`}
-                              className={`mt-1 block w-fit rounded-full px-2 py-0.5 text-[10px] font-bold ${meta.color.badge}`}
+                              className="mt-1 block w-fit rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700"
                             >
                               묶음결제 {meta.groupSize}건
                             </span>
@@ -344,7 +345,8 @@ function AdminOrdersPage() {
                         ) : null}
                       </div>
                     </td>
-                  </tr>
+                    </tr>
+                  </Fragment>
                 );
               })}
             </tbody>
