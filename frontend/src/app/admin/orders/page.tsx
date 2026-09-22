@@ -212,36 +212,66 @@ function AdminOrdersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {data.items.map((r) => {
+              {data.items.map((r, idx) => {
                 const isPendingBank =
                   r.status === "pending" && r.payment_method === "bank_transfer";
+                // 묶음결제(같은 bundle_id) 주문끼리는 목록에서 항상 붙어서 나온다(주문일시
+                // 내림차순 정렬 + 같은 결제 세션은 같은 created_at). 그룹의 첫 행에서만
+                // 주문일시/고객명/이메일을 rowSpan 으로 합쳐 보여주고, 왼쪽에 색 바를 둬
+                // "이 행들이 한 번의 결제로 묶여있다"는 걸 한눈에 알 수 있게 한다.
+                const items = data.items;
+                const isBundled = !!r.bundle_id;
+                const isGroupStart = isBundled && items[idx - 1]?.bundle_id !== r.bundle_id;
+                const groupSize = isBundled
+                  ? items.slice(idx).findIndex((x) => x.bundle_id !== r.bundle_id) === -1
+                    ? items.length - idx
+                    : items.slice(idx).findIndex((x) => x.bundle_id !== r.bundle_id)
+                  : 1;
                 return (
-                  <tr key={r.id} className={`transition-colors hover:bg-slate-50/80 ${isPendingBank ? "bg-red-50/40" : ""}`}>
-                    <td className="px-4 py-3 text-slate-500">
-                      {new Date(r.created_at).toLocaleString("ko-KR")}
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-slate-900">
-                      <button
-                        type="button"
-                        onClick={() => getAdminUser(r.user_id).then(setOpenUser).catch(() => {})}
-                        className="hover:text-[var(--color-primary)] hover:underline"
-                      >
-                        {r.name ?? r.username}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-slate-500">
-                      {r.email ?? "-"}
-                    </td>
+                  <tr
+                    key={r.id}
+                    className={`transition-colors hover:bg-slate-50/80 ${
+                      isPendingBank ? "bg-red-50/40" : isBundled ? "bg-indigo-50/30" : ""
+                    } ${isBundled ? "border-l-[3px] border-l-indigo-400" : ""}`}
+                  >
+                    {!isBundled || isGroupStart ? (
+                      <>
+                        <td
+                          className="px-4 py-3 align-top text-slate-500"
+                          rowSpan={isBundled ? groupSize : undefined}
+                        >
+                          {new Date(r.created_at).toLocaleString("ko-KR")}
+                        </td>
+                        <td
+                          className="px-4 py-3 align-top font-semibold text-slate-900"
+                          rowSpan={isBundled ? groupSize : undefined}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => getAdminUser(r.user_id).then(setOpenUser).catch(() => {})}
+                            className="hover:text-[var(--color-primary)] hover:underline"
+                          >
+                            {r.name ?? r.username}
+                          </button>
+                          {isBundled ? (
+                            <span
+                              title={`묶음결제 ID: ${r.bundle_id}`}
+                              className="mt-1 block w-fit rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700"
+                            >
+                              묶음결제 {groupSize}건
+                            </span>
+                          ) : null}
+                        </td>
+                        <td
+                          className="px-4 py-3 align-top text-slate-500"
+                          rowSpan={isBundled ? groupSize : undefined}
+                        >
+                          {r.email ?? "-"}
+                        </td>
+                      </>
+                    ) : null}
                     <td className="px-4 py-3 text-slate-700">
                       {r.course_title}
-                      {r.bundle_id ? (
-                        <span
-                          title={`묶음결제 ID: ${r.bundle_id}`}
-                          className="ml-2 inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-bold text-indigo-600 ring-1 ring-inset ring-indigo-200"
-                        >
-                          묶음결제 · {r.bundle_id.slice(-4)}
-                        </span>
-                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-slate-500">
                       {PAYMENT_METHOD_LABEL[r.payment_method]}
