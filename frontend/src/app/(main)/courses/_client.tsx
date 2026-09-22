@@ -9,7 +9,7 @@ import { COURSE_TIERS, getTierLabel, TIER_SORT_INDEX } from "@/lib/courseTiers";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { Spinner } from "@/components/ui/Spinner";
-import { GraduationCap, BookOpen, BadgeCheck, Search, X } from "lucide-react";
+import { ArrowRight, GraduationCap, BookOpen, BadgeCheck, Search, Sparkles, X } from "lucide-react";
 
 // 강의 제목 → 검색 키워드 사전. 카테고리 통합 후에도 강의 제목은
 // 변하지 않으므로 그대로 키로 사용한다. 키워드는 모두 lowercase 비교.
@@ -148,6 +148,16 @@ function CoursesListInner() {
             subtitle="Courses"
             icon={<BookOpen className="h-3.5 w-3.5" />}
             description="전문가들이 감수한 범죄예방·준법교육 과정입니다. 원하시는 과정을 선택하고 바로 학습을 시작하세요."
+            rightContent={
+              <Link
+                href="/sentencing"
+                className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-primary)] px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-[var(--color-primary)]/20 transition-all hover:-translate-y-0.5 hover:bg-[var(--color-primary-hover)] hover:shadow-xl sm:w-auto"
+              >
+                <Sparkles className="h-4 w-4" />
+                내 사건에 맞는 강의 추천받기
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            }
           />
         </div>
       </div>
