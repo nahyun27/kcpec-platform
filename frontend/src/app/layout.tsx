@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { GA4 } from "@/components/analytics/GA4";
+import { GTM, GTMNoScript } from "@/components/analytics/GTM";
 import { DialogProvider } from "@/components/ui/DialogProvider";
 import "./globals.css";
 
@@ -51,6 +52,8 @@ export default function RootLayout({
         suppressHydrationWarning
         className="min-h-full flex flex-col bg-white text-foreground"
       >
+        <GTMNoScript />
+        <GTM />
         <GA4 />
         <DialogProvider>{children}</DialogProvider>
       </body>
