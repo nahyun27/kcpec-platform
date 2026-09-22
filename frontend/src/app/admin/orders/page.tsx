@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isAxiosError } from "axios";
 import {
@@ -68,6 +68,32 @@ function AdminOrdersPage() {
   }
 
   const [data, setData] = useState<AdminOrdersResponse | null>(null);
+
+  // 묶음결제(같은 bundle_id) 주문끼리는 목록에서 항상 붙어서 나온다(주문일시
+  // 내림차순 정렬 + 같은 결제 세션은 같은 created_at). 그룹마다 다른 색을 순환
+  // 적용해야 바로 옆에 붙은 서로 다른 묶음끼리 색이 이어져 보이지 않는다
+  // (2026-09, 실사용 중 발견 — 전부 같은 색이라 다른 주문까지 이어져 보였음).
+  const BUNDLE_COLORS = [
+    { bar: "border-l-indigo-400", bg: "bg-indigo-50/40", badge: "bg-indigo-100 text-indigo-700" },
+    { bar: "border-l-teal-400", bg: "bg-teal-50/40", badge: "bg-teal-100 text-teal-700" },
+    { bar: "border-l-amber-400", bg: "bg-amber-50/40", badge: "bg-amber-100 text-amber-700" },
+    { bar: "border-l-fuchsia-400", bg: "bg-fuchsia-50/40", badge: "bg-fuchsia-100 text-fuchsia-700" },
+  ] as const;
+  const rowMeta = useMemo(() => {
+    const items = data?.items ?? [];
+    let colorIdx = -1;
+    return items.map((r, idx) => {
+      if (!r.bundle_id) return null;
+      const isGroupStart = items[idx - 1]?.bundle_id !== r.bundle_id;
+      if (isGroupStart) colorIdx++;
+      const groupSize = items.slice(idx).findIndex((x) => x.bundle_id !== r.bundle_id);
+      return {
+        isGroupStart,
+        groupSize: groupSize === -1 ? items.length - idx : groupSize,
+        color: BUNDLE_COLORS[colorIdx % BUNDLE_COLORS.length],
+      };
+    });
+  }, [data]);
   const [error, setError] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [mutatingId, setMutatingId] = useState<number | null>(null);
@@ -215,36 +241,26 @@ function AdminOrdersPage() {
               {data.items.map((r, idx) => {
                 const isPendingBank =
                   r.status === "pending" && r.payment_method === "bank_transfer";
-                // 묶음결제(같은 bundle_id) 주문끼리는 목록에서 항상 붙어서 나온다(주문일시
-                // 내림차순 정렬 + 같은 결제 세션은 같은 created_at). 그룹의 첫 행에서만
-                // 주문일시/고객명/이메일을 rowSpan 으로 합쳐 보여주고, 왼쪽에 색 바를 둬
-                // "이 행들이 한 번의 결제로 묶여있다"는 걸 한눈에 알 수 있게 한다.
-                const items = data.items;
-                const isBundled = !!r.bundle_id;
-                const isGroupStart = isBundled && items[idx - 1]?.bundle_id !== r.bundle_id;
-                const groupSize = isBundled
-                  ? items.slice(idx).findIndex((x) => x.bundle_id !== r.bundle_id) === -1
-                    ? items.length - idx
-                    : items.slice(idx).findIndex((x) => x.bundle_id !== r.bundle_id)
-                  : 1;
+                const meta = rowMeta[idx];
+                const isBundled = !!meta;
                 return (
                   <tr
                     key={r.id}
                     className={`transition-colors hover:bg-slate-50/80 ${
-                      isPendingBank ? "bg-red-50/40" : isBundled ? "bg-indigo-50/30" : ""
-                    } ${isBundled ? "border-l-[3px] border-l-indigo-400" : ""}`}
+                      isPendingBank ? "bg-red-50/40" : meta ? meta.color.bg : ""
+                    } ${meta ? `border-l-[3px] ${meta.color.bar}` : ""}`}
                   >
-                    {!isBundled || isGroupStart ? (
+                    {!isBundled || meta.isGroupStart ? (
                       <>
                         <td
                           className="px-4 py-3 align-top text-slate-500"
-                          rowSpan={isBundled ? groupSize : undefined}
+                          rowSpan={meta ? meta.groupSize : undefined}
                         >
                           {new Date(r.created_at).toLocaleString("ko-KR")}
                         </td>
                         <td
                           className="px-4 py-3 align-top font-semibold text-slate-900"
-                          rowSpan={isBundled ? groupSize : undefined}
+                          rowSpan={meta ? meta.groupSize : undefined}
                         >
                           <button
                             type="button"
@@ -253,18 +269,18 @@ function AdminOrdersPage() {
                           >
                             {r.name ?? r.username}
                           </button>
-                          {isBundled ? (
+                          {meta ? (
                             <span
                               title={`묶음결제 ID: ${r.bundle_id}`}
-                              className="mt-1 block w-fit rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700"
+                              className={`mt-1 block w-fit rounded-full px-2 py-0.5 text-[10px] font-bold ${meta.color.badge}`}
                             >
-                              묶음결제 {groupSize}건
+                              묶음결제 {meta.groupSize}건
                             </span>
                           ) : null}
                         </td>
                         <td
                           className="px-4 py-3 align-top text-slate-500"
-                          rowSpan={isBundled ? groupSize : undefined}
+                          rowSpan={meta ? meta.groupSize : undefined}
                         >
                           {r.email ?? "-"}
                         </td>
