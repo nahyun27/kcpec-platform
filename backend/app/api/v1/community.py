@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.admin import require_admin
 from app.core.database import get_db
 from app.core.deps import get_current_user, get_current_user_optional
+from app.core.email import send_new_qna_notification
 from app.models.community import Notice, NoticeCategory, Post, PostCategory
 from app.models.faq import Faq, FaqCategory
 from app.models.order import Order, OrderStatus
@@ -222,6 +223,7 @@ def update_own_post(
 )
 def create_post(
     payload: PostCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> PostDetail:
@@ -289,4 +291,12 @@ def create_post(
     db.add(post)
     db.commit()
     db.refresh(post)
+    if post.category == PostCategory.QNA:
+        # 실패해도(SMTP 미설정 등) 문의 등록 자체는 성공해야 하므로 백그라운드로.
+        background_tasks.add_task(
+            send_new_qna_notification,
+            post_id=post.id,
+            title=post.title,
+            author_username=current_user.username,
+        )
     return PostDetail.model_validate(post)

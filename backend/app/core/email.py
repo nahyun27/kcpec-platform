@@ -301,6 +301,57 @@ def send_qna_reply_notification(
     return True
 
 
+def send_new_qna_notification(
+    *,
+    post_id: int,
+    title: str,
+    author_username: str,
+) -> bool:
+    """새 1:1 문의가 등록되면 관리자에게 알림 메일 — 답변 페이지 링크 포함."""
+    reply_url = f"{settings.FRONTEND_BASE_URL}/admin/community?tab=qna&post={post_id}"
+    subject = f"[KCPEC] 새 1:1 문의가 등록되었습니다 - {title}"
+    body = dedent(
+        f"""\
+        새 1:1 문의가 등록되었습니다.
+
+        제목: {title}
+        작성자: {author_username}
+
+        아래 링크를 누르면 관리자 페이지의 답변 화면으로 바로 이동합니다.
+        {reply_url}
+
+        — KCPEC 플랫폼 —
+        """
+    )
+
+    if not (settings.SMTP_HOST and settings.STAFF_EMAIL):
+        logger.info("[EMAIL DEV MODE] 새 1:1 문의 알림 — 콘솔 출력")
+        print("=" * 60)
+        print(f"To: {settings.STAFF_EMAIL or '(STAFF_EMAIL 미설정)'}")
+        print(f"Subject: {subject}")
+        print("-" * 60)
+        print(body)
+        print("=" * 60)
+        return True
+
+    msg = EmailMessage()
+    msg["From"] = settings.SMTP_FROM or settings.SMTP_USER or "no-reply@kcpec.kr"
+    msg["To"] = settings.STAFF_EMAIL
+    msg["Subject"] = subject
+    msg.set_content(body)
+
+    try:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
+            smtp.starttls()
+            if settings.SMTP_USER and settings.SMTP_PASSWORD:
+                smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            smtp.send_message(msg)
+    except Exception as exc:  # noqa: BLE001 — 알림 실패가 문의 등록 자체를 막지 않게 삼킨다
+        logger.exception("SMTP 발송 실패: %s", exc)
+        return False
+    return True
+
+
 def send_new_order_notification(
     *,
     order_id: int,

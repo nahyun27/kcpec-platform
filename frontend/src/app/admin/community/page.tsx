@@ -181,6 +181,34 @@ function AdminCommunityPage() {
     reload();
   }, []);
 
+  // 1:1 문의 알림 메일의 "답변하러 가기" 버튼(?tab=qna&post=123)으로 들어온 경우,
+  // 목록이 로드되면 해당 문의의 답변 모달을 자동으로 연다.
+  const openPostParam = search.get("post");
+  useEffect(() => {
+    if (!openPostParam || qnas.length === 0) return;
+    const id = Number(openPostParam);
+    const target = qnas.find((q) => q.id === id);
+    if (target) {
+      setReplying({
+        table: "post",
+        id: target.id,
+        category: "qna",
+        title: target.title,
+        author: target.author_name,
+        view_count: target.view_count,
+        created_at: target.created_at,
+        question_content: target.content,
+        admin_reply: target.admin_reply,
+      });
+    }
+    // URL 을 깔끔하게 정리(다시 새로고침해도 모달이 또 안 열리게).
+    const params = new URLSearchParams(search.toString());
+    params.delete("post");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openPostParam, qnas]);
+
   const counts = useMemo(() => {
     // "전체 게시물" 은 FAQ 를 포함하지 않음 — FAQ 는 성격이 다른(문서형) 콘텐츠라
     // 별도 카운트로만 보여줌.
