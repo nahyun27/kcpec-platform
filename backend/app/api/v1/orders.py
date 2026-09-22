@@ -36,6 +36,20 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 DETENTION_FEE_COURSE_TITLE = "구속수용자 교육자료·발송비"
 DETENTION_FEE_DEFAULT = 50_000
 
+# 반성문·탄원서(legal_letters.py) — 심리상담 결제에 함께 담기는 부가 상품.
+# 강의가 아니라 별도 상품 행(Course, 비공개)으로 두는 것도 구속수용자 교육
+# 자료·발송비와 같은 이유 — 매출 통계 분리 + 관리자 강의 관리에서 가격 수정.
+REPENTANCE_LETTER_COURSE_TITLE = "반성문 작성"
+PETITION_LETTER_COURSE_TITLE = "탄원서 작성"
+LEGAL_LETTER_PRICE_DEFAULT = 5_000
+
+# 수강 등록(Enrollment) 을 만들면 안 되는 비공개 부가 상품 Course 제목 모음.
+NON_ENROLLABLE_COURSE_TITLES = {
+    DETENTION_FEE_COURSE_TITLE,
+    REPENTANCE_LETTER_COURSE_TITLE,
+    PETITION_LETTER_COURSE_TITLE,
+}
+
 # "맞춤 강의 찾기" 묶음결제 할인 — 프론트(sentencing/page.tsx)의 BULK_DISCOUNT_*
 # 와 반드시 같은 값을 유지할 것(그쪽은 결제 전 미리보기 표시용, 실제 금액은
 # 여기 서버 계산이 최종 기준).
@@ -58,8 +72,9 @@ def _ensure_enrollment(
     기간 무제한)인 기존 enrollment 는 건드리지 않는다.
     """
     fee_course = db.get(Course, course_id)
-    if fee_course is not None and fee_course.title == DETENTION_FEE_COURSE_TITLE:
-        # 구속수용자 교육 "자료·발송비" 항목은 강의가 아니라 수강 등록 대상이 아님.
+    if fee_course is not None and fee_course.title in NON_ENROLLABLE_COURSE_TITLES:
+        # 구속수용자 교육 자료·발송비, 반성문·탄원서 작성 — 강의가 아니라
+        # 수강 등록 대상이 아닌 부가 상품 행들.
         return
     if detention_inmate:
         # 구속수용자 교육(우편 자료) 주문은 수용자 명의로 진행되므로 신청자에게 온라인

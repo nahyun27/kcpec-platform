@@ -82,6 +82,12 @@ export function counselingDisplayTitle(rawTitle: string | null | undefined): str
   return COUNSELING_RAW_TITLE_LABEL[rawTitle] ?? rawTitle;
 }
 
+export type LegalLetterOrderRef = {
+  order_id: number;
+  letter_type: "repentance" | "petition";
+  amount: number;
+};
+
 export type CounselingPurchaseResponse = {
   order_id: number;
   course_id: number;
@@ -90,6 +96,10 @@ export type CounselingPurchaseResponse = {
   payment_method: "card" | "kakaopay" | "naverpay" | "bank_transfer";
   requires_payment: boolean;
   counseling_type: CounselingType;
+  // 반성문·탄원서를 함께 선택했을 때만 값이 있음 — 있으면 단건 결제가 아니라
+  // 묶음결제(bundle) 흐름으로 진행해야 한다.
+  bundle_id: string | null;
+  legal_letter_orders: LegalLetterOrderRef[];
 };
 
 export type CounselingOrderItem = {

@@ -7,6 +7,7 @@ import { isAxiosError } from "axios";
 import { confirmBundleTossPayment } from "@/lib/api";
 import type { OrderResponse } from "@/types/order";
 import { counselingDisplayTitle } from "@/types/counseling";
+import { LEGAL_LETTER_LABEL, legalLetterTypeFromCourseTitle } from "@/types/legalLetter";
 import { useDialog } from "@/components/ui/DialogProvider";
 import { VirtualAccountNotice } from "@/components/features/VirtualAccountNotice";
 
@@ -107,31 +108,41 @@ export default function CheckoutBundleSuccessPage() {
             </p>
 
             <ul className="mt-6 space-y-2 text-left">
-              {orders.map((o) => (
-                <li
-                  key={o.id}
-                  className="flex items-center justify-between rounded-lg border border-zinc-100 bg-slate-50 px-4 py-3 text-sm"
-                >
-                  <span className="font-semibold text-slate-800">
-                    {o.course_title ? counselingDisplayTitle(o.course_title) : `주문 #${o.id}`}
-                  </span>
-                  {o.order_type === "counseling" ? (
-                    <Link
-                      href={`/survey?counseling_order_id=${o.id}`}
-                      className="font-bold text-[var(--color-accent)] hover:underline"
-                    >
-                      설문 작성하기 →
-                    </Link>
-                  ) : (
-                    <Link
-                      href={`/issue?order_id=${o.id}`}
-                      className="font-bold text-[var(--color-accent)] hover:underline"
-                    >
-                      수료증 발급 →
-                    </Link>
-                  )}
-                </li>
-              ))}
+              {orders.map((o) => {
+                const letterType = legalLetterTypeFromCourseTitle(o.course_title);
+                return (
+                  <li
+                    key={o.id}
+                    className="flex items-center justify-between rounded-lg border border-zinc-100 bg-slate-50 px-4 py-3 text-sm"
+                  >
+                    <span className="font-semibold text-slate-800">
+                      {o.course_title ? counselingDisplayTitle(o.course_title) : `주문 #${o.id}`}
+                    </span>
+                    {o.order_type === "counseling" ? (
+                      <Link
+                        href={`/survey?counseling_order_id=${o.id}`}
+                        className="font-bold text-[var(--color-accent)] hover:underline"
+                      >
+                        설문 작성하기 →
+                      </Link>
+                    ) : letterType ? (
+                      <Link
+                        href={`/legal-letters/${o.id}`}
+                        className="font-bold text-[var(--color-accent)] hover:underline"
+                      >
+                        {LEGAL_LETTER_LABEL[letterType]} 작성하기 →
+                      </Link>
+                    ) : (
+                      <Link
+                        href={`/issue?order_id=${o.id}`}
+                        className="font-bold text-[var(--color-accent)] hover:underline"
+                      >
+                        수료증 발급 →
+                      </Link>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
 
             <div className="mt-8 flex flex-col gap-2">

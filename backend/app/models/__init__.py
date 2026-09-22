@@ -5,6 +5,7 @@ from app.models.detention import DetentionApplication, DetentionStatus
 from app.models.document import IssuedDocument, IssuedDocumentStatus, IssuedDocumentType
 from app.models.enrollment import Enrollment, LectureProgress
 from app.models.faq import Faq, FaqCategory
+from app.models.legal_letter import LegalLetter, LegalLetterType
 from app.models.lecture import Lecture
 from app.models.order import Order, OrderStatus, OrderType, PaymentMethod
 from app.models.quiz import Quiz, QuizAttempt, QuizOption, QuizQuestion
@@ -27,6 +28,8 @@ __all__ = [
     "IssuedDocument",
     "IssuedDocumentStatus",
     "IssuedDocumentType",
+    "LegalLetter",
+    "LegalLetterType",
     "Lecture",
     "LectureProgress",
     "Order",

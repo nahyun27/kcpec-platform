@@ -33,6 +33,12 @@ import type {
   SurveyStatusResponse,
 } from "@/types/counseling";
 import type {
+  LegalLetterInfo,
+  LegalLetterStatus,
+  LegalLetterSubmitPayload,
+  LegalLetterType,
+} from "@/types/legalLetter";
+import type {
   AdminCourseCreate,
   AdminCoursePatch,
   AdminLectureCreate,
@@ -466,10 +472,34 @@ export async function updateMySurvey(
 
 export async function purchaseCounseling(
   counseling_type: CounselingType,
+  legal_letters: LegalLetterType[] = [],
 ): Promise<CounselingPurchaseResponse> {
   const { data } = await api.post<CounselingPurchaseResponse>(
     "/counseling/purchase",
-    { counseling_type },
+    { counseling_type, legal_letters },
+  );
+  return data;
+}
+
+// ---------- 반성문·탄원서 ----------------------------------------------------
+
+export async function getLegalLetterInfo(): Promise<LegalLetterInfo> {
+  const { data } = await api.get<LegalLetterInfo>("/legal-letters/info");
+  return data;
+}
+
+export async function getLegalLetterStatus(orderId: number): Promise<LegalLetterStatus> {
+  const { data } = await api.get<LegalLetterStatus>(`/legal-letters/${orderId}`);
+  return data;
+}
+
+export async function submitLegalLetter(
+  orderId: number,
+  payload: LegalLetterSubmitPayload,
+): Promise<LegalLetterStatus> {
+  const { data } = await api.post<LegalLetterStatus>(
+    `/legal-letters/${orderId}/submit`,
+    payload,
   );
   return data;
 }

@@ -26,6 +26,7 @@ import {
   type UserResponse,
 } from "@/lib/api";
 import type { PostListItem } from "@/types/community";
+import { LEGAL_LETTER_LABEL, legalLetterTypeFromCourseTitle } from "@/types/legalLetter";
 import { ReviewWriteForm } from "@/components/features/ReviewWriteForm";
 import type {
   CounselingOrderItem,
@@ -1225,6 +1226,7 @@ function OrderPaidDetails({
 }) {
   const hasStarted = progressPct > 0;
   const isDetention = !!order.detention_inmate;
+  const legalLetterType = legalLetterTypeFromCourseTitle(order.course_title);
   return (
     <>
       <div className="mb-3 flex items-center gap-2">
@@ -1281,6 +1283,18 @@ function OrderPaidDetails({
               className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
             >
               신청 내역 보기
+            </Link>
+          </div>
+        ) : legalLetterType ? (
+          <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
+            <p className="text-sm text-slate-500 mb-3">
+              {LEGAL_LETTER_LABEL[legalLetterType]}은 직접 입력하신 내용으로 즉시 발급됩니다.
+            </p>
+            <Link
+              href={`/legal-letters/${order.id}`}
+              className="inline-flex items-center justify-center rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[var(--color-primary-hover)] transition-colors"
+            >
+              {LEGAL_LETTER_LABEL[legalLetterType]} 작성·확인하기
             </Link>
           </div>
         ) : isCourseCompleted ? (

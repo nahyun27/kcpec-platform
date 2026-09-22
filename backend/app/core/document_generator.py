@@ -26,7 +26,8 @@ from pathlib import Path
 from typing import Any
 
 from docx import Document
-from docx.table import _Cell
+
+from app.core.docx_utils import set_cell_text, set_paragraph_text
 
 from app.models.counseling import CounselingSurvey
 from app.models.user import User
@@ -40,47 +41,10 @@ TEMPLATE_PATH = (
 # ---------- 셀 텍스트 치환 ----------------------------------------------------
 
 
-def _set_cell_text(cell: _Cell, text: str) -> None:
-    """셀 내용을 text 로 교체. 첫 paragraph 첫 run 의 폰트/크기를 보존하고
-    멀티라인은 paragraph 분리.
-    """
-    paragraphs = list(cell.paragraphs)
-    lines = (text or "").split("\n") if text else [""]
-
-    first_p = paragraphs[0] if paragraphs else cell.add_paragraph()
-    template_run = first_p.runs[0] if first_p.runs else None
-    template_font_name = template_run.font.name if template_run else None
-    template_font_size = template_run.font.size if template_run else None
-
-    # 첫 run 의 텍스트만 첫 라인으로 갈아치우고 나머지 run 텍스트는 비움.
-    if template_run is not None:
-        template_run.text = lines[0]
-        for r in first_p.runs[1:]:
-            r.text = ""
-    else:
-        first_p.add_run(lines[0])
-
-    # 첫 paragraph 외 paragraph 제거.
-    for p in paragraphs[1:]:
-        p._element.getparent().remove(p._element)
-
-    # 추가 라인은 새 paragraph 로 (스타일/폰트 모방).
-    for line in lines[1:]:
-        p = cell.add_paragraph()
-        run = p.add_run(line)
-        if template_font_name:
-            run.font.name = template_font_name
-        if template_font_size:
-            run.font.size = template_font_size
-
-
-def _set_paragraph_text(paragraph, text: str) -> None:
-    if paragraph.runs:
-        paragraph.runs[0].text = text
-        for r in paragraph.runs[1:]:
-            r.text = ""
-    else:
-        paragraph.add_run(text)
+# 표/문단 텍스트 치환 헬퍼는 app.core.docx_utils 로 옮겼다(반성문·탄원서
+# 생성기와 공용). 기존 호출부 호환을 위해 이름만 로컬로 다시 노출.
+_set_cell_text = set_cell_text
+_set_paragraph_text = set_paragraph_text
 
 
 # ---------- 인적사항 추출 -----------------------------------------------------

@@ -4,6 +4,7 @@
 주문은 order_type=COUNSELING 로 만들어진다.
 """
 
+import secrets
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
@@ -12,10 +13,12 @@ from sqlalchemy.orm import Session
 
 from app.api.v1.counseling import _process_draft
 from app.api.v1.orders import _cancel_stale_pending
+from app.api.v1.legal_letters import get_or_create_letter_course
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.counseling import CounselingStatus, CounselingSurvey
 from app.models.course import Course, CourseCategory
+from app.models.legal_letter import LegalLetterType
 from app.models.order import Order, OrderStatus, OrderType, PaymentMethod
 from app.models.user import User
 from app.schemas.counseling import (
@@ -27,6 +30,7 @@ from app.schemas.counseling_purchase import (
     CounselingPurchaseRequest,
     CounselingPurchaseResponse,
     CounselingType,
+    LegalLetterOrderRef,
 )
 
 router = APIRouter(prefix="/counseling", tags=["counseling-purchase"])
@@ -86,6 +90,12 @@ def purchase(
     # 하는 게 흔한데, 자가 취소 수단이 없는 상태에서 막으면 재구매 자체가
     # 막혀버리기 때문(orders.py 주석 참고). 이 엔드포인트도 항상
     # PaymentMethod.CARD 를 쓰므로 같은 이유로 중복 PENDING 차단을 넣지 않는다.
+    #
+    # 반성문·탄원서를 함께 선택한 경우에만 묶음결제(bundle_id 공유)로 만든다
+    # — 선택하지 않으면 예전과 완전히 동일한 단건 주문 흐름(하위호환).
+    letter_types = list(dict.fromkeys(payload.legal_letters))  # 중복 제거, 순서 유지
+    bundle_id = secrets.token_urlsafe(16) if letter_types else None
+
     order = Order(
         user_id=current_user.id,
         course_id=course.id,
@@ -93,8 +103,32 @@ def purchase(
         payment_method=PaymentMethod.CARD,
         amount=amount,
         status=OrderStatus.PENDING,
+        bundle_id=bundle_id,
     )
     db.add(order)
+    db.flush()
+
+    letter_refs: list[LegalLetterOrderRef] = []
+    for lt in letter_types:
+        letter_type = LegalLetterType(lt)
+        letter_course = get_or_create_letter_course(db, letter_type)
+        letter_price = letter_course.price or 0
+        letter_order = Order(
+            user_id=current_user.id,
+            course_id=letter_course.id,
+            order_type=OrderType.COURSE,
+            payment_method=PaymentMethod.CARD,
+            amount=letter_price,
+            status=OrderStatus.PENDING,
+            bundle_id=bundle_id,
+        )
+        db.add(letter_order)
+        db.flush()
+        letter_refs.append(
+            LegalLetterOrderRef(order_id=letter_order.id, letter_type=lt, amount=letter_price)
+        )
+        amount += letter_price
+
     db.commit()
     db.refresh(order)
 
@@ -106,6 +140,8 @@ def purchase(
         payment_method=order.payment_method,
         requires_payment=requires_payment,
         counseling_type=payload.counseling_type,
+        bundle_id=bundle_id,
+        legal_letter_orders=letter_refs,
     )
 
 
