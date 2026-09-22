@@ -1,5 +1,5 @@
 import secrets
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 
@@ -95,6 +95,24 @@ DRAFTS_DIR = Path(__file__).resolve().parents[3] / "static" / "drafts"
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+# 통계 "오늘/이번달" 등 날짜 경계는 반드시 한국 시간(KST) 기준이어야 한다.
+# UTC 기준으로 자정을 나누면 KST 00:00~09:00 사이에 발생한 주문/가입이
+# UTC 날짜로는 "전날"에 걸쳐, 대시보드에서 그 시간대 주문이 "어제" 통계로
+# 잡히는 문제가 있었다(2026-09, 실사용 중 발견 — 오전에 결제한 주문이
+# 어제 날짜 매출로 표시됨).
+KST = timezone(timedelta(hours=9))
+
+
+def _kst_today() -> date:
+    return datetime.now(KST).date()
+
+
+def _kst_day_start(d: date) -> datetime:
+    """해당 KST 날짜의 00:00 을 tz-aware datetime 으로. DB 컬럼(UTC 저장)과
+    비교해도 실제 시각 기준으로 정확히 비교되므로 그대로 쓰면 된다."""
+    return datetime.combine(d, time.min, tzinfo=KST)
 
 
 def _row_from_order(o: Order, user: User, course: Course) -> AdminOrderRow:
@@ -996,7 +1014,7 @@ async def upload_final(
             # 규칙을 쓴다 — 과정코드 "00"(cert_course_code 가 등록 안 된
             # 강의명에 기본으로 부여, 2026-09).
             sequence = reserve_next_sequence(db, cert_course_code(""))
-            issue_number = build_issue_number("", sequence, _now().date())
+            issue_number = build_issue_number("", sequence, _kst_today())
             doc = IssuedDocument(
                 order_id=order.id,
                 user_id=user.id,
@@ -1199,7 +1217,7 @@ def regenerate_draft(
 
 @router.get("/stats", response_model=AdminStats)
 def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
-    today_start = datetime.combine(_now().date(), time.min, tzinfo=timezone.utc)
+    today_start = _kst_day_start(_kst_today())
     yesterday_start = today_start - timedelta(days=1)
 
     total_users = db.scalar(select(func.count(User.id))) or 0
@@ -1265,9 +1283,7 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
         )
         or 0
     )
-    month_start = datetime.combine(
-        _now().date().replace(day=1), time.min, tzinfo=timezone.utc
-    )
+    month_start = _kst_day_start(_kst_today().replace(day=1))
     month_revenue = (
         db.scalar(
             select(func.coalesce(func.sum(Order.amount), 0)).where(
@@ -1468,19 +1484,16 @@ def admin_sales_stats(
     기간 — 일별 매출 그래프의 days 와는 독립적으로 "전체" vs "최근 N일"을
     고를 수 있게 한다(생략하면 기존과 동일하게 전체 기간).
     """
-    now = _now()
-    today = now.date()
-    this_month_start = datetime.combine(today.replace(day=1), time.min, tzinfo=timezone.utc)
+    today = _kst_today()
+    this_month_start = _kst_day_start(today.replace(day=1))
     last_month_end = this_month_start  # 전월 마지막 분 + 1
     # 전월 1일
     if today.month == 1:
-        last_month_start = datetime(today.year - 1, 12, 1, tzinfo=timezone.utc)
+        last_month_start = datetime(today.year - 1, 12, 1, tzinfo=KST)
     else:
-        last_month_start = datetime(today.year, today.month - 1, 1, tzinfo=timezone.utc)
+        last_month_start = datetime(today.year, today.month - 1, 1, tzinfo=KST)
     # days 일 전
-    thirty_days_ago = datetime.combine(today, time.min, tzinfo=timezone.utc) - timedelta(
-        days=days - 1
-    )
+    thirty_days_ago = _kst_day_start(today) - timedelta(days=days - 1)
 
     base = select(Order).where(Order.status == OrderStatus.PAID, Order.paid_at.is_not(None))
 
@@ -1528,13 +1541,13 @@ def admin_sales_stats(
         )
     ).all()
     daily: dict[str, dict[str, int]] = {}
-    kst = timezone(timedelta(hours=9))
     hourly_buckets = [{"orders": 0, "revenue": 0} for _ in range(24)]
     for paid_at, amount, category in rows:
-        hb = hourly_buckets[paid_at.astimezone(kst).hour]
+        paid_at_kst = paid_at.astimezone(KST)
+        hb = hourly_buckets[paid_at_kst.hour]
         hb["orders"] += 1
         hb["revenue"] += amount
-        key = paid_at.date().isoformat()
+        key = paid_at_kst.date().isoformat()
         bucket = daily.setdefault(key, {"revenue": 0, "orders": 0, "counseling_revenue": 0})
         bucket["revenue"] += amount
         bucket["orders"] += 1
@@ -1554,7 +1567,7 @@ def admin_sales_stats(
         )
 
     course_days_cutoff = (
-        datetime.combine(today, time.min, tzinfo=timezone.utc) - timedelta(days=course_days - 1)
+        _kst_day_start(today) - timedelta(days=course_days - 1)
         if course_days is not None
         else None
     )
@@ -1638,13 +1651,12 @@ def admin_visitor_stats(
     - 활성 사용자 1인당 평균 수강 신청 수
     - 일별 신규 가입자(기간 선택 가능) — 매출 통계의 일별 차트와 동일한 패턴
     """
-    now = _now()
-    today = now.date()
-    this_month_start = datetime.combine(today.replace(day=1), time.min, tzinfo=timezone.utc)
+    today = _kst_today()
+    this_month_start = _kst_day_start(today.replace(day=1))
     if today.month == 1:
-        last_month_start = datetime(today.year - 1, 12, 1, tzinfo=timezone.utc)
+        last_month_start = datetime(today.year - 1, 12, 1, tzinfo=KST)
     else:
-        last_month_start = datetime(today.year, today.month - 1, 1, tzinfo=timezone.utc)
+        last_month_start = datetime(today.year, today.month - 1, 1, tzinfo=KST)
 
     new_users_this_month = (
         db.scalar(
@@ -1695,15 +1707,13 @@ def admin_visitor_stats(
 
     # 일별 신규 가입자 (최근 days 일) — 매출 통계 daily_revenue 와 동일한
     # 방식(DB 에서 Python 으로 집계)으로 구현.
-    signup_window_start = datetime.combine(today, time.min, tzinfo=timezone.utc) - timedelta(
-        days=days - 1
-    )
+    signup_window_start = _kst_day_start(today) - timedelta(days=days - 1)
     signup_rows = db.execute(
         select(User.created_at).where(User.created_at >= signup_window_start)
     ).all()
     signups_by_day: dict[str, int] = {}
     for (created_at,) in signup_rows:
-        key = created_at.date().isoformat()
+        key = created_at.astimezone(KST).date().isoformat()
         signups_by_day[key] = signups_by_day.get(key, 0) + 1
     daily_signups: list[VisitorStatsDaily] = []
     for i in range(days):
