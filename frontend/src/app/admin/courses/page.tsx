@@ -135,7 +135,7 @@ export default function AdminCoursesPage() {
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-slate-200/60 bg-white shadow-sm">
         <table className="w-full text-left text-[13px]">
           <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
             <tr>
@@ -534,7 +534,7 @@ function LectureList({
 
   return (
     <div className="space-y-2">
-      <div className="overflow-hidden rounded-lg border border-slate-200/60 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-lg border border-slate-200/60 bg-white shadow-sm">
         <table className="w-full text-left text-xs">
           <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[10px] font-bold uppercase tracking-wider text-slate-500">
             <tr>

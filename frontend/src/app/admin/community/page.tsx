@@ -332,7 +332,7 @@ function AdminCommunityPage() {
             onReload={reload}
           />
         ) : (
-          <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
+          <div className="overflow-x-auto rounded-xl border border-slate-200/60 bg-white shadow-sm">
             <table className="w-full text-left text-[13px]">
               <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
                 <tr>
@@ -472,7 +472,7 @@ function FaqAdminTable({
   const sorted = [...faqs].sort((a, b) => a.order_index - b.order_index);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
+    <div className="overflow-x-auto rounded-xl border border-slate-200/60 bg-white shadow-sm">
       <table className="w-full text-left text-[13px]">
         <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
           <tr>
