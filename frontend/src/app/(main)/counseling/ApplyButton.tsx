@@ -10,6 +10,11 @@ import { useDialog } from "@/components/ui/DialogProvider";
 
 const LETTER_TYPES: LegalLetterType[] = ["repentance", "petition"];
 
+// 반성문·탄원서 기능은 백엔드까지 완성돼 있지만, 어디에 노출할지 의뢰인
+// 확인 전이라 신청 화면에서만 우선 숨겨둔다(2026-09). 노출하기로 하면
+// 이 값을 true로 바꾸기만 하면 됨 — 나머지 로직은 전부 그대로 동작.
+const LEGAL_LETTERS_ENABLED = false;
+
 export default function ApplyButton({
   counselingType,
   price,
@@ -41,7 +46,7 @@ export default function ApplyButton({
   // 가격 있는 프로그램에서만 반성문·탄원서 추가 옵션을 보여준다(문의 전용
   // 프로그램은 즉시결제 흐름 자체가 없어 묶을 수 없음).
   useEffect(() => {
-    if (price == null || price <= 0) return;
+    if (!LEGAL_LETTERS_ENABLED || price == null || price <= 0) return;
     getLegalLetterInfo()
       .then(setLetterInfo)
       .catch(() => {});
