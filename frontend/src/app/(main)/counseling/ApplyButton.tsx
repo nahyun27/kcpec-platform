@@ -10,10 +10,8 @@ import { useDialog } from "@/components/ui/DialogProvider";
 
 const LETTER_TYPES: LegalLetterType[] = ["repentance", "petition"];
 
-// 반성문·탄원서 기능은 백엔드까지 완성돼 있지만, 어디에 노출할지 의뢰인
-// 확인 전이라 신청 화면에서만 우선 숨겨둔다(2026-09). 노출하기로 하면
-// 이 값을 true로 바꾸기만 하면 됨 — 나머지 로직은 전부 그대로 동작.
-const LEGAL_LETTERS_ENABLED = false;
+// 반성문·탄원서 — 노출 위치 확정(전문가 심리상담 탭) 후 켬(2026-09).
+const LEGAL_LETTERS_ENABLED = true;
 
 export default function ApplyButton({
   counselingType,
@@ -142,7 +140,7 @@ export default function ApplyButton({
       {letterInfo ? (
         <div className="mb-4 space-y-2 rounded-xl border border-dashed border-zinc-300 bg-slate-50/60 p-4">
           <p className="text-xs font-bold text-slate-500">
-            함께 신청하기 <span className="font-normal text-zinc-400">(선택, 본인이 직접 작성)</span>
+            함께 신청하기 <span className="font-normal text-zinc-400">(선택, AI가 답변을 바탕으로 자동 작성)</span>
           </p>
           {LETTER_TYPES.map((t) => {
             const letterPrice = t === "repentance" ? letterInfo.repentance_price : letterInfo.petition_price;

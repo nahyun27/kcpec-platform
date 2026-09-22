@@ -20,6 +20,10 @@ export function legalLetterTypeFromCourseTitle(title: string | null | undefined)
 export type LegalLetterInfo = {
   repentance_price: number;
   petition_price: number;
+  // 질문 key → 화면에 보일 라벨(순서 그대로 렌더) — 문항 구성은 의뢰인
+  // 확정 전이라 서버가 내려주는 값을 그대로 쓴다(프론트에 하드코딩 안 함).
+  repentance_questions: Record<string, string>;
+  petition_questions: Record<string, string>;
 };
 
 export type LegalLetterStatus = {
@@ -42,5 +46,6 @@ export type LegalLetterSubmitPayload = {
   writer_address: string;
   writer_phone: string;
   relationship?: string; // 탄원서만 필수
-  content: string;
+  // 질문 key → 답변 — AI 가 이 답변을 바탕으로 본문을 작성한다.
+  answers: Record<string, string>;
 };

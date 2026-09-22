@@ -41,7 +41,7 @@ DETENTION_FEE_DEFAULT = 50_000
 # 자료·발송비와 같은 이유 — 매출 통계 분리 + 관리자 강의 관리에서 가격 수정.
 REPENTANCE_LETTER_COURSE_TITLE = "반성문 작성"
 PETITION_LETTER_COURSE_TITLE = "탄원서 작성"
-LEGAL_LETTER_PRICE_DEFAULT = 5_000
+LEGAL_LETTER_PRICE_DEFAULT = 10_000
 
 # 수강 등록(Enrollment) 을 만들면 안 되는 비공개 부가 상품 Course 제목 모음.
 NON_ENROLLABLE_COURSE_TITLES = {

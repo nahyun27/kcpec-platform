@@ -47,7 +47,10 @@ class LegalLetter(Base):
     writer_phone: Mapped[str] = mapped_column(String(30), nullable=False)
     # 탄원서만 사용 — 피고인과의 관계.
     relationship_to_defendant: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    # 고객이 직접 쓴 본문 — AI가 생성하지 않고 그대로 서식에 옮겨 넣는다.
+    # 고객이 입력한 선택사항/질문 답변 원본(JSON 문자열) — AI 프롬프트 재료이자
+    # 감사·재생성 대비 기록. 문항 구성이 아직 확정 전이라 자유 형식으로 둔다.
+    structured_answers: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 서식에 실제로 들어가는 본문 — AI가 답변을 바탕으로 작성한 결과물.
     content: Mapped[str] = mapped_column(Text, nullable=False)
     # PDF 파일명에 쓰는 추측 불가능한 토큰 — /static 공개 서빙 대비(기존 관례와 동일).
     access_token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)

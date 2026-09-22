@@ -7,6 +7,7 @@ import { getCourses } from "@/lib/api";
 import { COURSE_CATEGORIES, type CourseCategory, type CourseListItem } from "@/types/course";
 import { COURSE_TIERS, getTierLabel, TIER_SORT_INDEX } from "@/lib/courseTiers";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { LegalLetterPromo } from "@/components/features/LegalLetterPromo";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { Spinner } from "@/components/ui/Spinner";
 import { ArrowRight, GraduationCap, BookOpen, BadgeCheck, Search, Sparkles, X } from "lucide-react";
@@ -269,6 +270,8 @@ function CoursesListInner() {
             ))}
           </div>
         )}
+
+        <LegalLetterPromo className="mt-16" />
       </div>
   );
 }
