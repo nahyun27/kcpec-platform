@@ -8,7 +8,6 @@ import { useEffect, useState } from "react";
 import { getFaqs, getPosts } from "@/lib/api";
 import type { Faq, PostListItem } from "@/types/community";
 import SiteHeader from "@/components/layout/SiteHeader";
-import { FloatingContact } from "@/components/layout/FloatingContact";
 import { CASE_LANDINGS } from "@/lib/caseLandings";
 import {
   ArrowRight,
@@ -46,7 +45,6 @@ export default function HomePage() {
       <SamplesSection />
       <FaqSection />
       <SiteFooter />
-      <FloatingContact />
     </div>
   );
 }
