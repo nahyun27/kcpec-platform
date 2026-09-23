@@ -20,8 +20,11 @@ export function legalLetterTypeFromCourseTitle(title: string | null | undefined)
 export type LegalLetterInfo = {
   repentance_price: number;
   petition_price: number;
-  // 질문 key → 화면에 보일 라벨(순서 그대로 렌더) — 문항 구성은 의뢰인
-  // 확정 전이라 서버가 내려주는 값을 그대로 쓴다(프론트에 하드코딩 안 함).
+  // 반성문 전용 선택사항 옵션 — 그대로 드롭다운/라디오로 렌더.
+  case_stage_options: string[];
+  settlement_status_options: string[];
+  // 자유 서술 질문 key → 화면에 보일 라벨(순서 그대로 렌더) — 라벨은 서버가
+  // 내려주는 값을 그대로 쓴다(프론트에 하드코딩 안 함).
   repentance_questions: Record<string, string>;
   petition_questions: Record<string, string>;
 };
@@ -39,13 +42,21 @@ export type LegalLetterStatus = {
 
 export type LegalLetterSubmitPayload = {
   case_number?: string;
-  charge_or_defendant: string;
-  court_name: string;
+  charge: string; // 죄명 — 공통
+  court_name: string; // 관할명(경찰/검찰/법원 등)
   writer_name: string;
   writer_birth: string; // YYYY-MM-DD
-  writer_address: string;
-  writer_phone: string;
-  relationship?: string; // 탄원서만 필수
-  // 질문 key → 답변 — AI 가 이 답변을 바탕으로 본문을 작성한다.
+  // 탄원서는 생략 가능.
+  writer_address?: string;
+  writer_phone?: string;
+  // 탄원서 전용(필수)
+  defendant_name?: string; // 사건당사자 성명
+  relationship?: string; // 사건당사자와의 관계
+  // 반성문 전용 선택사항(필수)
+  first_offense?: boolean;
+  prior_same_type_record?: boolean; // first_offense=false 일 때만 필요
+  case_stage?: string;
+  settlement_status?: string;
+  // 자유 서술 질문 key → 답변 — AI 가 이 답변을 바탕으로 본문을 작성한다.
   answers: Record<string, string>;
 };

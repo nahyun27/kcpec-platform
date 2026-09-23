@@ -40,14 +40,18 @@ TEMPLATE_FILES: dict[str, Path] = {
 @dataclass
 class LegalLetterInput:
     case_number: str | None
-    charge_or_defendant: str  # 반성문 = 죄명, 탄원서 = 피고인(피의자) 성명
-    court_name: str
+    charge: str  # 죄명 — 반성문·탄원서 공통
+    defendant_name: str | None  # 사건당사자(피고인) 성명 — 탄원서만 사용
+    court_name: str  # 관할명(경찰/검찰/법원 등)
     writer_name: str
     writer_birth: date
-    writer_address: str
-    writer_phone: str
-    relationship: str | None  # 탄원서만 사용
-    content: str  # 고객이 직접 쓴 본문
+    # 탄원서는 주소·연락처 생략 가능(의뢰인 확정 사항) — 반성문은 필수로 받되
+    # 이 dataclass 레벨에서는 동일하게 Optional 로 두고 필수 여부는 요청
+    # 스키마(legal_letters.py)에서 강제한다.
+    writer_address: str | None
+    writer_phone: str | None
+    relationship: str | None  # 탄원서만 사용 — 사건당사자와의 관계
+    content: str  # AI 가 작성한 본문
 
 
 def _korean_date(d: date) -> str:
@@ -121,14 +125,22 @@ def generate_legal_letter_pdf(
 
         case_table = tables[0]
         set_cell_text(case_table.rows[0].cells[1], data.case_number or "")
-        set_cell_text(case_table.rows[1].cells[1], data.charge_or_defendant)
-        set_cell_text(case_table.rows[2].cells[1], data.court_name)
+        if letter_type == "petition":
+            # petition_template.docx 는 사건번호/피고인 성명/죄명/관할 4행
+            # (죄명 행은 2026-09 추가 — 원본엔 없었음).
+            set_cell_text(case_table.rows[1].cells[1], data.defendant_name or "")
+            set_cell_text(case_table.rows[2].cells[1], data.charge)
+            set_cell_text(case_table.rows[3].cells[1], data.court_name)
+        else:
+            # repentance_template.docx 는 사건번호/죄명/관할 3행.
+            set_cell_text(case_table.rows[1].cells[1], data.charge)
+            set_cell_text(case_table.rows[2].cells[1], data.court_name)
 
         writer_table = tables[1]
         set_cell_text(writer_table.rows[0].cells[1], data.writer_name)
         set_cell_text(writer_table.rows[1].cells[1], _korean_date(data.writer_birth))
-        set_cell_text(writer_table.rows[2].cells[1], data.writer_address)
-        set_cell_text(writer_table.rows[3].cells[1], data.writer_phone)
+        set_cell_text(writer_table.rows[2].cells[1], data.writer_address or "")
+        set_cell_text(writer_table.rows[3].cells[1], data.writer_phone or "")
         if letter_type == "petition" and len(writer_table.rows) > 4:
             set_cell_text(writer_table.rows[4].cells[1], data.relationship or "")
 

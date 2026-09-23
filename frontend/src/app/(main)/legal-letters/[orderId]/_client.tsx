@@ -34,6 +34,39 @@ function Field({
   );
 }
 
+function YesNoToggle({
+  value,
+  onChange,
+  yesLabel = "예",
+  noLabel = "아니오",
+}: {
+  value: boolean | null;
+  onChange: (v: boolean) => void;
+  yesLabel?: string;
+  noLabel?: string;
+}) {
+  return (
+    <div className="flex gap-2">
+      {[
+        { v: true, label: yesLabel },
+        { v: false, label: noLabel },
+      ].map(({ v, label }) => (
+        <label
+          key={label}
+          className={`flex-1 cursor-pointer rounded-lg border-2 px-3 py-2.5 text-center text-sm font-bold transition-colors ${
+            value === v
+              ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5 text-[var(--color-primary)]"
+              : "border-zinc-200 bg-white text-slate-600"
+          }`}
+        >
+          <input type="radio" className="sr-only" checked={value === v} onChange={() => onChange(v)} />
+          {label}
+        </label>
+      ))}
+    </div>
+  );
+}
+
 export default function LegalLetterClient({ orderId }: { orderId: number }) {
   const router = useRouter();
   const [status, setStatus] = useState<LegalLetterStatus | null>(null);
@@ -44,14 +77,19 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
 
   const [form, setForm] = useState({
     case_number: "",
-    charge_or_defendant: "",
+    charge: "",
     court_name: "",
     writer_name: "",
     writer_birth: "",
     writer_address: "",
     writer_phone: "",
+    defendant_name: "",
     relationship: "",
+    case_stage: "",
+    settlement_status: "",
   });
+  const [firstOffense, setFirstOffense] = useState<boolean | null>(null);
+  const [priorSameType, setPriorSameType] = useState<boolean | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -88,15 +126,21 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
     setError(null);
     setSubmitting(true);
     try {
+      const isPetition = status.letter_type === "petition";
       const updated = await submitLegalLetter(orderId, {
         case_number: form.case_number || undefined,
-        charge_or_defendant: form.charge_or_defendant,
+        charge: form.charge,
         court_name: form.court_name,
         writer_name: form.writer_name,
         writer_birth: form.writer_birth,
-        writer_address: form.writer_address,
-        writer_phone: form.writer_phone,
-        relationship: status.letter_type === "petition" ? form.relationship : undefined,
+        writer_address: form.writer_address || undefined,
+        writer_phone: form.writer_phone || undefined,
+        defendant_name: isPetition ? form.defendant_name : undefined,
+        relationship: isPetition ? form.relationship : undefined,
+        first_offense: isPetition ? undefined : firstOffense ?? undefined,
+        prior_same_type_record: isPetition || firstOffense !== false ? undefined : priorSameType ?? undefined,
+        case_stage: isPetition ? undefined : form.case_stage || undefined,
+        settlement_status: isPetition ? undefined : form.settlement_status || undefined,
         answers,
       });
       setStatus(updated);
@@ -188,7 +232,7 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
       <div className="mb-8 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
         <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
         <p className="text-sm leading-relaxed text-blue-900">
-          아래 질문에 답해 주시면 AI가 답변을 바탕으로 {label} 본문을 자동으로 작성합니다. 입력하지
+          아래 항목에 답해 주시면 AI가 답변을 바탕으로 {label} 본문을 자동으로 작성합니다. 입력하지
           않은 내용을 임의로 지어내지 않으니, 최대한 구체적으로 적어 주세요.
         </p>
       </div>
@@ -206,15 +250,60 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
             <input className={inputCls} value={form.case_number} maxLength={100}
               onChange={(e) => set("case_number", e.target.value)} />
           </Field>
-          <Field label={isPetition ? "피고인(피의자) 성명" : "죄명"} required>
-            <input className={inputCls} value={form.charge_or_defendant} maxLength={200} required
-              onChange={(e) => set("charge_or_defendant", e.target.value)} />
+          {isPetition ? (
+            <Field label="사건당사자 성명" required>
+              <input className={inputCls} value={form.defendant_name} maxLength={100} required
+                onChange={(e) => set("defendant_name", e.target.value)} />
+            </Field>
+          ) : null}
+          <Field label="죄명" required>
+            <input className={inputCls} value={form.charge} maxLength={200} required
+              onChange={(e) => set("charge", e.target.value)} />
           </Field>
-          <Field label="관할 법원·검찰청" required hint="예: 서울중앙지방법원">
+          <Field label="관할명" required hint="예: 서울중앙지방법원, 서울중앙지방검찰청, ○○경찰서 등 — 경찰/검찰/법원 중 현재 사건을 담당하는 곳">
             <input className={inputCls} value={form.court_name} maxLength={200} required
               onChange={(e) => set("court_name", e.target.value)} />
           </Field>
+          {isPetition ? (
+            <Field label="사건당사자와의 관계" required>
+              <input className={inputCls} value={form.relationship} maxLength={50} required
+                placeholder="예: 배우자, 친구, 직장 동료"
+                onChange={(e) => set("relationship", e.target.value)} />
+            </Field>
+          ) : null}
         </section>
+
+        {!isPetition ? (
+          <section className="space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">선택사항</h2>
+            <Field label="초범인가요?" required>
+              <YesNoToggle value={firstOffense} onChange={setFirstOffense} />
+            </Field>
+            {firstOffense === false ? (
+              <Field label="동종 전과가 있으신가요?" required>
+                <YesNoToggle value={priorSameType} onChange={setPriorSameType} />
+              </Field>
+            ) : null}
+            <Field label="현재 사건 진행단계" required>
+              <select className={inputCls} value={form.case_stage} required
+                onChange={(e) => set("case_stage", e.target.value)}>
+                <option value="">선택해 주세요</option>
+                {info.case_stage_options.map((o) => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="상대방과 합의 여부" required>
+              <select className={inputCls} value={form.settlement_status} required
+                onChange={(e) => set("settlement_status", e.target.value)}>
+                <option value="">선택해 주세요</option>
+                {info.settlement_status_options.map((o) => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+            </Field>
+          </section>
+        ) : null}
 
         <section className="space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">
@@ -229,21 +318,14 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
               min="1900-01-01" max={new Date().toISOString().slice(0, 10)}
               onChange={(e) => set("writer_birth", e.target.value)} />
           </Field>
-          <Field label="주소" required hint="부담되시면 '동'까지만 적으셔도 됩니다.">
-            <input className={inputCls} value={form.writer_address} maxLength={300} required
+          <Field label="주소" required={!isPetition} hint={isPetition ? "생략하셔도 됩니다." : "부담되시면 '동'까지만 적으셔도 됩니다."}>
+            <input className={inputCls} value={form.writer_address} maxLength={300} required={!isPetition}
               onChange={(e) => set("writer_address", e.target.value)} />
           </Field>
-          <Field label="연락처" required>
-            <input className={inputCls} value={form.writer_phone} maxLength={30} required
+          <Field label="연락처" required={!isPetition} hint={isPetition ? "생략하셔도 됩니다." : undefined}>
+            <input className={inputCls} value={form.writer_phone} maxLength={30} required={!isPetition}
               onChange={(e) => set("writer_phone", e.target.value)} />
           </Field>
-          {isPetition ? (
-            <Field label="피고인과의 관계" required>
-              <input className={inputCls} value={form.relationship} maxLength={50} required
-                placeholder="예: 배우자, 친구, 직장 동료"
-                onChange={(e) => set("relationship", e.target.value)} />
-            </Field>
-          ) : null}
         </section>
 
         <section className="space-y-4">
