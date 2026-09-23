@@ -364,6 +364,7 @@ export async function confirmTossPayment(payload: {
 export async function createOrderBundle(payload: {
   course_ids: number[];
   payment_method: PaymentMethod;
+  legal_letters?: LegalLetterType[];
 }): Promise<BundleCreateResponse> {
   const { data } = await api.post<BundleCreateResponse>("/orders/bundle", payload);
   return data;

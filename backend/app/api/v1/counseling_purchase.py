@@ -12,8 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.v1.counseling import _process_draft
-from app.api.v1.orders import _cancel_stale_pending
-from app.api.v1.legal_letters import get_or_create_letter_course
+from app.api.v1.orders import _cancel_stale_pending, get_or_create_letter_course
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.counseling import CounselingStatus, CounselingSurvey

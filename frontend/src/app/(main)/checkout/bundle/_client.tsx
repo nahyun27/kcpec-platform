@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
-import { createOrderBundle, getCourseDetail, tokenStorage } from "@/lib/api";
+import { createOrderBundle, getCourseDetail, getLegalLetterInfo, tokenStorage } from "@/lib/api";
 import type { CourseDetail } from "@/types/course";
 import { PAYMENT_METHOD_LABEL, type PaymentMethod } from "@/types/order";
 import { counselingDisplayTitle } from "@/types/counseling";
+import { LEGAL_LETTER_LABEL, type LegalLetterInfo, type LegalLetterType } from "@/types/legalLetter";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -21,6 +22,8 @@ import {
   Zap,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+
+const LETTER_TYPES: LegalLetterType[] = ["repentance", "petition"];
 
 function PaymentMethodIcon({
   method,
@@ -83,6 +86,18 @@ export default function CheckoutBundleClient() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [paymentFailMessage, setPaymentFailMessage] = useState<string | null>(null);
+  const [letterInfo, setLetterInfo] = useState<LegalLetterInfo | null>(null);
+  const [selectedLetters, setSelectedLetters] = useState<LegalLetterType[]>([]);
+
+  useEffect(() => {
+    getLegalLetterInfo()
+      .then(setLetterInfo)
+      .catch(() => {});
+  }, []);
+
+  function toggleLetter(t: LegalLetterType) {
+    setSelectedLetters((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
+  }
 
   // 토스 결제창에서 실패/취소 시 failUrl(이 페이지 자체)로 code/message 를
   // 쿼리스트링에 실어 되돌아온다. 예전엔 이걸 그냥 무시해서, 사용자가
@@ -150,7 +165,12 @@ export default function CheckoutBundleClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coursesParam, retryCount]);
 
-  const subtotal = courses.reduce((sum, c) => sum + c.price, 0);
+  const coursesSubtotal = courses.reduce((sum, c) => sum + c.price, 0);
+  const letterTotal = selectedLetters.reduce((sum, t) => {
+    if (!letterInfo) return sum;
+    return sum + (t === "repentance" ? letterInfo.repentance_price : letterInfo.petition_price);
+  }, 0);
+  const subtotal = coursesSubtotal + letterTotal;
   const discount = subtotal >= BULK_DISCOUNT_THRESHOLD ? BULK_DISCOUNT_AMOUNT : 0;
   const total = subtotal - discount;
 
@@ -162,6 +182,7 @@ export default function CheckoutBundleClient() {
       const bundle = await createOrderBundle({
         course_ids: courseIds,
         payment_method: paymentMethod,
+        legal_letters: selectedLetters,
       });
 
       const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
@@ -395,6 +416,55 @@ export default function CheckoutBundleClient() {
                 })}
               </div>
             </section>
+
+            {letterInfo ? (
+              <section>
+                <div className="mb-6 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">
+                    3
+                  </div>
+                  <h2 className="font-sans text-xl font-bold text-slate-900">
+                    반성문·탄원서 <span className="text-sm font-medium text-zinc-400">(선택)</span>
+                  </h2>
+                </div>
+                <p className="mb-4 text-sm text-slate-500">
+                  몇 가지 질문에 답하시면 AI가 답변을 바탕으로 작성해 드립니다. 결제 완료 후 이어서
+                  입력하실 수 있습니다.
+                </p>
+                <ul className="grid gap-2 sm:grid-cols-2">
+                  {LETTER_TYPES.map((t) => {
+                    const price = t === "repentance" ? letterInfo.repentance_price : letterInfo.petition_price;
+                    const checked = selectedLetters.includes(t);
+                    return (
+                      <li key={t}>
+                        <label
+                          className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-sm transition-colors ${
+                            checked
+                              ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5"
+                              : "border-zinc-200 bg-white hover:border-slate-300"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleLetter(t)}
+                              className="h-4 w-4"
+                            />
+                            <span className="font-semibold text-slate-800">
+                              {LEGAL_LETTER_LABEL[t]} 작성
+                            </span>
+                          </span>
+                          <span className="shrink-0 font-bold text-slate-600">
+                            +{price.toLocaleString()}원
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ) : null}
           </div>
 
           <div className="lg:col-span-4">
@@ -411,6 +481,14 @@ export default function CheckoutBundleClient() {
                     <span className="font-medium text-slate-500">강의 수</span>
                     <span className="font-bold text-slate-900">{courses.length}건</span>
                   </div>
+                  {selectedLetters.length > 0 ? (
+                    <div className="flex justify-between pb-2">
+                      <span className="font-medium text-slate-500">반성문·탄원서</span>
+                      <span className="font-bold text-slate-900">
+                        {selectedLetters.map((t) => LEGAL_LETTER_LABEL[t]).join(", ")}
+                      </span>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between border-b border-zinc-100 pb-4">
                     <span className="font-medium text-slate-500">소계</span>
                     <span className="font-bold text-slate-900">

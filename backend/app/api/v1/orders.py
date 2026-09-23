@@ -14,6 +14,7 @@ from app.core.deps import get_current_user
 from app.core.email import send_new_order_notification
 from app.models.course import Course, CourseCategory
 from app.models.enrollment import Enrollment
+from app.models.legal_letter import LegalLetterType
 from app.models.order import Order, OrderStatus, OrderType, PaymentMethod
 from app.models.user import User
 from app.schemas.order import (
@@ -49,6 +50,31 @@ NON_ENROLLABLE_COURSE_TITLES = {
     REPENTANCE_LETTER_COURSE_TITLE,
     PETITION_LETTER_COURSE_TITLE,
 }
+
+LEGAL_LETTER_COURSE_TITLE_BY_TYPE: dict[LegalLetterType, str] = {
+    LegalLetterType.REPENTANCE: REPENTANCE_LETTER_COURSE_TITLE,
+    LegalLetterType.PETITION: PETITION_LETTER_COURSE_TITLE,
+}
+
+
+def get_or_create_letter_course(db: Session, letter_type: LegalLetterType) -> Course:
+    """반성문·탄원서용 비공개 상품 Course 행을 찾거나 만든다. 구속수용자 교육
+    자료·발송비와 같은 이유로 Course 행(비공개)으로 등록 — 매출 통계 분리 +
+    관리자 강의 관리에서 가격 수정 가능(legal_letters.py, counseling_purchase.py
+    양쪽에서 재사용하므로 순환 임포트를 피하려 여기 orders.py 에 둠)."""
+    title = LEGAL_LETTER_COURSE_TITLE_BY_TYPE[letter_type]
+    course = db.scalar(select(Course).where(Course.title == title).limit(1))
+    if course is None:
+        course = Course(
+            title=title,
+            description="심리상담 결제 시 함께 신청하는 법원 제출용 서식 자동 작성",
+            category=CourseCategory.LAW_COMPLIANCE,
+            price=LEGAL_LETTER_PRICE_DEFAULT,
+            is_active=False,
+        )
+        db.add(course)
+        db.flush()
+    return course
 
 # "맞춤 강의 찾기" 묶음결제 할인 — 프론트(sentencing/page.tsx)의 BULK_DISCOUNT_*
 # 와 반드시 같은 값을 유지할 것(그쪽은 결제 전 미리보기 표시용, 실제 금액은
@@ -296,22 +322,28 @@ def create_order_bundle(
                     detail=f"'{c.title}' 은(는) 이미 입금 대기 중인 주문이 있습니다.",
                 )
 
-    subtotal = sum(courses[cid].price or 0 for cid in course_ids)
+    # 반성문·탄원서(legal_letters.py) — 함께 선택했으면 같은 묶음결제에 담는다.
+    # 할인 기준 금액에도 포함한다(구속수용자 교육 발송비와 달리 여기는
+    # "발송비 제외" 같은 예외가 없음 — 전부 통상적인 상품 항목).
+    letter_types = list(dict.fromkeys(payload.legal_letters))
+    letter_courses = [get_or_create_letter_course(db, LegalLetterType(lt)) for lt in letter_types]
+
+    subtotal = sum(courses[cid].price or 0 for cid in course_ids) + sum(
+        c.price or 0 for c in letter_courses
+    )
     discount = BULK_DISCOUNT_AMOUNT if subtotal >= BULK_DISCOUNT_THRESHOLD else 0
     total = subtotal - discount
 
     bundle_id = secrets.token_urlsafe(16)
     items: list[BundleItem] = []
-    for i, cid in enumerate(course_ids):
-        c = courses[cid]
-        # 개별 강의 금액은 원칙적으로 course.price 그대로 유지하되(환불/통계가
-        # 강의당 정가를 기준으로 하는 기존 로직과의 정합성), 할인액만큼만 마지막
-        # 항목 하나에서 차감해 총합(sum of amounts)이 실제 결제될 total 과
-        # 정확히 일치하게 한다.
-        amount = (c.price or 0) - (discount if i == len(course_ids) - 1 else 0)
+    # course_ids 와 letter_courses 를 하나의 목록으로 합쳐 마지막 항목에서만
+    # 할인액을 차감 — 기존 "마지막 항목에서 차감" 규칙을 그대로 유지.
+    all_courses = [courses[cid] for cid in course_ids] + letter_courses
+    for i, c in enumerate(all_courses):
+        amount = (c.price or 0) - (discount if i == len(all_courses) - 1 else 0)
         order = Order(
             user_id=current_user.id,
-            course_id=cid,
+            course_id=c.id,
             order_type=(
                 OrderType.COUNSELING if c.category == CourseCategory.COUNSELING else OrderType.COURSE
             ),
@@ -323,7 +355,7 @@ def create_order_bundle(
         db.add(order)
         db.flush()
         items.append(
-            BundleItem(order_id=order.id, course_id=cid, course_title=c.title, amount=amount)
+            BundleItem(order_id=order.id, course_id=c.id, course_title=c.title, amount=amount)
         )
     db.commit()
 

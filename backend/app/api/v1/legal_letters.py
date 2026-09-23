@@ -24,9 +24,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.v1.orders import (
+    LEGAL_LETTER_COURSE_TITLE_BY_TYPE,
     LEGAL_LETTER_PRICE_DEFAULT,
     PETITION_LETTER_COURSE_TITLE,
     REPENTANCE_LETTER_COURSE_TITLE,
+    get_or_create_letter_course,
 )
 from app.core.database import get_db
 from app.core.deps import get_current_user
@@ -39,33 +41,17 @@ from app.core.legal_letter_ai import (
     generate_repentance_content,
 )
 from app.core.legal_letter_generator import LegalLetterInput, generate_legal_letter_pdf
-from app.models.course import Course, CourseCategory
+from app.models.course import Course
 from app.models.legal_letter import LegalLetter, LegalLetterType
 from app.models.order import Order, OrderStatus
 from app.models.user import User
 
 router = APIRouter(prefix="/legal-letters", tags=["legal-letters"])
 
-COURSE_TITLE_BY_TYPE: dict[LegalLetterType, str] = {
-    LegalLetterType.REPENTANCE: REPENTANCE_LETTER_COURSE_TITLE,
-    LegalLetterType.PETITION: PETITION_LETTER_COURSE_TITLE,
-}
-
-
-def get_or_create_letter_course(db: Session, letter_type: LegalLetterType) -> Course:
-    title = COURSE_TITLE_BY_TYPE[letter_type]
-    course = db.scalar(select(Course).where(Course.title == title).limit(1))
-    if course is None:
-        course = Course(
-            title=title,
-            description="심리상담 결제 시 함께 신청하는 법원 제출용 서식 자동 작성",
-            category=CourseCategory.LAW_COMPLIANCE,
-            price=LEGAL_LETTER_PRICE_DEFAULT,
-            is_active=False,
-        )
-        db.add(course)
-        db.flush()
-    return course
+# get_or_create_letter_course 는 counseling_purchase.py(단건 상담 결제)와
+# orders.py(맞춤강의찾기 등 일반 묶음결제) 양쪽이 다 써야 해서 orders.py 에
+# 두고(순환 임포트 방지) 여기서는 재노출만 한다.
+COURSE_TITLE_BY_TYPE = LEGAL_LETTER_COURSE_TITLE_BY_TYPE
 
 
 class LegalLetterInfo(BaseModel):

@@ -16,7 +16,6 @@ import {
 import { PageHeader } from "@/components/layout/PageHeader";
 import { getCounselingCourses, getCourses, getMyEnrollments, tokenStorage } from "@/lib/api";
 import { useDialog } from "@/components/ui/DialogProvider";
-import { LegalLetterPromo } from "@/components/features/LegalLetterPromo";
 
 // ---------- 강의 카탈로그 -----------------------------------------------------
 //
@@ -1364,8 +1363,6 @@ function Step4Result({
           </ul>
         )}
       </div>
-
-      <LegalLetterPromo />
     </section>
   );
 }

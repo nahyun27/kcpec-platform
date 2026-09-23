@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -51,6 +52,8 @@ class BundleCreateRequest(BaseModel):
     # 사전결제 대상 강의 id 목록. 최소 1개, 중복 없이.
     course_ids: list[int] = Field(min_length=1)
     payment_method: PaymentMethod
+    # 함께 담을 반성문·탄원서(각 10,000원) — 선택.
+    legal_letters: list[Literal["repentance", "petition"]] = []
 
 
 class BundleItem(BaseModel):
