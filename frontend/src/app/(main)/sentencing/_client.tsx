@@ -210,6 +210,16 @@ const DOC_PREVIEWS: { match: (name: string) => boolean; srcs: string[]; desc: st
     srcs: ["/images/sample-guidebook.png"],
     desc: "양형자료 준비 방법을 안내하는 가이드북 표지입니다.",
   },
+  {
+    match: (n) => n === "반성문 작성",
+    srcs: ["/images/sample-repentance.png"],
+    desc: "질문에 답하면 AI가 작성해 드리는 반성문 예시입니다(가상 인물).",
+  },
+  {
+    match: (n) => n === "탄원서 작성",
+    srcs: ["/images/sample-petition.png"],
+    desc: "질문에 답하면 AI가 작성해 드리는 탄원서 예시입니다(가상 인물).",
+  },
 ];
 
 function getDocPreview(name: string) {
@@ -471,6 +481,14 @@ export default function SentencingPage() {
       ...(counselingCourses.length > 0
         ? COUNSELING_BONUS_ITEMS.map((item) => ({ name: item, active: counselingActive, count: 1 }))
         : []),
+      // 추가상품(반성문·탄원서)도 "발급 가능 서류" 목록에 함께 보여준다 —
+      // 선택했는데 목록엔 안 나와서 아무것도 없어 보인다는 혼동이 있었다
+      // (2026-09, 실사용 중 발견).
+      ...LETTER_TYPES.filter((t) => selectedLetters.has(t)).map((t) => ({
+        name: `${LEGAL_LETTER_LABEL[t]} 작성`,
+        active: true,
+        count: 1,
+      })),
     ];
     const letterTotal = letterInfo
       ? Array.from(selectedLetters).reduce(
