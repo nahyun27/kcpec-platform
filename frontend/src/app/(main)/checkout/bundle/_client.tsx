@@ -87,7 +87,14 @@ export default function CheckoutBundleClient() {
   const [submitting, setSubmitting] = useState(false);
   const [paymentFailMessage, setPaymentFailMessage] = useState<string | null>(null);
   const [letterInfo, setLetterInfo] = useState<LegalLetterInfo | null>(null);
-  const [selectedLetters, setSelectedLetters] = useState<LegalLetterType[]>([]);
+  // 맞춤강의찾기(3단계 '추가상품')에서 미리 골라 넘어온 값을 그대로 이어받는다
+  // — 여기서도 계속 켜고 끌 수 있다.
+  const lettersParam = searchParams.get("letters") ?? "";
+  const [selectedLetters, setSelectedLetters] = useState<LegalLetterType[]>(() =>
+    lettersParam
+      .split(",")
+      .filter((s): s is LegalLetterType => s === "repentance" || s === "petition"),
+  );
 
   useEffect(() => {
     getLegalLetterInfo()

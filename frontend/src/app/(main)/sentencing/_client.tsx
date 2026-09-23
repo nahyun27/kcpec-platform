@@ -14,8 +14,11 @@ import {
   Sparkles,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { getCounselingCourses, getCourses, getMyEnrollments, tokenStorage } from "@/lib/api";
+import { getCounselingCourses, getCourses, getLegalLetterInfo, getMyEnrollments, tokenStorage } from "@/lib/api";
 import { useDialog } from "@/components/ui/DialogProvider";
+import { LEGAL_LETTER_LABEL, type LegalLetterInfo, type LegalLetterType } from "@/types/legalLetter";
+
+const LETTER_TYPES: LegalLetterType[] = ["repentance", "petition"];
 
 // ---------- 강의 카탈로그 -----------------------------------------------------
 //
@@ -240,6 +243,22 @@ export default function SentencingPage() {
   const [counselingTypes, setCounselingTypes] = useState<Set<"basic" | "phone">>(
     new Set(["basic"]),
   );
+  // Page 3 — 반성문·탄원서(추가상품, 선택) — 심리상담 질문 바로 아래에 노출.
+  const [letterInfo, setLetterInfo] = useState<LegalLetterInfo | null>(null);
+  const [selectedLetters, setSelectedLetters] = useState<Set<LegalLetterType>>(new Set());
+  useEffect(() => {
+    getLegalLetterInfo()
+      .then(setLetterInfo)
+      .catch(() => {});
+  }, []);
+  function toggleLetter(t: LegalLetterType) {
+    setSelectedLetters((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return next;
+    });
+  }
   // Page 4 — 개별 해제 (추천에서 빠지진 않고 회색 처리)
   const [disabledCourses, setDisabledCourses] = useState<Set<CourseId>>(
     new Set(),
@@ -453,7 +472,13 @@ export default function SentencingPage() {
         ? COUNSELING_BONUS_ITEMS.map((item) => ({ name: item, active: counselingActive, count: 1 }))
         : []),
     ];
-    const subtotal = activeCourses.reduce((sum, c) => sum + c.price, 0);
+    const letterTotal = letterInfo
+      ? Array.from(selectedLetters).reduce(
+          (sum, t) => sum + (t === "repentance" ? letterInfo.repentance_price : letterInfo.petition_price),
+          0,
+        )
+      : 0;
+    const subtotal = activeCourses.reduce((sum, c) => sum + c.price, 0) + letterTotal;
     const discount = subtotal >= BULK_DISCOUNT_THRESHOLD ? BULK_DISCOUNT_AMOUNT : 0;
     const total = subtotal - discount;
     return {
@@ -465,7 +490,7 @@ export default function SentencingPage() {
       total,
       activeCourseCount: activeCourses.length,
     };
-  }, [currentCourseIds, disabledCourses]);
+  }, [currentCourseIds, disabledCourses, letterInfo, selectedLetters]);
 
   // 심리상담 CourseId → 백엔드 Course.title 매핑 (counseling_purchase.py 의
   // TITLE_BY_TYPE 과 반드시 동일하게 유지할 것).
@@ -516,7 +541,9 @@ export default function SentencingPage() {
         return;
       }
 
-      router.push(`/checkout/bundle?courses=${resolvedIds.join(",")}`);
+      const lettersParam =
+        selectedLetters.size > 0 ? `&letters=${Array.from(selectedLetters).join(",")}` : "";
+      router.push(`/checkout/bundle?courses=${resolvedIds.join(",")}${lettersParam}`);
     } catch {
       setCheckoutError("강의 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
@@ -601,18 +628,26 @@ export default function SentencingPage() {
               />
             ) : null}
             {step === 3 ? (
-              <Step3Counseling
-                answer={counselingAnswer}
-                onAnswer={answerCounseling}
-                counselingTypes={counselingTypes}
-                onToggleType={toggleCounselingType}
-              />
+              <div className="space-y-4">
+                <Step3Counseling
+                  answer={counselingAnswer}
+                  onAnswer={answerCounseling}
+                  counselingTypes={counselingTypes}
+                  onToggleType={toggleCounselingType}
+                />
+                <Step3AddOns
+                  letterInfo={letterInfo}
+                  selectedLetters={selectedLetters}
+                  onToggleLetter={toggleLetter}
+                />
+              </div>
             ) : null}
             {step === 4 ? (
               <Step4Result
                 recommendation={recommendation}
                 disabledCourses={disabledCourses}
                 onToggleCourse={toggleCourse}
+                selectedLetters={selectedLetters}
               />
             ) : null}
 
@@ -649,6 +684,7 @@ export default function SentencingPage() {
                 step={step}
                 onCheckout={handleCheckout}
                 checkingOut={checkingOut}
+                selectedLetters={selectedLetters}
               />
             </div>
           </aside>
@@ -1221,6 +1257,54 @@ function Step3Counseling({
   );
 }
 
+function Step3AddOns({
+  letterInfo,
+  selectedLetters,
+  onToggleLetter,
+}: {
+  letterInfo: LegalLetterInfo | null;
+  selectedLetters: Set<LegalLetterType>;
+  onToggleLetter: (t: LegalLetterType) => void;
+}) {
+  if (!letterInfo) return null;
+  return (
+    <section className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm md:p-7">
+      <h2 className="font-sans text-lg font-extrabold text-slate-900 sm:text-xl">추가상품</h2>
+      <p className="mt-1 text-sm text-slate-500">
+        AI가 몇 가지 질문에 대한 답변을 바탕으로 작성해 드립니다. 결제 완료 후 이어서 입력하실 수
+        있습니다.
+      </p>
+      <div className="mt-3.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {LETTER_TYPES.map((t) => {
+          const price = t === "repentance" ? letterInfo.repentance_price : letterInfo.petition_price;
+          const active = selectedLetters.has(t);
+          return (
+            <button
+              key={t}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onToggleLetter(t)}
+              className={`relative rounded-lg border p-3 text-left transition-all ${
+                active
+                  ? "border-[#1C3461] bg-[#1C3461]/5 ring-1 ring-[#1C3461]"
+                  : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+              }`}
+            >
+              {active ? (
+                <Check className="absolute right-2.5 top-2.5 h-4 w-4 text-[#1C3461]" />
+              ) : null}
+              <p className={`text-sm font-bold ${active ? "text-[#1C3461]" : "text-slate-800"}`}>
+                {LEGAL_LETTER_LABEL[t]} 작성
+              </p>
+              <p className="mt-0.5 text-[13px] text-slate-500">{price.toLocaleString()}원</p>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 // ---------- Page 4: 추천 결과 + 결제 ------------------------------------------
 
 type Recommendation = {
@@ -1237,10 +1321,12 @@ function Step4Result({
   recommendation,
   disabledCourses,
   onToggleCourse,
+  selectedLetters,
 }: {
   recommendation: Recommendation;
   disabledCourses: Set<CourseId>;
   onToggleCourse: (id: CourseId) => void;
+  selectedLetters: Set<LegalLetterType>;
 }) {
   const hasDisabled = disabledCourses.size > 0;
   // 항목마다 미리보기 이미지를 항상 DOM 에 올려두고 CSS로만 숨기면(hidden
@@ -1290,6 +1376,14 @@ function Step4Result({
             );
           })}
         </ul>
+        {selectedLetters.size > 0 ? (
+          <div className="mt-3 flex items-center gap-1.5 border-t border-zinc-100 pt-3 text-sm font-semibold text-[#1C3461]">
+            <Sparkles className="h-3.5 w-3.5" />
+            추가상품: {LETTER_TYPES.filter((t) => selectedLetters.has(t))
+              .map((t) => `${LEGAL_LETTER_LABEL[t]} 작성`)
+              .join(", ")}
+          </div>
+        ) : null}
         {hasDisabled ? (
           <p className="mt-3 text-sm font-medium text-amber-600">
             추천 강의를 해제하면 해당 수료증이 발급되지 않습니다.
@@ -1375,12 +1469,14 @@ function CartSummary({
   step,
   onCheckout,
   checkingOut,
+  selectedLetters,
 }: {
   recommendation: Recommendation;
   disabledCourses: Set<CourseId>;
   step: Step;
   onCheckout: () => void;
   checkingOut: boolean;
+  selectedLetters: Set<LegalLetterType>;
 }) {
   const noneSelected = recommendation.activeCourseCount === 0;
   return (
@@ -1468,6 +1564,14 @@ function CartSummary({
           1~3단계 안내/할인 문구는 페이지 상단 배너로 옮겨서 여기선 4단계에서만 노출. */}
       {step === 4 ? (
         <>
+          {selectedLetters.size > 0 ? (
+            <p className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-[#1C3461]">
+              <Sparkles className="h-3.5 w-3.5" />
+              추가상품: {LETTER_TYPES.filter((t) => selectedLetters.has(t))
+                .map((t) => `${LEGAL_LETTER_LABEL[t]} 작성`)
+                .join(", ")}
+            </p>
+          ) : null}
           <div className="mt-5 rounded-xl bg-slate-50 p-5">
             {recommendation.discount > 0 && (
               <div className="flex items-center justify-between text-[15px] text-slate-400">
