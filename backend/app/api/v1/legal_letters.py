@@ -2,21 +2,21 @@
 
 고객이 결제 후 사건정보·작성자정보와 선택사항(반성문: 초범 여부/사건
 진행단계/합의 여부, 탄원서: 사건당사자·관계)에 답하고, 자유 서술 질문에
-답하면 그 답변을 바탕으로 AI(Gemini)가 본문을 자동으로 작성해 법원 제출
-서식에 채워 즉시 PDF로 발급한다. 관리자 검토 단계는 없다 — 그래서 AI 생성이
-실패하면(gemini_client 의 심리상담 흐름과 달리) 더미 텍스트로 조용히
-폴백하지 않고 502 를 돌려줘 고객이 다시 시도하게 한다(legal_letter_ai.py
-참고). 주문은 이미 결제된 상태로 남아 재시도해도 다시 결제할 필요는 없다.
+답하면 그 답변을 바탕으로 AI(Gemini)가 본문 초안을 작성한다. 심리상담
+의견서와 동일하게 관리자 검토를 거친 뒤 발급된다(2026-09, 초기에는 검토
+없이 즉시 발급했으나 의뢰인 요청으로 변경) — 고객 제출 시점에는 초안만
+만들어지고, 관리자가 검토·필요시 재생성/직접 수정한 뒤 "발급 확정"을
+눌러야 PDF 가 생성되고 고객에게 공개된다.
 
 문항 구성(선택사항 목록·라벨)은 의뢰인이 확정한 내용을 legal_letter_ai.py 에
 그대로 반영했다 — 바뀌면 그쪽만 교체하면 프론트 폼도 /info 응답을 통해
-자동으로 따라간다(자유 서술 질문 라벨 한정 — 선택사항 자체는 이 파일의
-스키마에 고정 필드로 박혀있어 구조가 바뀌면 여기도 같이 손봐야 함).
+자동으로 따라간다.
 """
 
 import json
 import secrets
 from datetime import date, datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
@@ -30,8 +30,10 @@ from app.api.v1.orders import (
     REPENTANCE_LETTER_COURSE_TITLE,
     get_or_create_letter_course,
 )
+from app.core.admin import require_admin
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.email import send_legal_letter_released
 from app.core.legal_letter_ai import (
     CASE_STAGE_OPTIONS,
     FREE_TEXT_QUESTION_LABELS,
@@ -47,11 +49,19 @@ from app.models.order import Order, OrderStatus
 from app.models.user import User
 
 router = APIRouter(prefix="/legal-letters", tags=["legal-letters"])
+admin_router = APIRouter(
+    prefix="/admin/legal-letters",
+    tags=["admin-legal-letters"],
+    dependencies=[Depends(require_admin)],
+)
 
 # get_or_create_letter_course 는 counseling_purchase.py(단건 상담 결제)와
 # orders.py(맞춤강의찾기 등 일반 묶음결제) 양쪽이 다 써야 해서 orders.py 에
 # 두고(순환 임포트 방지) 여기서는 재노출만 한다.
 COURSE_TITLE_BY_TYPE = LEGAL_LETTER_COURSE_TITLE_BY_TYPE
+
+
+LABEL_BY_TYPE = {LegalLetterType.REPENTANCE: "반성문", LegalLetterType.PETITION: "탄원서"}
 
 
 class LegalLetterInfo(BaseModel):
@@ -89,7 +99,7 @@ class LegalLetterSubmitRequest(BaseModel):
     court_name: str = Field(min_length=1, max_length=200)  # 관할명(경찰/검찰/법원 등)
     writer_name: str = Field(min_length=1, max_length=100)
     writer_birth: date
-    # 탄원서는 생략 가능(의뢰인 확정 사항) — 반성문은 아래 model_validator 에서 필수로 강제.
+    # 탄원서는 생략 가능(의뢰인 확정 사항) — 반성문은 아래에서 필수로 강제.
     writer_address: str | None = Field(default=None, max_length=300)
     writer_phone: str | None = Field(default=None, max_length=30)
 
@@ -107,16 +117,19 @@ class LegalLetterSubmitRequest(BaseModel):
     answers: dict[str, str] = Field(min_length=1)
 
 
+LegalLetterUiStatus = Literal["not_submitted", "pending_review", "released"]
+
+
 class LegalLetterStatus(BaseModel):
     order_id: int
     letter_type: LegalLetterType
     course_title: str
     amount: int
     paid: bool
-    # 아직 작성 폼을 제출하지 않았으면 None.
-    submitted: bool
+    status: LegalLetterUiStatus
     pdf_url: str | None
     created_at: datetime | None
+    released_at: datetime | None
 
 
 def _order_and_type(db: Session, order_id: int, user_id: int) -> tuple[Order, LegalLetterType]:
@@ -140,15 +153,22 @@ def _status_response(
     db: Session, order: Order, letter_type: LegalLetterType, letter: LegalLetter | None
 ) -> LegalLetterStatus:
     course = db.get(Course, order.course_id)
+    if letter is None:
+        ui_status: LegalLetterUiStatus = "not_submitted"
+    elif letter.released_at is None:
+        ui_status = "pending_review"
+    else:
+        ui_status = "released"
     return LegalLetterStatus(
         order_id=order.id,
         letter_type=letter_type,
         course_title=course.title if course else "",
         amount=order.amount,
         paid=order.status == OrderStatus.PAID,
-        submitted=letter is not None,
-        pdf_url=letter.pdf_url if letter else None,
+        status=ui_status,
+        pdf_url=letter.pdf_url if letter and letter.released_at else None,
         created_at=letter.created_at if letter else None,
+        released_at=letter.released_at if letter else None,
     )
 
 
@@ -167,7 +187,6 @@ def get_legal_letter_status(
 def submit_legal_letter(
     order_id: int,
     payload: LegalLetterSubmitRequest,
-    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> LegalLetterStatus:
@@ -235,28 +254,7 @@ def submit_legal_letter(
             detail=f"자동 작성에 실패했습니다. 잠시 후 다시 시도해 주세요. ({exc})",
         ) from exc
 
-    access_token = secrets.token_urlsafe(24)
-    issued_date = datetime.now(timezone.utc).date()
-
-    pdf_path = generate_legal_letter_pdf(
-        letter_type=letter_type.value,
-        file_token=access_token,
-        data=LegalLetterInput(
-            case_number=(payload.case_number or "").strip() or None,
-            charge=charge,
-            defendant_name=defendant_name,
-            court_name=payload.court_name.strip(),
-            writer_name=payload.writer_name.strip(),
-            writer_birth=payload.writer_birth,
-            writer_address=writer_address,
-            writer_phone=writer_phone,
-            relationship=relationship,
-            content=content,
-        ),
-        issued_date=issued_date,
-    )
-    pdf_url = str(request.url_for("static", path=f"pdfs/{pdf_path.name}"))
-
+    # 이 시점엔 초안만 저장 — PDF 는 관리자가 검토 후 "발급 확정"을 눌러야 생성된다.
     letter = LegalLetter(
         order_id=order.id,
         user_id=current_user.id,
@@ -276,8 +274,6 @@ def submit_legal_letter(
         settlement_status=payload.settlement_status,
         structured_answers=json.dumps(answers, ensure_ascii=False),
         content=content,
-        access_token=access_token,
-        pdf_url=pdf_url,
     )
     db.add(letter)
     db.commit()
@@ -286,4 +282,202 @@ def submit_legal_letter(
     return _status_response(db, order, letter_type, letter)
 
 
-__all__ = ["router", "get_or_create_letter_course"]
+# ---------- admin ----------------------------------------------------------
+
+
+class AdminLegalLetterRow(BaseModel):
+    id: int
+    order_id: int
+    letter_type: LegalLetterType
+    letter_label: str
+    buyer_username: str
+    buyer_email: str
+    case_number: str | None
+    charge: str
+    defendant_name: str | None
+    court_name: str
+    writer_name: str
+    writer_birth: date
+    writer_address: str | None
+    writer_phone: str | None
+    relationship_to_defendant: str | None
+    first_offense: bool | None
+    prior_same_type_record: bool | None
+    case_stage: str | None
+    settlement_status: str | None
+    answers: dict[str, str]
+    answer_labels: dict[str, str]
+    content: str
+    pdf_url: str | None
+    created_at: datetime
+    released_at: datetime | None
+
+
+def _admin_row(db: Session, letter: LegalLetter) -> AdminLegalLetterRow:
+    order = db.get(Order, letter.order_id)
+    buyer = db.get(User, letter.user_id)
+    try:
+        answers = json.loads(letter.structured_answers) if letter.structured_answers else {}
+    except (json.JSONDecodeError, TypeError):
+        answers = {}
+    labels = FREE_TEXT_QUESTION_LABELS.get(letter.letter_type.value, {})
+    return AdminLegalLetterRow(
+        id=letter.id,
+        order_id=letter.order_id,
+        letter_type=letter.letter_type,
+        letter_label=LABEL_BY_TYPE[letter.letter_type],
+        buyer_username=buyer.username if buyer else "",
+        buyer_email=buyer.email if buyer else "",
+        case_number=letter.case_number,
+        charge=letter.charge,
+        defendant_name=letter.defendant_name,
+        court_name=letter.court_name,
+        writer_name=letter.writer_name,
+        writer_birth=letter.writer_birth,
+        writer_address=letter.writer_address,
+        writer_phone=letter.writer_phone,
+        relationship_to_defendant=letter.relationship_to_defendant,
+        first_offense=letter.first_offense,
+        prior_same_type_record=letter.prior_same_type_record,
+        case_stage=letter.case_stage,
+        settlement_status=letter.settlement_status,
+        answers=answers,
+        answer_labels=labels,
+        content=letter.content,
+        pdf_url=letter.pdf_url if letter.released_at else None,
+        created_at=letter.created_at,
+        released_at=letter.released_at,
+    )
+
+
+@admin_router.get("", response_model=list[AdminLegalLetterRow])
+def admin_list_legal_letters(
+    pending_only: bool = False,
+    db: Session = Depends(get_db),
+) -> list[AdminLegalLetterRow]:
+    stmt = select(LegalLetter).order_by(LegalLetter.id.desc())
+    if pending_only:
+        stmt = stmt.where(LegalLetter.released_at.is_(None))
+    return [_admin_row(db, letter) for letter in db.scalars(stmt).all()]
+
+
+def _get_letter_or_404(db: Session, letter_id: int) -> LegalLetter:
+    letter = db.get(LegalLetter, letter_id)
+    if letter is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="신청을 찾을 수 없습니다.")
+    return letter
+
+
+@admin_router.post("/{letter_id}/regenerate", response_model=AdminLegalLetterRow)
+def admin_regenerate_legal_letter(
+    letter_id: int,
+    db: Session = Depends(get_db),
+) -> AdminLegalLetterRow:
+    """저장된 답변 그대로 AI를 다시 돌려 본문을 새로 만든다(고객 재입력 불필요)."""
+    letter = _get_letter_or_404(db, letter_id)
+    if letter.released_at is not None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 발급 확정된 건은 다시 생성할 수 없습니다.")
+
+    try:
+        answers = json.loads(letter.structured_answers) if letter.structured_answers else {}
+    except (json.JSONDecodeError, TypeError):
+        answers = {}
+
+    try:
+        if letter.letter_type == LegalLetterType.PETITION:
+            content = generate_petition_content(
+                charge=letter.charge,
+                defendant_name=letter.defendant_name or "",
+                relationship=letter.relationship_to_defendant or "",
+                answers=answers,
+            )
+        else:
+            content = generate_repentance_content(
+                charge=letter.charge,
+                first_offense=bool(letter.first_offense),
+                prior_same_type_record=letter.prior_same_type_record,
+                case_stage=letter.case_stage or "",
+                settlement_status=letter.settlement_status or "",
+                answers=answers,
+            )
+    except LegalLetterAIError as exc:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, detail=f"자동 작성에 실패했습니다: {exc}"
+        ) from exc
+
+    letter.content = content
+    db.commit()
+    db.refresh(letter)
+    return _admin_row(db, letter)
+
+
+class AdminLegalLetterContentPatch(BaseModel):
+    content: str = Field(min_length=1)
+
+
+@admin_router.patch("/{letter_id}", response_model=AdminLegalLetterRow)
+def admin_edit_legal_letter(
+    letter_id: int,
+    payload: AdminLegalLetterContentPatch,
+    db: Session = Depends(get_db),
+) -> AdminLegalLetterRow:
+    """관리자가 본문을 직접 수정(미세 교정용) — AI 재생성 대신 손으로 고칠 때."""
+    letter = _get_letter_or_404(db, letter_id)
+    if letter.released_at is not None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 발급 확정된 건은 수정할 수 없습니다.")
+    letter.content = payload.content.strip()
+    db.commit()
+    db.refresh(letter)
+    return _admin_row(db, letter)
+
+
+@admin_router.post("/{letter_id}/release", response_model=AdminLegalLetterRow)
+def admin_release_legal_letter(
+    letter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> AdminLegalLetterRow:
+    """검토 완료 — 현재 content 로 PDF 를 만들어 고객에게 공개하고 메일로 알린다."""
+    letter = _get_letter_or_404(db, letter_id)
+    if letter.released_at is not None:
+        return _admin_row(db, letter)
+
+    buyer = db.get(User, letter.user_id)
+    access_token = secrets.token_urlsafe(24)
+    issued_date = datetime.now(timezone.utc).date()
+
+    pdf_path = generate_legal_letter_pdf(
+        letter_type=letter.letter_type.value,
+        file_token=access_token,
+        data=LegalLetterInput(
+            case_number=letter.case_number,
+            charge=letter.charge,
+            defendant_name=letter.defendant_name,
+            court_name=letter.court_name,
+            writer_name=letter.writer_name,
+            writer_birth=letter.writer_birth,
+            writer_address=letter.writer_address,
+            writer_phone=letter.writer_phone,
+            relationship=letter.relationship_to_defendant,
+            content=letter.content,
+        ),
+        issued_date=issued_date,
+    )
+    letter.access_token = access_token
+    letter.pdf_url = str(request.url_for("static", path=f"pdfs/{pdf_path.name}"))
+    letter.released_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(letter)
+
+    if buyer:
+        send_legal_letter_released(
+            to_email=buyer.email,
+            recipient_name=letter.writer_name,
+            letter_label=LABEL_BY_TYPE[letter.letter_type],
+            pdf_url=letter.pdf_url,
+        )
+
+    return _admin_row(db, letter)
+
+
+__all__ = ["router", "admin_router", "get_or_create_letter_course"]

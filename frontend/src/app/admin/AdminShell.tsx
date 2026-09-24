@@ -13,6 +13,7 @@ import {
   ChevronUp,
   FileText,
   LayoutDashboard,
+  ScrollText,
   Menu,
   MessageSquare,
   Package,
@@ -70,6 +71,7 @@ const NAV: (SingleNav | GroupNav)[] = [
   },
   { kind: "single", href: "/admin/documents", label: "의견서", icon: <FileText className="h-4 w-4" /> },
   { kind: "single", href: "/admin/detention", label: "구속수용자 교육", icon: <Package className="h-4 w-4" /> },
+  { kind: "single", href: "/admin/legal-letters", label: "반성문·탄원서", icon: <ScrollText className="h-4 w-4" /> },
   {
     kind: "group",
     basePath: "/admin/community",

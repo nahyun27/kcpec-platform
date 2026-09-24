@@ -23,6 +23,7 @@ import {
   AlertCircle,
   FileText,
   Package,
+  ScrollText,
 } from "lucide-react";
 
 import { getAdminSalesStats, getAdminStats } from "@/lib/api";
@@ -244,6 +245,12 @@ function TodoBanner({ todo }: { todo: AdminTodoCounts }) {
       label: "구속수용자 교육 자료 발송 대기",
       href: "/admin/detention",
       icon: <Package className="h-3.5 w-3.5" />,
+    },
+    {
+      count: todo.legal_letter_review ?? 0,
+      label: "반성문·탄원서 검토 대기",
+      href: "/admin/legal-letters",
+      icon: <ScrollText className="h-3.5 w-3.5" />,
     },
   ].filter((item) => item.count > 0);
 

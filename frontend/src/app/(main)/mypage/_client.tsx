@@ -1288,7 +1288,7 @@ function OrderPaidDetails({
         ) : legalLetterType ? (
           <div className="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
             <p className="text-sm text-slate-500 mb-3">
-              {LEGAL_LETTER_LABEL[legalLetterType]}은 직접 입력하신 내용으로 즉시 발급됩니다.
+              {LEGAL_LETTER_LABEL[legalLetterType]}은 AI 초안 작성 후 담당자 검토를 거쳐 발급됩니다.
             </p>
             <Link
               href={`/legal-letters/${order.id}`}

@@ -33,6 +33,7 @@ import type {
   SurveyStatusResponse,
 } from "@/types/counseling";
 import type {
+  AdminLegalLetterRow,
   LegalLetterInfo,
   LegalLetterStatus,
   LegalLetterSubmitPayload,
@@ -502,6 +503,33 @@ export async function submitLegalLetter(
     `/legal-letters/${orderId}/submit`,
     payload,
   );
+  return data;
+}
+
+// ---------- 반성문·탄원서 (관리자) --------------------------------------------
+
+export async function getAdminLegalLetters(pendingOnly = false): Promise<AdminLegalLetterRow[]> {
+  const { data } = await api.get<AdminLegalLetterRow[]>("/admin/legal-letters", {
+    params: pendingOnly ? { pending_only: true } : undefined,
+  });
+  return data;
+}
+
+export async function regenerateAdminLegalLetter(id: number): Promise<AdminLegalLetterRow> {
+  const { data } = await api.post<AdminLegalLetterRow>(`/admin/legal-letters/${id}/regenerate`);
+  return data;
+}
+
+export async function editAdminLegalLetter(
+  id: number,
+  content: string,
+): Promise<AdminLegalLetterRow> {
+  const { data } = await api.patch<AdminLegalLetterRow>(`/admin/legal-letters/${id}`, { content });
+  return data;
+}
+
+export async function releaseAdminLegalLetter(id: number): Promise<AdminLegalLetterRow> {
+  const { data } = await api.post<AdminLegalLetterRow>(`/admin/legal-letters/${id}/release`);
   return data;
 }
 

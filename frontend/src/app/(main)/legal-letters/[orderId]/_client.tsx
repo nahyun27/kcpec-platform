@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
-import { CheckCircle2, Download, FileText, Loader2, Sparkles } from "lucide-react";
+import { CheckCircle2, Clock, Download, FileText, Loader2, Sparkles } from "lucide-react";
 import { absUrl, getLegalLetterInfo, getLegalLetterStatus, submitLegalLetter, tokenStorage } from "@/lib/api";
 import { LEGAL_LETTER_LABEL, type LegalLetterInfo, type LegalLetterStatus } from "@/types/legalLetter";
 
@@ -190,17 +190,39 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
   const isPetition = status.letter_type === "petition";
   const questionLabels = isPetition ? info.petition_questions : info.repentance_questions;
 
-  if (status.submitted) {
+  if (status.status === "pending_review") {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-16">
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-8 text-center">
+          <Clock className="mx-auto h-10 w-10 text-blue-600" />
+          <p className="mt-4 font-sans text-xl font-bold text-blue-900">
+            AI가 {label} 초안을 작성했습니다
+          </p>
+          <p className="mt-2 text-sm text-blue-800">
+            현재 담당자가 내용을 검토하고 있습니다. 검토가 끝나면 신청하신 이메일로 알려드리고,
+            마이페이지에서도 바로 다운로드하실 수 있습니다.
+          </p>
+          <div className="mt-6">
+            <Link href="/mypage" className="text-sm font-bold text-blue-800 underline">
+              마이페이지로
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (status.status === "released") {
     return (
       <div className="mx-auto max-w-xl px-4 py-16">
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center">
           <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
           <p className="mt-4 font-sans text-xl font-bold text-emerald-900">
-            {label}가 작성되었습니다
+            {label}가 발급되었습니다
           </p>
           <p className="mt-2 text-sm text-emerald-800">
-            입력하신 답변을 바탕으로 AI가 본문을 작성해 서식에 정리했습니다. 제출 전에 꼭 한 번
-            읽어보시고, 필요하면 출력해 자필로 서명해 제출해 주세요.
+            검토를 마친 내용으로 서식에 정리했습니다. 제출 전에 꼭 한 번 읽어보시고, 필요하면
+            출력해 자필로 서명해 제출해 주세요.
           </p>
           {status.pdf_url ? (
             <a
@@ -359,7 +381,7 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
           )}
         </button>
         <p className="text-center text-xs text-zinc-500">
-          제출 즉시 AI가 작성한 내용으로 PDF가 발급되며, 이후 내용 수정은 지원되지 않습니다.
+          제출하시면 AI가 초안을 작성하고, 담당자 검토 후 발급됩니다. 제출 후 내용 수정은 지원되지 않습니다.
         </p>
       </form>
     </div>

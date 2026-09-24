@@ -1444,8 +1444,16 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
         )
         or 0
     )
+    from app.models.legal_letter import LegalLetter
+
+    legal_letter_review = (
+        db.scalar(select(func.count(LegalLetter.id)).where(LegalLetter.released_at.is_(None)))
+        or 0
+    )
+
     todo = AdminTodoCounts(
         detention_to_process=detention_to_process,
+        legal_letter_review=legal_letter_review,
         pending_bank_transfer=pending_bank_transfer,
         counseling_draft_review=counseling_draft_review,
         unanswered_qna=unanswered_qna,

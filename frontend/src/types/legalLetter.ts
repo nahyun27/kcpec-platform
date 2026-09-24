@@ -29,15 +29,48 @@ export type LegalLetterInfo = {
   petition_questions: Record<string, string>;
 };
 
+export type LegalLetterUiStatus = "not_submitted" | "pending_review" | "released";
+
 export type LegalLetterStatus = {
   order_id: number;
   letter_type: LegalLetterType;
   course_title: string;
   amount: number;
   paid: boolean;
-  submitted: boolean;
+  status: LegalLetterUiStatus;
   pdf_url: string | null;
   created_at: string | null;
+  released_at: string | null;
+};
+
+// ---------- 관리자 -----------------------------------------------------------
+
+export type AdminLegalLetterRow = {
+  id: number;
+  order_id: number;
+  letter_type: LegalLetterType;
+  letter_label: string;
+  buyer_username: string;
+  buyer_email: string;
+  case_number: string | null;
+  charge: string;
+  defendant_name: string | null;
+  court_name: string;
+  writer_name: string;
+  writer_birth: string;
+  writer_address: string | null;
+  writer_phone: string | null;
+  relationship_to_defendant: string | null;
+  first_offense: boolean | null;
+  prior_same_type_record: boolean | null;
+  case_stage: string | null;
+  settlement_status: string | null;
+  answers: Record<string, string>;
+  answer_labels: Record<string, string>;
+  content: string;
+  pdf_url: string | null;
+  created_at: string;
+  released_at: string | null;
 };
 
 export type LegalLetterSubmitPayload = {

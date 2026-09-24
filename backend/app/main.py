@@ -42,6 +42,7 @@ app.include_router(admin_v1.router, prefix=settings.API_V1_PREFIX)
 app.include_router(detention_v1.router, prefix=settings.API_V1_PREFIX)
 app.include_router(detention_v1.admin_router, prefix=settings.API_V1_PREFIX)
 app.include_router(legal_letters_v1.router, prefix=settings.API_V1_PREFIX)
+app.include_router(legal_letters_v1.admin_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/health", tags=["health"])

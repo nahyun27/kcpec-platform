@@ -88,6 +88,7 @@ export type AdminTodoCounts = {
   counseling_draft_review: number;
   unanswered_qna: number;
   detention_to_process?: number;
+  legal_letter_review?: number;
 };
 
 export type AdminStats = {

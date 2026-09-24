@@ -1,7 +1,9 @@
-"""반성문·탄원서 — 고객이 직접 쓴 내용을 법원 제출 서식에 채워 즉시 PDF로
-발급한다. 심리상담 의견서(AI 초안 + 관리자 검토)와 달리 AI가 글을 새로
-쓰지 않고, 관리자 검토 단계도 없다 — 고객이 결제 후 정보를 입력하는 즉시
-발급된다.
+"""반성문·탄원서 — 고객이 결제 후 질문에 답하면 AI(Gemini)가 답변을 바탕으로
+본문을 작성한다. 심리상담 의견서와 마찬가지로 관리자 검토를 거친 뒤 발급된다
+(2026-09, 초기에는 검토 없이 즉시 발급하는 구조였으나 의뢰인 요청으로 변경) —
+고객 제출 시점에는 AI 초안(content)만 만들어지고, 관리자가 검토·필요시
+재생성/직접 수정한 뒤 "발급 확정"을 눌러야 PDF 가 만들어지고 고객에게 공개된다
+(released_at 이 그 시점).
 """
 
 import enum
@@ -58,11 +60,16 @@ class LegalLetter(Base):
     # 자유 서술 질문 답변 원본(JSON 문자열) — AI 프롬프트 재료이자 감사·재생성
     # 대비 기록.
     structured_answers: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # 서식에 실제로 들어가는 본문 — AI가 답변을 바탕으로 작성한 결과물.
+    # 서식에 실제로 들어가는 본문 — AI가 답변을 바탕으로 작성한 결과물. 관리자가
+    # "다시 생성"을 누르면 이 값이 새 AI 결과로 교체되고, 직접 수정도 가능하다.
     content: Mapped[str] = mapped_column(Text, nullable=False)
     # PDF 파일명에 쓰는 추측 불가능한 토큰 — /static 공개 서빙 대비(기존 관례와 동일).
-    access_token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    pdf_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    # "발급 확정" 시점에만 값이 생긴다(그 전엔 PDF 자체가 없음).
+    access_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    pdf_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # 관리자가 "발급 확정"을 누른 시각 — None 이면 아직 검토 대기 중이라
+    # 고객에게 pdf_url 을 보여주지 않는다.
+    released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

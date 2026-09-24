@@ -272,6 +272,7 @@ class AdminTodoCounts(BaseModel):
     counseling_draft_review: int
     unanswered_qna: int
     detention_to_process: int = 0
+    legal_letter_review: int = 0
 
 
 class AdminStats(BaseModel):
