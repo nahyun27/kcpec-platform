@@ -287,6 +287,18 @@ export default function CounselingPage() {
               ]}
             />
           </Reveal>
+
+          <Reveal>
+            <div className="mt-12 rounded-2xl border border-slate-200 bg-white p-6 text-sm leading-relaxed text-slate-600">
+              <p className="font-bold text-slate-900">환불 안내</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                <li>결제 후 7일 이내이고 상담 의뢰(설문 제출)를 하지 않은 경우 전액 환불이 가능합니다.</li>
+                <li>상담 의뢰(설문 제출) 이후에는 환불이 불가합니다.</li>
+                <li>결제 시스템 오류로 인한 잘못된 결제는 기간에 관계없이 환불됩니다.</li>
+                <li>환불 문의: admin@kcpec.co.kr (자세한 내용은 이용안내의 환불 정책 참고)</li>
+              </ul>
+            </div>
+          </Reveal>
         </div>
       </section>
 

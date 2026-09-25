@@ -51,6 +51,7 @@ export function SiteFooter() {
               <li><strong className="text-slate-300">주소:</strong> 서울 강남구 언주로147길 42, 2층 2602호(논현동)</li>
               <li><strong className="text-slate-300">사업자등록번호:</strong> 495-86-03325</li>
               <li><strong className="text-slate-300">통신판매업신고:</strong> 제2024-서울강남-02655호</li>
+              <li><strong className="text-slate-300">전화:</strong> 010-6377-3325</li>
             </ul>
           </div>
         </div>

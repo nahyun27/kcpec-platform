@@ -127,7 +127,7 @@ export default function GuidePage() {
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600">
             <li>결제 시스템 오류로 인한 잘못된 결제</li>
             <li>
-              결제 후 3일 이내 + 강의 수강을 시작하지 않았고 + 상담을 의뢰하지 않은 경우
+              결제 후 7일 이내 + 강의 수강을 시작하지 않았고 + 상담을 의뢰하지 않은 경우
             </li>
           </ul>
           <p className="mt-5 font-semibold text-slate-900">환불 불가</p>
