@@ -248,6 +248,11 @@ function SalesStatsView({
   courseScope: "all" | "recent";
   onCourseScopeChange: (scope: "all" | "recent") => void;
 }) {
+  // 매출 추이 차트를 일별/월별 중 어느 걸로 볼지 — 데이터는 이미 둘 다
+  // 같은 응답에 들어있어서(daily_revenue/monthly_revenue) 별도 fetch 없이
+  // 로컬 상태로 토글만 바꾼다.
+  const [revenueView, setRevenueView] = useState<"daily" | "monthly">("daily");
+
   const momChange = (() => {
     const last = data.last_month_revenue;
     const cur = data.this_month_revenue;
@@ -332,116 +337,131 @@ function SalesStatsView({
         />
       </div>
 
-      {/* 일별 매출 차트 */}
+      {/* 매출 추이 차트 — 일별(기간 선택 가능) / 월별(최근 12개월 고정) 토글 */}
       <section className="rounded-lg border border-zinc-200 bg-white p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-sans text-base font-bold text-[var(--color-primary)]">
-            최근 {days}일 일별 매출
+            {revenueView === "daily" ? `최근 ${days}일 일별 매출` : "최근 12개월 월별 매출"}
           </h2>
-          <DayRangePicker days={days} onChange={onDaysChange} />
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-1 rounded-lg bg-slate-100/80 p-1">
+              {(
+                [
+                  { value: "daily" as const, label: "일별" },
+                  { value: "monthly" as const, label: "월별" },
+                ]
+              ).map((v) => (
+                <button
+                  key={v.value}
+                  type="button"
+                  onClick={() => setRevenueView(v.value)}
+                  className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                    revenueView === v.value
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
+            {revenueView === "daily" ? <DayRangePicker days={days} onChange={onDaysChange} /> : null}
+          </div>
         </div>
-        <div className="h-72 w-full min-w-0" style={{ width: "100%", minWidth: 0 }}>
-          {mounted ? (
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <LineChart
-              data={data.daily_revenue}
-              margin={{ top: 8, right: 16, bottom: 4, left: 0 }}
-            >
-              <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" vertical={false} />
-              {weekendReferenceAreas(data.daily_revenue.map((r) => r.date))}
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 10, fill: "#71717a" }}
-                tickFormatter={(d: string) => d.slice(5)}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                tick={{ fontSize: 10, fill: "#71717a" }}
-                tickFormatter={(v: number) => `${(v / 10000).toFixed(0)}만`}
-                width={48}
-              />
-              <Tooltip
-                formatter={(v, name) => [
-                  `${Number(v).toLocaleString()}원`,
-                  name === "counseling_revenue" ? "심리상담 매출" : "전체 매출",
-                ]}
-                labelFormatter={(d) => String(d)}
-                contentStyle={{ fontSize: 12 }}
-              />
-              <Legend
-                verticalAlign="top"
-                height={28}
-                formatter={(value: string) =>
-                  value === "counseling_revenue" ? "심리상담 매출" : "전체 매출"
-                }
-                wrapperStyle={{ fontSize: 11 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="revenue"
-                name="revenue"
-                stroke="#1C3461"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="counseling_revenue"
-                name="counseling_revenue"
-                stroke="#D9668E"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-          ) : null}
-        </div>
-        <p className="mt-1 text-right text-[11px] text-zinc-400">
-          <span className="mr-1 inline-block h-2 w-2 rounded-sm bg-orange-500/20 align-middle" />
-          주말
-        </p>
-      </section>
-
-      {/* 연간 매출 — 최근 12개월(이번달 포함) 월별 매출 추이, 기간 선택기(days)와 무관하게 고정 */}
-      <section className="rounded-lg border border-zinc-200 bg-white p-4">
-        <h2 className="mb-3 font-sans text-base font-bold text-[var(--color-primary)]">
-          최근 12개월 월별 매출
-        </h2>
         <div className="h-72 w-full min-w-0" style={{ width: "100%", minWidth: 0 }}>
           {mounted ? (
             <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <BarChart
-                data={data.monthly_revenue}
-                margin={{ top: 8, right: 16, bottom: 4, left: 0 }}
-              >
-                <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fontSize: 10, fill: "#71717a" }}
-                  tickFormatter={(m: string) => `${Number(m.slice(5))}월`}
-                />
-                <YAxis
-                  tick={{ fontSize: 10, fill: "#71717a" }}
-                  tickFormatter={(v: number) => `${(v / 10000).toFixed(0)}만`}
-                  width={48}
-                />
-                <Tooltip
-                  formatter={(v, _n, item) => [
-                    `${Number(v).toLocaleString()}원 · ${(
-                      (item?.payload as { orders?: number } | undefined)?.orders ?? 0
-                    ).toLocaleString()}건`,
-                    "매출",
-                  ]}
-                  labelFormatter={(m) => String(m)}
-                  contentStyle={{ fontSize: 12 }}
-                />
-                <Bar dataKey="revenue" fill="#1C3461" radius={[3, 3, 0, 0]} />
-              </BarChart>
+              {revenueView === "daily" ? (
+                <LineChart
+                  data={data.daily_revenue}
+                  margin={{ top: 8, right: 16, bottom: 4, left: 0 }}
+                >
+                  <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" vertical={false} />
+                  {weekendReferenceAreas(data.daily_revenue.map((r) => r.date))}
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10, fill: "#71717a" }}
+                    tickFormatter={(d: string) => d.slice(5)}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: "#71717a" }}
+                    tickFormatter={(v: number) => `${(v / 10000).toFixed(0)}만`}
+                    width={48}
+                  />
+                  <Tooltip
+                    formatter={(v, name) => [
+                      `${Number(v).toLocaleString()}원`,
+                      name === "counseling_revenue" ? "심리상담 매출" : "전체 매출",
+                    ]}
+                    labelFormatter={(d) => String(d)}
+                    contentStyle={{ fontSize: 12 }}
+                  />
+                  <Legend
+                    verticalAlign="top"
+                    height={28}
+                    formatter={(value: string) =>
+                      value === "counseling_revenue" ? "심리상담 매출" : "전체 매출"
+                    }
+                    wrapperStyle={{ fontSize: 11 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    name="revenue"
+                    stroke="#1C3461"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="counseling_revenue"
+                    name="counseling_revenue"
+                    stroke="#D9668E"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                </LineChart>
+              ) : (
+                <BarChart
+                  data={data.monthly_revenue}
+                  margin={{ top: 8, right: 16, bottom: 4, left: 0 }}
+                >
+                  <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 10, fill: "#71717a" }}
+                    tickFormatter={(m: string) => `${Number(m.slice(5))}월`}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: "#71717a" }}
+                    tickFormatter={(v: number) => `${(v / 10000).toFixed(0)}만`}
+                    width={48}
+                  />
+                  <Tooltip
+                    formatter={(v, _n, item) => [
+                      `${Number(v).toLocaleString()}원 · ${(
+                        (item?.payload as { orders?: number } | undefined)?.orders ?? 0
+                      ).toLocaleString()}건`,
+                      "매출",
+                    ]}
+                    labelFormatter={(m) => String(m)}
+                    contentStyle={{ fontSize: 12 }}
+                  />
+                  <Bar dataKey="revenue" fill="#1C3461" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              )}
             </ResponsiveContainer>
           ) : null}
         </div>
+        {revenueView === "daily" ? (
+          <p className="mt-1 text-right text-[11px] text-zinc-400">
+            <span className="mr-1 inline-block h-2 w-2 rounded-sm bg-orange-500/20 align-middle" />
+            주말
+          </p>
+        ) : null}
       </section>
 
       {/* 결제 발생 시간대 (한국 시간) — 일별 매출 그래프와 같은 기간(days) 기준 */}
