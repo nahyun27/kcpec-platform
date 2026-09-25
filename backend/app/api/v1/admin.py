@@ -78,6 +78,7 @@ from app.schemas.admin import (
     SalesStatsByPayment,
     SalesStatsDaily,
     SalesStatsHourly,
+    SalesStatsMonthly,
     VisitorStats,
     VisitorStatsDaily,
 )
@@ -1574,6 +1575,45 @@ def admin_sales_stats(
             )
         )
 
+    # 최근 12개월(이번달 포함) 월별 매출 — days/course_days 와 무관하게 항상
+    # 고정 12개월 범위로 집계한다("연간 매출 추이"용, 일별 그래프의 기간
+    # 선택기와는 별개).
+    months: list[tuple[int, int]] = []
+    y, m = today.year, today.month
+    for _ in range(12):
+        months.append((y, m))
+        m -= 1
+        if m == 0:
+            m = 12
+            y -= 1
+    months.reverse()
+    year_start = datetime(months[0][0], months[0][1], 1, tzinfo=KST)
+    monthly_rows = db.execute(
+        select(Order.paid_at, Order.amount).where(
+            Order.status == OrderStatus.PAID,
+            Order.paid_at.is_not(None),
+            Order.paid_at >= year_start,
+        )
+    ).all()
+    monthly_buckets: dict[tuple[int, int], dict[str, int]] = {
+        ym: {"revenue": 0, "orders": 0} for ym in months
+    }
+    for paid_at, amount in monthly_rows:
+        paid_at_kst = paid_at.astimezone(KST)
+        key = (paid_at_kst.year, paid_at_kst.month)
+        bucket = monthly_buckets.get(key)
+        if bucket is not None:
+            bucket["revenue"] += amount
+            bucket["orders"] += 1
+    monthly_revenue = [
+        SalesStatsMonthly(
+            month=f"{y:04d}-{m:02d}",
+            revenue=monthly_buckets[(y, m)]["revenue"],
+            orders=monthly_buckets[(y, m)]["orders"],
+        )
+        for (y, m) in months
+    ]
+
     course_days_cutoff = (
         _kst_day_start(today) - timedelta(days=course_days - 1)
         if course_days is not None
@@ -1632,6 +1672,7 @@ def admin_sales_stats(
         last_month_revenue=last_month_revenue,
         avg_order_amount=avg_order_amount,
         daily_revenue=daily_revenue,
+        monthly_revenue=monthly_revenue,
         by_course=by_course,
         by_payment=by_payment,
         counseling_revenue=counseling_revenue,

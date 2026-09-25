@@ -192,6 +192,12 @@ class SalesStatsDaily(BaseModel):
     counseling_revenue: int  # revenue 중 심리상담 몫(부분집합)
 
 
+class SalesStatsMonthly(BaseModel):
+    month: str  # ISO YYYY-MM (한국 시간 기준)
+    revenue: int
+    orders: int
+
+
 class SalesStatsHourly(BaseModel):
     hour: int  # 0~23 (한국 시간)
     orders: int
@@ -217,6 +223,9 @@ class SalesStats(BaseModel):
     last_month_revenue: int
     avg_order_amount: int
     daily_revenue: list[SalesStatsDaily]
+    # 최근 12개월(이번달 포함) 월별 매출 — daily_revenue 의 days 선택기와
+    # 무관하게 항상 고정 12개월. "연간 매출" 카드/차트용.
+    monthly_revenue: list[SalesStatsMonthly]
     by_course: list[SalesStatsByCourse]
     by_payment: list[SalesStatsByPayment]
     # by_course 는 강의/심리상담 구분 없이 다 섞여 있어서, 심리상담 누적

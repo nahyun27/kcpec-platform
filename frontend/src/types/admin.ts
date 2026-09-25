@@ -251,6 +251,12 @@ export type SalesStatsDaily = {
   counseling_revenue: number;
 };
 
+export type SalesStatsMonthly = {
+  month: string; // "YYYY-MM"
+  revenue: number;
+  orders: number;
+};
+
 export type SalesStatsHourly = {
   hour: number;
   orders: number;
@@ -277,6 +283,7 @@ export type SalesStats = {
   last_month_revenue: number;
   avg_order_amount: number;
   daily_revenue: SalesStatsDaily[];
+  monthly_revenue: SalesStatsMonthly[];
   by_course: SalesStatsByCourse[];
   by_payment: SalesStatsByPayment[];
   counseling_revenue: number;

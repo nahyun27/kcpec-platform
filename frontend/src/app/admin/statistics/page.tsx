@@ -404,6 +404,46 @@ function SalesStatsView({
         </p>
       </section>
 
+      {/* 연간 매출 — 최근 12개월(이번달 포함) 월별 매출 추이, 기간 선택기(days)와 무관하게 고정 */}
+      <section className="rounded-lg border border-zinc-200 bg-white p-4">
+        <h2 className="mb-3 font-sans text-base font-bold text-[var(--color-primary)]">
+          최근 12개월 월별 매출
+        </h2>
+        <div className="h-72 w-full min-w-0" style={{ width: "100%", minWidth: 0 }}>
+          {mounted ? (
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <BarChart
+                data={data.monthly_revenue}
+                margin={{ top: 8, right: 16, bottom: 4, left: 0 }}
+              >
+                <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 10, fill: "#71717a" }}
+                  tickFormatter={(m: string) => `${Number(m.slice(5))}월`}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "#71717a" }}
+                  tickFormatter={(v: number) => `${(v / 10000).toFixed(0)}만`}
+                  width={48}
+                />
+                <Tooltip
+                  formatter={(v, _n, item) => [
+                    `${Number(v).toLocaleString()}원 · ${(
+                      (item?.payload as { orders?: number } | undefined)?.orders ?? 0
+                    ).toLocaleString()}건`,
+                    "매출",
+                  ]}
+                  labelFormatter={(m) => String(m)}
+                  contentStyle={{ fontSize: 12 }}
+                />
+                <Bar dataKey="revenue" fill="#1C3461" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : null}
+        </div>
+      </section>
+
       {/* 결제 발생 시간대 (한국 시간) — 일별 매출 그래프와 같은 기간(days) 기준 */}
       <section className="rounded-lg border border-zinc-200 bg-white p-4">
         <h2 className="mb-3 font-sans text-base font-bold text-[var(--color-primary)]">
