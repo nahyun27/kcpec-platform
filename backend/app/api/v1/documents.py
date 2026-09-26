@@ -1,6 +1,6 @@
 import logging
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
@@ -69,6 +69,7 @@ def issue_document(
 
     # 일반 강의 주문(COURSE)은 결제만으로 발급 불가 — 진도+퀴즈를 완주(enrollment.is_completed)
     # 해야만 수료증 발급 가능. (심리상담 독립 구매(COUNSELING)는 강의 개념이 없어 제외.)
+    enrollment: Enrollment | None = None
     if order.order_type == OrderType.COURSE:
         enrollment = db.scalar(
             select(Enrollment).where(
@@ -82,7 +83,17 @@ def issue_document(
                 detail="강의 수료(진도+퀴즈 통과) 후에 수료증을 발급할 수 있습니다.",
             )
 
-    issued_date = (order.paid_at or datetime.now(timezone.utc)).date()
+    # 이수일 = 강의를 실제로 수료(진도+퀴즈 완주)한 날. 예전엔 결제일(order.paid_at)을
+    # 찍어서, 묶음 결제 후 며칠에 걸쳐 나눠 들은 경우 수료증이 전부 결제일로
+    # 나왔다(2026-09 고객 문의로 발견). 날짜는 UTC 가 아니라 한국 시간 기준 —
+    # 자정~오전 9시(KST)에 수료/결제하면 UTC 날짜가 하루 전으로 찍혔다.
+    # 수료 시각이 없는 주문(심리상담 독립 구매, 구 사이트 이관분)은 결제일로 대체.
+    issued_at_utc = (
+        enrollment.completed_at
+        if enrollment is not None and enrollment.completed_at is not None
+        else (order.paid_at or datetime.now(timezone.utc))
+    )
+    issued_date = issued_at_utc.astimezone(timezone(timedelta(hours=9))).date()
 
     # 과정코드별 순번을 먼저 채번(구 사이트 발급 이력 이어받기, 2026-09) —
     # order 행 잠금과 함께 같은 트랜잭션에서 처리되어 동시 발급에도 안전.
