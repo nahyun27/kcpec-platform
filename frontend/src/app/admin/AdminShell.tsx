@@ -21,13 +21,20 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { getMe, logout, tokenStorage } from "@/lib/api";
+import { getAdminStats, getMe, logout, tokenStorage } from "@/lib/api";
+import type { AdminTodoCounts } from "@/types/admin";
+
+// 대시보드 "오늘 할 일" 배너(app/admin/page.tsx TodoBanner)와 같은 항목을
+// 가리키는 키 — 사이드바에서도 같은 카운트를 뱃지로 보여줘서, 대시보드가
+// 아닌 다른 관리자 페이지에 있어도 할 일이 쌓였는지 알 수 있게 한다(2026-09).
+type TodoKey = keyof AdminTodoCounts;
 
 type SingleNav = {
   kind: "single";
   href: string;
   label: string;
   icon: ReactNode;
+  todoKey?: TodoKey;
 };
 
 type GroupNav = {
@@ -37,7 +44,7 @@ type GroupNav = {
   paramKey?: string;
   label: string;
   icon: ReactNode;
-  children: { value: string; label: string }[];
+  children: { value: string; label: string; todoKey?: TodoKey }[];
 };
 
 const NAV: (SingleNav | GroupNav)[] = [
@@ -53,7 +60,7 @@ const NAV: (SingleNav | GroupNav)[] = [
     children: [
       { value: "all", label: "전체" },
       { value: "paid", label: "결제완료" },
-      { value: "pending", label: "입금대기" },
+      { value: "pending", label: "입금대기", todoKey: "pending_bank_transfer" },
       { value: "cancelled", label: "취소" },
       { value: "refunded", label: "환불" },
     ],
@@ -69,9 +76,27 @@ const NAV: (SingleNav | GroupNav)[] = [
       { value: "visitors", label: "방문자 통계" },
     ],
   },
-  { kind: "single", href: "/admin/documents", label: "의견서", icon: <FileText className="h-4 w-4" /> },
-  { kind: "single", href: "/admin/detention", label: "구속수용자 교육", icon: <Package className="h-4 w-4" /> },
-  { kind: "single", href: "/admin/legal-letters", label: "반성문·탄원서", icon: <ScrollText className="h-4 w-4" /> },
+  {
+    kind: "single",
+    href: "/admin/documents",
+    label: "의견서",
+    icon: <FileText className="h-4 w-4" />,
+    todoKey: "counseling_draft_review",
+  },
+  {
+    kind: "single",
+    href: "/admin/detention",
+    label: "구속수용자 교육",
+    icon: <Package className="h-4 w-4" />,
+    todoKey: "detention_to_process",
+  },
+  {
+    kind: "single",
+    href: "/admin/legal-letters",
+    label: "반성문·탄원서",
+    icon: <ScrollText className="h-4 w-4" />,
+    todoKey: "legal_letter_review",
+  },
   {
     kind: "group",
     basePath: "/admin/community",
@@ -81,7 +106,7 @@ const NAV: (SingleNav | GroupNav)[] = [
     children: [
       { value: "notice", label: "공지사항" },
       { value: "resource", label: "자료실" },
-      { value: "qna", label: "1:1 문의" },
+      { value: "qna", label: "1:1 문의", todoKey: "unanswered_qna" },
       { value: "column", label: "전문가 칼럼" },
       { value: "review", label: "수강후기" },
       { value: "faq", label: "FAQ" },
@@ -103,6 +128,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [username, setUsername] = useState<string | null>(null);
   const [denied, setDenied] = useState<DenyReason | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [todo, setTodo] = useState<AdminTodoCounts | null>(null);
 
   // 페이지 이동 시 모바일 드로어 자동 닫힘 (SiteHeader 모바일 메뉴와 동일 패턴).
   useEffect(() => {
@@ -145,6 +171,29 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 사이드바 "할 일" 뱃지 — 대시보드(app/admin/page.tsx TodoBanner)를 안 보고
+  // 다른 관리자 페이지에 머물러 있어도 새로 쌓인 할 일을 알 수 있도록, 인증
+  // 확인 후 주기적으로 다시 불러온다(2026-09).
+  useEffect(() => {
+    if (!authChecked) return;
+    let cancelled = false;
+    const load = () => {
+      getAdminStats()
+        .then((s) => {
+          if (!cancelled) setTodo(s.todo);
+        })
+        .catch(() => {
+          /* 뱃지는 부가 정보라 실패해도 화면 전체를 막지 않는다 */
+        });
+    };
+    load();
+    const id = setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [authChecked]);
 
   if (denied) {
     return <DeniedScreen reason={denied} onLogout={() => { logout(); router.push("/login?next=/admin"); }} />;
@@ -203,7 +252,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             </button>
           </div>
           <Suspense fallback={<nav className="flex-1 overflow-y-auto px-3 py-4" />}>
-            <SidebarNav pathname={pathname} onNavigate={() => setMobileNavOpen(false)} />
+            <SidebarNav pathname={pathname} todo={todo} onNavigate={() => setMobileNavOpen(false)} />
           </Suspense>
           <div className="shrink-0 space-y-3 border-t border-slate-800/60 px-4 py-5 text-xs">
             {username ? <p className="px-2 text-slate-500 font-medium">로그인: <span className="text-slate-300">{username}</span></p> : null}
@@ -229,7 +278,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         </div>
         {/* nav 영역만 자체 스크롤 — 메뉴가 길어져도 사이드바 자체는 viewport 에 고정 */}
         <Suspense fallback={<nav className="flex-1 overflow-y-auto px-3 py-4" />}>
-          <SidebarNav pathname={pathname} />
+          <SidebarNav pathname={pathname} todo={todo} />
         </Suspense>
         <div className="shrink-0 space-y-3 border-t border-slate-800/60 px-4 py-5 text-xs">
           {username ? <p className="px-2 text-slate-500 font-medium">로그인: <span className="text-slate-300">{username}</span></p> : null}
@@ -252,14 +301,28 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   );
 }
 
+// 사이드바 뱃지 — 숫자가 있으면 빨간 알약, 카운트를 알기 전(null)이거나
+// 0이면 아무것도 안 그린다.
+function TodoBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="ml-auto inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
 function SidebarNav({
   pathname,
+  todo,
   onNavigate,
 }: {
   pathname: string;
+  todo: AdminTodoCounts | null;
   onNavigate?: () => void;
 }) {
   const search = useSearchParams();
+  const count = (key: TodoKey | undefined) => (key && todo ? todo[key] ?? 0 : 0);
   // 그룹 별 펼침 상태. basePath 가 현재 경로와 일치하면 자동 열림 + 사용자 토글 가능.
   const [openMap, setOpenMap] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -307,6 +370,7 @@ function SidebarNav({
             >
               {item.icon}
               {item.label}
+              <TodoBadge count={count(item.todoKey)} />
             </Link>
           );
         }
@@ -315,6 +379,10 @@ function SidebarNav({
         const paramKey = item.paramKey ?? "tab";
         const activeValue = groupActive ? search.get(paramKey) : null;
         const open = openMap[item.basePath] ?? false;
+        // 그룹이 접혀 있어도 할 일이 있다는 걸 알 수 있도록, 자식 중 하나라도
+        // 카운트가 있으면 그룹 헤더에도 작은 점을 띄운다(펼치면 자식 뱃지로
+        // 정확한 숫자를 볼 수 있음).
+        const groupHasTodo = item.children.some((c) => count(c.todoKey) > 0);
         return (
           <div key={item.basePath}>
             <button
@@ -331,6 +399,9 @@ function SidebarNav({
               <span className="inline-flex items-center gap-2">
                 {item.icon}
                 {item.label}
+                {groupHasTodo ? (
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500" />
+                ) : null}
               </span>
               {open ? (
                 <ChevronUp className="h-4 w-4" />
@@ -347,13 +418,14 @@ function SidebarNav({
                       key={c.value}
                       href={`${item.basePath}?${paramKey}=${c.value}`}
                       onClick={onNavigate}
-                      className={`block py-2 pl-9 pr-3 text-[13px] transition-all duration-200 relative ${
+                      className={`flex items-center py-2 pl-9 pr-3 text-[13px] transition-all duration-200 relative ${
                         isActive
                           ? "font-medium text-blue-400 before:absolute before:left-3.5 before:top-1/2 before:-translate-y-1/2 before:h-1.5 before:w-1.5 before:rounded-full before:bg-blue-500"
                           : "text-slate-500 hover:text-slate-300 before:absolute before:left-[15px] before:top-1/2 before:-translate-y-1/2 before:h-1 before:w-1 before:rounded-full before:bg-slate-700 hover:before:bg-slate-500"
                       }`}
                     >
                       {c.label}
+                      <TodoBadge count={count(c.todoKey)} />
                     </Link>
                   );
                 })}
