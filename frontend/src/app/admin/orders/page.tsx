@@ -78,10 +78,12 @@ function AdminOrdersPage() {
     const items = data?.items ?? [];
     // 묶음별 합계(정가 합/실결제 합/할인) — 묶음결제 할인(10만원 이상 시
     // 1만원)이 마지막 항목 하나에 전액 몰려 그 항목만 정가보다 훨씬 낮게(0원
-    // 까지) 찍힐 수 있어, 항목 하나하나가 아니라 묶음 마지막 줄에 "묶음 합계
-    // 120,000원 -10,000원 = 110,000원" 형태로 한 번에 보여준다(2026-09,
-    // "반성문이 0원으로 결제됐다" 문의로 발견 — 실제로는 결제/가격 모두
-    // 정상이고 할인이 그 항목에 반영된 것뿐이었음).
+    // 까지) 찍힐 수 있어, 항목 하나하나가 아니라 고객명 칸(묶음 전체를
+    // rowSpan 으로 덮는 칸이라 여유 공간이 있음)에 "묶음 합계 120,000원
+    // -10,000원 = 110,000원" 형태로 한 번에 보여준다(2026-09, "반성문이
+    // 0원으로 결제됐다" 문의로 발견 — 실제로는 결제/가격 모두 정상이고
+    // 할인이 그 항목에 반영된 것뿐이었음. 처음엔 금액 칸 마지막 줄에 넣었으나
+    // 좁아 보인다는 피드백으로 고객명 칸으로 이동).
     const bundleTotals = new Map<string, { subtotal: number; total: number; discount: number }>();
     for (const r of items) {
       if (!r.bundle_id) continue;
@@ -97,7 +99,6 @@ function AdminOrdersPage() {
       const prev = items[idx - 1];
       const next = items[idx + 1];
       const isGroupStart = prev?.bundle_id !== r.bundle_id;
-      const isGroupEnd = next?.bundle_id !== r.bundle_id;
       const groupSize = items.slice(idx).findIndex((x) => x.bundle_id !== r.bundle_id);
       return {
         isGroupStart,
@@ -105,7 +106,7 @@ function AdminOrdersPage() {
         // 아닌 단건 주문이면 이미 바가 끊겨 있어 여백이 필요 없다.
         needsGapBefore: isGroupStart && !!prev?.bundle_id,
         groupSize: groupSize === -1 ? items.length - idx : groupSize,
-        bundleTotal: isGroupEnd ? bundleTotals.get(r.bundle_id) : undefined,
+        bundleTotal: bundleTotals.get(r.bundle_id),
       };
     });
   }, [data]);
@@ -297,6 +298,22 @@ function AdminOrdersPage() {
                               묶음결제 {meta.groupSize}건
                             </span>
                           ) : null}
+                          {/* 묶음결제 할인(10만원 이상 시 1만원)이 항목 중 하나에 전액 몰려
+                              그 항목만 0원까지 찍힐 수 있어 "정가 대비 할인"을 보여준다.
+                              항목별 금액 칸이 아니라 여기(고객명 칸, 묶음 전체를 rowSpan
+                              으로 덮는 자리)에 한 번만 표시 — 같은 시각(created_at)에 생성된
+                              묶음 항목끼리는 목록 정렬에서 순서가 보장되지 않아, 할인이 실제로
+                              적용된 항목이 매번 다른 위치에 나올 수 있다(2026-09, "반성문이
+                              0원인데 할인 표시가 안 보인다" 문의로 발견). */}
+                          {meta?.bundleTotal && meta.bundleTotal.discount > 0 ? (
+                            <div className="mt-1 text-[11px] font-medium text-zinc-400">
+                              묶음 합계 {meta.bundleTotal.subtotal.toLocaleString()}원{" "}
+                              <span className="text-rose-500">
+                                -{meta.bundleTotal.discount.toLocaleString()}원
+                              </span>{" "}
+                              = {meta.bundleTotal.total.toLocaleString()}원
+                            </div>
+                          ) : null}
                         </td>
                         <td
                           className="px-4 py-3 align-top text-slate-500"
@@ -314,15 +331,9 @@ function AdminOrdersPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="font-bold text-slate-900">{r.amount.toLocaleString()}원</div>
-                      {meta?.bundleTotal && meta.bundleTotal.discount > 0 ? (
-                        <div className="text-[11px] font-medium text-zinc-400">
-                          묶음 합계 {meta.bundleTotal.subtotal.toLocaleString()}원{" "}
-                          <span className="text-rose-500">
-                            -{meta.bundleTotal.discount.toLocaleString()}원
-                          </span>{" "}
-                          = {meta.bundleTotal.total.toLocaleString()}원
-                        </div>
-                      ) : !meta && r.course_price != null && r.course_price > r.amount ? (
+                      {/* 묶음결제가 아닌 단건 주문에서 정가보다 적게 결제된 경우(예: 별도
+                          쿠폰/할인) — 묶음 합계 표시와 겹치지 않게 단건일 때만 보여준다. */}
+                      {!meta && r.course_price != null && r.course_price > r.amount ? (
                         <div className="text-[11px] font-medium text-zinc-400">
                           정가 {r.course_price.toLocaleString()}원 ·{" "}
                           <span className="text-rose-500">
