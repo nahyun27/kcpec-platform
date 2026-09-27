@@ -515,8 +515,13 @@ export async function getAdminLegalLetters(pendingOnly = false): Promise<AdminLe
   return data;
 }
 
-export async function regenerateAdminLegalLetter(id: number): Promise<AdminLegalLetterRow> {
-  const { data } = await api.post<AdminLegalLetterRow>(`/admin/legal-letters/${id}/regenerate`);
+export async function regenerateAdminLegalLetter(
+  id: number,
+  extraInstructions: string = "",
+): Promise<AdminLegalLetterRow> {
+  const { data } = await api.post<AdminLegalLetterRow>(`/admin/legal-letters/${id}/regenerate`, {
+    extra_instructions: extraInstructions,
+  });
   return data;
 }
 

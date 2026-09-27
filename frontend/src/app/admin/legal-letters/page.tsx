@@ -33,6 +33,9 @@ export default function AdminLegalLettersPage() {
   const [pendingOnly, setPendingOnly] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
+  // AI 재생성 시 함께 보낼 추가 지시사항(선택) — 심리상담 의견서 재생성과
+  // 동일한 패턴. row 별로 따로 기억(다른 건 재생성해도 지워지지 않게).
+  const [extraInstructions, setExtraInstructions] = useState<Record<number, string>>({});
 
   function load(pending: boolean) {
     getAdminLegalLetters(pending)
@@ -75,7 +78,7 @@ export default function AdminLegalLettersPage() {
         "AI로 본문을 다시 생성합니다. 현재 화면에서 수정 중인 내용(저장하지 않은 부분)은 사라집니다. 계속할까요?",
       );
       if (!ok) return;
-      replaceRow(await regenerateAdminLegalLetter(r.id));
+      replaceRow(await regenerateAdminLegalLetter(r.id, (extraInstructions[r.id] ?? "").trim()));
     });
 
   const save = (r: AdminLegalLetterRow) =>
@@ -237,6 +240,27 @@ export default function AdminLegalLettersPage() {
                   }`}
                 />
               </div>
+
+              {!released ? (
+                <div className="rounded-lg border border-zinc-200 bg-slate-50/60 p-3">
+                  <label className="block text-xs font-bold text-slate-700">
+                    AI 재생성 시 추가 지시사항 (선택)
+                  </label>
+                  <p className="mt-0.5 text-[11px] text-zinc-500">
+                    비워두면 기본 프롬프트로만 재생성합니다. 답변에 없는 사실을 지어내진
+                    않고, 문체·강조점·분량 조정 정도로만 반영됩니다.
+                  </p>
+                  <textarea
+                    value={extraInstructions[r.id] ?? ""}
+                    onChange={(e) =>
+                      setExtraInstructions((prev) => ({ ...prev, [r.id]: e.target.value }))
+                    }
+                    rows={2}
+                    placeholder="예) 좀 더 간결하게, 재범 방지 의지를 더 강조해서"
+                    className="mt-2 w-full resize-y rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs leading-relaxed placeholder:text-zinc-400"
+                  />
+                </div>
+              ) : null}
 
               {released ? (
                 r.pdf_url ? (

@@ -100,6 +100,17 @@ FREE_TEXT_QUESTION_LABELS: dict[str, dict[str, str]] = {
 }
 
 
+def _format_extra_instructions(extra_instructions: str) -> str:
+    # 관리자가 "다시 생성"할 때 덧붙이는 추가 지시사항(선택) — 심리상담 의견서
+    # 재생성(gemini_client._format_user_prompt)과 동일한 패턴으로, 답변에
+    # 없는 사실을 지어내진 말라는 원칙 위에서 문체/분량/강조점만 조정하도록
+    # 프롬프트 맨 끝에 별도 섹션으로 덧붙인다.
+    extra = (extra_instructions or "").strip()
+    if not extra:
+        return ""
+    return f"\n[관리자 추가 지시사항 — 아래 내용을 반영해 다시 작성해 주세요]\n{extra}\n"
+
+
 def _format_repentance_prompt(
     *,
     charge: str,
@@ -108,6 +119,7 @@ def _format_repentance_prompt(
     case_stage: str,
     settlement_status: str,
     answers: dict[str, str],
+    extra_instructions: str = "",
 ) -> str:
     if first_offense:
         record_line = "초범임"
@@ -129,12 +141,17 @@ def _format_repentance_prompt(
 
         [답변]
         {chr(10).join(answer_lines)}
-        """
+        {_format_extra_instructions(extra_instructions)}"""
     )
 
 
 def _format_petition_prompt(
-    *, charge: str, defendant_name: str, relationship: str, answers: dict[str, str]
+    *,
+    charge: str,
+    defendant_name: str,
+    relationship: str,
+    answers: dict[str, str],
+    extra_instructions: str = "",
 ) -> str:
     labels = FREE_TEXT_QUESTION_LABELS["petition"]
     answer_lines = [f"■ {labels.get(k, k)}: {(v or '').strip() or '(미입력)'}" for k, v in answers.items()]
@@ -148,7 +165,7 @@ def _format_petition_prompt(
 
         [답변]
         {chr(10).join(answer_lines)}
-        """
+        {_format_extra_instructions(extra_instructions)}"""
     )
 
 
@@ -195,6 +212,7 @@ def generate_repentance_content(
     case_stage: str,
     settlement_status: str,
     answers: dict[str, str],
+    extra_instructions: str = "",
     max_attempts: int = 3,
 ) -> str:
     contents = _format_repentance_prompt(
@@ -204,6 +222,7 @@ def generate_repentance_content(
         case_stage=case_stage,
         settlement_status=settlement_status,
         answers=answers,
+        extra_instructions=extra_instructions,
     )
     return _call_gemini(
         system_prompt=SYSTEM_PROMPTS["repentance"], contents=contents, max_attempts=max_attempts
@@ -216,10 +235,15 @@ def generate_petition_content(
     defendant_name: str,
     relationship: str,
     answers: dict[str, str],
+    extra_instructions: str = "",
     max_attempts: int = 3,
 ) -> str:
     contents = _format_petition_prompt(
-        charge=charge, defendant_name=defendant_name, relationship=relationship, answers=answers
+        charge=charge,
+        defendant_name=defendant_name,
+        relationship=relationship,
+        answers=answers,
+        extra_instructions=extra_instructions,
     )
     return _call_gemini(
         system_prompt=SYSTEM_PROMPTS["petition"], contents=contents, max_attempts=max_attempts

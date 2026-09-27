@@ -368,9 +368,16 @@ def _get_letter_or_404(db: Session, letter_id: int) -> LegalLetter:
     return letter
 
 
+class AdminLegalLetterRegenerateRequest(BaseModel):
+    # 추가 지시사항(선택) — 심리상담 의견서 재생성(admin.py RegenerateDraftRequest)
+    # 과 동일한 패턴. 비어 있으면 기본 프롬프트만으로 재생성.
+    extra_instructions: str = ""
+
+
 @admin_router.post("/{letter_id}/regenerate", response_model=AdminLegalLetterRow)
 def admin_regenerate_legal_letter(
     letter_id: int,
+    payload: AdminLegalLetterRegenerateRequest = AdminLegalLetterRegenerateRequest(),
     db: Session = Depends(get_db),
 ) -> AdminLegalLetterRow:
     """저장된 답변 그대로 AI를 다시 돌려 본문을 새로 만든다(고객 재입력 불필요)."""
@@ -390,6 +397,7 @@ def admin_regenerate_legal_letter(
                 defendant_name=letter.defendant_name or "",
                 relationship=letter.relationship_to_defendant or "",
                 answers=answers,
+                extra_instructions=payload.extra_instructions,
             )
         else:
             content = generate_repentance_content(
@@ -399,6 +407,7 @@ def admin_regenerate_legal_letter(
                 case_stage=letter.case_stage or "",
                 settlement_status=letter.settlement_status or "",
                 answers=answers,
+                extra_instructions=payload.extra_instructions,
             )
     except LegalLetterAIError as exc:
         raise HTTPException(
