@@ -533,6 +533,11 @@ export async function releaseAdminLegalLetter(id: number): Promise<AdminLegalLet
   return data;
 }
 
+export async function previewAdminLegalLetter(id: number): Promise<{ pdf_url: string }> {
+  const { data } = await api.post<{ pdf_url: string }>(`/admin/legal-letters/${id}/preview`);
+  return data;
+}
+
 export async function getMyCounselingOrders(): Promise<CounselingOrderItem[]> {
   const { data } = await api.get<CounselingOrderItem[]>("/counseling/my-orders");
   return data;

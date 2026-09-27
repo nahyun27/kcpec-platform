@@ -411,6 +411,10 @@ def admin_regenerate_legal_letter(
     return _admin_row(db, letter)
 
 
+class AdminLegalLetterPreview(BaseModel):
+    pdf_url: str
+
+
 class AdminLegalLetterContentPatch(BaseModel):
     content: str = Field(min_length=1)
 
@@ -431,6 +435,51 @@ def admin_edit_legal_letter(
     return _admin_row(db, letter)
 
 
+def _letter_pdf_input(letter: LegalLetter) -> LegalLetterInput:
+    return LegalLetterInput(
+        case_number=letter.case_number,
+        charge=letter.charge,
+        defendant_name=letter.defendant_name,
+        court_name=letter.court_name,
+        writer_name=letter.writer_name,
+        writer_birth=letter.writer_birth,
+        writer_address=letter.writer_address,
+        writer_phone=letter.writer_phone,
+        relationship=letter.relationship_to_defendant,
+        content=letter.content,
+    )
+
+
+@admin_router.post("/{letter_id}/preview", response_model=AdminLegalLetterPreview)
+def admin_preview_legal_letter(
+    letter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> AdminLegalLetterPreview:
+    """발급 확정 전에 현재 저장된 content 로 실제 PDF 모양을 미리 만들어본다.
+
+    표 안에 텍스트를 채워 넣는 서식이라 내용 길이에 따라 줄바꿈/페이지가
+    깨질 수 있는데, 이전엔 확정(고객 공개+메일 발송)을 눌러야만 실제 PDF를
+    볼 수 있어 문제를 사전에 발견할 방법이 없었다(2026-09, 의뢰인 요청으로
+    추가). DB 는 전혀 건드리지 않고(pdf_url/access_token/released_at 그대로)
+    매번 새 랜덤 파일명으로 미리보기 PDF만 생성해 돌려준다 — 저장 안 한
+    수정 내용은 반영되지 않으므로, 프론트에서 미리보기 전에 먼저 저장한다.
+    """
+    letter = _get_letter_or_404(db, letter_id)
+    if letter.released_at is not None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 발급 확정된 건입니다.")
+
+    pdf_path = generate_legal_letter_pdf(
+        letter_type=letter.letter_type.value,
+        file_token=f"preview_{secrets.token_urlsafe(24)}",
+        data=_letter_pdf_input(letter),
+        issued_date=datetime.now(timezone.utc).date(),
+    )
+    return AdminLegalLetterPreview(
+        pdf_url=str(request.url_for("static", path=f"pdfs/{pdf_path.name}"))
+    )
+
+
 @admin_router.post("/{letter_id}/release", response_model=AdminLegalLetterRow)
 def admin_release_legal_letter(
     letter_id: int,
@@ -449,18 +498,7 @@ def admin_release_legal_letter(
     pdf_path = generate_legal_letter_pdf(
         letter_type=letter.letter_type.value,
         file_token=access_token,
-        data=LegalLetterInput(
-            case_number=letter.case_number,
-            charge=letter.charge,
-            defendant_name=letter.defendant_name,
-            court_name=letter.court_name,
-            writer_name=letter.writer_name,
-            writer_birth=letter.writer_birth,
-            writer_address=letter.writer_address,
-            writer_phone=letter.writer_phone,
-            relationship=letter.relationship_to_defendant,
-            content=letter.content,
-        ),
+        data=_letter_pdf_input(letter),
         issued_date=issued_date,
     )
     letter.access_token = access_token

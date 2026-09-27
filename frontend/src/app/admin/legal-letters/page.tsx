@@ -6,6 +6,7 @@ import {
   absUrl,
   editAdminLegalLetter,
   getAdminLegalLetters,
+  previewAdminLegalLetter,
   regenerateAdminLegalLetter,
   releaseAdminLegalLetter,
 } from "@/lib/api";
@@ -87,6 +88,19 @@ export default function AdminLegalLettersPage() {
       replaceRow(await editAdminLegalLetter(r.id, content));
     });
 
+  const preview = (r: AdminLegalLetterRow) =>
+    run(`preview-${r.id}`, async () => {
+      // 미리보기는 저장된 content 기준으로 만들어지므로, 저장 안 한 수정
+      // 내용이 있으면 먼저 저장부터 한다 — 안 그러면 화면에 보이는 초안과
+      // 미리보기 PDF 내용이 다르게 나와 혼란만 준다.
+      const draft = (drafts[r.id] ?? "").trim();
+      if (draft && draft !== r.content) {
+        replaceRow(await editAdminLegalLetter(r.id, draft));
+      }
+      const { pdf_url } = await previewAdminLegalLetter(r.id);
+      window.open(absUrl(pdf_url), "_blank", "noopener,noreferrer");
+    });
+
   const release = (r: AdminLegalLetterRow) =>
     run(`release-${r.id}`, async () => {
       const ok = await dialog.confirm(
@@ -111,9 +125,11 @@ export default function AdminLegalLettersPage() {
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
           신청자가 입력한 내용을 바탕으로 AI 가 작성한 초안입니다. 내용을 검토 후 필요하면 직접
-          수정하거나 &apos;다시 생성&apos;으로 AI 초안을 새로 받고, 문제 없으면 &apos;발급
-          확정&apos;을 눌러 PDF 를 발급하세요. 확정 후에는 신청자 마이페이지에 PDF 가 노출되고
-          안내 메일이 자동 발송되며, 더 이상 수정할 수 없습니다.
+          수정하거나 &apos;다시 생성&apos;으로 AI 초안을 새로 받으세요. &apos;PDF
+          미리보기&apos;로 실제 서식에 채워진 모양(줄바꿈·페이지 넘김 등)을 먼저 확인할 수
+          있으며, 미리보기는 신청자에게 노출되지 않습니다. 문제 없으면 &apos;발급 확정&apos;을
+          눌러 PDF 를 발급하세요 — 확정 즉시 신청자 마이페이지에 PDF 가 노출되고 안내 메일이
+          자동 발송되며, 더 이상 수정할 수 없습니다.
         </p>
       </header>
 
@@ -250,6 +266,14 @@ export default function AdminLegalLettersPage() {
                     className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
                   >
                     {busy === `regen-${r.id}` ? "생성 중..." : "AI 다시 생성"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy !== null}
+                    onClick={() => preview(r)}
+                    className="rounded-lg border border-[var(--color-accent)] px-3 py-1.5 text-xs font-bold text-[var(--color-accent)] disabled:opacity-50"
+                  >
+                    {busy === `preview-${r.id}` ? "생성 중..." : "PDF 미리보기"}
                   </button>
                   <button
                     type="button"
