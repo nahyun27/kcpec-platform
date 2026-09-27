@@ -51,6 +51,9 @@ export type AdminOrderRow = {
   email: string | null;
   course_title: string;
   amount: number;
+  // 강의 정가 — 묶음결제 할인이 이 항목에 몰려 amount 가 정가보다 낮게(0원까지)
+  // 찍힐 수 있어, "정가 대비 할인"을 따로 보여주기 위함. null 이면 비교 생략.
+  course_price: number | null;
   payment_method: PaymentMethod;
   status: OrderStatus;
   created_at: string;

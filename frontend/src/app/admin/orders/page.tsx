@@ -76,10 +76,28 @@ function AdminOrdersPage() {
   // 실사용 중 발견 — 색만으로 구분하면 옆 묶음까지 하나로 이어진 것처럼 보임).
   const rowMeta = useMemo(() => {
     const items = data?.items ?? [];
+    // 묶음별 합계(정가 합/실결제 합/할인) — 묶음결제 할인(10만원 이상 시
+    // 1만원)이 마지막 항목 하나에 전액 몰려 그 항목만 정가보다 훨씬 낮게(0원
+    // 까지) 찍힐 수 있어, 항목 하나하나가 아니라 묶음 마지막 줄에 "묶음 합계
+    // 120,000원 -10,000원 = 110,000원" 형태로 한 번에 보여준다(2026-09,
+    // "반성문이 0원으로 결제됐다" 문의로 발견 — 실제로는 결제/가격 모두
+    // 정상이고 할인이 그 항목에 반영된 것뿐이었음).
+    const bundleTotals = new Map<string, { subtotal: number; total: number; discount: number }>();
+    for (const r of items) {
+      if (!r.bundle_id) continue;
+      const t = bundleTotals.get(r.bundle_id) ?? { subtotal: 0, total: 0, discount: 0 };
+      t.subtotal += r.course_price ?? r.amount;
+      t.total += r.amount;
+      bundleTotals.set(r.bundle_id, t);
+    }
+    for (const t of bundleTotals.values()) t.discount = t.subtotal - t.total;
+
     return items.map((r, idx) => {
       if (!r.bundle_id) return null;
       const prev = items[idx - 1];
+      const next = items[idx + 1];
       const isGroupStart = prev?.bundle_id !== r.bundle_id;
+      const isGroupEnd = next?.bundle_id !== r.bundle_id;
       const groupSize = items.slice(idx).findIndex((x) => x.bundle_id !== r.bundle_id);
       return {
         isGroupStart,
@@ -87,6 +105,7 @@ function AdminOrdersPage() {
         // 아닌 단건 주문이면 이미 바가 끊겨 있어 여백이 필요 없다.
         needsGapBefore: isGroupStart && !!prev?.bundle_id,
         groupSize: groupSize === -1 ? items.length - idx : groupSize,
+        bundleTotal: isGroupEnd ? bundleTotals.get(r.bundle_id) : undefined,
       };
     });
   }, [data]);
@@ -293,8 +312,24 @@ function AdminOrdersPage() {
                     <td className="px-4 py-3 text-slate-500">
                       {PAYMENT_METHOD_LABEL[r.payment_method]}
                     </td>
-                    <td className="px-4 py-3 text-right font-bold text-slate-900">
-                      {r.amount.toLocaleString()}원
+                    <td className="px-4 py-3 text-right">
+                      <div className="font-bold text-slate-900">{r.amount.toLocaleString()}원</div>
+                      {meta?.bundleTotal && meta.bundleTotal.discount > 0 ? (
+                        <div className="text-[11px] font-medium text-zinc-400">
+                          묶음 합계 {meta.bundleTotal.subtotal.toLocaleString()}원{" "}
+                          <span className="text-rose-500">
+                            -{meta.bundleTotal.discount.toLocaleString()}원
+                          </span>{" "}
+                          = {meta.bundleTotal.total.toLocaleString()}원
+                        </div>
+                      ) : !meta && r.course_price != null && r.course_price > r.amount ? (
+                        <div className="text-[11px] font-medium text-zinc-400">
+                          정가 {r.course_price.toLocaleString()}원 ·{" "}
+                          <span className="text-rose-500">
+                            -{(r.course_price - r.amount).toLocaleString()}원 할인
+                          </span>
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3">
                       <OrderStatusBadge status={r.status} pendingBank={isPendingBank} />

@@ -121,6 +121,12 @@ class AdminOrderRow(BaseModel):
     email: EmailStr | None = None
     course_title: str
     amount: int
+    # 강의 정가(Course.price) — 묶음결제 할인이 이 항목에 몰려 amount 가
+    # 정가보다 낮게(0원까지) 찍힐 수 있어, 관리자 화면에서 "정가 대비 할인"을
+    # 따로 보여주기 위함(2026-09, "반성문이 0원으로 결제됐다" 문의로 발견 —
+    # 실제로는 결제/가격 모두 정상이고 10,000원 묶음할인이 이 항목에 전액
+    # 반영돼 amount 만 0원으로 보인 것). None 이면(강의 삭제 등) 비교 생략.
+    course_price: int | None = None
     payment_method: PaymentMethod
     status: OrderStatus
     created_at: datetime

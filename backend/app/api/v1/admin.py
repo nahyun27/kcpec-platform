@@ -125,6 +125,7 @@ def _row_from_order(o: Order, user: User, course: Course) -> AdminOrderRow:
         email=user.email,
         course_title=course.title,
         amount=o.amount,
+        course_price=course.price,
         payment_method=o.payment_method,
         status=o.status,
         created_at=o.created_at,
