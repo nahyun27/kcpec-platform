@@ -331,9 +331,10 @@ function AdminOrdersPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="font-bold text-slate-900">{r.amount.toLocaleString()}원</div>
-                      {/* 묶음결제가 아닌 단건 주문에서 정가보다 적게 결제된 경우(예: 별도
-                          쿠폰/할인) — 묶음 합계 표시와 겹치지 않게 단건일 때만 보여준다. */}
-                      {!meta && r.course_price != null && r.course_price > r.amount ? (
+                      {/* 묶음 합계(고객명 칸)는 전체 그림만 보여줄 뿐, 정작 할인이 몰린
+                          "이 항목"이 왜 0원인지는 그 줄 자체에도 표시가 필요하다는
+                          피드백으로 묶음 여부와 무관하게 보여준다(2026-09). */}
+                      {r.course_price != null && r.course_price > r.amount ? (
                         <div className="text-[11px] font-medium text-zinc-400">
                           정가 {r.course_price.toLocaleString()}원 ·{" "}
                           <span className="text-rose-500">
