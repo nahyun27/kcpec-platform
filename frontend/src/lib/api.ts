@@ -533,13 +533,38 @@ export async function editAdminLegalLetter(
   return data;
 }
 
-export async function releaseAdminLegalLetter(id: number): Promise<AdminLegalLetterRow> {
-  const { data } = await api.post<AdminLegalLetterRow>(`/admin/legal-letters/${id}/release`);
+export async function previewAdminLegalLetter(id: number): Promise<{ pdf_url: string }> {
+  const { data } = await api.post<{ pdf_url: string }>(`/admin/legal-letters/${id}/preview`);
   return data;
 }
 
-export async function previewAdminLegalLetter(id: number): Promise<{ pdf_url: string }> {
-  const { data } = await api.post<{ pdf_url: string }>(`/admin/legal-letters/${id}/preview`);
+// 서식을 채운 워드(또는 빠른 확인용 PDF) 다운로드 — 심리상담 의견서
+// exportCounselingDoc 과 동일하게 blob 으로 받아 트리거. 여기서 받는 파일이
+// 그대로 발급되는 게 아니라, 관리자가 필요하면 다듬은 뒤 uploadFinalLegalLetterPdf
+// 로 최종 PDF 를 직접 올려야 고객에게 공개된다.
+export async function exportAdminLegalLetter(
+  id: number,
+  format: "docx" | "pdf",
+): Promise<Blob> {
+  const { data } = await api.post<Blob>(
+    `/admin/legal-letters/${id}/export`,
+    { format },
+    { responseType: "blob" },
+  );
+  return data;
+}
+
+export async function uploadFinalLegalLetterPdf(
+  id: number,
+  file: File,
+): Promise<AdminLegalLetterRow> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const { data } = await api.post<AdminLegalLetterRow>(
+    `/admin/legal-letters/${id}/upload-final`,
+    fd,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
   return data;
 }
 

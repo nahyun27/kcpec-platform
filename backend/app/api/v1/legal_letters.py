@@ -21,9 +21,11 @@
 import json
 import secrets
 from datetime import date, datetime, timezone
+from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -36,6 +38,7 @@ from app.api.v1.orders import (
     get_or_create_letter_course,
 )
 from app.core.admin import require_admin
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.email import send_legal_letter_released
@@ -47,11 +50,19 @@ from app.core.legal_letter_ai import (
     generate_petition_content,
     generate_repentance_content,
 )
-from app.core.legal_letter_generator import LegalLetterInput, generate_legal_letter_pdf
+from app.core.legal_letter_generator import (
+    LegalLetterInput,
+    generate_legal_letter_docx,
+    generate_legal_letter_pdf,
+)
 from app.models.course import Course
 from app.models.legal_letter import LegalLetter, LegalLetterType
 from app.models.order import Order, OrderStatus
 from app.models.user import User
+
+# 관리자가 다듬은 최종 PDF 업로드 저장 위치 — 심리상담 의견서 최종본
+# (admin.py FINALS_DIR)과 같은 물리 경로.
+FINALS_DIR = Path(__file__).resolve().parents[3] / "static" / "finals"
 
 router = APIRouter(prefix="/legal-letters", tags=["legal-letters"])
 admin_router = APIRouter(
@@ -259,7 +270,8 @@ def submit_legal_letter(
             detail=f"자동 작성에 실패했습니다. 잠시 후 다시 시도해 주세요. ({exc})",
         ) from exc
 
-    # 이 시점엔 초안만 저장 — PDF 는 관리자가 검토 후 "발급 확정"을 눌러야 생성된다.
+    # 이 시점엔 초안만 저장 — PDF 는 관리자가 검토 후 워드로 다듬어 직접
+    # 업로드해야 생성/공개된다(/upload-final).
     letter = LegalLetter(
         order_id=order.id,
         user_id=current_user.id,
@@ -387,8 +399,6 @@ def admin_regenerate_legal_letter(
 ) -> AdminLegalLetterRow:
     """저장된 답변 그대로 AI를 다시 돌려 본문을 새로 만든다(고객 재입력 불필요)."""
     letter = _get_letter_or_404(db, letter_id)
-    if letter.released_at is not None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 발급 확정된 건은 다시 생성할 수 없습니다.")
 
     try:
         answers = json.loads(letter.structured_answers) if letter.structured_answers else {}
@@ -441,8 +451,6 @@ def admin_edit_legal_letter(
 ) -> AdminLegalLetterRow:
     """관리자가 본문을 직접 수정(미세 교정용) — AI 재생성 대신 손으로 고칠 때."""
     letter = _get_letter_or_404(db, letter_id)
-    if letter.released_at is not None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 발급 확정된 건은 수정할 수 없습니다.")
     letter.content = payload.content.strip()
     db.commit()
     db.refresh(letter)
@@ -480,8 +488,6 @@ def admin_preview_legal_letter(
     수정 내용은 반영되지 않으므로, 프론트에서 미리보기 전에 먼저 저장한다.
     """
     letter = _get_letter_or_404(db, letter_id)
-    if letter.released_at is not None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="이미 발급 확정된 건입니다.")
 
     pdf_path = generate_legal_letter_pdf(
         letter_type=letter.letter_type.value,
@@ -494,39 +500,106 @@ def admin_preview_legal_letter(
     )
 
 
-@admin_router.post("/{letter_id}/release", response_model=AdminLegalLetterRow)
-def admin_release_legal_letter(
+def _safe_filename_part(s: str) -> str:
+    """Content-Disposition 값에 들어가도 안전한 ASCII filename fallback 용 정규화
+    (admin.py _safe_filename_part 와 동일한 목적, 순환 임포트 방지로 각자 보유)."""
+    return "".join(c if c.isalnum() else "_" for c in s) or "letter"
+
+
+class AdminLegalLetterExportRequest(BaseModel):
+    format: Literal["docx", "pdf"] = "docx"
+
+
+@admin_router.post("/{letter_id}/export")
+def admin_export_legal_letter(
     letter_id: int,
-    request: Request,
+    payload: AdminLegalLetterExportRequest,
     db: Session = Depends(get_db),
-) -> AdminLegalLetterRow:
-    """검토 완료 — 현재 content 로 PDF 를 만들어 고객에게 공개하고 메일로 알린다."""
+):
+    """관리자가 워드(또는 빠른 확인용 PDF)로 다운로드해 서명 위치·줄바꿈 등을
+    직접 다듬을 수 있게 서식이 채워진 파일을 내려준다.
+
+    여기서 만든 파일이 그대로 발급되는 게 아니다 — 실제 고객에게 공개되는
+    최종 PDF는 관리자가 이 파일을 (필요하면 워드에서) 다듬은 뒤 직접
+    업로드하는 파일이다(/upload-final, 심리상담 의견서 export/upload-final
+    과 동일한 패턴, 2026-09).
+    """
     letter = _get_letter_or_404(db, letter_id)
-    if letter.released_at is not None:
-        return _admin_row(db, letter)
-
-    buyer = db.get(User, letter.user_id)
-    access_token = secrets.token_urlsafe(24)
     issued_date = datetime.now(timezone.utc).date()
+    name_part = _safe_filename_part(letter.writer_name)
+    date_part = datetime.now().strftime("%Y%m%d")
+    label = LABEL_BY_TYPE[letter.letter_type]
+    # /static 은 공개 서빙이라 letter_id 대신 매번 새 랜덤 토큰 파일명 사용.
+    file_token = f"export_{secrets.token_urlsafe(24)}"
 
-    pdf_path = generate_legal_letter_pdf(
+    if payload.format == "pdf":
+        pdf_path = generate_legal_letter_pdf(
+            letter_type=letter.letter_type.value,
+            file_token=file_token,
+            data=_letter_pdf_input(letter),
+            issued_date=issued_date,
+        )
+        return FileResponse(
+            pdf_path,
+            media_type="application/pdf",
+            filename=f"{label}_{name_part}_{date_part}.pdf",
+        )
+
+    docx_path = generate_legal_letter_docx(
         letter_type=letter.letter_type.value,
-        file_token=access_token,
+        file_token=file_token,
         data=_letter_pdf_input(letter),
         issued_date=issued_date,
     )
-    letter.access_token = access_token
-    letter.pdf_url = str(request.url_for("static", path=f"pdfs/{pdf_path.name}"))
+    return FileResponse(
+        docx_path,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "wordprocessingml.document"
+        ),
+        filename=f"{label}_{name_part}_{date_part}.docx",
+    )
+
+
+@admin_router.post("/{letter_id}/upload-final", response_model=AdminLegalLetterRow)
+async def admin_upload_final_legal_letter(
+    letter_id: int,
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> AdminLegalLetterRow:
+    """관리자가 워드에서 직접 다듬은 최종 PDF 를 업로드 — 이 파일이 그대로
+    고객에게 공개되고(마이페이지) 안내 메일이 발송된다. 언제든 다시
+    업로드해 교체할 수 있다(재발송도 매번 다시 됨, 심리상담 의견서
+    upload-final 과 동일)."""
+    letter = _get_letter_or_404(db, letter_id)
+    if file.content_type not in {"application/pdf", "application/octet-stream"}:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail="PDF 파일만 업로드 가능합니다."
+        )
+
+    # /static 은 인증 없이 공개 서빙되므로 파일명은 letter.id 가 아니라 추측
+    # 불가능한 access_token 사용(수료증/의견서와 동일한 이유).
+    token = letter.access_token or secrets.token_urlsafe(24)
+    letter.access_token = token
+
+    FINALS_DIR.mkdir(parents=True, exist_ok=True)
+    target = FINALS_DIR / f"{token}.pdf"
+    target.write_bytes(await file.read())
+
+    letter.pdf_url = f"/static/finals/{token}.pdf"
     letter.released_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(letter)
 
+    buyer = db.get(User, letter.user_id)
     if buyer:
-        send_legal_letter_released(
+        background_tasks.add_task(
+            send_legal_letter_released,
             to_email=buyer.email,
             recipient_name=letter.writer_name,
             letter_label=LABEL_BY_TYPE[letter.letter_type],
-            pdf_url=letter.pdf_url,
+            pdf_url=f"{settings.BACKEND_BASE_URL}{letter.pdf_url}",
         )
 
     return _admin_row(db, letter)
