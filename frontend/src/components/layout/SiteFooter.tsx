@@ -46,7 +46,7 @@ export function SiteFooter() {
           <div className="space-y-4">
             <h4 className="font-sans text-lg font-bold text-white">회사 정보</h4>
             <ul className="space-y-2 text-sm text-slate-400 leading-relaxed">
-              <li><strong className="text-slate-300">상호:</strong> 주식회사 한국범죄예방교육센터</li>
+              <li><strong className="text-slate-300">상호:</strong> (주)한국범죄예방교육센터</li>
               <li><strong className="text-slate-300">대표:</strong> 윤승진</li>
               <li><strong className="text-slate-300">주소:</strong> 서울 강남구 언주로147길 42, 2층 2602호(논현동)</li>
               <li><strong className="text-slate-300">사업자등록번호:</strong> 495-86-03325</li>

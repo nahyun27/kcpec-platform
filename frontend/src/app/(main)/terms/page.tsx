@@ -163,7 +163,7 @@ export default function TermsPage() {
           title="이용약관"
           subtitle="Terms of Service"
           icon={<ShieldCheck className="h-3.5 w-3.5" />}
-          description="주식회사 한국범죄예방교육센터 · 사이트명: 한국범죄예방교육센터"
+          description="(주)한국범죄예방교육센터 · 사이트명: 한국범죄예방교육센터"
         />
 
         <div className="space-y-10">
