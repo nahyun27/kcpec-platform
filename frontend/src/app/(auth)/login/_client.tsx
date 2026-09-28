@@ -119,7 +119,10 @@ export default function LoginPage() {
 
       <p className="mt-8 text-center text-sm font-medium text-slate-500 lg:text-left">
         아직 계정이 없으신가요?{" "}
-        <Link href="/signup" className="font-bold text-[var(--color-accent)] hover:underline">
+        <Link
+          href={`/signup?next=${encodeURIComponent(next)}`}
+          className="font-bold text-[var(--color-accent)] hover:underline"
+        >
           회원가입
         </Link>
       </p>
