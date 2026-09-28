@@ -36,7 +36,7 @@ export default function AdminLegalLettersPage() {
   const dialog = useDialog();
   const [rows, setRows] = useState<AdminLegalLetterRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pendingOnly, setPendingOnly] = useState(true);
+  const [pendingOnly, setPendingOnly] = useState(false);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
   const fileInputs = useRef<Record<number, HTMLInputElement | null>>({});
