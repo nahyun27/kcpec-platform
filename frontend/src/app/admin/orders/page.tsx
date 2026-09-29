@@ -277,7 +277,27 @@ function AdminOrdersPage() {
                           className="px-4 py-3 align-top text-slate-500"
                           rowSpan={meta ? meta.groupSize : undefined}
                         >
-                          {new Date(r.created_at).toLocaleString("ko-KR")}
+                          <div className="whitespace-nowrap">
+                            {new Date(r.created_at).toLocaleString("ko-KR")}
+                          </div>
+                          {/* 묶음결제 할인(10만원 이상 시 1만원)이 항목 중 하나에 전액 몰려
+                              그 항목만 0원까지 찍힐 수 있어 "정가 대비 할인"을 보여준다.
+                              항목별 금액 칸이 아니라 여기(주문일시 칸, 묶음 전체를 rowSpan
+                              으로 덮는 자리)에 한 번만 표시 — 같은 시각(created_at)에 생성된
+                              묶음 항목끼리는 목록 정렬에서 순서가 보장되지 않아, 할인이 실제로
+                              적용된 항목이 매번 다른 위치에 나올 수 있다(2026-09, "반성문이
+                              0원인데 할인 표시가 안 보인다" 문의로 발견). 고객명 칸에 두면 그
+                              칸 너비가 늘어나면서 상태 칸의 "결제완료" 등이 줄바꿈되는 문제가
+                              있어 날짜 칸으로 옮김. */}
+                          {meta?.bundleTotal && meta.bundleTotal.discount > 0 ? (
+                            <div className="mt-1 whitespace-normal text-[11px] font-medium text-zinc-400">
+                              묶음 합계 {meta.bundleTotal.subtotal.toLocaleString()}원{" "}
+                              <span className="text-rose-500">
+                                -{meta.bundleTotal.discount.toLocaleString()}원
+                              </span>{" "}
+                              = {meta.bundleTotal.total.toLocaleString()}원
+                            </div>
+                          ) : null}
                         </td>
                         <td
                           className="px-4 py-3 align-top font-semibold text-slate-900"
@@ -297,22 +317,6 @@ function AdminOrdersPage() {
                             >
                               묶음결제 {meta.groupSize}건
                             </span>
-                          ) : null}
-                          {/* 묶음결제 할인(10만원 이상 시 1만원)이 항목 중 하나에 전액 몰려
-                              그 항목만 0원까지 찍힐 수 있어 "정가 대비 할인"을 보여준다.
-                              항목별 금액 칸이 아니라 여기(고객명 칸, 묶음 전체를 rowSpan
-                              으로 덮는 자리)에 한 번만 표시 — 같은 시각(created_at)에 생성된
-                              묶음 항목끼리는 목록 정렬에서 순서가 보장되지 않아, 할인이 실제로
-                              적용된 항목이 매번 다른 위치에 나올 수 있다(2026-09, "반성문이
-                              0원인데 할인 표시가 안 보인다" 문의로 발견). */}
-                          {meta?.bundleTotal && meta.bundleTotal.discount > 0 ? (
-                            <div className="mt-1 text-[11px] font-medium text-zinc-400">
-                              묶음 합계 {meta.bundleTotal.subtotal.toLocaleString()}원{" "}
-                              <span className="text-rose-500">
-                                -{meta.bundleTotal.discount.toLocaleString()}원
-                              </span>{" "}
-                              = {meta.bundleTotal.total.toLocaleString()}원
-                            </div>
                           ) : null}
                         </td>
                         <td
@@ -343,7 +347,7 @@ function AdminOrdersPage() {
                         </div>
                       ) : null}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="whitespace-nowrap px-4 py-3">
                       <OrderStatusBadge status={r.status} pendingBank={isPendingBank} />
                     </td>
                     <td className="px-4 py-3">
