@@ -153,6 +153,10 @@ def list_users(
     course_id: int | None = Query(default=None),
     search: str | None = Query(default=None, max_length=100),
     sort: str = Query(default="created_at_desc"),
+    # 전체 | 탈퇴한 사람(withdrawn) | 기존 사이트 가입자(legacy) | 신규 사이트
+    # 가입자(new) — 서로 배타적 파티션은 아니다(탈퇴+구회원이 동시에 참일
+    # 수 있음), 관리자가 그때그때 보고 싶은 축 하나를 고르는 용도.
+    member_type: Literal["withdrawn", "legacy", "new"] | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> AdminUsersResponse:
     # course_id 가 오면 해당 강의를 수강 등록한 사용자만 필터링 (사이드바 "강의별
@@ -193,6 +197,16 @@ def list_users(
         term = or_(User.username.ilike(like), User.email.ilike(like), User.name.ilike(like))
         user_query = user_query.where(term)
         count_query = count_query.where(term)
+
+    if member_type == "withdrawn":
+        user_query = user_query.where(User.is_active.is_(False))
+        count_query = count_query.where(User.is_active.is_(False))
+    elif member_type == "legacy":
+        user_query = user_query.where(User.is_legacy_member.is_(True))
+        count_query = count_query.where(User.is_legacy_member.is_(True))
+    elif member_type == "new":
+        user_query = user_query.where(User.is_legacy_member.is_(False))
+        count_query = count_query.where(User.is_legacy_member.is_(False))
 
     if sort in ("payment_desc", "payment_asc"):
         col = func.coalesce(pay_agg.c.total, 0)

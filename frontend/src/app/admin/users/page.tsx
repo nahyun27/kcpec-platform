@@ -41,6 +41,7 @@ function AdminUsersPageInner() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("created_at_desc");
+  const [memberType, setMemberType] = useState<"" | "withdrawn" | "legacy" | "new">("");
   // "전체 사용자" 사이드바 행은 강의로 필터링 중에도 항상 전체 인원수를 보여줘야
   // 하므로, data.total(필터된 개수)과 별도로 전체 개수를 한 번 따로 들고 있는다.
   const [grandTotal, setGrandTotal] = useState<number | null>(null);
@@ -63,17 +64,24 @@ function AdminUsersPageInner() {
 
   useEffect(() => {
     let cancelled = false;
-    getAdminUsers(page, size, selectedCourseId ?? undefined, debouncedSearch, sort)
+    getAdminUsers(
+      page,
+      size,
+      selectedCourseId ?? undefined,
+      debouncedSearch,
+      sort,
+      memberType || undefined,
+    )
       .then((d) => {
         if (cancelled) return;
         setData(d);
-        if (selectedCourseId == null && !debouncedSearch) setGrandTotal(d.total);
+        if (selectedCourseId == null && !debouncedSearch && !memberType) setGrandTotal(d.total);
       })
       .catch(() => !cancelled && setError("회원 목록을 불러오지 못했습니다."));
     return () => {
       cancelled = true;
     };
-  }, [page, selectedCourseId, debouncedSearch, sort]);
+  }, [page, selectedCourseId, debouncedSearch, sort, memberType]);
 
   function selectCourse(courseId: number | null) {
     setSelectedCourseId(courseId);
@@ -126,7 +134,7 @@ function AdminUsersPageInner() {
         </p>
       </header>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <input
           type="search"
           value={search}
@@ -137,6 +145,45 @@ function AdminUsersPageInner() {
           placeholder="닉네임, 이름, 이메일로 검색"
           className="w-full max-w-xs rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
         />
+
+        <div className="inline-flex flex-wrap gap-1.5">
+          {(
+            [
+              { value: "", label: "전체" },
+              { value: "withdrawn", label: "탈퇴한 사람" },
+              { value: "legacy", label: "기존 사이트 가입자" },
+              { value: "new", label: "신규 사이트 가입자" },
+            ] as const
+          ).map((f) => (
+            <button
+              key={f.value || "all"}
+              type="button"
+              onClick={() => {
+                setMemberType(f.value);
+                setPage(1);
+              }}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
+                memberType === f.value
+                  ? "bg-[var(--color-primary)] text-white"
+                  : "border border-zinc-200 bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        <select
+          value={sort}
+          onChange={(e) => {
+            setSort(e.target.value as SortKey);
+            setPage(1);
+          }}
+          className="ml-auto rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-slate-600 focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+        >
+          <option value="created_at_desc">가입일 · 최신순</option>
+          <option value="created_at_asc">가입일 · 오래된순</option>
+        </select>
       </div>
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[260px_1fr]">
@@ -222,21 +269,23 @@ function AdminUsersPageInner() {
                   onClick={() => setOpenUser(u)}
                   className="cursor-pointer transition-colors hover:bg-slate-50/80"
                 >
-                  <td className="px-4 py-3 font-semibold text-slate-900">
-                    <div className="flex items-center gap-2">
-                      {u.username}
+                  <td className="max-w-[180px] px-4 py-3 font-semibold text-slate-900">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="min-w-0 truncate" title={u.username}>
+                        {u.username}
+                      </span>
                       {u.is_admin && (
-                        <span className="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-blue-700 ring-1 ring-inset ring-blue-600/20">
+                        <span className="inline-flex shrink-0 items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-blue-700 ring-1 ring-inset ring-blue-600/20">
                           ADMIN
                         </span>
                       )}
                       {u.is_legacy_member && (
-                        <span className="inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-amber-700 ring-1 ring-inset ring-amber-600/20">
+                        <span className="inline-flex shrink-0 items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-amber-700 ring-1 ring-inset ring-amber-600/20">
                           구회원
                         </span>
                       )}
                       {!u.is_active && (
-                        <span className="inline-flex items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-zinc-500 ring-1 ring-inset ring-zinc-400/20">
+                        <span className="inline-flex shrink-0 items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-zinc-500 ring-1 ring-inset ring-zinc-400/20">
                           탈퇴회원
                         </span>
                       )}
@@ -244,7 +293,12 @@ function AdminUsersPageInner() {
                   </td>
                   <td className="px-4 py-3 text-slate-500">{u.name ?? "-"}</td>
                   <td className="px-4 py-3 text-slate-500">{u.phone ?? "-"}</td>
-                  <td className="px-4 py-3 text-slate-500">{u.email}</td>
+                  <td
+                    className="max-w-[220px] truncate px-4 py-3 text-slate-500"
+                    title={u.email}
+                  >
+                    {u.email}
+                  </td>
                   <td className="px-4 py-3 text-slate-500">
                     {new Date(u.created_at).toLocaleDateString("ko-KR")}
                   </td>

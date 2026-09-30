@@ -603,9 +603,17 @@ export async function getAdminUsers(
   courseId?: number,
   search?: string,
   sort?: string,
+  memberType?: "withdrawn" | "legacy" | "new",
 ): Promise<AdminUsersResponse> {
   const { data } = await api.get<AdminUsersResponse>("/admin/users", {
-    params: { page, size, course_id: courseId, search: search || undefined, sort },
+    params: {
+      page,
+      size,
+      course_id: courseId,
+      search: search || undefined,
+      sort,
+      member_type: memberType,
+    },
   });
   return data;
 }
