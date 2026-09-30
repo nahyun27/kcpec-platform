@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.counseling import CounselingStatus
 from app.models.course import CourseCategory
@@ -12,7 +12,11 @@ from app.models.order import OrderStatus, OrderType, PaymentMethod
 class AdminUser(BaseModel):
     id: int
     username: str
-    email: EmailStr
+    # 회원탈퇴 시 email 이 익명화(placeholder) 값으로 바뀌는데, 그 값이
+    # 실제 이메일 형식을 벗어나 EmailStr 검증에 걸려 관리자 목록 API 전체가
+    # 500 으로 죽는 문제가 있었다(2026-09, 탈퇴 회원 발생 후 발견) — 조회용
+    # 표시 필드라 굳이 형식을 검증할 필요가 없어 일반 문자열로 완화.
+    email: str
     name: str | None = None
     phone: str | None = None
     birth_date: date | None
@@ -118,7 +122,7 @@ class AdminOrderRow(BaseModel):
     user_id: int
     username: str
     name: str | None = None
-    email: EmailStr | None = None
+    email: str | None = None
     course_title: str
     amount: int
     # 강의 정가(Course.price) — 묶음결제 할인이 이 항목에 몰려 amount 가
@@ -146,7 +150,7 @@ class AdminIssuedDocumentRow(BaseModel):
     user_id: int
     username: str
     name: str | None = None
-    email: EmailStr | None = None
+    email: str | None = None
     recipient_name: str
     document_type: IssuedDocumentType
     course_title: str
@@ -188,7 +192,7 @@ class AdminSurveyRow(BaseModel):
 class AdminSurveyDetail(AdminSurveyRow):
     # personal 같은 nested dict 도 허용.
     responses: dict[str, Any]
-    user_email: EmailStr | None = None
+    user_email: str | None = None
 
 
 class SalesStatsDaily(BaseModel):
@@ -261,7 +265,11 @@ class VisitorStats(BaseModel):
 class AdminUserBrief(BaseModel):
     id: int
     name: str
-    email: EmailStr
+    # 회원탈퇴 시 email 이 익명화(placeholder) 값으로 바뀌는데, 그 값이
+    # 실제 이메일 형식을 벗어나 EmailStr 검증에 걸려 관리자 목록 API 전체가
+    # 500 으로 죽는 문제가 있었다(2026-09, 탈퇴 회원 발생 후 발견) — 조회용
+    # 표시 필드라 굳이 형식을 검증할 필요가 없어 일반 문자열로 완화.
+    email: str
     created_at: datetime
 
 
