@@ -137,6 +137,21 @@ class AdminOrderRow(BaseModel):
     bundle_id: str | None = None
 
 
+class AdminOrderBundleSibling(BaseModel):
+    """묶음결제 환불 확인창용 — 환불하려는 주문과 같은 bundle_id 를 공유하는
+    나머지 주문들. 토스 결제취소가 결제 1건(=묶음 전체) 단위라, 이 중
+    하나만 골라 환불해도 실제로는 여기 나열된 항목 전부가 함께 REFUNDED
+    되고 발급된 서류가 있으면 무효화된다(2026-09, 관리자가 "주문 #123을
+    환불 처리하시겠습니까?"라는 단수형 문구만 보고 이 사실을 모른 채
+    이미 발급·발송된 다른 과정의 수료증까지 지워버릴 수 있었던 문제로 추가)."""
+
+    order_id: int
+    course_title: str
+    amount: int
+    status: OrderStatus
+    has_issued_document: bool
+
+
 class AdminOrdersResponse(BaseModel):
     items: list[AdminOrderRow]
     total: int

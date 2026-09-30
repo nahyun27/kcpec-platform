@@ -60,6 +60,17 @@ export type AdminOrderRow = {
   bundle_id: string | null;
 };
 
+// 환불 확인창에서 "이 주문을 환불하면 같이 환불되는 항목"을 보여주기 위한
+// 조회 — 토스 결제취소가 결제 1건(=묶음 전체) 단위라 이 중 하나만 환불해도
+// 실제로는 여기 나열된 항목 전부가 함께 REFUNDED 된다(2026-09).
+export type AdminOrderBundleSibling = {
+  order_id: number;
+  course_title: string;
+  amount: number;
+  status: OrderStatus;
+  has_issued_document: boolean;
+};
+
 export type AdminOrdersResponse = {
   items: AdminOrderRow[];
   total: number;

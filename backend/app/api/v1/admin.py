@@ -48,6 +48,7 @@ from app.schemas.admin import (
     AdminIssuedDocumentRow,
     AdminIssuedDocumentsResponse,
     AdminIssuedDocumentSummary,
+    AdminOrderBundleSibling,
     AdminOrderRow,
     AdminOrdersResponse,
     AdminStats,
@@ -777,6 +778,38 @@ def cancel_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
     order.status = OrderStatus.CANCELLED
     db.commit()
     return OkResponse()
+
+
+@router.get("/orders/bundle/{bundle_id}", response_model=list[AdminOrderBundleSibling])
+def admin_order_bundle_siblings(bundle_id: str, db: Session = Depends(get_db)) -> list[AdminOrderBundleSibling]:
+    """환불 확인창에서 "이 주문을 환불하면 같이 환불되는 항목"을 보여주기
+    위한 조회 — refund_order 가 실제로 건드리는 범위(같은 bundle_id 의
+    PAID 주문 전체)와 반드시 같은 조건이어야 한다."""
+    rows = db.execute(
+        select(Order, Course)
+        .join(Course, Course.id == Order.course_id)
+        .where(Order.bundle_id == bundle_id, Order.status == OrderStatus.PAID)
+        .order_by(Order.id)
+    ).all()
+    order_ids = [o.id for o, _ in rows]
+    has_doc = set(
+        db.scalars(
+            select(IssuedDocument.order_id).where(
+                IssuedDocument.order_id.in_(order_ids),
+                IssuedDocument.status != IssuedDocumentStatus.REVOKED,
+            )
+        ).all()
+    )
+    return [
+        AdminOrderBundleSibling(
+            order_id=o.id,
+            course_title=c.title,
+            amount=o.amount,
+            status=o.status,
+            has_issued_document=o.id in has_doc,
+        )
+        for o, c in rows
+    ]
 
 
 def _revoke_issued_document(doc: IssuedDocument, db: Session) -> None:

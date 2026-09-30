@@ -45,6 +45,7 @@ import type {
   AdminLectureCreate,
   AdminLectureFull,
   AdminLecturePatch,
+  AdminOrderBundleSibling,
   AdminOrdersResponse,
   AdminQuizQuestion,
   AdminQuizRead,
@@ -675,6 +676,15 @@ export async function cancelAdminOrder(orderId: number): Promise<void> {
 
 export async function refundAdminOrder(orderId: number): Promise<void> {
   await api.post(`/admin/orders/${orderId}/refund`);
+}
+
+export async function getAdminOrderBundleSiblings(
+  bundleId: string,
+): Promise<AdminOrderBundleSibling[]> {
+  const { data } = await api.get<AdminOrderBundleSibling[]>(
+    `/admin/orders/bundle/${bundleId}`,
+  );
+  return data;
 }
 
 export async function getAdminSurveys(): Promise<AdminSurveyRow[]> {

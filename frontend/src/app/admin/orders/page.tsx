@@ -7,6 +7,7 @@ import {
   absUrl,
   cancelAdminOrder,
   confirmBankOrder,
+  getAdminOrderBundleSiblings,
   getAdminOrderDocuments,
   getAdminOrders,
   getAdminUser,
@@ -182,9 +183,41 @@ function AdminOrdersPage() {
       row.payment_method === "bank_transfer"
         ? "가상계좌 건은 자동으로 환불되지 않으니, 계좌로 직접 환불해 주세요."
         : "토스 결제가 자동으로 취소되어 고객에게 실제 환불됩니다.";
+
+    // 묶음결제는 토스 결제취소가 결제 1건(=묶음 전체) 단위라, 이 주문 하나만
+    // 골라 환불해도 실제로는 같은 bundle_id 의 PAID 주문 전체가 함께
+    // REFUNDED 된다(백엔드 refund_order). 예전엔 확인창이 "주문 #123을
+    // 환불 처리하시겠습니까?"라고 단수형으로만 물어봐서, 관리자가 이미
+    // 발급·발송까지 끝낸 다른 과정(구속수용자 교육처럼 과정별로 시차를 두고
+    // 처리하는 경우 특히 흔함)까지 같이 취소되는 걸 모른 채 눌러버릴 수
+    // 있었다(2026-09, 버그 감사 중 발견) — 실제로 같이 환불될 항목을
+    // 미리 보여준다.
+    let bundleWarning = "";
+    if (row.bundle_id) {
+      try {
+        const siblings = await getAdminOrderBundleSiblings(row.bundle_id);
+        const others = siblings.filter((s) => s.order_id !== row.id);
+        if (others.length > 0) {
+          const lines = others
+            .map(
+              (s) =>
+                `  · ${s.course_title} (${s.amount.toLocaleString()}원)${
+                  s.has_issued_document ? " — 이미 발급된 서류 있음!" : ""
+                }`,
+            )
+            .join("\n");
+          bundleWarning =
+            `\n\n⚠ 묶음결제 항목이라 이 주문뿐 아니라 아래 ${others.length}건도 함께 환불되고,` +
+            ` 발급된 서류가 있다면 함께 무효화됩니다:\n${lines}`;
+        }
+      } catch {
+        // 확인창 보강용 부가 조회 — 실패해도 환불 자체는 계속 진행 가능해야 하므로 조용히 무시.
+      }
+    }
+
     if (
       !(await dialog.confirm(
-        `주문 #${row.id} (${row.name ?? row.username})을(를) 환불 처리하시겠습니까?\n${paymentNote}\n수강 등록이 취소되고, 이미 발급된 서류가 있다면 함께 무효화됩니다.`,
+        `주문 #${row.id} (${row.name ?? row.username})을(를) 환불 처리하시겠습니까?\n${paymentNote}\n수강 등록이 취소되고, 이미 발급된 서류가 있다면 함께 무효화됩니다.${bundleWarning}`,
       ))
     )
       return;
