@@ -704,6 +704,7 @@ export default function SentencingPage() {
                 step={step}
                 onCheckout={handleCheckout}
                 checkingOut={checkingOut}
+                letterInfo={letterInfo}
                 selectedLetters={selectedLetters}
               />
             </div>
@@ -1528,6 +1529,7 @@ function CartSummary({
   step,
   onCheckout,
   checkingOut,
+  letterInfo,
   selectedLetters,
 }: {
   recommendation: Recommendation;
@@ -1535,6 +1537,7 @@ function CartSummary({
   step: Step;
   onCheckout: () => void;
   checkingOut: boolean;
+  letterInfo: LegalLetterInfo | null;
   selectedLetters: Set<LegalLetterType>;
 }) {
   const noneSelected = recommendation.activeCourseCount === 0;
@@ -1580,6 +1583,25 @@ function CartSummary({
             );
           })
         )}
+        {letterInfo
+          ? LETTER_TYPES.filter((t) => selectedLetters.has(t)).map((t) => {
+              const price =
+                t === "repentance" ? letterInfo.repentance_price : letterInfo.petition_price;
+              return (
+                <li key={t} className="flex items-center gap-2.5">
+                  <Check className="h-4 w-4 shrink-0 text-[#1C3461]" />
+                  <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-slate-800">
+                    {LEGAL_LETTER_LABEL[t]} 작성
+                  </span>
+                  {step === 4 ? (
+                    <span className="shrink-0 font-mono text-[15px] font-bold text-slate-700">
+                      {price.toLocaleString()}원
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })
+          : null}
       </ul>
 
       {/* 발급 가능 서류 — 모바일 하단 고정 패널과 동일하게, 마지막 단계까지
@@ -1623,14 +1645,6 @@ function CartSummary({
           1~3단계 안내/할인 문구는 페이지 상단 배너로 옮겨서 여기선 4단계에서만 노출. */}
       {step === 4 ? (
         <>
-          {selectedLetters.size > 0 ? (
-            <p className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-[#1C3461]">
-              <Sparkles className="h-3.5 w-3.5" />
-              추가상품: {LETTER_TYPES.filter((t) => selectedLetters.has(t))
-                .map((t) => `${LEGAL_LETTER_LABEL[t]} 작성`)
-                .join(", ")}
-            </p>
-          ) : null}
           <div className="mt-5 rounded-xl bg-slate-50 p-5">
             {recommendation.discount > 0 && (
               <div className="flex items-center justify-between text-[15px] text-slate-400">
