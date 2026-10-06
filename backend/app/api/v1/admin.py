@@ -61,6 +61,7 @@ from app.schemas.admin import (
     AdminOrdersResponse,
     AdminStats,
     AdminTodoCounts,
+    AdminSurveyCallNotesUpdate,
     AdminSurveyDetail,
     AdminSurveyRow,
     AdminUser,
@@ -1025,7 +1026,30 @@ def get_survey_detail(survey_id: int, db: Session = Depends(get_db)) -> AdminSur
         ai_draft_url=survey.ai_draft_url,
         final_pdf_url=survey.final_pdf_url,
         responses=survey.responses or {},
+        call_note_1=survey.call_note_1,
+        call_note_2=survey.call_note_2,
+        call_note_3=survey.call_note_3,
     )
+
+
+@router.patch("/surveys/{survey_id}/call-notes", response_model=AdminSurveyDetail)
+def update_survey_call_notes(
+    survey_id: int,
+    payload: AdminSurveyCallNotesUpdate,
+    db: Session = Depends(get_db),
+) -> AdminSurveyDetail:
+    """전화 심화상담 회차별 통화 메모 저장 — 초안을 다시 만들지는 않는다.
+    메모 저장 후 "다시 생성" 버튼을 눌러야 저장된 메모가 반영된 새 초안이
+    나온다(저장과 재생성을 분리해, 통화 하나 끝날 때마다 바로 메모만 남겨둘
+    수 있게 한다, 2026-10)."""
+    survey = db.get(CounselingSurvey, survey_id)
+    if survey is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="설문을 찾을 수 없습니다.")
+    survey.call_note_1 = payload.call_note_1
+    survey.call_note_2 = payload.call_note_2
+    survey.call_note_3 = payload.call_note_3
+    db.commit()
+    return get_survey_detail(survey_id, db)
 
 
 @router.post("/surveys/{survey_id}/upload-final", response_model=AdminSurveyRow)
@@ -1248,6 +1272,7 @@ def regenerate_draft(
             course_title,
             extra_instructions=payload.extra_instructions,
             max_attempts=2,
+            call_notes=[survey.call_note_1, survey.call_note_2, survey.call_note_3],
         )
     except Exception as e:  # noqa: BLE001
         raise HTTPException(

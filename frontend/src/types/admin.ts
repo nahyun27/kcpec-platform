@@ -202,6 +202,10 @@ export type AdminSurveyDetail = AdminSurveyRow & {
   // personal 같은 nested object 도 허용
   responses: Record<string, unknown>;
   user_email: string | null;
+  // 전화 심화상담(15분 x 3회) 전용 — 서면/대면 상담은 항상 null.
+  call_note_1: string | null;
+  call_note_2: string | null;
+  call_note_3: string | null;
 };
 
 export type AdminCourseCreate = {

@@ -8,6 +8,7 @@ import {
   getAdminSurveyDetail,
   getAdminSurveys,
   regenerateCounselingDraft,
+  updateSurveyCallNotes,
   uploadFinalPdf,
 } from "@/lib/api";
 import type { AdminSurveyDetail, AdminSurveyRow } from "@/types/admin";
@@ -21,6 +22,10 @@ const DEFAULT_DRAFT_TEMPLATE = `[상담배경]
 
 [상담내용]
 1. `;
+
+// counseling_purchase.py TITLE_BY_TYPE["phone"] 과 동일한 문자열 — 15분 x 3회
+// 통화 메모 입력 UI를 이 상품에만 보여주기 위한 판별 키.
+const PHONE_COUNSELING_TITLE = "전화 심화상담";
 
 export default function AdminSurveysPage() {
   const dialog = useDialog();
@@ -312,6 +317,75 @@ function PersonalAdminSummary({ data }: { data: Record<string, unknown> }) {
   );
 }
 
+function CallNotesSection({
+  detail,
+  onSaved,
+}: {
+  detail: AdminSurveyDetail;
+  onSaved: (d: AdminSurveyDetail) => void;
+}) {
+  const [notes, setNotes] = useState([
+    detail.call_note_1 ?? "",
+    detail.call_note_2 ?? "",
+    detail.call_note_3 ?? "",
+  ]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await updateSurveyCallNotes(detail.id, {
+        call_note_1: notes[0].trim() || null,
+        call_note_2: notes[1].trim() || null,
+        call_note_3: notes[2].trim() || null,
+      });
+      onSaved(updated);
+    } catch {
+      setError("통화 메모 저장에 실패했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mb-5 rounded-lg border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5 px-4 py-3.5">
+      <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-accent)]">
+        통화 메모 (15분 x 3회)
+      </p>
+      <p className="mt-1 text-xs text-zinc-500">
+        통화가 끝날 때마다 해당 회차 메모를 남겨두면, 초안을 다시 생성할 때 함께 반영돼요.
+      </p>
+      <div className="mt-3 space-y-2.5">
+        {[0, 1, 2].map((i) => (
+          <div key={i}>
+            <label className="text-xs font-semibold text-slate-600">{i + 1}회차</label>
+            <textarea
+              value={notes[i]}
+              onChange={(e) =>
+                setNotes((cur) => cur.map((n, idx) => (idx === i ? e.target.value : n)))
+              }
+              rows={2}
+              className="mt-1 w-full rounded border border-zinc-200 bg-white px-2.5 py-1.5 text-sm"
+              placeholder={`${i + 1}회차 통화 메모`}
+            />
+          </div>
+        ))}
+      </div>
+      {error ? <p className="mt-1.5 text-xs text-red-600">{error}</p> : null}
+      <button
+        type="button"
+        onClick={save}
+        disabled={saving}
+        className="mt-2.5 rounded bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-accent-hover)] disabled:opacity-60"
+      >
+        {saving ? "저장 중..." : "통화 메모 저장"}
+      </button>
+    </div>
+  );
+}
+
 function SurveyDetailModal({
   surveyId,
   onClose,
@@ -405,7 +479,12 @@ function SurveyDetailModal({
           ) : !detail ? (
             <p className="text-sm text-zinc-500">불러오는 중...</p>
           ) : (
-            renderResponses(detail.responses)
+            <>
+              {detail.course_title === PHONE_COUNSELING_TITLE ? (
+                <CallNotesSection detail={detail} onSaved={setDetail} />
+              ) : null}
+              {renderResponses(detail.responses)}
+            </>
           )}
         </div>
 

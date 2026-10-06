@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, func
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -53,3 +53,10 @@ class CounselingSurvey(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # 전화 심화상담(15분 x 3회) 전용 — 상담사가 회차별 통화 직후 남기는 메모.
+    # 서면/대면 상담은 안 쓰므로 전부 nullable. 초안 재생성 시 비어있지 않은
+    # 것만 모아 프롬프트에 반영된다(2026-10).
+    call_note_1: Mapped[str | None] = mapped_column(Text, nullable=True)
+    call_note_2: Mapped[str | None] = mapped_column(Text, nullable=True)
+    call_note_3: Mapped[str | None] = mapped_column(Text, nullable=True)

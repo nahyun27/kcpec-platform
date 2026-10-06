@@ -88,9 +88,12 @@ def _format_user_prompt(
     survey_responses: dict,
     course_title: str,
     extra_instructions: str = "",
+    call_notes: list[str] | None = None,
 ) -> str:
     """신형(personal dict + q2..q6) / 구형(인적사항 등 자유 텍스트) 모두 수용.
     extra_instructions: 어드민이 재생성 시 추가로 주는 지시사항(없으면 미포함).
+    call_notes: 전화 심화상담(15분 x 3회) 전용 — 상담사가 회차별로 남긴
+    통화 메모. 빈 값은 호출부가 이미 걸러서 넘긴다고 가정(2026-10).
     """
     personal = survey_responses.get("personal")
     legacy_personal = survey_responses.get("인적사항", "")
@@ -123,6 +126,24 @@ def _format_user_prompt(
         ■ 기타 사항: {get('q6', '하고싶은말')}
         """
     )
+    # 중간 회차가 비어도(예: 2회차만 아직 미기록) 실제 회차 번호가 유지되도록
+    # 필터링 전 원래 인덱스(1-based)를 그대로 라벨에 쓴다.
+    notes = [
+        (i, n.strip())
+        for i, n in enumerate(call_notes or [], start=1)
+        if n and n.strip()
+    ]
+    if notes:
+        notes_block = "\n".join(f"{i}회차: {n}" for i, n in notes)
+        base += dedent(
+            f"""
+
+            [통화 메모 (전화 심화상담, 회차별 상담사 작성)]
+            아래는 15분씩 진행된 전화 상담 각 회차가 끝난 뒤 상담사가 남긴
+            메모입니다. 설문 응답과 함께 종합해 의견서에 반영해 주세요.
+            {notes_block}
+            """
+        )
     extra = (extra_instructions or "").strip()
     if extra:
         base += dedent(
@@ -191,6 +212,7 @@ def generate_counseling_draft(
     course_title: str,
     extra_instructions: str = "",
     max_attempts: int = 3,
+    call_notes: list[str] | None = None,
 ) -> str:
     if not settings.GEMINI_API_KEY:
         logger.info("GEMINI_API_KEY 미설정 — 더미 초안 반환")
@@ -200,7 +222,7 @@ def generate_counseling_draft(
     from google.genai import types
 
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    contents = _format_user_prompt(survey_responses, course_title, extra_instructions)
+    contents = _format_user_prompt(survey_responses, course_title, extra_instructions, call_notes)
 
     # 설문 제출 직후 자동으로 도는 첫 시도가 503/429 같은 짧은 스파이크에
     # 걸리면 그 자리에서 바로 더미로 폴백되고, 몇 분 뒤 관리자가 수동으로

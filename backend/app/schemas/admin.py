@@ -208,6 +208,16 @@ class AdminSurveyDetail(AdminSurveyRow):
     # personal 같은 nested dict 도 허용.
     responses: dict[str, Any]
     user_email: str | None = None
+    # 전화 심화상담(15분 x 3회) 전용 — 서면/대면 상담은 항상 None.
+    call_note_1: str | None = None
+    call_note_2: str | None = None
+    call_note_3: str | None = None
+
+
+class AdminSurveyCallNotesUpdate(BaseModel):
+    call_note_1: str | None = None
+    call_note_2: str | None = None
+    call_note_3: str | None = None
 
 
 class SalesStatsDaily(BaseModel):

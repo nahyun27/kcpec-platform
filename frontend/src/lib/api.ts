@@ -745,6 +745,21 @@ export async function regenerateCounselingDraft(
   return data;
 }
 
+// 전화 심화상담(15분 x 3회) 전용 — 회차별 통화 메모 저장. 저장만 하고 초안을
+// 다시 만들진 않는다 — 통화 하나 끝날 때마다 바로 메모만 남겨두고, 3회
+// 다 끝난 뒤(또는 중간에) regenerateCounselingDraft 를 눌러야 반영된 초안이
+// 나온다.
+export async function updateSurveyCallNotes(
+  surveyId: number,
+  notes: { call_note_1: string | null; call_note_2: string | null; call_note_3: string | null },
+): Promise<AdminSurveyDetail> {
+  const { data } = await api.patch<AdminSurveyDetail>(
+    `/admin/surveys/${surveyId}/call-notes`,
+    notes,
+  );
+  return data;
+}
+
 export async function getCourseEnrollmentCounts(): Promise<CourseEnrollmentCount[]> {
   const { data } = await api.get<CourseEnrollmentCount[]>(
     "/admin/courses/enrollment-counts",
