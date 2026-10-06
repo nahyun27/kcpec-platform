@@ -665,7 +665,9 @@ export default function SentencingPage() {
                 recommendation={recommendation}
                 disabledCourses={disabledCourses}
                 onToggleCourse={toggleCourse}
+                letterInfo={letterInfo}
                 selectedLetters={selectedLetters}
+                onToggleLetter={toggleLetter}
               />
             ) : null}
 
@@ -1339,12 +1341,16 @@ function Step4Result({
   recommendation,
   disabledCourses,
   onToggleCourse,
+  letterInfo,
   selectedLetters,
+  onToggleLetter,
 }: {
   recommendation: Recommendation;
   disabledCourses: Set<CourseId>;
   onToggleCourse: (id: CourseId) => void;
+  letterInfo: LegalLetterInfo | null;
   selectedLetters: Set<LegalLetterType>;
+  onToggleLetter: (t: LegalLetterType) => void;
 }) {
   const hasDisabled = disabledCourses.size > 0;
   // 항목마다 미리보기 이미지를 항상 DOM 에 올려두고 CSS로만 숨기면(hidden
@@ -1394,12 +1400,47 @@ function Step4Result({
             );
           })}
         </ul>
-        {selectedLetters.size > 0 ? (
-          <div className="mt-3 flex items-center gap-1.5 border-t border-zinc-100 pt-3 text-sm font-semibold text-[#1C3461]">
-            <Sparkles className="h-3.5 w-3.5" />
-            추가상품: {LETTER_TYPES.filter((t) => selectedLetters.has(t))
-              .map((t) => `${LEGAL_LETTER_LABEL[t]} 작성`)
-              .join(", ")}
+        {letterInfo ? (
+          <div className="mt-3 border-t border-zinc-100 pt-3">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-bold text-slate-500">
+              <Sparkles className="h-3.5 w-3.5 text-[#1C3461]" />
+              추가상품
+            </p>
+            <ul className="divide-y divide-zinc-100">
+              {LETTER_TYPES.map((t) => {
+                const price =
+                  t === "repentance" ? letterInfo.repentance_price : letterInfo.petition_price;
+                const active = selectedLetters.has(t);
+                return (
+                  <li key={t} className="py-2">
+                    <label className="flex cursor-pointer items-center justify-between gap-3">
+                      <span className="flex min-w-0 items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={active}
+                          onChange={() => onToggleLetter(t)}
+                          className="h-4 w-4 shrink-0 accent-[#1C3461]"
+                        />
+                        <span
+                          className={`truncate text-sm font-semibold ${
+                            active ? "text-slate-900" : "text-slate-400 line-through"
+                          }`}
+                        >
+                          {LEGAL_LETTER_LABEL[t]} 작성
+                        </span>
+                      </span>
+                      <span
+                        className={`shrink-0 font-mono text-sm font-bold ${
+                          active ? "text-slate-900" : "text-slate-400 line-through"
+                        }`}
+                      >
+                        {price.toLocaleString()}원
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         ) : null}
         {hasDisabled ? (
