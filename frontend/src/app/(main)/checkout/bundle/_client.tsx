@@ -435,7 +435,7 @@ export default function CheckoutBundleClient() {
                   </h2>
                 </div>
                 <p className="mb-4 text-sm text-slate-500">
-                  몇 가지 질문에 답하시면 AI가 답변을 바탕으로 작성해 드립니다. 결제 완료 후 이어서
+                  몇 가지 질문에 답하시면 답변을 바탕으로 작성해 드립니다. 결제 완료 후 이어서
                   입력하실 수 있습니다.
                 </p>
                 <ul className="grid gap-2 sm:grid-cols-2">

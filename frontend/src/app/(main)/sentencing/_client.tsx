@@ -1292,7 +1292,7 @@ function Step3AddOns({
     <section className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm md:p-7">
       <h2 className="font-sans text-lg font-extrabold text-slate-900 sm:text-xl">추가상품</h2>
       <p className="mt-1 text-sm text-slate-500">
-        AI가 몇 가지 질문에 대한 답변을 바탕으로 작성해 드립니다. 결제 완료 후 이어서 입력하실 수
+        몇 가지 질문에 대한 답변을 바탕으로 작성해 드립니다. 결제 완료 후 이어서 입력하실 수
         있습니다.
       </p>
       <div className="mt-3.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
