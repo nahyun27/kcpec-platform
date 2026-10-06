@@ -386,6 +386,22 @@ function CallNotesSection({
   );
 }
 
+// DraftViewerModal 은 surveyId/path 만 받고 course_title 을 모르므로(부모가
+// "응답 보기"를 거치지 않고 "초안 보기"로 바로 열 수도 있음) 여기서 상세를
+// 직접 조회해 전화 심화상담 여부를 스스로 판별한다.
+function PhoneCallNotesPanel({ surveyId }: { surveyId: number }) {
+  const [detail, setDetail] = useState<AdminSurveyDetail | null>(null);
+
+  useEffect(() => {
+    getAdminSurveyDetail(surveyId)
+      .then(setDetail)
+      .catch(() => {});
+  }, [surveyId]);
+
+  if (!detail || detail.course_title !== PHONE_COUNSELING_TITLE) return null;
+  return <CallNotesSection detail={detail} onSaved={setDetail} />;
+}
+
 function SurveyDetailModal({
   surveyId,
   onClose,
@@ -729,6 +745,13 @@ function DraftViewerModal({
                 disabled={regenerating}
                 className="min-h-[50vh] w-full flex-1 resize-none rounded-md border border-zinc-200 bg-slate-50/50 p-4 font-mono text-[13px] leading-relaxed text-slate-800 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 disabled:opacity-60"
               />
+
+              {/* 전화 심화상담 건에만 뜸 — "초안 보기"에서 바로 재생성 직전에
+                  메모를 남기고 반영할 수 있게, 재생성 버튼 바로 위에 둔다
+                  (원래 "응답 보기" 모달에만 있었는데 "초안 보기"로 바로
+                  들어오는 동선에서는 안 보여 헷갈린다는 지적으로 이동/중복
+                  배치, 2026-10). */}
+              <PhoneCallNotesPanel surveyId={surveyId} />
 
               {/* LLM 재생성 영역 */}
               <div className="rounded-md border border-zinc-200 bg-slate-50/40 p-3">
