@@ -29,6 +29,22 @@ app.add_middleware(
 # Static (PDF/수료증 등)
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
+
+
+class _NoCacheStaticFiles(StaticFiles):
+    """관리자가 같은 토큰(파일명)으로 덮어쓰는 finals/ 전용 — 반성문·탄원서,
+    상담 의견서 최종 PDF 재업로드가 브라우저 캐시 때문에 곧바로 반영 안 된
+    것처럼 보이는 문제를 막기 위해 캐시를 금지한다(2026-10)."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+
+FINALS_DIR = STATIC_DIR / "finals"
+FINALS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static/finals", _NoCacheStaticFiles(directory=str(FINALS_DIR)), name="static-finals")
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 app.include_router(auth_v1.router, prefix=settings.API_V1_PREFIX)
