@@ -10,6 +10,7 @@ from fastapi import (
     BackgroundTasks,
     Depends,
     File,
+    Form,
     HTTPException,
     Query,
     UploadFile,
@@ -32,7 +33,14 @@ from app.core.gemini_client import (
     is_transient_overload_draft,
 )
 from app.core.health import run_all_checks
-from app.core.pdf import PDF_DIR, build_issue_number, cert_course_code, convert_office_to_pdf
+from app.core.pdf import (
+    PDF_DIR,
+    build_issue_number,
+    cert_course_code,
+    convert_office_to_pdf,
+    export_certificate_pptx,
+    export_pledge_pptx,
+)
 from app.core.storage import issue_stream_url
 from app.models.community import Notice, Post
 from app.models.counseling import CounselingStatus, CounselingSurvey
@@ -85,7 +93,11 @@ from app.schemas.admin import (
 )
 from app.schemas.community import NoticeDetail, PostAdminReply, PostDetail
 from app.schemas.course import CourseDetail, CourseListItem, LectureItem, StreamUrlResponse
-from app.schemas.document import DocumentResponse
+from app.schemas.document import (
+    AdminCertificateCorrection,
+    AdminCertificateExportRequest,
+    DocumentResponse,
+)
 from app.schemas.faq import FaqCreate, FaqPatch, FaqRead
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
@@ -828,6 +840,10 @@ def _revoke_issued_document(doc: IssuedDocument, db: Session) -> None:
             # 이 그대로 남아 무인증 /static 경로로 계속 다운로드 가능했음
             # (2026-09, 버그 감사 중 발견).
             (PDF_DIR / f"pledge_{doc.access_token}.pdf").unlink(missing_ok=True)
+            # 관리자가 /upload-final 로 정정본을 올린 경우엔 같은 파일명으로
+            # PDF_DIR 가 아니라 FINALS_DIR 에 저장된다(2026-10) — 둘 다 시도.
+            (FINALS_DIR / f"cert_{doc.access_token}.pdf").unlink(missing_ok=True)
+            (FINALS_DIR / f"pledge_{doc.access_token}.pdf").unlink(missing_ok=True)
     elif doc.document_type == IssuedDocumentType.COUNSELING:
         # 심리상담 의견서 파일은 doc.access_token 이 아니라 survey.access_token
         # 으로 저장된다 — upload_final()이 재업로드 시 access_token unique
@@ -1859,6 +1875,126 @@ def admin_order_documents(order_id: int, db: Session = Depends(get_db)) -> list[
         ).all()
     )
     return [DocumentResponse.model_validate(d) for d in docs]
+
+
+def _get_certificate_or_404(db: Session, document_id: int) -> tuple[IssuedDocument, Order, Course]:
+    doc = db.get(IssuedDocument, document_id)
+    if doc is None or doc.document_type != IssuedDocumentType.CERTIFICATE:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="수료증을 찾을 수 없습니다.")
+    if doc.status == IssuedDocumentStatus.REVOKED:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail="환불로 무효화된 서류는 수정할 수 없습니다."
+        )
+    order = db.get(Order, doc.order_id)
+    course = db.get(Course, order.course_id) if order else None
+    if order is None or course is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="주문/강의 정보를 찾을 수 없습니다.")
+    return doc, order, course
+
+
+@router.patch("/certificates/{document_id}", response_model=DocumentResponse)
+def admin_correct_certificate(
+    document_id: int,
+    payload: AdminCertificateCorrection,
+    db: Session = Depends(get_db),
+) -> DocumentResponse:
+    """수료증/서약서 수령인 이름·생년월일 오타 정정 — 수강생 본인은 스스로
+    고칠 방법이 없고(발급은 주문당 1회로 고정) 관리자만 가능하다(2026-10,
+    "생년월일 잘못 입력" 문의로 추가). 여기서 고친 값은 다음 /export 부터
+    반영되고, 이미 공개된 PDF 자체는 별도로 /upload-final 로 교체해야
+    고객에게 반영된다."""
+    doc, _, _ = _get_certificate_or_404(db, document_id)
+    doc.recipient_name = payload.recipient_name
+    doc.recipient_birth = payload.recipient_birth
+    db.commit()
+    db.refresh(doc)
+    return DocumentResponse.model_validate(doc)
+
+
+@router.post("/certificates/{document_id}/export")
+def admin_export_certificate(
+    document_id: int,
+    payload: AdminCertificateExportRequest,
+    db: Session = Depends(get_db),
+):
+    """관리자가 파워포인트로 다운로드해 직접 다듬을 수 있도록, 현재 DB에
+    저장된 값(정정했다면 정정된 값)으로 서식을 채운 PPTX를 내려준다. 수료증은
+    원본이 DOCX 가 아니라 과정별 전용 PPTX 템플릿이라 워드가 아닌 파워포인트
+    파일이 내려간다. 여기서 만든 파일이 그대로 공개되는 게 아니다 — 다듬은
+    뒤 PDF로 내보내 /upload-final 로 업로드해야 고객에게 반영된다(반성문·
+    탄원서 export/upload-final 과 동일한 패턴)."""
+    doc, order, course = _get_certificate_or_404(db, document_id)
+    issued_date = (
+        doc.issued_at.astimezone(timezone(timedelta(hours=9))).date()
+        if doc.issued_at
+        else datetime.now(timezone.utc).date()
+    )
+    file_token = f"export_{secrets.token_urlsafe(24)}"
+
+    if payload.target == "pledge":
+        path = export_pledge_pptx(
+            course_title=course.title,
+            cert_number=doc.issue_number,
+            recipient_name=doc.recipient_name,
+            issued_date=issued_date,
+            file_token=file_token,
+        )
+        if path is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, detail="이 강의는 서약서 템플릿이 없습니다."
+            )
+    else:
+        path = export_certificate_pptx(
+            course_title=course.title,
+            cert_number=doc.issue_number,
+            recipient_name=doc.recipient_name,
+            birth_date=doc.recipient_birth,
+            issued_date=issued_date,
+            file_token=file_token,
+        )
+
+    label = "서약서" if payload.target == "pledge" else "수료증"
+    name_part = "".join(c if c.isalnum() else "_" for c in doc.recipient_name) or "cert"
+    return FileResponse(
+        path,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        ),
+        filename=f"{label}_{name_part}_{doc.issue_number}.pptx",
+    )
+
+
+@router.post("/certificates/{document_id}/upload-final", response_model=DocumentResponse)
+async def admin_upload_final_certificate(
+    document_id: int,
+    target: Literal["certificate", "pledge"] = Form("certificate"),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> DocumentResponse:
+    """관리자가 파워포인트에서 직접 다듬은 최종 PDF 업로드 — 이 파일이 그대로
+    고객에게 공개된다. 언제든 다시 업로드해 교체할 수 있다(반성문·탄원서
+    upload-final 과 동일). 발급 당시 자동 생성된 파일은 PDF_DIR 에 있지만,
+    재업로드본은 심리상담 의견서와 같은 FINALS_DIR(캐시 금지 헤더 적용,
+    main.py 참고)에 저장해 "재업로드했는데 브라우저 캐시 때문에 안 바뀐 것
+    처럼 보이는" 문제를 피한다."""
+    doc, _, _ = _get_certificate_or_404(db, document_id)
+    if file.content_type not in {"application/pdf", "application/octet-stream"}:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="PDF 파일만 업로드 가능합니다.")
+    if not doc.access_token:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="발급 토큰이 없는 문서입니다.")
+
+    FINALS_DIR.mkdir(parents=True, exist_ok=True)
+    prefix = "pledge" if target == "pledge" else "cert"
+    filename = f"{prefix}_{doc.access_token}.pdf"
+    (FINALS_DIR / filename).write_bytes(await file.read())
+
+    if target == "pledge":
+        doc.pledge_pdf_url = f"/static/finals/{filename}"
+    else:
+        doc.pdf_url = f"/static/finals/{filename}"
+    db.commit()
+    db.refresh(doc)
+    return DocumentResponse.model_validate(doc)
 
 
 @router.get("/certificates", response_model=AdminIssuedDocumentsResponse)

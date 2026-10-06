@@ -1,17 +1,20 @@
 "use client";
 
-import { Fragment, Suspense, useEffect, useMemo, useState } from "react";
+import { Fragment, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isAxiosError } from "axios";
 import {
   absUrl,
   cancelAdminOrder,
   confirmBankOrder,
+  correctAdminCertificate,
+  exportAdminCertificate,
   getAdminOrderBundleSiblings,
   getAdminOrderDocuments,
   getAdminOrders,
   getAdminUser,
   refundAdminOrder,
+  uploadFinalCertificate,
 } from "@/lib/api";
 import type { AdminOrderRow, AdminOrdersResponse, AdminUser } from "@/types/admin";
 import { PAYMENT_METHOD_LABEL, type DocumentResponse, type OrderStatus } from "@/types/order";
@@ -277,8 +280,7 @@ function AdminOrdersPage() {
             <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">주문일시</th>
-                <th className="px-4 py-3">고객명</th>
-                <th className="px-4 py-3">이메일</th>
+                <th className="px-4 py-3">고객</th>
                 <th className="px-4 py-3">강의명</th>
                 <th className="px-4 py-3">결제수단</th>
                 <th className="px-4 py-3 text-right">금액</th>
@@ -296,7 +298,7 @@ function AdminOrdersPage() {
                   <Fragment key={r.id}>
                     {meta?.needsGapBefore ? (
                       <tr aria-hidden="true">
-                        <td colSpan={8} className="h-2 border-none bg-white p-0" />
+                        <td colSpan={7} className="h-2 border-none bg-white p-0" />
                       </tr>
                     ) : null}
                     <tr
@@ -343,6 +345,9 @@ function AdminOrdersPage() {
                           >
                             {r.name ?? r.username}
                           </button>
+                          <div className="mt-0.5 font-normal text-slate-400">
+                            {r.email ?? "-"}
+                          </div>
                           {meta ? (
                             <span
                               title={`묶음결제 ID: ${r.bundle_id}`}
@@ -351,12 +356,6 @@ function AdminOrdersPage() {
                               묶음결제 {meta.groupSize}건
                             </span>
                           ) : null}
-                        </td>
-                        <td
-                          className="px-4 py-3 align-top text-slate-500"
-                          rowSpan={meta ? meta.groupSize : undefined}
-                        >
-                          {r.email ?? "-"}
                         </td>
                       </>
                     ) : null}
@@ -475,6 +474,24 @@ function AdminOrdersPage() {
   );
 }
 
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function errMsg(err: unknown, fallback: string): string {
+  const detail = isAxiosError(err)
+    ? (err.response?.data as { detail?: unknown } | undefined)?.detail
+    : null;
+  return typeof detail === "string" ? detail : fallback;
+}
+
 function DocumentsModal({
   order,
   onClose,
@@ -484,12 +501,74 @@ function DocumentsModal({
 }) {
   const [docs, setDocs] = useState<DocumentResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editBirth, setEditBirth] = useState("");
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  useEffect(() => {
+  function load() {
     getAdminOrderDocuments(order.id)
       .then(setDocs)
       .catch(() => setError("문서 목록을 불러오지 못했습니다."));
-  }, [order.id]);
+  }
+
+  useEffect(load, [order.id]);
+
+  function startEdit(d: DocumentResponse) {
+    setEditingId(d.id);
+    setEditName(d.recipient_name);
+    setEditBirth(d.recipient_birth);
+    setActionError(null);
+  }
+
+  async function saveEdit(docId: number) {
+    const key = `edit-${docId}`;
+    setBusyKey(key);
+    setActionError(null);
+    try {
+      await correctAdminCertificate(docId, {
+        recipient_name: editName,
+        recipient_birth: editBirth,
+      });
+      setEditingId(null);
+      load();
+    } catch (err) {
+      setActionError(errMsg(err, "정정에 실패했습니다."));
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function handleExport(d: DocumentResponse, target: "certificate" | "pledge") {
+    const key = `export-${d.id}-${target}`;
+    setBusyKey(key);
+    setActionError(null);
+    try {
+      const blob = await exportAdminCertificate(d.id, target);
+      const label = target === "pledge" ? "서약서" : "수료증";
+      downloadBlob(blob, `${label}_${d.recipient_name}_${d.issue_number}.pptx`);
+    } catch (err) {
+      setActionError(errMsg(err, "파워포인트 다운로드에 실패했습니다."));
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function handleUpload(d: DocumentResponse, target: "certificate" | "pledge", file: File) {
+    const key = `upload-${d.id}-${target}`;
+    setBusyKey(key);
+    setActionError(null);
+    try {
+      await uploadFinalCertificate(d.id, target, file);
+      load();
+    } catch (err) {
+      setActionError(errMsg(err, "최종본 업로드에 실패했습니다."));
+    } finally {
+      setBusyKey(null);
+    }
+  }
 
   return (
     <div
@@ -497,7 +576,7 @@ function DocumentsModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl"
+        className="w-full max-w-xl rounded-lg bg-white p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-baseline justify-between">
@@ -524,44 +603,160 @@ function DocumentsModal({
           ) : docs.length === 0 ? (
             <p className="text-sm text-zinc-500">발급된 문서가 없습니다.</p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               {docs.map((d) => (
-                <li
-                  key={d.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded border border-zinc-200 px-3 py-2 text-sm"
-                >
-                  <div>
-                    <p className="font-medium">{d.issue_number}</p>
-                    <p className="text-xs text-zinc-500">
-                      {d.document_type} · {d.status}
-                    </p>
+                <li key={d.id} className="rounded border border-zinc-200 px-3 py-2.5 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{d.issue_number}</p>
+                      <p className="text-xs text-zinc-500">
+                        {d.document_type} · {d.status}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {d.pdf_url ? (
+                        <a
+                          href={absUrl(d.pdf_url)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded bg-[var(--color-accent)] px-3 py-1 text-xs font-semibold text-white hover:bg-[var(--color-accent-hover)]"
+                        >
+                          수료증 보기
+                        </a>
+                      ) : null}
+                      {d.pledge_pdf_url ? (
+                        <a
+                          href={absUrl(d.pledge_pdf_url)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded border border-[var(--color-accent)] px-3 py-1 text-xs font-semibold text-[var(--color-accent)] hover:bg-blue-50"
+                        >
+                          서약서 보기
+                        </a>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    {d.pdf_url ? (
-                      <a
-                        href={absUrl(d.pdf_url)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded bg-[var(--color-accent)] px-3 py-1 text-xs font-semibold text-white hover:bg-[var(--color-accent-hover)]"
-                      >
-                        수료증
-                      </a>
-                    ) : null}
-                    {d.pledge_pdf_url ? (
-                      <a
-                        href={absUrl(d.pledge_pdf_url)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded border border-[var(--color-accent)] px-3 py-1 text-xs font-semibold text-[var(--color-accent)] hover:bg-blue-50"
-                      >
-                        서약서
-                      </a>
-                    ) : null}
-                  </div>
+
+                  {d.document_type === "certificate" && d.status !== "revoked" ? (
+                    <div className="mt-2.5 border-t border-zinc-100 pt-2.5">
+                      {editingId === d.id ? (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            placeholder="수령인 이름"
+                            className="w-28 rounded border border-zinc-300 px-2 py-1 text-xs"
+                          />
+                          <input
+                            type="date"
+                            value={editBirth}
+                            onChange={(e) => setEditBirth(e.target.value)}
+                            className="rounded border border-zinc-300 px-2 py-1 text-xs"
+                          />
+                          <button
+                            type="button"
+                            disabled={busyKey === `edit-${d.id}`}
+                            onClick={() => saveEdit(d.id)}
+                            className="rounded bg-[var(--color-primary)] px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                          >
+                            저장
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingId(null)}
+                            className="text-xs text-zinc-500 hover:text-zinc-900"
+                          >
+                            취소
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-600">
+                          <span>
+                            수령인 {d.recipient_name} · 생년월일 {d.recipient_birth}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => startEdit(d)}
+                            className="font-semibold text-[var(--color-primary)] hover:underline"
+                          >
+                            정정
+                          </button>
+                        </div>
+                      )}
+
+                      <p className="mt-2 text-[11px] font-semibold text-zinc-400">
+                        발급 후 오타 정정 — 파워포인트 다운로드 후 직접 수정해 최종 PDF로
+                        재업로드하면 고객 다운로드에 반영됩니다.
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={busyKey === `export-${d.id}-certificate`}
+                          onClick={() => handleExport(d, "certificate")}
+                          className="rounded border border-zinc-300 px-2.5 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                        >
+                          수료증 PPT 다운로드
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyKey === `upload-${d.id}-certificate`}
+                          onClick={() => fileInputs.current[`${d.id}-certificate`]?.click()}
+                          className="rounded border border-zinc-300 px-2.5 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                        >
+                          수료증 최종본 업로드
+                        </button>
+                        <input
+                          ref={(el) => {
+                            fileInputs.current[`${d.id}-certificate`] = el;
+                          }}
+                          type="file"
+                          accept="application/pdf"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (file) handleUpload(d, "certificate", file);
+                          }}
+                        />
+                        <span className="mx-1 text-zinc-300">|</span>
+                        <button
+                          type="button"
+                          disabled={busyKey === `export-${d.id}-pledge`}
+                          onClick={() => handleExport(d, "pledge")}
+                          className="rounded border border-zinc-300 px-2.5 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                        >
+                          서약서 PPT 다운로드
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyKey === `upload-${d.id}-pledge`}
+                          onClick={() => fileInputs.current[`${d.id}-pledge`]?.click()}
+                          className="rounded border border-zinc-300 px-2.5 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                        >
+                          서약서 최종본 업로드
+                        </button>
+                        <input
+                          ref={(el) => {
+                            fileInputs.current[`${d.id}-pledge`] = el;
+                          }}
+                          type="file"
+                          accept="application/pdf"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (file) handleUpload(d, "pledge", file);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>
           )}
+          {actionError ? <p className="mt-2 text-xs text-red-600">{actionError}</p> : null}
         </div>
       </div>
     </div>

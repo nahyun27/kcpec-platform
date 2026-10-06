@@ -835,6 +835,53 @@ export async function getAdminOrderDocuments(orderId: number): Promise<DocumentR
   return data;
 }
 
+// 발급 후 수령인 이름·생년월일 오타 정정 — 수강생 본인은 고칠 수 없고
+// 관리자만 가능. 여기서 고친 값은 다음 exportAdminCertificate 부터
+// 반영되고, 이미 공개된 PDF 자체는 uploadFinalCertificate 로 따로
+// 교체해야 고객에게 반영된다.
+export async function correctAdminCertificate(
+  documentId: number,
+  payload: { recipient_name: string; recipient_birth: string },
+): Promise<DocumentResponse> {
+  const { data } = await api.patch<DocumentResponse>(
+    `/admin/certificates/${documentId}`,
+    payload,
+  );
+  return data;
+}
+
+// 수료증은 반성문·탄원서와 달리 원본이 워드가 아니라 과정별 전용 PPTX
+// 템플릿이라, 여기서 받는 파일은 파워포인트(.pptx)다. 그대로 발급되는 게
+// 아니라, 관리자가 필요하면 다듬은 뒤 uploadFinalCertificate 로 최종 PDF를
+// 직접 올려야 고객에게 공개된다.
+export async function exportAdminCertificate(
+  documentId: number,
+  target: "certificate" | "pledge",
+): Promise<Blob> {
+  const { data } = await api.post<Blob>(
+    `/admin/certificates/${documentId}/export`,
+    { target },
+    { responseType: "blob" },
+  );
+  return data;
+}
+
+export async function uploadFinalCertificate(
+  documentId: number,
+  target: "certificate" | "pledge",
+  file: File,
+): Promise<DocumentResponse> {
+  const fd = new FormData();
+  fd.append("target", target);
+  fd.append("file", file);
+  const { data } = await api.post<DocumentResponse>(
+    `/admin/certificates/${documentId}/upload-final`,
+    fd,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  return data;
+}
+
 export async function patchAdminNotice(
   noticeId: number,
   payload: NoticePatch,

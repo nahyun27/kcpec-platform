@@ -68,6 +68,8 @@ export type DocumentResponse = {
   status: IssuedDocumentStatus;
   pdf_url: string | null;
   pledge_pdf_url: string | null;
+  recipient_name: string;
+  recipient_birth: string;
   issued_at: string | null;
   downloaded_at: string | null;
 };

@@ -35,6 +35,9 @@ STATIC_DIR = BACKEND_DIR / "static"
 TEMPLATES_DIR = STATIC_DIR / "templates" / "certificates"
 PLEDGE_TEMPLATES_DIR = STATIC_DIR / "templates" / "pledges"
 PDF_DIR = STATIC_DIR / "pdfs"
+# 관리자가 정정용으로 내려받는 PPTX(워드가 아니라 파워포인트 서식) — 반성문·
+# 탄원서/심리상담 의견서의 EXPORTS_DIR(admin.py)과 같은 물리 경로.
+EXPORTS_DIR = STATIC_DIR / "exports"
 
 # LibreOffice 변환 타임아웃 (단건 PPTX 변환은 보통 5초 내 완료)
 SOFFICE_TIMEOUT_SEC = 60
@@ -325,6 +328,75 @@ def generate_certificate_pdf(
         shutil.copy(tmp_pdf, final_path)
 
     return final_path, cert_number
+
+
+# ---------- 발급 후 정정용 PPTX 내보내기 -------------------------------------
+#
+# 이미 발급된 문서의 생년월일 등을 고친 뒤 재업로드할 수 있도록, PDF 변환
+# 없이 서식만 채운 PPTX 를 그대로 돌려준다(2026-10). generate_certificate_pdf
+# 는 발급 당시 임시 디렉터리에서 PPTX 를 채우고 PDF 로만 남기므로, 원본
+# PPTX 자체는 저장되지 않는다 — 정정이 필요할 때 같은 _fill_template 으로
+# 다시 채워서 내보낸다. 여기서 만든 파일이 그대로 고객에게 공개되는 게
+# 아니다 — 관리자가 파워포인트에서 다듬은 뒤 최종 PDF 를 직접 업로드해야
+# 반영된다(admin.py /certificates/{id}/upload-final).
+
+
+def export_certificate_pptx(
+    *,
+    course_title: str,
+    cert_number: str,
+    recipient_name: str,
+    birth_date: date,
+    issued_date: date,
+    file_token: str,
+) -> Path:
+    cfg = get_cert_template(course_title)
+    if cfg is None:
+        raise ValueError(f"등록된 수료증 템플릿이 없습니다: course_title={course_title!r}")
+    src = TEMPLATES_DIR / cfg["file"]
+    if not src.exists():
+        raise RuntimeError(f"템플릿 파일 누락: {src}")
+
+    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = EXPORTS_DIR / f"cert_{file_token}.pptx"
+    shutil.copy(src, out_path)
+    _fill_template(
+        out_path,
+        cert_number=cert_number,
+        course_title=cfg["title"],
+        recipient_name=recipient_name,
+        birth_date=birth_date,
+        issued_date=issued_date,
+    )
+    return out_path
+
+
+def export_pledge_pptx(
+    *,
+    course_title: str,
+    cert_number: str,
+    recipient_name: str,
+    issued_date: date,
+    file_token: str,
+) -> Path | None:
+    """등록된 서약서 템플릿이 없는 강의는 None 반환(호출부가 분기)."""
+    pledge_file = get_pledge_file(course_title)
+    if pledge_file is None:
+        return None
+    src = PLEDGE_TEMPLATES_DIR / pledge_file
+    if not src.exists():
+        raise RuntimeError(f"서약서 템플릿 파일 누락: {src}")
+
+    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = EXPORTS_DIR / f"pledge_{file_token}.pptx"
+    shutil.copy(src, out_path)
+    _fill_pledge_template(
+        out_path,
+        cert_number=cert_number,
+        recipient_name=recipient_name,
+        issued_date=issued_date,
+    )
+    return out_path
 
 
 # ---------- 서약서 PDF (수료증과 세트로 함께 발급) --------------------------
