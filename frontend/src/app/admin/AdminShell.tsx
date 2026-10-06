@@ -79,7 +79,7 @@ const NAV: (SingleNav | GroupNav)[] = [
   {
     kind: "single",
     href: "/admin/documents",
-    label: "의견서",
+    label: "심리상담 의견서",
     icon: <FileText className="h-4 w-4" />,
     todoKey: "counseling_draft_review",
   },

@@ -188,6 +188,7 @@ export type AdminSurveyRow = {
   id: number;
   order_id: number;
   order_type: OrderType;
+  bundle_id: string | null;
   username: string;
   course_title: string;
   status: CounselingStatus;

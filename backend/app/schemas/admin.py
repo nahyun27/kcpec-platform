@@ -194,6 +194,12 @@ class AdminSurveyRow(BaseModel):
     id: int
     order_id: int
     order_type: OrderType
+    # 상담 상품만 따로 결제했는지, 맞춤강의찾기 등에서 다른 상품과 함께
+    # 묶음결제했는지 — order_type(COUNSELING 고정)이 아니라 Order.bundle_id
+    # 유무로 판단해야 한다(2026-10, "유형이 전부 독립구매로만 뜬다"는 지적으로
+    # 발견 — 기존엔 order_type 기준이라 상담 설문은 항상 COUNSELING이라
+    # 사실상 늘 "독립 구매"로만 표시되고 있었다).
+    bundle_id: str | None
     username: str
     course_title: str
     status: CounselingStatus

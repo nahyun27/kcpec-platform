@@ -27,9 +27,36 @@ const DEFAULT_DRAFT_TEMPLATE = `[상담배경]
 // 통화 메모 입력 UI를 이 상품에만 보여주기 위한 판별 키.
 const PHONE_COUNSELING_TITLE = "전화 심화상담";
 
+// counseling_purchase.py TITLE_BY_TYPE 와 동일한 course_title 문자열 — 목록에서
+// 한눈에 구분되도록 축약 라벨 + 색을 입힌다. 매핑에 없는 값(새 상품 추가 등)은
+// 원문 그대로 보여준다.
+const PROGRAM_BADGE: Record<string, { label: string; className: string }> = {
+  "기본 프로그램": {
+    label: "기본",
+    className: "bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-600/10",
+  },
+  [PHONE_COUNSELING_TITLE]: {
+    label: "전화",
+    className: "bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-600/10",
+  },
+  "대면 심화상담": {
+    label: "대면",
+    className: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/10",
+  },
+};
+
+const PROGRAM_FILTERS: { value: "all" | "기본 프로그램" | typeof PHONE_COUNSELING_TITLE; label: string }[] = [
+  { value: "all", label: "전체" },
+  { value: "기본 프로그램", label: "기본" },
+  { value: PHONE_COUNSELING_TITLE, label: "전화" },
+];
+
 export default function AdminSurveysPage() {
   const dialog = useDialog();
   const [rows, setRows] = useState<AdminSurveyRow[]>([]);
+  const [programFilter, setProgramFilter] = useState<(typeof PROGRAM_FILTERS)[number]["value"]>(
+    "all",
+  );
   const [error, setError] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
   const fileInputs = useRef<Record<number, HTMLInputElement | null>>({});
@@ -70,11 +97,14 @@ export default function AdminSurveysPage() {
 
   if (error) return <p className="py-20 text-center text-sm text-red-600">{error}</p>;
 
+  const filteredRows =
+    programFilter === "all" ? rows : rows.filter((r) => r.course_title === programFilter);
+
   return (
     <div className="space-y-6">
       <header>
         <h1 className="font-sans text-2xl font-bold text-[var(--color-primary)]">
-          의견서 관리
+          심리상담 의견서 관리
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
           행을 클릭하여 응답 상세를 확인하고, Claude 초안 검토 후 최종 PDF 를
@@ -82,9 +112,26 @@ export default function AdminSurveysPage() {
         </p>
       </header>
 
-      {rows.length === 0 ? (
+      <div className="flex gap-1.5">
+        {PROGRAM_FILTERS.map((f) => (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => setProgramFilter(f.value)}
+            className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${
+              programFilter === f.value
+                ? "bg-[var(--color-primary)] text-white"
+                : "bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {filteredRows.length === 0 ? (
         <p className="rounded-lg border border-zinc-200 bg-white p-8 text-center text-sm text-zinc-500">
-          제출된 설문이 없습니다.
+          {rows.length === 0 ? "제출된 설문이 없습니다." : "해당하는 설문이 없습니다."}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200/60 bg-white shadow-sm">
@@ -101,7 +148,7 @@ export default function AdminSurveysPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rows.map((r) => (
+              {filteredRows.map((r) => (
                 <tr
                   key={r.id}
                   onClick={() => setOpenId(r.id)}
@@ -111,16 +158,26 @@ export default function AdminSurveysPage() {
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        r.order_type === "counseling"
-                          ? "bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/10"
-                          : "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/10"
+                        r.bundle_id
+                          ? "bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/10"
+                          : "bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-400/10"
                       }`}
                     >
-                      {r.order_type === "counseling" ? "독립 구매" : "강의 결제"}
+                      {r.bundle_id ? "묶음 구매" : "단독 구매"}
                     </span>
                   </td>
                   <td className="px-4 py-3 font-semibold text-slate-900">{r.username}</td>
-                  <td className="px-4 py-3 text-slate-700">{r.course_title}</td>
+                  <td className="px-4 py-3">
+                    {PROGRAM_BADGE[r.course_title] ? (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${PROGRAM_BADGE[r.course_title].className}`}
+                      >
+                        {PROGRAM_BADGE[r.course_title].label}
+                      </span>
+                    ) : (
+                      <span className="text-slate-700">{r.course_title}</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-xs text-slate-500">
                     {new Date(r.submitted_at).toLocaleString("ko-KR")}
                   </td>
