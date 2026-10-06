@@ -199,11 +199,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     return <DeniedScreen reason={denied} onLogout={() => { logout(); router.push("/login?next=/admin"); }} />;
   }
   if (!authChecked) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-100 text-sm text-zinc-500">
-        관리자 권한 확인 중...
-      </div>
-    );
+    return <AuthCheckingScreen />;
   }
 
   return (
@@ -435,6 +431,25 @@ function SidebarNav({
         );
       })}
     </nav>
+  );
+}
+
+function AuthCheckingScreen() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-7 bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100 px-6">
+      <div className="relative flex h-24 w-24 items-center justify-center">
+        <span className="absolute inset-0 animate-ping rounded-full bg-[var(--color-primary)]/15" />
+        <span className="absolute inset-0 rounded-full border-[3px] border-slate-200" />
+        <span className="absolute inset-0 animate-spin rounded-full border-[3px] border-transparent border-t-[var(--color-primary)] border-r-[var(--color-primary)]/40" />
+        <Logo variant="default" kind="mark" className="pointer-events-none" imgClassName="h-11 w-11" />
+      </div>
+      <div className="text-center">
+        <p className="font-sans text-base font-bold text-[var(--color-primary)]">
+          관리자 페이지 불러오는 중
+        </p>
+        <p className="mt-1.5 text-sm text-slate-500">권한을 확인하고 있어요. 잠시만 기다려 주세요.</p>
+      </div>
+    </div>
   );
 }
 
