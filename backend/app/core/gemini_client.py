@@ -305,8 +305,147 @@ def _dummy_draft(
     )
 
 
+# ---------- 전화 심화상담(15분 x 3회) 전용 — 회차별 양식 -----------------------
+#
+# "기본"(서면) 상담의 [상담배경]/[상담내용] 2섹션 양식과 전화 심화상담 양식은
+# 실제 제출 서류 자체가 다르다(상담회차 표 + 회차별 상담내용/상담의견 + 종합의견)
+# — document_generator.fill_phone_counseling_template 이 기대하는 7개 섹션
+# 마커를 그대로 출력하도록 프롬프트도 별도로 둔다(2026-10).
+
+PHONE_SYSTEM_PROMPT = dedent(
+    """\
+    당신은 한국범죄예방교육센터 소속 전문 심리상담사입니다.
+    전화로 15분씩 3회 진행된 심화심리상담의 각 회차 통화 메모를 바탕으로,
+    법원 제출용 "심화심리상담 의견서" 초안을 작성합니다.
+
+    출력 형식 (엄격):
+    - 아래 7개 섹션만, 이 순서 그대로 출력: [1회차 상담내용] [1회차 상담의견]
+      [2회차 상담내용] [2회차 상담의견] [3회차 상담내용] [3회차 상담의견] [종합의견]
+    - 다른 헤더(수신/참조/발신/일자/제목/인적사항 등) 절대 추가하지 말 것.
+    - Markdown 금지: #, ##, **굵게**, *기울임*, --- 등 사용 금지.
+    - 각 섹션은 번호 없이 2~4문장의 평문 단락으로 작성.
+    - 문장 끝맺음: ~함. ~음. ~있음. (공문서 어체)
+    - 해당 회차 메모가 "(미기록)"이면 그 회차의 [N회차 상담내용]/[N회차 상담의견]에는
+      "아직 진행되지 않은 회차임." 한 문장만 쓸 것 — 내용을 추측해서 지어내지 말 것.
+    - [N회차 상담내용]: 그 회차 통화 메모에 근거한 사실 중심 요약.
+    - [N회차 상담의견]: 상담사 관점의 평가·소견(심리상태, 태도 변화, 인식 개선 등).
+    - [종합의견]: 기록된 회차 전체를 종합한 최종 소견 — 피해자 공감, 반성의 진정성,
+      재범 방지 의지를 강조하고, 마지막 문장은 재범 가능성 낮음으로 마무리할 것.
+    """
+)
+
+
+def _format_phone_user_prompt(
+    survey_responses: dict,
+    call_notes: list[str | None],
+    extra_instructions: str = "",
+) -> str:
+    personal = survey_responses.get("personal")
+    personal_summary = (
+        _format_personal(personal) if isinstance(personal, dict) else "(인적사항 미입력)"
+    )
+    rounds_block = "\n\n".join(
+        f"[{i}회차 통화 메모]\n{(note or '').strip() or '(미기록)'}"
+        for i, note in enumerate(call_notes, start=1)
+    )
+    base = dedent(
+        f"""\
+        다음 정보를 바탕으로 전화 심화상담 의견서 초안을 작성해 주세요.
+
+        [내담자 인적사항]
+        {personal_summary}
+
+        {rounds_block}
+        """
+    )
+    extra = (extra_instructions or "").strip()
+    if extra:
+        base += dedent(
+            f"""
+
+            [추가 지시 (관리자 요청)]
+            아래 지시사항을 반영하여 작성해 주세요. 다만 출력 형식 규칙(7개 섹션
+            마커, Markdown 금지)은 그대로 유지할 것.
+            {extra}
+            """
+        )
+    return base
+
+
+def generate_phone_counseling_draft(
+    survey_responses: dict,
+    call_notes: list[str | None],
+    extra_instructions: str = "",
+    max_attempts: int = 3,
+) -> str:
+    if not settings.GEMINI_API_KEY:
+        logger.info("GEMINI_API_KEY 미설정 — 더미 초안 반환")
+        return _dummy_phone_draft(call_notes)
+
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    contents = _format_phone_user_prompt(survey_responses, call_notes, extra_instructions)
+
+    last_exc: Exception | None = None
+    for attempt in range(max_attempts):
+        try:
+            response = client.models.generate_content(
+                model=settings.GEMINI_MODEL,
+                contents=contents,
+                config=types.GenerateContentConfig(system_instruction=PHONE_SYSTEM_PROMPT),
+            )
+            text = (response.text or "").strip()
+            return text or _dummy_phone_draft(call_notes)
+        except Exception as e:  # noqa: BLE001
+            last_exc = e
+            if attempt < max_attempts - 1 and _is_worth_retrying(e):
+                delay = 4 * (attempt + 1)
+                logger.warning(
+                    "Gemini API 호출 실패(%d번째 시도) — %d초 후 재시도: %s",
+                    attempt + 1,
+                    delay,
+                    e,
+                )
+                time.sleep(delay)
+                continue
+            break
+
+    logger.exception("Gemini API 호출 실패 — 더미 초안으로 폴백", exc_info=last_exc)
+    return _dummy_phone_draft(
+        call_notes, transient=last_exc is not None and _is_transient_overload(last_exc)
+    )
+
+
+def _dummy_phone_draft(call_notes: list[str | None], transient: bool = False) -> str:
+    """document_generator.fill_phone_counseling_template 이 기대하는 7개
+    섹션 마커 포맷을 유지하는 더미 초안."""
+    if transient:
+        cause_line = (
+            f"{DUMMY_DRAFT_MARKER} {TRANSIENT_OVERLOAD_MARKER} Google Gemini 서버가"
+            " 일시적으로 과부하 상태라 자동 생성에 실패하여 대신 표시됨 — 저희 쪽"
+            " 문제가 아니니 잠시 후 '다시 생성'을 눌러주세요."
+        )
+    else:
+        cause_line = (
+            f"{DUMMY_DRAFT_MARKER} AI 자동 초안 생성이 불가능하거나 실패하여 대신"
+            " 표시됨(관리자 확인 필요)."
+        )
+    sections = []
+    for i, note in enumerate(call_notes, start=1):
+        has_note = bool((note or "").strip())
+        sections.append(f"[{i}회차 상담내용]\n{cause_line if i == 1 else ''}\n{note or '(미기록)'}".strip())
+        sections.append(
+            f"[{i}회차 상담의견]\n{'내담자의 상담 태도 및 인식 변화에 대한 소견 필요.' if has_note else '아직 진행되지 않은 회차임.'}"
+        )
+    sections.append("[종합의견]\n본 초안은 더미 텍스트로 실제 발송 전 반드시 검토 후 재작성이 필요함.")
+    return "\n\n".join(sections)
+
+
 __all__ = [
     "generate_counseling_draft",
+    "generate_phone_counseling_draft",
     "is_dummy_draft",
     "is_transient_overload_draft",
     "DUMMY_DRAFT_MARKER",

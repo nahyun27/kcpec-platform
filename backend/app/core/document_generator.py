@@ -200,7 +200,120 @@ def fill_counseling_template(
     return output_path
 
 
+# ---------- 전화 심화상담(15분 x 3회) 전용 양식 ------------------------------
+#
+# "기본"(서면) 상담과 실제 제출 서류 양식 자체가 다르다 — 상담회차 표 +
+# 회차별 상담내용/상담의견 6칸 + 종합의견. gemini_client.generate_phone_
+# counseling_draft 가 내는 7개 섹션([1회차 상담내용] ... [종합의견]) 마커를
+# 그대로 파싱해서 채운다(2026-10, 실제 양식 파일 기준 셀 좌표 확인 완료).
+#
+# 템플릿(16 rows x 5 cols) 셀 매핑 — gridSpan 으로 병합된 칸은 row.cells[i]
+# 중 아무 인덱스로 접근해도 같은 셀을 가리킨다(python-docx 특성):
+#   R0  C0 : 증서번호 (cols 0-2 병합)
+#   R3  C1 : 성명 (cols 1-2 병합)   R3 C4 : 연령
+#   R4  C1 : 생년월일 (cols 1-2 병합)  R4 C4 : 연락처
+#   R5/6/7 C2 : 1/2/3회차 날짜 (cols 2-4 병합, C1 의 "N회차" 라벨은 템플릿 고정값 그대로 둠)
+#   R8  C2 : 1회차 상담내용   R9  C2 : 1회차 상담의견
+#   R10 C2 : 2회차 상담내용   R11 C2 : 2회차 상담의견
+#   R12 C2 : 3회차 상담내용   R13 C2 : 3회차 상담의견
+#   R14 C1 : 종합의견 (cols 1-4 병합)
+#   R15 C0 : 발급일 (paragraph 중 "년/월/일" 패턴만 갱신)
+
+PHONE_TEMPLATE_PATH = BACKEND_DIR / "static" / "templates" / "counseling_template_phone.docx"
+
+_PHONE_SECTION_MARKERS = [
+    "1회차 상담내용",
+    "1회차 상담의견",
+    "2회차 상담내용",
+    "2회차 상담의견",
+    "3회차 상담내용",
+    "3회차 상담의견",
+    "종합의견",
+]
+
+
+def _split_phone_draft_sections(draft_text: str) -> dict[str, str]:
+    """"[1회차 상담내용]" 같은 대괄호 마커로 구분된 섹션을 dict 로 분리.
+    마커가 전혀 없으면(예: 구버전 2섹션 초안이 잘못 넘어온 경우) 전부 빈 문자열."""
+    found: list[tuple[int, str, int]] = []
+    for marker in _PHONE_SECTION_MARKERS:
+        idx = draft_text.find(f"[{marker}]")
+        if idx != -1:
+            found.append((idx, marker, idx + len(marker) + 2))
+    found.sort(key=lambda t: t[0])
+    result = {marker: "" for marker in _PHONE_SECTION_MARKERS}
+    for i, (_, marker, content_start) in enumerate(found):
+        end = found[i + 1][0] if i + 1 < len(found) else len(draft_text)
+        result[marker] = draft_text[content_start:end].strip()
+    return result
+
+
+def _format_korean_date(d: date) -> str:
+    return f"{d.year}년 {d.month}월 {d.day}일"
+
+
+def fill_phone_counseling_template(
+    survey: CounselingSurvey,
+    user: User,
+    draft_text: str,
+    output_path: Path,
+    today: date | None = None,
+) -> Path:
+    """전화 심화상담 전용 양식에 데이터 채워서 output_path 에 DOCX 저장."""
+    if not PHONE_TEMPLATE_PATH.exists():
+        raise RuntimeError(f"템플릿 파일 누락: {PHONE_TEMPLATE_PATH}")
+
+    today = today or datetime.now().date()
+    info = _personal_snapshot(survey, user)
+    sections = _split_phone_draft_sections(draft_text)
+    doc_number = build_doc_number(survey.id, today)
+
+    responses: dict[str, Any] = survey.responses or {}
+    personal = responses.get("personal")
+    age = f"만 {personal['age']}세" if isinstance(personal, dict) and personal.get("age") else ""
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(PHONE_TEMPLATE_PATH, output_path)
+
+    doc = Document(str(output_path))
+    table = doc.tables[0]
+
+    _set_cell_text(table.rows[0].cells[0], doc_number)
+    _set_cell_text(table.rows[3].cells[1], info.name)
+    _set_cell_text(table.rows[3].cells[4], age)
+    _set_cell_text(table.rows[4].cells[1], info.birthdate)
+    _set_cell_text(table.rows[4].cells[4], info.phone)
+
+    call_dates = [survey.call_date_1, survey.call_date_2, survey.call_date_3]
+    for row_idx, d in zip((5, 6, 7), call_dates):
+        _set_cell_text(table.rows[row_idx].cells[2], _format_korean_date(d) if d else "")
+
+    content_rows = {
+        "1회차 상담내용": 8,
+        "1회차 상담의견": 9,
+        "2회차 상담내용": 10,
+        "2회차 상담의견": 11,
+        "3회차 상담내용": 12,
+        "3회차 상담의견": 13,
+    }
+    for marker, row_idx in content_rows.items():
+        _set_cell_text(table.rows[row_idx].cells[2], sections[marker])
+
+    _set_cell_text(table.rows[14].cells[1], sections["종합의견"])
+
+    issued_str = f"{today.year}년   {today.month}월   {today.day}일"
+    issue_cell = table.rows[15].cells[0]
+    for para in issue_cell.paragraphs:
+        if "년" in para.text and "월" in para.text and "일" in para.text:
+            _set_paragraph_text(para, issued_str)
+            break
+
+    doc.save(str(output_path))
+    return output_path
+
+
 __all__ = [
     "build_doc_number",
     "fill_counseling_template",
+    "fill_phone_counseling_template",
 ]

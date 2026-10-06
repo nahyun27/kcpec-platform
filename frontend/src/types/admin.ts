@@ -207,6 +207,10 @@ export type AdminSurveyDetail = AdminSurveyRow & {
   call_note_1: string | null;
   call_note_2: string | null;
   call_note_3: string | null;
+  // 전화 심화상담 의견서 양식 "상담회차" 표에 찍히는 실제 통화 날짜(ISO).
+  call_date_1: string | null;
+  call_date_2: string | null;
+  call_date_3: string | null;
 };
 
 export type AdminCourseCreate = {

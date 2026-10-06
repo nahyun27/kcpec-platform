@@ -25,10 +25,11 @@ from app.core.admin import require_admin
 from app.core.cert_sequence import reserve_next_sequence
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.document_generator import fill_counseling_template
+from app.core.document_generator import fill_counseling_template, fill_phone_counseling_template
 from app.core.email import send_final_to_user, send_qna_reply_notification
 from app.core.gemini_client import (
     generate_counseling_draft,
+    generate_phone_counseling_draft,
     is_dummy_draft,
     is_transient_overload_draft,
 )
@@ -105,6 +106,11 @@ router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(requir
 
 FINALS_DIR = Path(__file__).resolve().parents[3] / "static" / "finals"
 EXPORTS_DIR = Path(__file__).resolve().parents[3] / "static" / "exports"
+
+# counseling_purchase.py TITLE_BY_TYPE["phone"] 과 동일한 문자열 — 순환
+# 임포트 방지로 각자 보유(legal_letters.py _safe_filename_part 와 동일한
+# 이유). 전화 심화상담만 전용 양식/프롬프트를 쓰기 위한 판별 키(2026-10).
+PHONE_COUNSELING_TITLE = "전화 심화상담"
 DRAFTS_DIR = Path(__file__).resolve().parents[3] / "static" / "drafts"
 
 
@@ -1031,6 +1037,9 @@ def get_survey_detail(survey_id: int, db: Session = Depends(get_db)) -> AdminSur
         call_note_1=survey.call_note_1,
         call_note_2=survey.call_note_2,
         call_note_3=survey.call_note_3,
+        call_date_1=survey.call_date_1,
+        call_date_2=survey.call_date_2,
+        call_date_3=survey.call_date_3,
     )
 
 
@@ -1050,6 +1059,9 @@ def update_survey_call_notes(
     survey.call_note_1 = payload.call_note_1
     survey.call_note_2 = payload.call_note_2
     survey.call_note_3 = payload.call_note_3
+    survey.call_date_1 = payload.call_date_1
+    survey.call_date_2 = payload.call_date_2
+    survey.call_date_3 = payload.call_date_3
     db.commit()
     return get_survey_detail(survey_id, db)
 
@@ -1178,6 +1190,9 @@ def export_counseling_doc(
     user = db.get(User, survey.user_id) if survey.user_id else None
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="설문 작성자를 찾을 수 없습니다.")
+    order = db.get(Order, survey.order_id)
+    course = db.get(Course, order.course_id) if order else None
+    is_phone = course is not None and course.title == PHONE_COUNSELING_TITLE
 
     # exports 도 /static 하위(공개 서빙)라 survey.id 대신 토큰 기반 파일명 사용.
     token = survey.access_token or secrets.token_urlsafe(24)
@@ -1189,7 +1204,10 @@ def export_counseling_doc(
     docx_path = EXPORTS_DIR / f"counseling_{token}.docx"
 
     try:
-        fill_counseling_template(survey, user, payload.draft_text, docx_path)
+        if is_phone:
+            fill_phone_counseling_template(survey, user, payload.draft_text, docx_path)
+        else:
+            fill_counseling_template(survey, user, payload.draft_text, docx_path)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1270,13 +1288,21 @@ def regenerate_draft(
         # generate_counseling_draft 의 기본 재시도 횟수(최대 12초 대기)를
         # 그대로 쓰면 요청이 너무 오래 걸린다 — 실패해도 관리자가 버튼을
         # 다시 누르면 되므로 최소한만 재시도(최대 4초 대기)한다.
-        draft = generate_counseling_draft(
-            survey.responses,
-            course_title,
-            extra_instructions=payload.extra_instructions,
-            max_attempts=2,
-            call_notes=[survey.call_note_1, survey.call_note_2, survey.call_note_3],
-        )
+        if course_title == PHONE_COUNSELING_TITLE:
+            draft = generate_phone_counseling_draft(
+                survey.responses,
+                call_notes=[survey.call_note_1, survey.call_note_2, survey.call_note_3],
+                extra_instructions=payload.extra_instructions,
+                max_attempts=2,
+            )
+        else:
+            draft = generate_counseling_draft(
+                survey.responses,
+                course_title,
+                extra_instructions=payload.extra_instructions,
+                max_attempts=2,
+                call_notes=[survey.call_note_1, survey.call_note_2, survey.call_note_3],
+            )
     except Exception as e:  # noqa: BLE001
         raise HTTPException(
             status.HTTP_500_INTERNAL_SERVER_ERROR,

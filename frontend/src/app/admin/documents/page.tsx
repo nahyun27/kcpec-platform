@@ -386,6 +386,11 @@ function CallNotesSection({
     detail.call_note_2 ?? "",
     detail.call_note_3 ?? "",
   ]);
+  const [dates, setDates] = useState([
+    detail.call_date_1 ?? "",
+    detail.call_date_2 ?? "",
+    detail.call_date_3 ?? "",
+  ]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -397,6 +402,9 @@ function CallNotesSection({
         call_note_1: notes[0].trim() || null,
         call_note_2: notes[1].trim() || null,
         call_note_3: notes[2].trim() || null,
+        call_date_1: dates[0] || null,
+        call_date_2: dates[1] || null,
+        call_date_3: dates[2] || null,
       });
       onSaved(updated);
     } catch {
@@ -412,12 +420,22 @@ function CallNotesSection({
         통화 메모 (15분 x 3회)
       </p>
       <p className="mt-1 text-xs text-zinc-500">
-        통화가 끝날 때마다 해당 회차 메모를 남겨두면, 초안을 다시 생성할 때 함께 반영돼요.
+        통화가 끝날 때마다 해당 회차 날짜·메모를 남겨두면, 초안을 다시 생성할 때 회차별로 반영돼요.
       </p>
       <div className="mt-3 space-y-2.5">
         {[0, 1, 2].map((i) => (
           <div key={i}>
-            <label className="text-xs font-semibold text-slate-600">{i + 1}회차</label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-xs font-semibold text-slate-600">{i + 1}회차</label>
+              <input
+                type="date"
+                value={dates[i]}
+                onChange={(e) =>
+                  setDates((cur) => cur.map((d, idx) => (idx === i ? e.target.value : d)))
+                }
+                className="rounded border border-zinc-200 bg-white px-2 py-1 text-xs"
+              />
+            </div>
             <textarea
               value={notes[i]}
               onChange={(e) =>

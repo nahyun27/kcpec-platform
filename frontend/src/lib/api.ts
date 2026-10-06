@@ -751,7 +751,14 @@ export async function regenerateCounselingDraft(
 // 나온다.
 export async function updateSurveyCallNotes(
   surveyId: number,
-  notes: { call_note_1: string | null; call_note_2: string | null; call_note_3: string | null },
+  notes: {
+    call_note_1: string | null;
+    call_note_2: string | null;
+    call_note_3: string | null;
+    call_date_1: string | null;
+    call_date_2: string | null;
+    call_date_3: string | null;
+  },
 ): Promise<AdminSurveyDetail> {
   const { data } = await api.patch<AdminSurveyDetail>(
     `/admin/surveys/${surveyId}/call-notes`,

@@ -218,12 +218,19 @@ class AdminSurveyDetail(AdminSurveyRow):
     call_note_1: str | None = None
     call_note_2: str | None = None
     call_note_3: str | None = None
+    # 전화 심화상담 의견서 양식의 "상담회차" 표에 찍히는 실제 통화 날짜.
+    call_date_1: date | None = None
+    call_date_2: date | None = None
+    call_date_3: date | None = None
 
 
 class AdminSurveyCallNotesUpdate(BaseModel):
     call_note_1: str | None = None
     call_note_2: str | None = None
     call_note_3: str | None = None
+    call_date_1: date | None = None
+    call_date_2: date | None = None
+    call_date_3: date | None = None
 
 
 class SalesStatsDaily(BaseModel):

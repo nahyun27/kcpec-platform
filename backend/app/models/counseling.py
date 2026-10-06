@@ -1,7 +1,7 @@
 import enum
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -60,3 +60,8 @@ class CounselingSurvey(Base):
     call_note_1: Mapped[str | None] = mapped_column(Text, nullable=True)
     call_note_2: Mapped[str | None] = mapped_column(Text, nullable=True)
     call_note_3: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 전화 심화상담 의견서 양식의 "상담회차" 표에 찍히는 실제 통화 날짜 —
+    # call_note_N 과 1:1로 대응(2026-10, 전용 양식 도입).
+    call_date_1: Mapped[date | None] = mapped_column(Date, nullable=True)
+    call_date_2: Mapped[date | None] = mapped_column(Date, nullable=True)
+    call_date_3: Mapped[date | None] = mapped_column(Date, nullable=True)
