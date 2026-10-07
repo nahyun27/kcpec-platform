@@ -221,13 +221,11 @@ function Card({
 }
 
 function TodoBanner({ todo }: { todo: AdminTodoCounts }) {
+  // 무통장입금 확인은 토스 웹훅이 자동 처리하고 관리자가 직접 조치할 일이
+  // 없어서(입금되면 자동 결제완료, 기한 지나면 자동 취소) "오늘 할 일" 알림
+  // 목록에선 뺀다(2026-10) — 입금대기 주문 자체는 /admin/orders 에서 계속
+  // 볼 수 있다.
   const items = [
-    {
-      count: todo.pending_bank_transfer,
-      label: "무통장입금 확인 대기",
-      href: "/admin/orders?status=pending",
-      icon: <CreditCard className="h-3.5 w-3.5" />,
-    },
     {
       count: todo.counseling_draft_review,
       label: "심리상담 초안 검토 대기",

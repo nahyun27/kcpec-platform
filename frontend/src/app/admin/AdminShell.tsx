@@ -60,7 +60,7 @@ const NAV: (SingleNav | GroupNav)[] = [
     children: [
       { value: "all", label: "전체" },
       { value: "paid", label: "결제완료" },
-      { value: "pending", label: "입금대기", todoKey: "pending_bank_transfer" },
+      { value: "pending", label: "입금대기" },
       { value: "cancelled", label: "취소" },
       { value: "refunded", label: "환불" },
     ],

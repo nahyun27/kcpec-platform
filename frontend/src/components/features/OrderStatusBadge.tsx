@@ -15,8 +15,11 @@ export function OrderStatusBadge({
   pendingBank?: boolean;
 }) {
   if (pendingBank) {
+    // 입금 확인은 토스 웹훅이 자동 처리하고 관리자가 직접 조치할 일이
+    // 없는 정상 대기 상태라, "문제 발생"을 뜻하는 빨강 대신 다른 대기
+    // 상태(결제대기)와 같은 노랑 계열로 통일한다(2026-10).
     return (
-      <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
+      <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">
         입금 대기
       </span>
     );

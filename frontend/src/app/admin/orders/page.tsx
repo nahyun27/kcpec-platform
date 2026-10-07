@@ -303,7 +303,7 @@ function AdminOrdersPage() {
                     ) : null}
                     <tr
                       className={`transition-colors hover:bg-slate-50/80 ${
-                        isPendingBank ? "bg-red-50/40" : meta ? "bg-indigo-50/40" : ""
+                        isPendingBank ? "bg-amber-50/40" : meta ? "bg-indigo-50/40" : ""
                       } ${meta ? "border-l-[3px] border-l-indigo-400" : ""}`}
                     >
                     {!isBundled || meta.isGroupStart ? (
