@@ -41,7 +41,7 @@ export function Reveal({
   children: React.ReactNode;
   delay?: number;
   className?: string;
-  as?: "div" | "li";
+  as?: "div" | "li" | "section";
   id?: string;
 }) {
   const { ref, inView } = useInView<HTMLDivElement>();
