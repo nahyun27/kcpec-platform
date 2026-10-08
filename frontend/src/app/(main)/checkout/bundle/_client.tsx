@@ -582,18 +582,30 @@ export default function CheckoutBundleClient() {
 
               <div className="p-6">
                 <div className="mb-6 space-y-2 text-sm text-slate-600">
-                  <div className="flex justify-between pb-2">
-                    <span className="font-medium text-slate-500">강의 수</span>
-                    <span className="font-bold text-slate-900">{courses.length}건</span>
-                  </div>
-                  {selectedLetters.length > 0 ? (
-                    <div className="flex justify-between pb-2">
-                      <span className="font-medium text-slate-500">반성문·탄원서</span>
-                      <span className="font-bold text-slate-900">
-                        {selectedLetters.map((t) => LEGAL_LETTER_LABEL[t]).join(", ")}
+                  {courses.map((c) => (
+                    <div key={c.id} className="flex justify-between gap-3 pb-2">
+                      <span className="min-w-0 truncate font-medium text-slate-500">
+                        {counselingDisplayTitle(c.title)}
+                      </span>
+                      <span className="shrink-0 font-bold text-slate-900">
+                        {c.price.toLocaleString()}원
                       </span>
                     </div>
-                  ) : null}
+                  ))}
+                  {selectedLetters.map((t) => (
+                    <div key={t} className="flex justify-between gap-3 pb-2">
+                      <span className="min-w-0 truncate font-medium text-slate-500">
+                        {LEGAL_LETTER_LABEL[t]} 작성
+                      </span>
+                      <span className="shrink-0 font-bold text-slate-900">
+                        {(t === "repentance"
+                          ? letterInfo?.repentance_price
+                          : letterInfo?.petition_price
+                        )?.toLocaleString() ?? 0}
+                        원
+                      </span>
+                    </div>
+                  ))}
                   <div className="flex justify-between border-b border-zinc-100 pb-4">
                     <span className="font-medium text-slate-500">소계</span>
                     <span className="font-bold text-slate-900">
