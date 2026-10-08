@@ -15,6 +15,7 @@ import type {
   DocumentResponse,
   LawyerPartnerPortalInfo,
   LawyerPartnerPublic,
+  LawyerPartnerStatus,
   OrderResponse,
   PaymentMethod,
 } from "@/types/order";
@@ -1046,7 +1047,8 @@ export async function getAdminLawyerPartners(): Promise<AdminLawyerPartnerRow[]>
 export async function createLawyerPartner(payload: {
   law_firm_name: string;
   lawyer_name: string;
-  email?: string | null;
+  email: string;
+  phone?: string | null;
 }): Promise<AdminLawyerPartnerRow> {
   const { data } = await api.post<AdminLawyerPartnerRow>("/admin/lawyer-partners", payload);
   return data;
@@ -1058,7 +1060,8 @@ export async function patchLawyerPartner(
     law_firm_name?: string;
     lawyer_name?: string;
     email?: string | null;
-    is_active?: boolean;
+    phone?: string | null;
+    status?: LawyerPartnerStatus;
   },
 ): Promise<AdminLawyerPartnerRow> {
   const { data } = await api.patch<AdminLawyerPartnerRow>(
@@ -1072,8 +1075,42 @@ export async function deleteLawyerPartner(partnerId: number): Promise<void> {
   await api.delete(`/admin/lawyer-partners/${partnerId}`);
 }
 
+export async function approveLawyerPartner(partnerId: number): Promise<AdminLawyerPartnerRow> {
+  const { data } = await api.post<AdminLawyerPartnerRow>(
+    `/admin/lawyer-partners/${partnerId}/approve`,
+  );
+  return data;
+}
+
+export async function rejectLawyerPartner(partnerId: number): Promise<AdminLawyerPartnerRow> {
+  const { data } = await api.post<AdminLawyerPartnerRow>(
+    `/admin/lawyer-partners/${partnerId}/reject`,
+  );
+  return data;
+}
+
 export async function sendLawyerPartnerPortalEmail(partnerId: number): Promise<void> {
   await api.post(`/admin/lawyer-partners/${partnerId}/send-portal-email`);
+}
+
+// 코드 유출이 의심될 때 쓰는 재발급 — 기존 코드는 즉시 무효화되고, 새 코드는
+// 관리자가 직접 변호사에게 다시 전달해야 한다(이메일 자동 발송 없음).
+export async function regenerateLawyerPartnerCode(
+  partnerId: number,
+): Promise<AdminLawyerPartnerRow> {
+  const { data } = await api.post<AdminLawyerPartnerRow>(
+    `/admin/lawyer-partners/${partnerId}/regenerate-code`,
+  );
+  return data;
+}
+
+export async function applyLawyerPartner(payload: {
+  law_firm_name: string;
+  lawyer_name: string;
+  email: string;
+  phone: string;
+}): Promise<void> {
+  await api.post("/orders/lawyer-partners/apply", payload);
 }
 
 export async function getLawyerPartnerPortal(token: string): Promise<LawyerPartnerPortalInfo> {
@@ -1083,7 +1120,7 @@ export async function getLawyerPartnerPortal(token: string): Promise<LawyerPartn
   return data;
 }
 
-// 추천 코드가 담긴 /partner 링크를 인코딩한 QR PNG — 이미지 응답이라
+// 추천 코드가 담긴 /sentencing 링크를 인코딩한 QR PNG — 이미지 응답이라
 // <img src> 로 바로 쓴다(axios json 호출 아님).
 export function lawyerPartnerPortalQrUrl(token: string): string {
   return `${API_BASE_URL}/orders/lawyer-partners/portal/${token}/qr`;

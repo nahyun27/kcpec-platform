@@ -62,14 +62,17 @@ export type AdminOrderRow = {
   lawyer_partner_name: string | null;
 };
 
+export type LawyerPartnerStatus = "pending" | "active" | "inactive" | "rejected";
+
 export type AdminLawyerPartnerRow = {
   id: number;
   law_firm_name: string;
   lawyer_name: string;
   email: string | null;
+  phone: string | null;
   referral_code: string;
   portal_token: string;
-  is_active: boolean;
+  status: LawyerPartnerStatus;
   created_at: string;
   referral_order_count: number;
 };

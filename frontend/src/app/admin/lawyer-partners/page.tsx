@@ -2,20 +2,30 @@
 
 import { useEffect, useState } from "react";
 import {
+  approveLawyerPartner,
   createLawyerPartner,
   deleteLawyerPartner,
   getAdminLawyerPartners,
   lawyerPartnerPortalQrUrl,
   patchLawyerPartner,
+  regenerateLawyerPartnerCode,
+  rejectLawyerPartner,
   sendLawyerPartnerPortalEmail,
 } from "@/lib/api";
-import type { AdminLawyerPartnerRow } from "@/types/admin";
+import type { AdminLawyerPartnerRow, LawyerPartnerStatus } from "@/types/admin";
 import { useDialog } from "@/components/ui/DialogProvider";
 
 function portalUrl(token: string): string {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   return `${origin}/partner/my/${token}`;
 }
+
+const STATUS_BADGE: Record<LawyerPartnerStatus, { label: string; cls: string }> = {
+  pending: { label: "승인 대기", cls: "bg-amber-100 text-amber-700" },
+  active: { label: "활성", cls: "bg-emerald-100 text-emerald-700" },
+  inactive: { label: "비활성", cls: "bg-zinc-200 text-zinc-600" },
+  rejected: { label: "반려됨", cls: "bg-red-100 text-red-700" },
+};
 
 export default function AdminLawyerPartnersPage() {
   const dialog = useDialog();
@@ -44,7 +54,7 @@ export default function AdminLawyerPartnersPage() {
       await createLawyerPartner({
         law_firm_name: firmName.trim(),
         lawyer_name: lawyerName.trim(),
-        email: email.trim() || null,
+        email: email.trim(),
       });
       setFirmName("");
       setLawyerName("");
@@ -57,13 +67,65 @@ export default function AdminLawyerPartnersPage() {
     }
   }
 
+  async function handleApprove(row: AdminLawyerPartnerRow) {
+    const ok = await dialog.confirm(
+      `"${row.law_firm_name} ${row.lawyer_name}" 신청을 승인하시겠습니까?${
+        row.email ? `\n승인 즉시 ${row.email} 로 추천 코드·전용 링크가 자동 발송됩니다.` : ""
+      }`,
+    );
+    if (!ok) return;
+    setBusyId(row.id);
+    try {
+      await approveLawyerPartner(row.id);
+      load();
+    } catch {
+      await dialog.alert("승인에 실패했습니다.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleReject(row: AdminLawyerPartnerRow) {
+    const ok = await dialog.confirm(
+      `"${row.law_firm_name} ${row.lawyer_name}" 신청을 반려하시겠습니까?`,
+    );
+    if (!ok) return;
+    setBusyId(row.id);
+    try {
+      await rejectLawyerPartner(row.id);
+      load();
+    } catch {
+      await dialog.alert("반려에 실패했습니다.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function toggleActive(row: AdminLawyerPartnerRow) {
     setBusyId(row.id);
     try {
-      await patchLawyerPartner(row.id, { is_active: !row.is_active });
+      await patchLawyerPartner(row.id, {
+        status: row.status === "active" ? "inactive" : "active",
+      });
       load();
     } catch {
       await dialog.alert("상태 변경에 실패했습니다.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleRegenerateCode(row: AdminLawyerPartnerRow) {
+    const ok = await dialog.confirm(
+      `"${row.law_firm_name} ${row.lawyer_name}" 코드를 재발급하시겠습니까?\n기존 코드(${row.referral_code})는 즉시 사용할 수 없게 되며, 재발급 후에는 새 코드를 변호사님께 다시 전달해 주셔야 합니다.`,
+    );
+    if (!ok) return;
+    setBusyId(row.id);
+    try {
+      await regenerateLawyerPartnerCode(row.id);
+      load();
+    } catch {
+      await dialog.alert("코드 재발급에 실패했습니다.");
     } finally {
       setBusyId(null);
     }
@@ -134,6 +196,8 @@ export default function AdminLawyerPartnersPage() {
 
   if (error) return <p className="py-20 text-center text-sm text-red-600">{error}</p>;
 
+  const pendingCount = rows?.filter((r) => r.status === "pending").length ?? 0;
+
   return (
     <div className="space-y-6">
       <header>
@@ -141,15 +205,22 @@ export default function AdminLawyerPartnersPage() {
           변호사 파트너 관리
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
-          파트너를 추가하면 고유 추천 코드가 발급됩니다. 의뢰인이 결제 화면에서 이 코드를
-          입력해 확인되면 10% 할인이 자동 적용됩니다. 변호사님께는 본인 코드·QR·소개
-          현황을 직접 확인할 수 있는 전용 링크를 이메일로 보낼 수 있습니다. 그 링크와
-          결제용 추천 코드는 서로 다른 값이라 의뢰인이 알아도 전용 링크엔 접근할 수
-          없습니다. 파트너 전체 목록은 공개되지 않습니다.
+          변호사 사무실이 /partner 에서 직접 신청하면 "승인 대기" 상태로 들어옵니다. 승인하면
+          추천 코드가 활성화되고, 등록된 이메일로 추천 코드·전용 링크가 자동 발송됩니다.
+          전용 링크와 결제용 추천 코드는 서로 다른 값이라 의뢰인이 코드를 알아도 전용
+          링크엔 접근할 수 없습니다. 파트너 전체 목록은 공개되지 않습니다.
         </p>
+        {pendingCount > 0 ? (
+          <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+            승인 대기 중인 신청 {pendingCount}건
+          </p>
+        ) : null}
       </header>
 
       <div className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm">
+        <p className="w-full text-xs text-zinc-500">
+          아래 폼은 관리자가 직접 등록하는 용도입니다(승인 절차 없이 바로 활성화).
+        </p>
         <div>
           <label className="block text-xs font-semibold text-slate-600">법무법인명</label>
           <input
@@ -203,6 +274,7 @@ export default function AdminLawyerPartnersPage() {
               <tr>
                 <th className="px-4 py-3">법무법인</th>
                 <th className="px-4 py-3">변호사</th>
+                <th className="px-4 py-3">연락처</th>
                 <th className="px-4 py-3">이메일</th>
                 <th className="px-4 py-3">추천 코드</th>
                 <th className="px-4 py-3">QR</th>
@@ -216,6 +288,9 @@ export default function AdminLawyerPartnersPage() {
                 <tr key={r.id} className="hover:bg-slate-50/80">
                   <td className="px-4 py-3 font-semibold text-slate-900">{r.law_firm_name}</td>
                   <td className="px-4 py-3 text-slate-700">{r.lawyer_name}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">
+                    {r.phone ?? <span className="text-zinc-400">-</span>}
+                  </td>
                   <td className="px-4 py-3">
                     {editingEmailId === r.id ? (
                       <div className="flex items-center gap-1">
@@ -274,42 +349,71 @@ export default function AdminLawyerPartnersPage() {
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        r.is_active
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-zinc-200 text-zinc-600"
-                      }`}
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_BADGE[r.status].cls}`}
                     >
-                      {r.is_active ? "활성" : "비활성"}
+                      {STATUS_BADGE[r.status].label}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right font-mono">{r.referral_order_count}건</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => copyPortalLink(r)}
-                        className="rounded border border-zinc-200 px-2.5 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
-                      >
-                        포털 링크 복사
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSendEmail(r)}
-                        disabled={busyId === r.id || !r.email}
-                        title={r.email ? undefined : "이메일을 먼저 등록해 주세요"}
-                        className="rounded border border-[var(--color-primary)] px-2.5 py-1 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 disabled:opacity-40"
-                      >
-                        이메일 발송
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => toggleActive(r)}
-                        disabled={busyId === r.id}
-                        className="rounded border border-zinc-200 px-2.5 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
-                      >
-                        {r.is_active ? "비활성화" : "활성화"}
-                      </button>
+                      {r.status === "pending" ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(r)}
+                            disabled={busyId === r.id}
+                            className="rounded bg-[var(--color-primary)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-50"
+                          >
+                            승인
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleReject(r)}
+                            disabled={busyId === r.id}
+                            className="rounded border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            반려
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => copyPortalLink(r)}
+                            className="rounded border border-zinc-200 px-2.5 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
+                          >
+                            포털 링크 복사
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSendEmail(r)}
+                            disabled={busyId === r.id || !r.email}
+                            title={r.email ? undefined : "이메일을 먼저 등록해 주세요"}
+                            className="rounded border border-[var(--color-primary)] px-2.5 py-1 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 disabled:opacity-40"
+                          >
+                            이메일 발송
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRegenerateCode(r)}
+                            disabled={busyId === r.id}
+                            className="rounded border border-amber-300 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                          >
+                            코드 재발급
+                          </button>
+                          {r.status !== "rejected" ? (
+                            <button
+                              type="button"
+                              onClick={() => toggleActive(r)}
+                              disabled={busyId === r.id}
+                              className="rounded border border-zinc-200 px-2.5 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                            >
+                              {r.status === "active" ? "비활성화" : "활성화"}
+                            </button>
+                          ) : null}
+                        </>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleDelete(r)}

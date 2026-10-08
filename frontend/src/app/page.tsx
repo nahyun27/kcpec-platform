@@ -182,11 +182,11 @@ function LawyerPartnerBanner() {
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-slate-600 sm:text-base">
           의뢰인 양형자료 준비를 KCPEC과 함께하세요. 사건 유형만 선택하면 필요한 교육과
-          제출 서류를 자동으로 안내하고, 의뢰인은 결제 시 담당 변호사 사무실을 선택해
+          제출 서류를 자동으로 안내하고, 의뢰인은 결제 시 안내받은 추천 코드를 입력해
           10% 할인을 받을 수 있습니다.
         </p>
         <Link
-          href="/partner/apply"
+          href="/partner"
           className="mt-6 inline-flex items-center rounded-full bg-[var(--color-primary)] px-6 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[var(--color-primary-hover)]"
         >
           변호사 파트너 안내 보기 →

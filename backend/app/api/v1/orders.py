@@ -15,11 +15,16 @@ from app.core.email import send_new_order_notification
 from app.core.qr import generate_qr_png
 from app.models.course import Course, CourseCategory
 from app.models.enrollment import Enrollment
-from app.models.lawyer_partner import LawyerPartner
+from app.models.lawyer_partner import LawyerPartner, LawyerPartnerStatus, generate_portal_token, generate_referral_code
 from app.models.legal_letter import LegalLetterType
 from app.models.order import Order, OrderStatus, OrderType, PaymentMethod
 from app.models.user import User
-from app.schemas.lawyer_partner import LawyerPartnerPortalInfo, LawyerPartnerPublic
+from app.schemas.admin import OkResponse
+from app.schemas.lawyer_partner import (
+    LawyerPartnerApplyRequest,
+    LawyerPartnerPortalInfo,
+    LawyerPartnerPublic,
+)
 from app.schemas.order import (
     BankTransferConfirm,
     BundleCreateRequest,
@@ -269,12 +274,39 @@ def verify_lawyer_partner_code(
     partner = db.scalar(
         select(LawyerPartner).where(
             LawyerPartner.referral_code == code.strip().upper(),
-            LawyerPartner.is_active.is_(True),
+            LawyerPartner.status == LawyerPartnerStatus.ACTIVE,
         )
     )
     if partner is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="유효하지 않은 추천 코드입니다.")
     return LawyerPartnerPublic.model_validate(partner)
+
+
+@router.post(
+    "/lawyer-partners/apply", response_model=OkResponse, status_code=status.HTTP_201_CREATED
+)
+def apply_lawyer_partner(
+    payload: LawyerPartnerApplyRequest, db: Session = Depends(get_db)
+) -> OkResponse:
+    """변호사 사무실이 /partner 에서 직접 제출하는 제휴 신청 — 공개
+    엔드포인트. PENDING 상태로 생성되고, 관리자가 승인해야 추천 코드가
+    결제 화면에서 동작한다(2026-10)."""
+    for _ in range(5):
+        code = generate_referral_code()
+        if db.scalar(select(LawyerPartner).where(LawyerPartner.referral_code == code)) is None:
+            break
+    partner = LawyerPartner(
+        law_firm_name=payload.law_firm_name,
+        lawyer_name=payload.lawyer_name,
+        email=payload.email,
+        phone=payload.phone,
+        referral_code=code,
+        portal_token=generate_portal_token(),
+        status=LawyerPartnerStatus.PENDING,
+    )
+    db.add(partner)
+    db.commit()
+    return OkResponse()
 
 
 def _get_partner_by_portal_token(db: Session, token: str) -> LawyerPartner:
@@ -302,18 +334,21 @@ def get_lawyer_partner_portal(token: str, db: Session = Depends(get_db)) -> Lawy
         law_firm_name=partner.law_firm_name,
         lawyer_name=partner.lawyer_name,
         referral_code=partner.referral_code,
-        is_active=partner.is_active,
+        status=partner.status,
         referral_order_count=count,
     )
 
 
 @router.get("/lawyer-partners/portal/{token}/qr")
 def get_lawyer_partner_portal_qr(token: str, db: Session = Depends(get_db)) -> Response:
-    """의뢰인에게 보여줄 QR — 추천 코드가 담긴 /partner 링크를 인코딩한다.
-    전부 로컬에서 생성(app.core.qr) — 외부 QR 서비스에 이 링크를 보내지
-    않는다."""
+    """의뢰인에게 보여줄 QR — 추천 코드가 담긴 /sentencing(맞춤 강의 찾기)
+    링크를 인코딩한다. 전부 로컬에서 생성(app.core.qr) — 외부 QR 서비스에
+    이 링크를 보내지 않는다. /partner 는 변호사 사무실 제휴 신청 페이지로
+    바뀌어(2026-10) 의뢰인용 랜딩으로 더는 쓰지 않는다 — 코드 자동입력은
+    아직 없어 /sentencing 에서 맞춤 강의를 고른 뒤 결제 화면에서 직접
+    입력해야 한다."""
     partner = _get_partner_by_portal_token(db, token)
-    client_url = f"{settings.FRONTEND_BASE_URL}/partner?code={partner.referral_code}"
+    client_url = f"{settings.FRONTEND_BASE_URL}/sentencing?lawyer_code={partner.referral_code}"
     png = generate_qr_png(client_url)
     return Response(content=png, media_type="image/png")
 
@@ -402,7 +437,7 @@ def create_order_bundle(
         lawyer_partner = db.scalar(
             select(LawyerPartner).where(LawyerPartner.referral_code == code)
         )
-        if lawyer_partner is None or not lawyer_partner.is_active:
+        if lawyer_partner is None or lawyer_partner.status != LawyerPartnerStatus.ACTIVE:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST, detail="유효하지 않은 추천 코드입니다."
             )

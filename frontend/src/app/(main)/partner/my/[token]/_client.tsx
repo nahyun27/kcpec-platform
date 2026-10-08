@@ -45,7 +45,13 @@ export default function LawyerPortalClient({ token }: { token: string }) {
           <p className="mt-1 text-sm text-slate-500">KCPEC 변호사 파트너 전용 페이지입니다.</p>
         </div>
 
-        {!info.is_active ? (
+        {info.status === "pending" ? (
+          <div className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            신청 승인 대기 중입니다. 승인이 완료되면 추천 코드가 결제 화면에서 바로
+            동작합니다.
+          </div>
+        ) : info.status !== "active" ? (
           <div className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
             <AlertCircle className="h-4 w-4 shrink-0" />
             현재 비활성 상태입니다. 추천 코드가 결제 화면에서 동작하지 않습니다. 확인이

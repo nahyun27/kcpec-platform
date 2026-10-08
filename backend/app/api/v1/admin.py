@@ -53,7 +53,12 @@ from app.models.course import Course, CourseCategory
 from app.models.document import IssuedDocument, IssuedDocumentStatus, IssuedDocumentType
 from app.models.enrollment import Enrollment
 from app.models.faq import Faq
-from app.models.lawyer_partner import LawyerPartner, generate_portal_token, generate_referral_code
+from app.models.lawyer_partner import (
+    LawyerPartner,
+    LawyerPartnerStatus,
+    generate_portal_token,
+    generate_referral_code,
+)
 from app.models.lecture import Lecture
 from app.models.order import Order, OrderStatus, PaymentMethod
 from app.models.quiz import Quiz, QuizOption, QuizQuestion
@@ -2294,11 +2299,24 @@ def _admin_partner_row(partner: LawyerPartner, referral_order_count: int) -> Adm
         law_firm_name=partner.law_firm_name,
         lawyer_name=partner.lawyer_name,
         email=partner.email,
+        phone=partner.phone,
         referral_code=partner.referral_code,
         portal_token=partner.portal_token,
-        is_active=partner.is_active,
+        status=partner.status,
         created_at=partner.created_at,
         referral_order_count=referral_order_count,
+    )
+
+
+def _send_portal_email(partner: LawyerPartner) -> bool:
+    if not partner.email:
+        return False
+    portal_url = f"{settings.FRONTEND_BASE_URL}/partner/my/{partner.portal_token}"
+    return send_lawyer_partner_portal(
+        to_email=partner.email,
+        law_firm_name=partner.law_firm_name,
+        lawyer_name=partner.lawyer_name,
+        portal_url=portal_url,
     )
 
 
@@ -2330,6 +2348,8 @@ def admin_list_lawyer_partners(db: Session = Depends(get_db)) -> list[AdminLawye
 def create_lawyer_partner(
     payload: LawyerPartnerCreate, db: Session = Depends(get_db)
 ) -> AdminLawyerPartnerRow:
+    """관리자가 직접 등록 — 승인 절차 없이 바로 ACTIVE(자가 신청은
+    apply_lawyer_partner/PENDING 참고)."""
     # 충돌 확률은 사실상 0에 가깝지만(33^8 조합), 유니크 제약 위반으로 요청
     # 전체가 실패하는 것보단 재시도하는 게 안전하다.
     for _ in range(5):
@@ -2337,7 +2357,10 @@ def create_lawyer_partner(
         if db.scalar(select(LawyerPartner).where(LawyerPartner.referral_code == code)) is None:
             break
     partner = LawyerPartner(
-        referral_code=code, portal_token=generate_portal_token(), **payload.model_dump()
+        referral_code=code,
+        portal_token=generate_portal_token(),
+        status=LawyerPartnerStatus.ACTIVE,
+        **payload.model_dump(),
     )
     db.add(partner)
     db.commit()
@@ -2364,7 +2387,8 @@ def send_lawyer_partner_portal_email(
     partner_id: int, db: Session = Depends(get_db)
 ) -> OkResponse:
     """변호사 본인 전용 "마이페이지" 링크(추천 코드·QR·소개 현황 확인)를
-    등록된 이메일로 발송."""
+    등록된 이메일로 재발송(승인 시 이미 한 번 발송되지만, 분실 등으로
+    다시 보내야 할 때 사용)."""
     partner = db.get(LawyerPartner, partner_id)
     if partner is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="파트너를 찾을 수 없습니다.")
@@ -2372,16 +2396,62 @@ def send_lawyer_partner_portal_email(
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, detail="등록된 이메일이 없습니다. 먼저 이메일을 입력해 주세요."
         )
-    portal_url = f"{settings.FRONTEND_BASE_URL}/partner/my/{partner.portal_token}"
-    ok = send_lawyer_partner_portal(
-        to_email=partner.email,
-        law_firm_name=partner.law_firm_name,
-        lawyer_name=partner.lawyer_name,
-        portal_url=portal_url,
-    )
-    if not ok:
+    if not _send_portal_email(partner):
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="이메일 발송에 실패했습니다.")
     return OkResponse()
+
+
+@router.post("/lawyer-partners/{partner_id}/approve", response_model=AdminLawyerPartnerRow)
+def approve_lawyer_partner(
+    partner_id: int, db: Session = Depends(get_db)
+) -> AdminLawyerPartnerRow:
+    """/partner 에서 들어온 신청(PENDING)을 승인 — 바로 ACTIVE로 바꾸고,
+    이메일이 있으면 추천 코드·포털 링크를 자동 발송한다. 이메일 발송이
+    실패해도 승인 자체는 그대로 반영한다(관리자가 "이메일 발송" 버튼으로
+    나중에 다시 보낼 수 있음)."""
+    partner = db.get(LawyerPartner, partner_id)
+    if partner is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="파트너를 찾을 수 없습니다.")
+    partner.status = LawyerPartnerStatus.ACTIVE
+    db.commit()
+    db.refresh(partner)
+    _send_portal_email(partner)
+    return _admin_partner_row(partner, _partner_referral_count(db, partner.id))
+
+
+@router.post("/lawyer-partners/{partner_id}/reject", response_model=AdminLawyerPartnerRow)
+def reject_lawyer_partner(
+    partner_id: int, db: Session = Depends(get_db)
+) -> AdminLawyerPartnerRow:
+    partner = db.get(LawyerPartner, partner_id)
+    if partner is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="파트너를 찾을 수 없습니다.")
+    partner.status = LawyerPartnerStatus.REJECTED
+    db.commit()
+    db.refresh(partner)
+    return _admin_partner_row(partner, _partner_referral_count(db, partner.id))
+
+
+@router.post("/lawyer-partners/{partner_id}/regenerate-code", response_model=AdminLawyerPartnerRow)
+def regenerate_lawyer_partner_code(
+    partner_id: int, db: Session = Depends(get_db)
+) -> AdminLawyerPartnerRow:
+    """코드 유출이 의심될 때 쓰는 재발급 — 기존 코드는 그 즉시 결제 화면에서
+    더 이상 먹히지 않는다. 이메일은 자동으로 안 나가니(재발급은 "유출
+    대응"이라 기존 이메일이 이미 새어나갔을 수 있어 같은 채널로 또 보내는
+    게 안전하지 않을 수 있음), 관리자가 상황에 맞는 방법으로 변호사에게
+    새 코드를 직접 전달해야 한다."""
+    partner = db.get(LawyerPartner, partner_id)
+    if partner is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="파트너를 찾을 수 없습니다.")
+    for _ in range(5):
+        code = generate_referral_code()
+        if db.scalar(select(LawyerPartner).where(LawyerPartner.referral_code == code)) is None:
+            break
+    partner.referral_code = code
+    db.commit()
+    db.refresh(partner)
+    return _admin_partner_row(partner, _partner_referral_count(db, partner.id))
 
 
 @router.delete("/lawyer-partners/{partner_id}", response_model=OkResponse)
