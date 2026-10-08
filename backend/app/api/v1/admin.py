@@ -49,7 +49,7 @@ from app.models.course import Course, CourseCategory
 from app.models.document import IssuedDocument, IssuedDocumentStatus, IssuedDocumentType
 from app.models.enrollment import Enrollment
 from app.models.faq import Faq
-from app.models.lawyer_partner import LawyerPartner
+from app.models.lawyer_partner import LawyerPartner, generate_referral_code
 from app.models.lecture import Lecture
 from app.models.order import Order, OrderStatus, PaymentMethod
 from app.models.quiz import Quiz, QuizOption, QuizQuestion
@@ -2297,6 +2297,7 @@ def admin_list_lawyer_partners(db: Session = Depends(get_db)) -> list[AdminLawye
             id=p.id,
             law_firm_name=p.law_firm_name,
             lawyer_name=p.lawyer_name,
+            referral_code=p.referral_code,
             is_active=p.is_active,
             created_at=p.created_at,
             referral_order_count=counts.get(p.id, 0),
@@ -2311,7 +2312,13 @@ def admin_list_lawyer_partners(db: Session = Depends(get_db)) -> list[AdminLawye
 def create_lawyer_partner(
     payload: LawyerPartnerCreate, db: Session = Depends(get_db)
 ) -> AdminLawyerPartnerRow:
-    partner = LawyerPartner(**payload.model_dump())
+    # 충돌 확률은 사실상 0에 가깝지만(33^8 조합), 유니크 제약 위반으로 요청
+    # 전체가 실패하는 것보단 재시도하는 게 안전하다.
+    for _ in range(5):
+        code = generate_referral_code()
+        if db.scalar(select(LawyerPartner).where(LawyerPartner.referral_code == code)) is None:
+            break
+    partner = LawyerPartner(referral_code=code, **payload.model_dump())
     db.add(partner)
     db.commit()
     db.refresh(partner)
@@ -2319,6 +2326,7 @@ def create_lawyer_partner(
         id=partner.id,
         law_firm_name=partner.law_firm_name,
         lawyer_name=partner.lawyer_name,
+        referral_code=partner.referral_code,
         is_active=partner.is_active,
         created_at=partner.created_at,
         referral_order_count=0,
@@ -2348,6 +2356,7 @@ def patch_lawyer_partner(
         id=partner.id,
         law_firm_name=partner.law_firm_name,
         lawyer_name=partner.lawyer_name,
+        referral_code=partner.referral_code,
         is_active=partner.is_active,
         created_at=partner.created_at,
         referral_order_count=referral_order_count,

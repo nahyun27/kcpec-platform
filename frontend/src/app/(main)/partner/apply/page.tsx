@@ -149,9 +149,9 @@ export default function PartnerApplyPage() {
             변호사 사무실 파트너가 되시면
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-slate-600 sm:text-base">
-            의뢰인께 안내문만 전달해 주시면 됩니다. 의뢰인이 결제 시 담당 변호사 사무실을
-            선택하면 10% 할인이 자동 적용되며, 사무실과의 별도 코드 발급이나 정산 절차는
-            없습니다.
+            등록해 드리는 사무실 전용 추천 코드를 의뢰인께 안내해 주시면 됩니다. 의뢰인이
+            결제 시 그 코드를 입력하면 10% 할인이 자동 적용되며, 사무실과의 별도 정산
+            절차는 없습니다.
           </p>
           <p className="mt-6 text-sm font-semibold text-slate-700">파트너 등록 문의</p>
           <div className="mt-2 flex flex-col items-center justify-center gap-2 sm:flex-row sm:gap-6">

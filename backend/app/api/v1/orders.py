@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
@@ -255,15 +255,25 @@ def create_order(
     return order
 
 
-@router.get("/lawyer-partners", response_model=list[LawyerPartnerPublic])
-def list_lawyer_partners(db: Session = Depends(get_db)) -> list[LawyerPartnerPublic]:
-    """결제 화면의 "담당 변호사 사무실" 선택지 — 활성 파트너만."""
-    partners = db.scalars(
-        select(LawyerPartner)
-        .where(LawyerPartner.is_active.is_(True))
-        .order_by(LawyerPartner.law_firm_name, LawyerPartner.lawyer_name)
-    ).all()
-    return [LawyerPartnerPublic.model_validate(p) for p in partners]
+@router.get("/lawyer-partners/verify", response_model=LawyerPartnerPublic)
+def verify_lawyer_partner_code(
+    code: str = Query(min_length=1, max_length=16), db: Session = Depends(get_db)
+) -> LawyerPartnerPublic:
+    """결제 화면에서 입력한 추천 코드 확인 — 정확한 코드를 아는 사람에게만
+    사무실명을 보여준다. 처음엔 활성 파트너 전체를 목록으로 내려줬는데,
+    그러면 아무나 목록에서 아무 사무실이나 골라 10% 할인을 받을 수 있는
+    허점이 있어(2026-10, 실사용 중 발견) 코드 입력 방식으로 변경 — 이
+    엔드포인트는 "해당 코드가 유효한가"만 답하고 전체 목록은 절대 반환하지
+    않는다."""
+    partner = db.scalar(
+        select(LawyerPartner).where(
+            LawyerPartner.referral_code == code.strip().upper(),
+            LawyerPartner.is_active.is_(True),
+        )
+    )
+    if partner is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="유효하지 않은 추천 코드입니다.")
+    return LawyerPartnerPublic.model_validate(partner)
 
 
 @router.post(
@@ -345,11 +355,14 @@ def create_order_bundle(
     # 직접 계산(10%, 클라이언트 입력 신뢰 안 함). 묶음결제 할인(10,000원) 적용
     # "후" 금액 기준으로 10%를 한 번 더 뺀다(2026-10, 의뢰인 확인).
     lawyer_partner: LawyerPartner | None = None
-    if payload.lawyer_partner_id is not None:
-        lawyer_partner = db.get(LawyerPartner, payload.lawyer_partner_id)
+    if payload.lawyer_referral_code is not None and payload.lawyer_referral_code.strip():
+        code = payload.lawyer_referral_code.strip().upper()
+        lawyer_partner = db.scalar(
+            select(LawyerPartner).where(LawyerPartner.referral_code == code)
+        )
         if lawyer_partner is None or not lawyer_partner.is_active:
             raise HTTPException(
-                status.HTTP_400_BAD_REQUEST, detail="선택한 변호사 파트너를 찾을 수 없습니다."
+                status.HTTP_400_BAD_REQUEST, detail="유효하지 않은 추천 코드입니다."
             )
 
     subtotal = sum(courses[cid].price or 0 for cid in course_ids) + sum(

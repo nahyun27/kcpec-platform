@@ -16,7 +16,7 @@ const STEPS = [
   {
     n: "02",
     title: "추천 과정 결제",
-    desc: "추천 교육과 발급 서류, 총 금액을 확인하고 결제합니다. 결제 화면에서 담당 변호사 사무실을 선택하시면 10% 할인이 자동으로 적용됩니다.",
+    desc: "추천 교육과 발급 서류, 총 금액을 확인하고 결제합니다. 결제 화면에서 안내받은 추천 코드를 입력하시면 10% 할인이 자동으로 적용됩니다.",
   },
   {
     n: "03",
@@ -76,8 +76,8 @@ export default function PartnerPage() {
             변호사님 소개로 오신 의뢰인 <span className="text-[var(--color-primary)]">10% 할인</span>
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-slate-600 sm:text-base">
-            결제 화면에서 담당 변호사 사무실 · 변호사 이름을 선택하시면 할인이 자동으로
-            적용됩니다. 별도 코드나 정산 절차는 없습니다.
+            담당 변호사 사무실로부터 안내받은 추천 코드를 결제 화면에서 입력하시면 할인이
+            자동으로 적용됩니다. 사무실과의 별도 정산 절차는 없습니다.
           </p>
           <Link
             href="/sentencing"

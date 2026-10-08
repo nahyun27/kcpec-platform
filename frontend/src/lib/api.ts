@@ -369,14 +369,18 @@ export async function createOrderBundle(payload: {
   course_ids: number[];
   payment_method: PaymentMethod;
   legal_letters?: LegalLetterType[];
-  lawyer_partner_id?: number | null;
+  lawyer_referral_code?: string | null;
 }): Promise<BundleCreateResponse> {
   const { data } = await api.post<BundleCreateResponse>("/orders/bundle", payload);
   return data;
 }
 
-export async function getLawyerPartners(): Promise<LawyerPartnerPublic[]> {
-  const { data } = await api.get<LawyerPartnerPublic[]>("/orders/lawyer-partners");
+// 추천 코드 확인 — 유효하지 않으면 404. 전체 목록 조회는 없다(코드를
+// 아는 사람만 자기 사무실 이름을 확인할 수 있게, 2026-10).
+export async function verifyLawyerReferralCode(code: string): Promise<LawyerPartnerPublic> {
+  const { data } = await api.get<LawyerPartnerPublic>("/orders/lawyer-partners/verify", {
+    params: { code },
+  });
   return data;
 }
 

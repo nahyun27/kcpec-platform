@@ -79,8 +79,9 @@ export default function AdminLawyerPartnersPage() {
           변호사 파트너 관리
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
-          결제 화면에서 의뢰인이 선택할 수 있는 담당 변호사 사무실 목록입니다. 선택하면 10%
-          할인이 자동 적용됩니다 — 별도 코드나 사무실과의 정산은 없습니다.
+          파트너를 추가하면 고유 추천 코드가 발급됩니다. 이 코드를 해당 사무실에 전달해
+          주세요 — 의뢰인이 결제 화면에서 코드를 입력해 확인되면 10% 할인이 자동
+          적용됩니다. 사무실과의 별도 정산은 없고, 목록은 공개되지 않습니다.
         </p>
       </header>
 
@@ -128,6 +129,7 @@ export default function AdminLawyerPartnersPage() {
               <tr>
                 <th className="px-4 py-3">법무법인</th>
                 <th className="px-4 py-3">변호사</th>
+                <th className="px-4 py-3">추천 코드</th>
                 <th className="px-4 py-3">상태</th>
                 <th className="px-4 py-3 text-right">누적 리퍼럴 결제</th>
                 <th className="px-4 py-3">등록일</th>
@@ -139,6 +141,18 @@ export default function AdminLawyerPartnersPage() {
                 <tr key={r.id} className="hover:bg-slate-50/80">
                   <td className="px-4 py-3 font-semibold text-slate-900">{r.law_firm_name}</td>
                   <td className="px-4 py-3 text-slate-700">{r.lawyer_name}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(r.referral_code).catch(() => {});
+                      }}
+                      title="클릭해서 복사"
+                      className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1 font-mono text-xs font-bold tracking-wider text-slate-700 hover:bg-zinc-100"
+                    >
+                      {r.referral_code}
+                    </button>
+                  </td>
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${

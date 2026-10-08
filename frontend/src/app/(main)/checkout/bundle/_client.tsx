@@ -7,9 +7,9 @@ import { isAxiosError } from "axios";
 import {
   createOrderBundle,
   getCourseDetail,
-  getLawyerPartners,
   getLegalLetterInfo,
   tokenStorage,
+  verifyLawyerReferralCode,
 } from "@/lib/api";
 import type { CourseDetail } from "@/types/course";
 import { PAYMENT_METHOD_LABEL, type LawyerPartnerPublic, type PaymentMethod } from "@/types/order";
@@ -112,15 +112,36 @@ export default function CheckoutBundleClient() {
     setSelectedLetters((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
   }
 
-  // 변호사 사무실 리퍼럴 — 결제 시 선택하면 10% 추가 할인(별도 코드/정산 없음).
-  const [lawyerPartners, setLawyerPartners] = useState<LawyerPartnerPublic[]>([]);
-  const [lawyerPartnerId, setLawyerPartnerId] = useState<number | "">("");
+  // 변호사 사무실 리퍼럴 — 안내받은 추천 코드를 입력해 확인되면 10% 추가
+  // 할인(사무실과의 정산 없음). 전체 목록을 보여주면 아무나 골라 할인받을
+  // 수 있어, 코드를 아는 사람만 "확인" 버튼으로 검증하는 방식으로 전환
+  // (2026-10, 실사용 중 발견된 허점 수정).
+  const [lawyerCode, setLawyerCode] = useState("");
+  const [verifiedPartner, setVerifiedPartner] = useState<LawyerPartnerPublic | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
-  useEffect(() => {
-    getLawyerPartners()
-      .then(setLawyerPartners)
-      .catch(() => {});
-  }, []);
+  async function handleVerifyLawyerCode() {
+    const code = lawyerCode.trim();
+    if (!code) return;
+    setVerifying(true);
+    setVerifyError(null);
+    try {
+      const partner = await verifyLawyerReferralCode(code);
+      setVerifiedPartner(partner);
+    } catch {
+      setVerifiedPartner(null);
+      setVerifyError("유효하지 않은 추천 코드입니다. 다시 확인해 주세요.");
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  function clearLawyerCode() {
+    setLawyerCode("");
+    setVerifiedPartner(null);
+    setVerifyError(null);
+  }
 
   // 토스 결제창에서 실패/취소 시 failUrl(이 페이지 자체)로 code/message 를
   // 쿼리스트링에 실어 되돌아온다. 예전엔 이걸 그냥 무시해서, 사용자가
@@ -196,7 +217,7 @@ export default function CheckoutBundleClient() {
   const subtotal = coursesSubtotal + letterTotal;
   const discount = subtotal >= BULK_DISCOUNT_THRESHOLD ? BULK_DISCOUNT_AMOUNT : 0;
   const afterBundleDiscount = subtotal - discount;
-  const lawyerDiscount = lawyerPartnerId !== "" ? Math.round(afterBundleDiscount * 0.1) : 0;
+  const lawyerDiscount = verifiedPartner ? Math.round(afterBundleDiscount * 0.1) : 0;
   const total = afterBundleDiscount - lawyerDiscount;
 
   async function handleCheckout() {
@@ -208,7 +229,7 @@ export default function CheckoutBundleClient() {
         course_ids: courseIds,
         payment_method: paymentMethod,
         legal_letters: selectedLetters,
-        lawyer_partner_id: lawyerPartnerId === "" ? null : lawyerPartnerId,
+        lawyer_referral_code: verifiedPartner ? lawyerCode.trim() : null,
       });
 
       const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
@@ -492,37 +513,63 @@ export default function CheckoutBundleClient() {
               </section>
             ) : null}
 
-            {lawyerPartners.length > 0 ? (
-              <section>
-                <div className="mb-6 flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">
-                    {letterInfo ? 4 : 3}
-                  </div>
-                  <h2 className="font-sans text-xl font-bold text-slate-900">
-                    변호사 사무실 소개{" "}
-                    <span className="text-sm font-medium text-zinc-400">(선택, 10% 할인)</span>
-                  </h2>
+            <section>
+              <div className="mb-6 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">
+                  {letterInfo ? 4 : 3}
                 </div>
-                <p className="mb-4 text-sm text-slate-500">
-                  담당 변호사 사무실을 소개받아 오셨다면 선택해 주세요. 결제 시 10% 할인이
-                  자동으로 적용됩니다.
-                </p>
-                <select
-                  value={lawyerPartnerId}
-                  onChange={(e) =>
-                    setLawyerPartnerId(e.target.value === "" ? "" : Number(e.target.value))
-                  }
-                  className="w-full rounded-xl border-2 border-zinc-200 bg-white px-4 py-3 text-sm focus:border-[var(--color-primary)] focus:outline-none"
-                >
-                  <option value="">선택 안 함</option>
-                  {lawyerPartners.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.law_firm_name} {p.lawyer_name} 변호사
-                    </option>
-                  ))}
-                </select>
-              </section>
-            ) : null}
+                <h2 className="font-sans text-xl font-bold text-slate-900">
+                  변호사 사무실 추천 코드{" "}
+                  <span className="text-sm font-medium text-zinc-400">(선택, 10% 할인)</span>
+                </h2>
+              </div>
+              <p className="mb-4 text-sm text-slate-500">
+                담당 변호사 사무실로부터 추천 코드를 안내받으셨다면 입력해 주세요. 확인되면
+                10% 할인이 자동으로 적용됩니다.
+              </p>
+              {verifiedPartner ? (
+                <div className="flex items-center justify-between gap-3 rounded-xl border-2 border-[var(--color-primary)] bg-[var(--color-primary)]/5 px-4 py-3">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <CheckCircle2 className="h-4 w-4 text-[var(--color-primary)]" />
+                    {verifiedPartner.law_firm_name} {verifiedPartner.lawyer_name} 변호사님 소개
+                    확인됨
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearLawyerCode}
+                    className="shrink-0 text-xs font-semibold text-zinc-400 hover:text-zinc-600"
+                  >
+                    취소
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={lawyerCode}
+                      onChange={(e) => {
+                        setLawyerCode(e.target.value);
+                        setVerifyError(null);
+                      }}
+                      placeholder="추천 코드 입력"
+                      className="flex-1 rounded-xl border-2 border-zinc-200 bg-white px-4 py-3 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleVerifyLawyerCode}
+                      disabled={verifying || !lawyerCode.trim()}
+                      className="shrink-0 rounded-xl border-2 border-[var(--color-primary)] px-4 text-sm font-bold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 disabled:opacity-50"
+                    >
+                      {verifying ? "확인 중..." : "확인"}
+                    </button>
+                  </div>
+                  {verifyError ? (
+                    <p className="mt-2 text-xs font-medium text-red-500">{verifyError}</p>
+                  ) : null}
+                </div>
+              )}
+            </section>
           </div>
 
           <div className="lg:col-span-4">

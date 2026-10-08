@@ -59,6 +59,9 @@ export type BundleCreateResponse = {
   items: BundleItem[];
 };
 
+// 추천 코드 확인(검증) 응답용 — 코드를 정확히 아는 사람에게만 보여주는
+// 최소 정보. 전체 목록 조회는 없다(2026-10, 목록 노출로 아무나 할인받을
+// 수 있던 허점 수정).
 export type LawyerPartnerPublic = {
   id: number;
   law_firm_name: string;
