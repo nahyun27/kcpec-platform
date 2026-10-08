@@ -84,6 +84,7 @@ export default function CheckoutBundleClient() {
   const coursesParam = searchParams.get("courses") ?? "";
   const courseIds = coursesParam
     .split(",")
+    .filter((s) => s !== "")
     .map((s) => Number(s))
     .filter((n) => Number.isFinite(n));
   const [courses, setCourses] = useState<CourseDetail[]>([]);
@@ -167,8 +168,10 @@ export default function CheckoutBundleClient() {
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    if (courseIds.length === 0) {
-      setError("잘못된 접근입니다. (선택한 강의 없음)");
+    // 반성문·탄원서만 단독으로 담아 넘어올 수도 있다(2026-10) — 강의가
+    // 0개여도 그 자체로는 "잘못된 접근"이 아니다. 둘 다 비어있을 때만 막는다.
+    if (courseIds.length === 0 && selectedLetters.length === 0) {
+      setError("잘못된 접근입니다. (선택한 상품 없음)");
       setLoading(false);
       return;
     }
@@ -176,6 +179,11 @@ export default function CheckoutBundleClient() {
       router.replace(
         `/login?next=${encodeURIComponent(`/checkout/bundle?courses=${coursesParam}`)}`,
       );
+      return;
+    }
+    if (courseIds.length === 0) {
+      setCourses([]);
+      setLoading(false);
       return;
     }
 
@@ -220,8 +228,16 @@ export default function CheckoutBundleClient() {
   const lawyerDiscount = verifiedPartner ? Math.round(afterBundleDiscount * 0.1) : 0;
   const total = afterBundleDiscount - lawyerDiscount;
 
+  // 반성문·탄원서만 단독으로 담아올 땐 "선택한 과정" 섹션 자체가 없어지므로,
+  // 번호가 빈 자리 없이 순서대로 매겨지도록 섹션 표시 여부에 따라 동적으로 계산.
+  let _step = 0;
+  const stepCourses = courses.length > 0 ? ++_step : null;
+  const stepPayment = ++_step;
+  const stepLetters = letterInfo ? ++_step : null;
+  const stepLawyer = ++_step;
+
   async function handleCheckout() {
-    if (courses.length === 0) return;
+    if (courses.length === 0 && selectedLetters.length === 0) return;
     setSubmitting(true);
     setPaymentFailMessage(null);
     try {
@@ -327,7 +343,7 @@ export default function CheckoutBundleClient() {
       </div>
     );
   }
-  if (error || courses.length === 0) {
+  if (error || (courses.length === 0 && selectedLetters.length === 0)) {
     return (
       <div className="mx-auto max-w-4xl px-6 py-20">
         <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-red-600 shadow-sm">
@@ -400,34 +416,36 @@ export default function CheckoutBundleClient() {
         ) : null}
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
           <div className="space-y-12 lg:col-span-8">
-            <section>
-              <div className="mb-6 flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">
-                  1
+            {stepCourses ? (
+              <section>
+                <div className="mb-6 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">
+                    {stepCourses}
+                  </div>
+                  <h2 className="font-sans text-xl font-bold text-slate-900">선택한 과정</h2>
                 </div>
-                <h2 className="font-sans text-xl font-bold text-slate-900">선택한 과정</h2>
-              </div>
-              <ul className="space-y-3">
-                {courses.map((c) => (
-                  <li
-                    key={c.id}
-                    className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-5 py-4"
-                  >
-                    <span className="font-bold text-slate-800">
-                      {counselingDisplayTitle(c.title)}
-                    </span>
-                    <span className="font-bold text-slate-600">
-                      {c.price.toLocaleString()}원
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+                <ul className="space-y-3">
+                  {courses.map((c) => (
+                    <li
+                      key={c.id}
+                      className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-5 py-4"
+                    >
+                      <span className="font-bold text-slate-800">
+                        {counselingDisplayTitle(c.title)}
+                      </span>
+                      <span className="font-bold text-slate-600">
+                        {c.price.toLocaleString()}원
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
 
             <section>
               <div className="mb-6 flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">
-                  2
+                  {stepPayment}
                 </div>
                 <h2 className="font-sans text-xl font-bold text-slate-900">결제 수단</h2>
               </div>
@@ -468,7 +486,7 @@ export default function CheckoutBundleClient() {
               <section>
                 <div className="mb-6 flex items-center gap-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">
-                    3
+                    {stepLetters}
                   </div>
                   <h2 className="font-sans text-xl font-bold text-slate-900">
                     반성문·탄원서 <span className="text-sm font-medium text-zinc-400">(선택)</span>
@@ -516,7 +534,7 @@ export default function CheckoutBundleClient() {
             <section>
               <div className="mb-6 flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">
-                  {letterInfo ? 4 : 3}
+                  {stepLawyer}
                 </div>
                 <h2 className="font-sans text-xl font-bold text-slate-900">
                   변호사 사무실 추천 코드{" "}

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.order import OrderStatus, OrderType, PaymentMethod
 
@@ -49,13 +49,22 @@ class BankTransferConfirm(BaseModel):
 
 
 class BundleCreateRequest(BaseModel):
-    # 사전결제 대상 강의 id 목록. 최소 1개, 중복 없이.
-    course_ids: list[int] = Field(min_length=1)
+    # 사전결제 대상 강의 id 목록 — 중복 없이. 반성문·탄원서만 단독으로도
+    # 주문할 수 있어(2026-10, "이것도 하나의 상품인데 단독 구매가 안 된다"는
+    # 지적으로 추가) 여기 자체는 0개도 허용하고, course_ids/legal_letters
+    # 둘 다 비어있지만 않으면 된다(model_validator로 검증).
+    course_ids: list[int] = []
     payment_method: PaymentMethod
     # 함께 담을 반성문·탄원서(각 10,000원) — 선택.
     legal_letters: list[Literal["repentance", "petition"]] = []
     # 결제 시 입력한 변호사 사무실 추천 코드 — 유효하면 10% 추가 할인(2026-10).
     lawyer_referral_code: str | None = None
+
+    @model_validator(mode="after")
+    def _require_at_least_one_item(self) -> "BundleCreateRequest":
+        if not self.course_ids and not self.legal_letters:
+            raise ValueError("강의 또는 반성문·탄원서 중 하나는 선택해야 합니다.")
+        return self
 
 
 class BundleItem(BaseModel):
