@@ -64,7 +64,7 @@ export default function PartnerPage() {
   return (
     <div id="top" className="min-h-screen bg-slate-50/50">
       {/* 히어로 — 신청서를 스크롤 없이 바로 보이게 상단에 배치 */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950 pb-16 pt-14 md:pt-20">
+      <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950 -mt-16 pb-16 pt-32 md:pt-44">
         <div
           aria-hidden
           className="pointer-events-none absolute -top-24 -right-24 h-80 w-80 rounded-full bg-[var(--color-accent)]/20 blur-3xl"
