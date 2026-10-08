@@ -371,7 +371,18 @@ def get_lawyer_partner_portal_qr(token: str, db: Session = Depends(get_db)) -> R
     partner = _get_partner_by_portal_token(db, token)
     client_url = f"{settings.FRONTEND_BASE_URL}/r/{partner.referral_code}"
     png = generate_qr_png(client_url)
-    return Response(content=png, media_type="image/png")
+    # Content-Disposition 을 직접 못 박아야 "QR 이미지 다운로드" 링크 클릭 시
+    # 실제로 저장된다 — <a download> 속성만으로는 요청이 돼도 최신 브라우저가
+    # 그냥 이미지를 새 탭에 열어버리는 경우가 있었다(2026-10, 실사용 중 발견).
+    # <img src> 로 그대로 보여주는 용도(이 페이지, 관리자 목록)는 attachment
+    # 라도 영향받지 않는다 — Content-Disposition 은 임베드가 아니라 상단
+    # 탐색(직접 열기/다운로드)에만 적용되는 헤더라서.
+    filename = f"kcpec-partner-qr-{partner.referral_code}.png"
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post(

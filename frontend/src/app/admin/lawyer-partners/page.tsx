@@ -174,15 +174,15 @@ export default function AdminLawyerPartnersPage() {
       return;
     }
     const ok = await dialog.confirm(
-      `${row.email} 로 "${row.law_firm_name} ${row.lawyer_name}" 변호사님 전용 링크(추천 코드·QR)를 발송하시겠습니까?`,
+      `${row.email} 로 "${row.law_firm_name} ${row.lawyer_name}" 변호사님 전용 링크(추천 코드·QR)를 재발송하시겠습니까?`,
     );
     if (!ok) return;
     setBusyId(row.id);
     try {
       await sendLawyerPartnerPortalEmail(row.id);
-      await dialog.alert("발송했습니다.");
+      await dialog.alert("재발송했습니다.");
     } catch {
-      await dialog.alert("발송에 실패했습니다.");
+      await dialog.alert("재발송에 실패했습니다.");
     } finally {
       setBusyId(null);
     }
@@ -408,7 +408,7 @@ export default function AdminLawyerPartnersPage() {
                             title={r.email ? undefined : "이메일을 먼저 등록해 주세요"}
                             className="rounded border border-[var(--color-primary)] px-2.5 py-1 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 disabled:opacity-40"
                           >
-                            이메일 발송
+                            이메일 재발송
                           </button>
                           <button
                             type="button"
