@@ -13,6 +13,7 @@ import type {
 import type {
   BundleCreateResponse,
   DocumentResponse,
+  LawyerPartnerPortalInfo,
   LawyerPartnerPublic,
   OrderResponse,
   PaymentMethod,
@@ -1045,6 +1046,7 @@ export async function getAdminLawyerPartners(): Promise<AdminLawyerPartnerRow[]>
 export async function createLawyerPartner(payload: {
   law_firm_name: string;
   lawyer_name: string;
+  email?: string | null;
 }): Promise<AdminLawyerPartnerRow> {
   const { data } = await api.post<AdminLawyerPartnerRow>("/admin/lawyer-partners", payload);
   return data;
@@ -1052,7 +1054,12 @@ export async function createLawyerPartner(payload: {
 
 export async function patchLawyerPartner(
   partnerId: number,
-  payload: { law_firm_name?: string; lawyer_name?: string; is_active?: boolean },
+  payload: {
+    law_firm_name?: string;
+    lawyer_name?: string;
+    email?: string | null;
+    is_active?: boolean;
+  },
 ): Promise<AdminLawyerPartnerRow> {
   const { data } = await api.patch<AdminLawyerPartnerRow>(
     `/admin/lawyer-partners/${partnerId}`,
@@ -1063,6 +1070,23 @@ export async function patchLawyerPartner(
 
 export async function deleteLawyerPartner(partnerId: number): Promise<void> {
   await api.delete(`/admin/lawyer-partners/${partnerId}`);
+}
+
+export async function sendLawyerPartnerPortalEmail(partnerId: number): Promise<void> {
+  await api.post(`/admin/lawyer-partners/${partnerId}/send-portal-email`);
+}
+
+export async function getLawyerPartnerPortal(token: string): Promise<LawyerPartnerPortalInfo> {
+  const { data } = await api.get<LawyerPartnerPortalInfo>(
+    `/orders/lawyer-partners/portal/${token}`,
+  );
+  return data;
+}
+
+// 추천 코드가 담긴 /partner 링크를 인코딩한 QR PNG — 이미지 응답이라
+// <img src> 로 바로 쓴다(axios json 호출 아님).
+export function lawyerPartnerPortalQrUrl(token: string): string {
+  return `${API_BASE_URL}/orders/lawyer-partners/portal/${token}/qr`;
 }
 
 export async function getPost(

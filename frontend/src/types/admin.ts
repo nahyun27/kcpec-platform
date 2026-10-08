@@ -66,7 +66,9 @@ export type AdminLawyerPartnerRow = {
   id: number;
   law_firm_name: string;
   lawyer_name: string;
+  email: string | null;
   referral_code: string;
+  portal_token: string;
   is_active: boolean;
   created_at: string;
   referral_order_count: number;

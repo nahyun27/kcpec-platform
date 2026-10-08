@@ -14,6 +14,10 @@ def generate_referral_code() -> str:
     return "".join(secrets.choice(_CODE_ALPHABET) for _ in range(8))
 
 
+def generate_portal_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
 class LawyerPartner(Base):
     """변호사 사무실 리퍼럴 파트너 — 결제 시 의뢰인이 안내받은 추천 코드를
     입력하면 10% 할인이 적용된다(2026-10). 처음엔 "목록에서 사무실 선택"
@@ -28,9 +32,17 @@ class LawyerPartner(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     law_firm_name: Mapped[str] = mapped_column(String(200), nullable=False)
     lawyer_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    # 포털 링크(QR·안내문구) 발송용 — 기존에 등록된 파트너는 비어있을 수
+    # 있어 nullable(관리자가 나중에 채워 넣을 수 있음).
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # 의뢰인이 결제 화면에서 직접 입력하는 추천 코드 — 추측 불가능한 랜덤
     # 값(관리자가 사무실에 전달). 전체 목록은 어디에도 공개 노출하지 않는다.
     referral_code: Mapped[str] = mapped_column(String(16), unique=True, nullable=False)
+    # 변호사 전용 "마이페이지"(본인 코드·누적 소개 건수 확인) 링크에 쓰는
+    # 별도 토큰 — referral_code 는 의뢰인도 다 알게 되는 값이라 그걸 그대로
+    # 링크에 쓰면 의뢰인도 이 페이지를 볼 수 있다. 완전히 다른 랜덤 값을
+    # 써서 이 링크는 관리자가 변호사에게만 따로 전달한다(2026-10).
+    portal_token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     # 비활성화하면 결제 화면 선택지에서는 빠지지만, 과거 주문의 기록(FK)은
     # 그대로 남는다 — 삭제 대신 비활성화를 기본으로 쓰도록 안내.
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())

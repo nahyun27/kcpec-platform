@@ -548,3 +548,55 @@ def send_detention_confirmed_notification(
         logger.exception("SMTP 발송 실패: %s", exc)
         return False
     return True
+
+
+def send_lawyer_partner_portal(
+    *,
+    to_email: str,
+    law_firm_name: str,
+    lawyer_name: str,
+    portal_url: str,
+) -> bool:
+    """변호사 파트너에게 본인 전용 "마이페이지" 링크 발송 — 그 페이지에서
+    본인 추천 코드·QR·누적 소개 건수를 직접 확인할 수 있다. 이 링크는
+    토큰 기반 비공개 URL이라 전달받은 분 외에는 알 수 없다."""
+    subject = f"[KCPEC] {law_firm_name} {lawyer_name} 변호사님 파트너 안내"
+    body = (
+        f"안녕하세요, {law_firm_name} {lawyer_name} 변호사님.\n\n"
+        f"한국범죄예방교육센터(KCPEC) 변호사 사무실 파트너로 등록되셨습니다.\n"
+        f"아래 링크에서 의뢰인께 안내하실 추천 코드와 QR코드, 지금까지의 소개 현황을 "
+        f"직접 확인하실 수 있습니다.\n\n"
+        f"{portal_url}\n\n"
+        f"의뢰인이 결제 시 이 추천 코드를 입력(또는 QR 스캔)하시면 10% 할인이 자동 "
+        f"적용되며, 사무실과의 별도 정산 절차는 없습니다.\n\n"
+        f"이 링크는 변호사님께만 전달되는 비공개 링크이니 외부에 공유하지 말아 "
+        f"주세요.\n\n"
+        f"문의: 010-6377-3325 · admin@kcpec.co.kr\n\n"
+        f"— 한국범죄예방교육센터 —\n"
+    )
+
+    if not (settings.SMTP_HOST and to_email):
+        logger.info("[EMAIL DEV MODE] 변호사 파트너 포털 안내 발송 — 콘솔 출력")
+        print("=" * 60)
+        print(f"To: {to_email or '(미설정)'}")
+        print(f"Subject: {subject}")
+        print("-" * 60)
+        print(body)
+        print("=" * 60)
+        return True
+
+    msg = EmailMessage()
+    msg["From"] = settings.SMTP_FROM or settings.SMTP_USER or "no-reply@kcpec.kr"
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg.set_content(body)
+    try:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
+            smtp.starttls()
+            if settings.SMTP_USER and settings.SMTP_PASSWORD:
+                smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            smtp.send_message(msg)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("SMTP 발송 실패: %s", exc)
+        return False
+    return True

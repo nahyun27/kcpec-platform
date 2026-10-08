@@ -3,8 +3,8 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, or_, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.admin import require_admin
@@ -12,13 +12,14 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.email import send_new_order_notification
+from app.core.qr import generate_qr_png
 from app.models.course import Course, CourseCategory
 from app.models.enrollment import Enrollment
 from app.models.lawyer_partner import LawyerPartner
 from app.models.legal_letter import LegalLetterType
 from app.models.order import Order, OrderStatus, OrderType, PaymentMethod
 from app.models.user import User
-from app.schemas.lawyer_partner import LawyerPartnerPublic
+from app.schemas.lawyer_partner import LawyerPartnerPortalInfo, LawyerPartnerPublic
 from app.schemas.order import (
     BankTransferConfirm,
     BundleCreateRequest,
@@ -274,6 +275,47 @@ def verify_lawyer_partner_code(
     if partner is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="유효하지 않은 추천 코드입니다.")
     return LawyerPartnerPublic.model_validate(partner)
+
+
+def _get_partner_by_portal_token(db: Session, token: str) -> LawyerPartner:
+    partner = db.scalar(select(LawyerPartner).where(LawyerPartner.portal_token == token))
+    if partner is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="페이지를 찾을 수 없습니다.")
+    return partner
+
+
+@router.get("/lawyer-partners/portal/{token}", response_model=LawyerPartnerPortalInfo)
+def get_lawyer_partner_portal(token: str, db: Session = Depends(get_db)) -> LawyerPartnerPortalInfo:
+    """변호사 전용 "마이페이지" — portal_token 을 아는 사람만(로그인 없음).
+    referral_code 와는 완전히 다른 값이라 의뢰인은 이 페이지에 도달할 수
+    없다(2026-10)."""
+    partner = _get_partner_by_portal_token(db, token)
+    count = (
+        db.scalar(
+            select(func.count(Order.id)).where(
+                Order.lawyer_partner_id == partner.id, Order.status == OrderStatus.PAID
+            )
+        )
+        or 0
+    )
+    return LawyerPartnerPortalInfo(
+        law_firm_name=partner.law_firm_name,
+        lawyer_name=partner.lawyer_name,
+        referral_code=partner.referral_code,
+        is_active=partner.is_active,
+        referral_order_count=count,
+    )
+
+
+@router.get("/lawyer-partners/portal/{token}/qr")
+def get_lawyer_partner_portal_qr(token: str, db: Session = Depends(get_db)) -> Response:
+    """의뢰인에게 보여줄 QR — 추천 코드가 담긴 /partner 링크를 인코딩한다.
+    전부 로컬에서 생성(app.core.qr) — 외부 QR 서비스에 이 링크를 보내지
+    않는다."""
+    partner = _get_partner_by_portal_token(db, token)
+    client_url = f"{settings.FRONTEND_BASE_URL}/partner?code={partner.referral_code}"
+    png = generate_qr_png(client_url)
+    return Response(content=png, media_type="image/png")
 
 
 @router.post(

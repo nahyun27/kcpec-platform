@@ -68,6 +68,15 @@ export type LawyerPartnerPublic = {
   lawyer_name: string;
 };
 
+// 변호사 전용 "마이페이지"(portal_token 으로만 조회) 응답.
+export type LawyerPartnerPortalInfo = {
+  law_firm_name: string;
+  lawyer_name: string;
+  referral_code: string;
+  is_active: boolean;
+  referral_order_count: number;
+};
+
 export type IssuedDocumentType = "certificate" | "guide" | "cbt" | "counseling";
 export type IssuedDocumentStatus = "pending" | "ready" | "revoked";
 

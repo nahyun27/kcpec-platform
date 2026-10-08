@@ -26,7 +26,11 @@ from app.core.cert_sequence import reserve_next_sequence
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.document_generator import fill_counseling_template, fill_phone_counseling_template
-from app.core.email import send_final_to_user, send_qna_reply_notification
+from app.core.email import (
+    send_final_to_user,
+    send_lawyer_partner_portal,
+    send_qna_reply_notification,
+)
 from app.core.gemini_client import (
     generate_counseling_draft,
     generate_phone_counseling_draft,
@@ -49,7 +53,7 @@ from app.models.course import Course, CourseCategory
 from app.models.document import IssuedDocument, IssuedDocumentStatus, IssuedDocumentType
 from app.models.enrollment import Enrollment
 from app.models.faq import Faq
-from app.models.lawyer_partner import LawyerPartner, generate_referral_code
+from app.models.lawyer_partner import LawyerPartner, generate_portal_token, generate_referral_code
 from app.models.lecture import Lecture
 from app.models.order import Order, OrderStatus, PaymentMethod
 from app.models.quiz import Quiz, QuizOption, QuizQuestion
@@ -2273,6 +2277,31 @@ def delete_faq(faq_id: int, db: Session = Depends(get_db)) -> OkResponse:
 # ---------- 변호사 사무실 리퍼럴 파트너 ----------------------------------------
 
 
+def _partner_referral_count(db: Session, partner_id: int) -> int:
+    return (
+        db.scalar(
+            select(func.count(Order.id)).where(
+                Order.lawyer_partner_id == partner_id, Order.status == OrderStatus.PAID
+            )
+        )
+        or 0
+    )
+
+
+def _admin_partner_row(partner: LawyerPartner, referral_order_count: int) -> AdminLawyerPartnerRow:
+    return AdminLawyerPartnerRow(
+        id=partner.id,
+        law_firm_name=partner.law_firm_name,
+        lawyer_name=partner.lawyer_name,
+        email=partner.email,
+        referral_code=partner.referral_code,
+        portal_token=partner.portal_token,
+        is_active=partner.is_active,
+        created_at=partner.created_at,
+        referral_order_count=referral_order_count,
+    )
+
+
 @router.get("/lawyer-partners", response_model=list[AdminLawyerPartnerRow])
 def admin_list_lawyer_partners(db: Session = Depends(get_db)) -> list[AdminLawyerPartnerRow]:
     """비활성 항목까지 전부 반환(관리자 목록용) + 파트너별 누적 결제완료
@@ -2292,18 +2321,7 @@ def admin_list_lawyer_partners(db: Session = Depends(get_db)) -> list[AdminLawye
             select(LawyerPartner).order_by(LawyerPartner.created_at.desc())
         ).all()
     )
-    return [
-        AdminLawyerPartnerRow(
-            id=p.id,
-            law_firm_name=p.law_firm_name,
-            lawyer_name=p.lawyer_name,
-            referral_code=p.referral_code,
-            is_active=p.is_active,
-            created_at=p.created_at,
-            referral_order_count=counts.get(p.id, 0),
-        )
-        for p in partners
-    ]
+    return [_admin_partner_row(p, counts.get(p.id, 0)) for p in partners]
 
 
 @router.post(
@@ -2318,19 +2336,13 @@ def create_lawyer_partner(
         code = generate_referral_code()
         if db.scalar(select(LawyerPartner).where(LawyerPartner.referral_code == code)) is None:
             break
-    partner = LawyerPartner(referral_code=code, **payload.model_dump())
+    partner = LawyerPartner(
+        referral_code=code, portal_token=generate_portal_token(), **payload.model_dump()
+    )
     db.add(partner)
     db.commit()
     db.refresh(partner)
-    return AdminLawyerPartnerRow(
-        id=partner.id,
-        law_firm_name=partner.law_firm_name,
-        lawyer_name=partner.lawyer_name,
-        referral_code=partner.referral_code,
-        is_active=partner.is_active,
-        created_at=partner.created_at,
-        referral_order_count=0,
-    )
+    return _admin_partner_row(partner, 0)
 
 
 @router.patch("/lawyer-partners/{partner_id}", response_model=AdminLawyerPartnerRow)
@@ -2344,23 +2356,32 @@ def patch_lawyer_partner(
         setattr(partner, field, value)
     db.commit()
     db.refresh(partner)
-    referral_order_count = (
-        db.scalar(
-            select(func.count(Order.id)).where(
-                Order.lawyer_partner_id == partner.id, Order.status == OrderStatus.PAID
-            )
+    return _admin_partner_row(partner, _partner_referral_count(db, partner.id))
+
+
+@router.post("/lawyer-partners/{partner_id}/send-portal-email", response_model=OkResponse)
+def send_lawyer_partner_portal_email(
+    partner_id: int, db: Session = Depends(get_db)
+) -> OkResponse:
+    """변호사 본인 전용 "마이페이지" 링크(추천 코드·QR·소개 현황 확인)를
+    등록된 이메일로 발송."""
+    partner = db.get(LawyerPartner, partner_id)
+    if partner is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="파트너를 찾을 수 없습니다.")
+    if not partner.email:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail="등록된 이메일이 없습니다. 먼저 이메일을 입력해 주세요."
         )
-        or 0
-    )
-    return AdminLawyerPartnerRow(
-        id=partner.id,
+    portal_url = f"{settings.FRONTEND_BASE_URL}/partner/my/{partner.portal_token}"
+    ok = send_lawyer_partner_portal(
+        to_email=partner.email,
         law_firm_name=partner.law_firm_name,
         lawyer_name=partner.lawyer_name,
-        referral_code=partner.referral_code,
-        is_active=partner.is_active,
-        created_at=partner.created_at,
-        referral_order_count=referral_order_count,
+        portal_url=portal_url,
     )
+    if not ok:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="이메일 발송에 실패했습니다.")
+    return OkResponse()
 
 
 @router.delete("/lawyer-partners/{partner_id}", response_model=OkResponse)
