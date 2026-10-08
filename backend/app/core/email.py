@@ -8,10 +8,12 @@ from __future__ import annotations
 import logging
 import smtplib
 from email.message import EmailMessage
+from email.utils import make_msgid
 from textwrap import dedent
 
 from app.core.config import settings
 from app.core.gemini_client import is_dummy_draft
+from app.core.qr import generate_qr_png
 
 logger = logging.getLogger(__name__)
 
@@ -556,10 +558,16 @@ def send_lawyer_partner_portal(
     law_firm_name: str,
     lawyer_name: str,
     portal_url: str,
+    referral_code: str,
 ) -> bool:
     """변호사 파트너에게 본인 전용 "마이페이지" 링크 발송 — 그 페이지에서
     본인 추천 코드·QR·누적 소개 건수를 직접 확인할 수 있다. 이 링크는
-    토큰 기반 비공개 URL이라 전달받은 분 외에는 알 수 없다."""
+    토큰 기반 비공개 URL이라 전달받은 분 외에는 알 수 없다. QR은 메일
+    본문에도 바로 보이도록 이미지로 임베드한다(2026-10, "메일이 너무
+    밋밋하다"는 피드백으로 HTML+인라인 QR 추가) — 클릭해서 전용 페이지로
+    넘어가지 않아도 QR을 바로 저장·인쇄할 수 있다. /orders/lawyer-partners/
+    portal/{token}/qr 과 동일하게 전부 로컬에서 생성(app.core.qr), 외부
+    QR 서비스에 추천 코드를 보내지 않는다."""
     subject = f"[KCPEC] {law_firm_name} {lawyer_name} 변호사님 파트너 안내"
     body = (
         f"안녕하세요, {law_firm_name} {lawyer_name} 변호사님.\n\n"
@@ -567,6 +575,7 @@ def send_lawyer_partner_portal(
         f"아래 링크에서 의뢰인께 안내하실 추천 코드와 QR코드, 지금까지의 소개 현황을 "
         f"직접 확인하실 수 있습니다.\n\n"
         f"{portal_url}\n\n"
+        f"추천 코드: {referral_code}\n\n"
         f"의뢰인이 결제 시 이 추천 코드를 입력(또는 QR 스캔)하시면 10% 할인이 자동 "
         f"적용됩니다.\n\n"
         f"이 링크는 변호사님께만 전달되는 비공개 링크이니 외부에 공유하지 말아 "
@@ -585,11 +594,80 @@ def send_lawyer_partner_portal(
         print("=" * 60)
         return True
 
+    client_url = f"{settings.FRONTEND_BASE_URL}/sentencing?lawyer_code={referral_code}"
+    qr_png = generate_qr_png(client_url)
+    qr_cid = make_msgid(domain="kcpec.co.kr")[1:-1]
+
+    html = f"""\
+<!DOCTYPE html>
+<html>
+  <body style="margin:0;padding:0;background-color:#f1f5f9;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+            <tr>
+              <td style="background-color:#0f172a;padding:28px 32px;">
+                <p style="margin:0;color:#ffffff;font-size:18px;font-weight:700;">한국범죄예방교육센터</p>
+                <p style="margin:4px 0 0;color:#94a3b8;font-size:12px;letter-spacing:0.05em;">LAWYER PARTNER</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px;">
+                <p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.6;">
+                  안녕하세요, <strong>{law_firm_name} {lawyer_name}</strong> 변호사님.<br>
+                  KCPEC 변호사 사무실 파트너로 등록되셨습니다.
+                </p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:2px solid #0f172a;border-radius:16px;margin:24px 0;">
+                  <tr>
+                    <td align="center" style="padding:24px;">
+                      <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.1em;color:#2563eb;text-transform:uppercase;">나의 추천 코드</p>
+                      <p style="margin:0 0 16px;font-size:28px;font-weight:800;letter-spacing:0.08em;color:#0f172a;font-family:monospace;">{referral_code}</p>
+                      <img src="cid:{qr_cid}" width="160" height="160" alt="추천 코드 QR" style="display:block;margin:0 auto;border-radius:8px;border:1px solid #e2e8f0;">
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:0 0 24px;font-size:13px;color:#64748b;line-height:1.6;">
+                  의뢰인이 결제 시 이 추천 코드를 입력(또는 QR 스캔)하시면 10% 할인이 자동 적용됩니다.
+                </p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td align="center">
+                      <a href="{portal_url}" style="display:inline-block;background-color:#0f172a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:14px 28px;border-radius:999px;">
+                        전용 페이지에서 확인하기 →
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;line-height:1.6;text-align:center;">
+                  이 링크는 변호사님께만 전달되는 비공개 링크이니 외부에 공유하지 말아 주세요.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 32px;background-color:#f8fafc;border-top:1px solid #e2e8f0;">
+                <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">
+                  문의 010-6377-3325 · admin@kcpec.co.kr<br>한국범죄예방교육센터
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+"""
+
     msg = EmailMessage()
     msg["From"] = settings.SMTP_FROM or settings.SMTP_USER or "no-reply@kcpec.kr"
     msg["To"] = to_email
     msg["Subject"] = subject
     msg.set_content(body)
+    msg.add_alternative(html, subtype="html")
+    msg.get_payload()[1].add_related(
+        qr_png, maintype="image", subtype="png", cid=f"<{qr_cid}>"
+    )
     try:
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
             smtp.starttls()

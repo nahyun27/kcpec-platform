@@ -2317,6 +2317,7 @@ def _send_portal_email(partner: LawyerPartner) -> bool:
         law_firm_name=partner.law_firm_name,
         lawyer_name=partner.lawyer_name,
         portal_url=portal_url,
+        referral_code=partner.referral_code,
     )
 
 
