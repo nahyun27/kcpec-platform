@@ -34,6 +34,7 @@ export default function AdminLawyerPartnersPage() {
   const [firmName, setFirmName] = useState("");
   const [lawyerName, setLawyerName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [editingEmailId, setEditingEmailId] = useState<number | null>(null);
@@ -55,10 +56,12 @@ export default function AdminLawyerPartnersPage() {
         law_firm_name: firmName.trim(),
         lawyer_name: lawyerName.trim(),
         email: email.trim(),
+        phone: phone.trim() || null,
       });
       setFirmName("");
       setLawyerName("");
       setEmail("");
+      setPhone("");
       load();
     } catch {
       await dialog.alert("파트너 추가에 실패했습니다.");
@@ -205,7 +208,7 @@ export default function AdminLawyerPartnersPage() {
           변호사 파트너 관리
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
-          변호사 사무실이 /partner 에서 직접 신청하면 "승인 대기" 상태로 들어옵니다. 승인하면
+          변호사 사무실이 /partner 에서 직접 신청하면 &quot;승인 대기&quot; 상태로 들어옵니다. 승인하면
           추천 코드가 활성화되고, 등록된 이메일로 추천 코드·전용 링크가 자동 발송됩니다.
           전용 링크와 결제용 추천 코드는 서로 다른 값이라 의뢰인이 코드를 알아도 전용
           링크엔 접근할 수 없습니다. 파트너 전체 목록은 공개되지 않습니다.
@@ -218,9 +221,12 @@ export default function AdminLawyerPartnersPage() {
       </header>
 
       <div className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm">
-        <p className="w-full text-xs text-zinc-500">
-          아래 폼은 관리자가 직접 등록하는 용도입니다(승인 절차 없이 바로 활성화).
-        </p>
+        <div className="w-full">
+          <h2 className="text-sm font-bold text-slate-800">수동 등록</h2>
+          <p className="mt-0.5 text-xs text-zinc-500">
+            아래 폼은 관리자가 직접 등록하는 용도입니다(승인 절차 없이 바로 활성화).
+          </p>
+        </div>
         <div>
           <label className="block text-xs font-semibold text-slate-600">법무법인명</label>
           <input
@@ -238,6 +244,16 @@ export default function AdminLawyerPartnersPage() {
             value={lawyerName}
             onChange={(e) => setLawyerName(e.target.value)}
             placeholder="예) 홍길동"
+            className="mt-1 rounded border border-zinc-300 px-2.5 py-1.5 text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-slate-600">연락처</label>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="010-0000-0000"
             className="mt-1 rounded border border-zinc-300 px-2.5 py-1.5 text-sm"
           />
         </div>

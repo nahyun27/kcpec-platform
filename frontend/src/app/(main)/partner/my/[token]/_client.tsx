@@ -111,7 +111,7 @@ export default function LawyerPortalClient({ token }: { token: string }) {
           <h2 className="font-sans text-sm font-bold text-slate-900">의뢰인께 보낼 문자</h2>
           <p className="mt-1 text-xs text-slate-500">
             아래 문자를 복사해서 그대로 보내주시기만 하면 됩니다. 의뢰인이 링크를 누르면 10%
-            할인이 자동으로 적용된 수강 페이지가 열립니다 — 코드를 따로 안내하실 필요는
+            할인이 자동으로 적용된 수강 페이지가 열립니다. 코드를 따로 안내하실 필요는
             없습니다.
           </p>
           <pre className="mt-3 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-relaxed text-slate-700">
