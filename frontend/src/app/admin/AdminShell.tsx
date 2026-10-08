@@ -51,7 +51,6 @@ type GroupNav = {
 const NAV: (SingleNav | GroupNav)[] = [
   { kind: "single", href: "/admin", label: "대시보드", icon: <LayoutDashboard className="h-4 w-4" /> },
   { kind: "single", href: "/admin/users", label: "사용자", icon: <Users className="h-4 w-4" /> },
-  { kind: "single", href: "/admin/courses", label: "강의 관리", icon: <BookOpen className="h-4 w-4" /> },
   {
     kind: "group",
     basePath: "/admin/orders",
@@ -101,6 +100,7 @@ const NAV: (SingleNav | GroupNav)[] = [
       { value: "faq", label: "FAQ" },
     ],
   },
+  { kind: "single", href: "/admin/courses", label: "강의 관리", icon: <BookOpen className="h-4 w-4" /> },
   {
     kind: "group",
     basePath: "/admin/statistics",
