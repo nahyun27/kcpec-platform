@@ -594,7 +594,7 @@ def send_lawyer_partner_portal(
         print("=" * 60)
         return True
 
-    client_url = f"{settings.FRONTEND_BASE_URL}/sentencing?lawyer_code={referral_code}"
+    client_url = f"{settings.FRONTEND_BASE_URL}/r/{referral_code}"
     qr_png = generate_qr_png(client_url)
     qr_cid = make_msgid(domain="kcpec.co.kr")[1:-1]
 

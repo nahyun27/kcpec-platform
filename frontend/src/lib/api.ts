@@ -192,11 +192,13 @@ export type SignupPayload = {
   password: string;
   email: string;
   birth_date: string; // YYYY-MM-DD
+  lawyer_referral_code?: string | null;
 };
 
 export type LoginPayload = {
   username: string;
   password: string;
+  lawyer_referral_code?: string | null;
 };
 
 export type UserResponse = {
@@ -384,6 +386,25 @@ export async function verifyLawyerReferralCode(code: string): Promise<LawyerPart
     params: { code },
   });
   return data;
+}
+
+export type MyLawyerReferral = {
+  referral_code: string;
+  law_firm_name: string;
+  lawyer_name: string;
+};
+
+// 로그인한 계정에 연결된 추천인 — 변호사 전용 링크(/r/코드)로 가입·로그인한
+// 적이 있으면 결제 화면에서 코드를 다시 입력하지 않아도 이걸로 자동 채운다.
+// 연결이 없으면 404 → null.
+export async function getMyLawyerPartner(): Promise<MyLawyerReferral | null> {
+  try {
+    const { data } = await api.get<MyLawyerReferral>("/orders/lawyer-partners/mine");
+    return data;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 404) return null;
+    throw err;
+  }
 }
 
 export async function confirmBundleTossPayment(payload: {

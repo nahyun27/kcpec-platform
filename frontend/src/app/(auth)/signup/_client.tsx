@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, type FormEvent } from "react";
 import { isAxiosError } from "axios";
 import { signup } from "@/lib/api";
+import { getCookie, LAWYER_REFERRAL_COOKIE } from "@/lib/cookies";
 import { Loader2 } from "lucide-react";
 import { SocialLoginButtons } from "../_social";
 
@@ -60,6 +61,10 @@ export default function SignupClient() {
         password: form.password,
         email: form.email,
         birth_date: form.birthDate,
+        // 변호사 추천 링크(/r/코드)로 들어온 적이 있으면 쿠키에 남아있다 —
+        // 있으면 가입 즉시 계정에 연결돼 결제 화면 코드 입력칸이 자동으로
+        // 채워진다.
+        lawyer_referral_code: getCookie(LAWYER_REFERRAL_COOKIE),
       });
       // 가입 즉시 로그인 상태가 되므로(signup() 내부에서 토큰 세팅), /login?next=...
       // 을 거치지 않고 바로 next 로 이동 — 예전엔 무조건 "/" 로 보내서, 로그인 안

@@ -11,6 +11,9 @@ class SignupRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     email: EmailStr
     birth_date: date
+    # 변호사 추천 링크(/r/{code})를 거쳐 왔으면 프런트가 쿠키에서 읽어 함께
+    # 보낸다 — 유효하지 않아도 가입 자체는 그대로 진행(조용히 무시).
+    lawyer_referral_code: str | None = Field(default=None, max_length=16)
 
     _validate_birth_date = field_validator("birth_date")(validate_birth_date)
 
@@ -18,6 +21,7 @@ class SignupRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+    lawyer_referral_code: str | None = Field(default=None, max_length=16)
 
 
 class TokenResponse(BaseModel):

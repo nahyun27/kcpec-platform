@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertCircle, CheckCircle2, Scale } from "lucide-react";
+import { AlertCircle, CheckCircle2, Copy, Scale } from "lucide-react";
 import { getLawyerPartnerPortal, lawyerPartnerPortalQrUrl } from "@/lib/api";
 import type { LawyerPartnerPortalInfo } from "@/types/order";
 
 export default function LawyerPortalClient({ token }: { token: string }) {
   const [info, setInfo] = useState<LawyerPartnerPortalInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     getLawyerPartnerPortal(token)
@@ -31,6 +32,25 @@ export default function LawyerPortalClient({ token }: { token: string }) {
   }
 
   const qrUrl = lawyerPartnerPortalQrUrl(token);
+  const shortLink =
+    (typeof window !== "undefined" ? window.location.origin : "") + `/r/${info.referral_code}`;
+  const smsText = [
+    `${info.law_firm_name} 안내드립니다.`,
+    "재판에 제출할 재범방지교육 수료증과 반성문, 탄원서 등 양형자료를 온라인으로 준비하실 수 있습니다. 아래 링크로 들어가시면 10% 할인이 자동으로 적용되고, 수강을 마치는 즉시 수료증이 발급됩니다.",
+    `바로가기: ${shortLink}`,
+    "문의: 010-6377-3325 · admin@kcpec.co.kr",
+    "한국범죄예방교육센터",
+  ].join("\n\n");
+
+  async function copySmsText() {
+    try {
+      await navigator.clipboard.writeText(smsText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* 클립보드 차단 환경 — 조용히 무시 */
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-50/50 px-6 py-12 md:py-16">
@@ -88,11 +108,23 @@ export default function LawyerPortalClient({ token }: { token: string }) {
         </div>
 
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="font-sans text-sm font-bold text-slate-900">이용 방법</h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate-600">
-            위 추천 코드 또는 QR코드를 의뢰인께 안내해 주세요. 의뢰인이 결제 화면에서 코드를
-            입력(또는 QR 스캔)하면 10% 할인이 자동으로 적용됩니다.
+          <h2 className="font-sans text-sm font-bold text-slate-900">의뢰인께 보낼 문자</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            아래 문자를 복사해서 그대로 보내주시기만 하면 됩니다. 의뢰인이 링크를 누르면 10%
+            할인이 자동으로 적용된 수강 페이지가 열립니다 — 코드를 따로 안내하실 필요는
+            없습니다.
           </p>
+          <pre className="mt-3 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-relaxed text-slate-700">
+            {smsText}
+          </pre>
+          <button
+            type="button"
+            onClick={copySmsText}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--color-primary-hover)]"
+          >
+            <Copy className="h-4 w-4" />
+            {copied ? "복사됨" : "문자 복사하기"}
+          </button>
         </div>
 
         <p className="text-center text-xs text-zinc-400">

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { isAxiosError } from "axios";
 import { login } from "@/lib/api";
+import { getCookie, LAWYER_REFERRAL_COOKIE } from "@/lib/cookies";
 import { Loader2 } from "lucide-react";
 import { SocialLoginButtons } from "../_social";
 
@@ -29,7 +30,13 @@ export default function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await login({ username, password });
+      await login({
+        username,
+        password,
+        // 이미 계정이 있는 사람이 변호사 추천 링크를 거쳐 로그인한 경우 —
+        // 아직 연결된 추천인이 없으면 이번에 연결된다(먼저 연결된 값은 안 바뀜).
+        lawyer_referral_code: getCookie(LAWYER_REFERRAL_COOKIE),
+      });
       router.push(next);
     } catch (err) {
       const detail = isAxiosError(err)

@@ -68,6 +68,17 @@ class LawyerPartnerPatch(BaseModel):
     status: LawyerPartnerStatus | None = None
 
 
+class MyLawyerReferral(BaseModel):
+    """로그인한 회원 계정에 연결된 추천인 정보 — 결제 화면에서 코드 입력칸을
+    자동으로 채우기 위함(/auth/signup, /auth/login 에서 연결됨)."""
+
+    referral_code: str
+    law_firm_name: str
+    lawyer_name: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class LawyerPartnerApplyRequest(BaseModel):
     """/partner 페이지에서 변호사 사무실이 직접 제출하는 제휴 신청 — 공개
     엔드포인트. 생성 즉시 PENDING 상태라 관리자가 승인하기 전까지는 추천

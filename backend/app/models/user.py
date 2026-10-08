@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, String, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -22,6 +22,13 @@ class User(Base):
 
     social_provider: Mapped[str | None] = mapped_column(String(20), nullable=True)
     social_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+
+    # 변호사 추천 링크(/r/{code})로 가입하거나, 쓰던 계정으로 그 링크를 거쳐
+    # 로그인하면 1회 연결된다(먼저 연결된 값을 덮어쓰지 않음) — 이후엔
+    # 결제 화면마다 코드를 다시 입력하지 않아도 자동으로 채워진다(2026-10).
+    lawyer_partner_id: Mapped[int | None] = mapped_column(
+        ForeignKey("lawyer_partners.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     # 비밀번호 재설정 — 토큰은 추측 불가능한 랜덤값, 발급 후 일정 시간 지나면
     # (core/security 의 PASSWORD_RESET_EXPIRE_MINUTES) 무효 처리.

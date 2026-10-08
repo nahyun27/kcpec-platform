@@ -24,6 +24,7 @@ from app.schemas.lawyer_partner import (
     LawyerPartnerApplyRequest,
     LawyerPartnerPortalInfo,
     LawyerPartnerPublic,
+    MyLawyerReferral,
 )
 from app.schemas.order import (
     BankTransferConfirm,
@@ -282,6 +283,27 @@ def verify_lawyer_partner_code(
     return LawyerPartnerPublic.model_validate(partner)
 
 
+@router.get("/lawyer-partners/mine", response_model=MyLawyerReferral)
+def get_my_lawyer_referral(
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> MyLawyerReferral:
+    """로그인한 계정에 연결된 추천인 — 결제 화면에서 코드 입력칸을 자동으로
+    채우는 용도(/r/{code} 로 들어와 가입·로그인하면 연결됨). 연결이 없거나,
+    연결된 파트너가 그 사이 비활성/반려로 바뀌었으면 404 — 이 경우 결제
+    화면은 그냥 평소처럼 빈 입력칸을 보여준다."""
+    if current_user.lawyer_partner_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="연결된 추천인이 없습니다.")
+    partner = db.scalar(
+        select(LawyerPartner).where(
+            LawyerPartner.id == current_user.lawyer_partner_id,
+            LawyerPartner.status == LawyerPartnerStatus.ACTIVE,
+        )
+    )
+    if partner is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="연결된 추천인이 없습니다.")
+    return MyLawyerReferral.model_validate(partner)
+
+
 @router.post(
     "/lawyer-partners/apply", response_model=OkResponse, status_code=status.HTTP_201_CREATED
 )
@@ -341,14 +363,13 @@ def get_lawyer_partner_portal(token: str, db: Session = Depends(get_db)) -> Lawy
 
 @router.get("/lawyer-partners/portal/{token}/qr")
 def get_lawyer_partner_portal_qr(token: str, db: Session = Depends(get_db)) -> Response:
-    """의뢰인에게 보여줄 QR — 추천 코드가 담긴 /sentencing(맞춤 강의 찾기)
-    링크를 인코딩한다. 전부 로컬에서 생성(app.core.qr) — 외부 QR 서비스에
-    이 링크를 보내지 않는다. /partner 는 변호사 사무실 제휴 신청 페이지로
-    바뀌어(2026-10) 의뢰인용 랜딩으로 더는 쓰지 않는다 — 코드 자동입력은
-    아직 없어 /sentencing 에서 맞춤 강의를 고른 뒤 결제 화면에서 직접
-    입력해야 한다."""
+    """의뢰인에게 보여줄 QR — 전용 단축 링크(/r/{code})를 인코딩한다. 전부
+    로컬에서 생성(app.core.qr) — 외부 QR 서비스에 이 링크를 보내지 않는다.
+    /r/{code} 는 쿠키에 코드를 저장한 뒤 맞춤 강의 찾기로 보내고, 그 쿠키는
+    가입·로그인 시 계정에 연결돼 결제 화면 코드 입력칸이 자동으로 채워진다
+    (2026-10, 매번 직접 입력해야 했던 걸 개선)."""
     partner = _get_partner_by_portal_token(db, token)
-    client_url = f"{settings.FRONTEND_BASE_URL}/sentencing?lawyer_code={partner.referral_code}"
+    client_url = f"{settings.FRONTEND_BASE_URL}/r/{partner.referral_code}"
     png = generate_qr_png(client_url)
     return Response(content=png, media_type="image/png")
 

@@ -33,6 +33,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.counseling import CounselingSurvey
+from app.models.lawyer_partner import LawyerPartner, LawyerPartnerStatus
 from app.models.user import User
 from app.schemas.auth import (
     DeleteMeRequest,
@@ -58,6 +59,21 @@ def _issue_tokens(user_id: int) -> TokenResponse:
         access_token=create_access_token(user_id),
         refresh_token=create_refresh_token(user_id),
     )
+
+
+def _lookup_active_lawyer_partner_id(db: Session, code: str | None) -> int | None:
+    """추천 코드 → 활성 파트너 id. /orders/lawyer-partners/verify 와 동일한
+    정규화(strip+upper)·ACTIVE 체크. 코드가 없거나 무효해도 그냥 None —
+    가입/로그인 자체를 막으면 안 되는 부가 기능이라 절대 에러를 내지 않는다."""
+    if not code or not code.strip():
+        return None
+    partner = db.scalar(
+        select(LawyerPartner).where(
+            LawyerPartner.referral_code == code.strip().upper(),
+            LawyerPartner.status == LawyerPartnerStatus.ACTIVE,
+        )
+    )
+    return partner.id if partner else None
 
 
 @router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -89,6 +105,7 @@ def signup(
         email_verify_token=hash_lookup_token(verify_token),
         email_verify_expires_at=datetime.now(timezone.utc)
         + timedelta(hours=EMAIL_VERIFY_EXPIRE_HOURS),
+        lawyer_partner_id=_lookup_active_lawyer_partner_id(db, payload.lawyer_referral_code),
     )
     db.add(user)
     db.commit()
@@ -171,6 +188,13 @@ def login(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="비활성화된 계정입니다.",
         )
+    # 처음 연결될 때만 저장(먼저 연결된 추천인을 덮어쓰지 않음) — 이미 연결된
+    # 기존 회원이 매번 로그인할 때마다 조회가 더 늘어나지 않도록 먼저 확인.
+    if user.lawyer_partner_id is None and payload.lawyer_referral_code:
+        pid = _lookup_active_lawyer_partner_id(db, payload.lawyer_referral_code)
+        if pid is not None:
+            user.lawyer_partner_id = pid
+            db.commit()
     set_auth_cookies(response, _issue_tokens(user.id))
     return user
 
@@ -658,6 +682,15 @@ def social_callback(
         access = _exchange_token(provider, code, client_id, client_secret)
         pid, email, _name = _fetch_profile(provider, access)
         user = _find_or_create_social_user(db, provider, pid, email)
+        # 프런트와 같은 origin 으로 서빙될 때만 이 쿠키가 보인다(별도 도메인이면
+        # 그냥 안 읽히고 조용히 넘어감 — 소셜 가입은 추천 연결의 부가 경로라
+        # 실패해도 로그인 자체에는 영향 없다).
+        if user.lawyer_partner_id is None:
+            ref_code = request.cookies.get("kcpec_lawyer_code")
+            pid_lawyer = _lookup_active_lawyer_partner_id(db, ref_code)
+            if pid_lawyer is not None:
+                user.lawyer_partner_id = pid_lawyer
+                db.commit()
     except HTTPException as exc:
         # JSON 을 브라우저에 그대로 노출하지 않고 프런트 /login 으로 친절하게 redirect.
         msg = exc.detail if isinstance(exc.detail, str) else "소셜 로그인에 실패했습니다."

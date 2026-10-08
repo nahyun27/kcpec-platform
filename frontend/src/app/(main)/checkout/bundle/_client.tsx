@@ -8,9 +8,11 @@ import {
   createOrderBundle,
   getCourseDetail,
   getLegalLetterInfo,
+  getMyLawyerPartner,
   tokenStorage,
   verifyLawyerReferralCode,
 } from "@/lib/api";
+import { getCookie, LAWYER_REFERRAL_COOKIE } from "@/lib/cookies";
 import type { CourseDetail } from "@/types/course";
 import { PAYMENT_METHOD_LABEL, type LawyerPartnerPublic, type PaymentMethod } from "@/types/order";
 import { counselingDisplayTitle } from "@/types/counseling";
@@ -118,8 +120,8 @@ export default function CheckoutBundleClient() {
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
 
-  async function handleVerifyLawyerCode() {
-    const code = lawyerCode.trim();
+  async function handleVerifyLawyerCode(codeArg?: string) {
+    const code = (codeArg ?? lawyerCode).trim();
     if (!code) return;
     setVerifying(true);
     setVerifyError(null);
@@ -139,6 +141,35 @@ export default function CheckoutBundleClient() {
     setVerifiedPartner(null);
     setVerifyError(null);
   }
+
+  // 변호사 추천 링크(/r/코드)로 가입·로그인한 계정이면 자동으로 채워준다 —
+  // 이 페이지는 확인용이라 입력칸 자체는 남겨두되, 직접 타이핑할 필요가
+  // 없게 한다. 계정에 연결된 게 없으면(이 브라우저에서 바로 가입하지 않고
+  // 예전부터 로그인돼 있던 경우 등) 쿠키 값으로 한 번 더 시도한다. 사용자가
+  // 이미 직접 입력을 시작했으면 덮어쓰지 않는다.
+  useEffect(() => {
+    if (lawyerCode.trim()) return;
+    let cancelled = false;
+    getMyLawyerPartner()
+      .then((mine) => {
+        if (cancelled) return;
+        if (mine) {
+          setLawyerCode(mine.referral_code);
+          void handleVerifyLawyerCode(mine.referral_code);
+          return;
+        }
+        const cookieCode = getCookie(LAWYER_REFERRAL_COOKIE);
+        if (cookieCode) {
+          setLawyerCode(cookieCode);
+          void handleVerifyLawyerCode(cookieCode);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 토스 결제창에서 실패/취소 시 failUrl(이 페이지 자체)로 code/message 를
   // 쿼리스트링에 실어 되돌아온다. 예전엔 이걸 그냥 무시해서, 사용자가
@@ -538,7 +569,7 @@ export default function CheckoutBundleClient() {
                     />
                     <button
                       type="button"
-                      onClick={handleVerifyLawyerCode}
+                      onClick={() => handleVerifyLawyerCode()}
                       disabled={verifying || !lawyerCode.trim()}
                       className="shrink-0 rounded-xl border-2 border-[var(--color-primary)] px-4 text-sm font-bold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 disabled:opacity-50"
                     >
