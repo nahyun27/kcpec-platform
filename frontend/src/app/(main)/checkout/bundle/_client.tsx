@@ -23,7 +23,7 @@ import {
   CreditCard,
   Award,
   ChevronRight,
-  ShieldCheck,
+  Receipt,
   Loader2,
   Landmark,
   Smartphone,
@@ -588,7 +588,7 @@ export default function CheckoutBundleClient() {
             <div className="sticky top-28 overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-xl shadow-slate-200/50">
               <div className="bg-slate-900 px-6 py-4">
                 <h3 className="font-sans text-lg font-bold text-white flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5 text-[var(--color-accent)]" /> 결제 요약
+                  <Receipt className="h-5 w-5 text-white" /> 결제 요약
                 </h3>
               </div>
 
