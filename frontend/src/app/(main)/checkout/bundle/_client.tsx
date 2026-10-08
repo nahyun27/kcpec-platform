@@ -29,8 +29,6 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 
-const LETTER_TYPES: LegalLetterType[] = ["repentance", "petition"];
-
 function PaymentMethodIcon({
   method,
   selected,
@@ -94,10 +92,12 @@ export default function CheckoutBundleClient() {
   const [submitting, setSubmitting] = useState(false);
   const [paymentFailMessage, setPaymentFailMessage] = useState<string | null>(null);
   const [letterInfo, setLetterInfo] = useState<LegalLetterInfo | null>(null);
-  // 맞춤강의찾기(3단계 '추가상품')에서 미리 골라 넘어온 값을 그대로 이어받는다
-  // — 여기서도 계속 켜고 끌 수 있다.
+  // 맞춤강의찾기(3단계 '추가상품') 또는 반성문·탄원서 단독 구매 페이지에서
+  // 이미 선택해 넘어온 값 — 이 페이지는 확인·결제 전용이라 여기선 바꿀 수
+  // 없다(2026-10, "확인 페이지에서 또 선택하게 하면 안 된다" 피드백으로
+  // toggleLetter 제거).
   const lettersParam = searchParams.get("letters") ?? "";
-  const [selectedLetters, setSelectedLetters] = useState<LegalLetterType[]>(() =>
+  const [selectedLetters] = useState<LegalLetterType[]>(() =>
     lettersParam
       .split(",")
       .filter((s): s is LegalLetterType => s === "repentance" || s === "petition"),
@@ -108,10 +108,6 @@ export default function CheckoutBundleClient() {
       .then(setLetterInfo)
       .catch(() => {});
   }, []);
-
-  function toggleLetter(t: LegalLetterType) {
-    setSelectedLetters((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
-  }
 
   // 변호사 사무실 리퍼럴 — 안내받은 추천 코드를 입력해 확인되면 10% 추가
   // 할인(사무실과의 정산 없음). 전체 목록을 보여주면 아무나 골라 할인받을
@@ -228,12 +224,12 @@ export default function CheckoutBundleClient() {
   const lawyerDiscount = verifiedPartner ? Math.round(afterBundleDiscount * 0.1) : 0;
   const total = afterBundleDiscount - lawyerDiscount;
 
-  // 반성문·탄원서만 단독으로 담아올 땐 "선택한 과정" 섹션 자체가 없어지므로,
-  // 번호가 빈 자리 없이 순서대로 매겨지도록 섹션 표시 여부에 따라 동적으로 계산.
+  // 이 페이지는 확인 전용이라 "선택한 과정"에 강의와 반성문·탄원서를 함께
+  // 보여준다(둘 중 하나는 항상 있음 — 위의 "잘못된 접근" 체크가 이미 보장).
+  const selectedItemCount = courses.length + selectedLetters.length;
   let _step = 0;
-  const stepCourses = courses.length > 0 ? ++_step : null;
+  const stepItems = ++_step;
   const stepPayment = ++_step;
-  const stepLetters = letterInfo ? ++_step : null;
   const stepLawyer = ++_step;
 
   async function handleCheckout() {
@@ -389,7 +385,8 @@ export default function CheckoutBundleClient() {
             icon={<Award className="h-3.5 w-3.5" />}
             description={
               <>
-                선택하신 <span className="font-semibold text-slate-700">과정 {courses.length}건</span>을
+                선택하신{" "}
+                <span className="font-semibold text-slate-700">항목 {selectedItemCount}건</span>을
                 함께 결제합니다. 결제 완료 즉시 마이페이지에서 전부 수강을
                 시작할 수 있습니다.
               </>
@@ -416,31 +413,46 @@ export default function CheckoutBundleClient() {
         ) : null}
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
           <div className="space-y-12 lg:col-span-8">
-            {stepCourses ? (
-              <section>
-                <div className="mb-6 flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">
-                    {stepCourses}
-                  </div>
-                  <h2 className="font-sans text-xl font-bold text-slate-900">선택한 과정</h2>
+            <section>
+              <div className="mb-6 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">
+                  {stepItems}
                 </div>
-                <ul className="space-y-3">
-                  {courses.map((c) => (
-                    <li
-                      key={c.id}
-                      className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-5 py-4"
-                    >
-                      <span className="font-bold text-slate-800">
-                        {counselingDisplayTitle(c.title)}
-                      </span>
-                      <span className="font-bold text-slate-600">
-                        {c.price.toLocaleString()}원
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
+                <h2 className="font-sans text-xl font-bold text-slate-900">선택한 과정</h2>
+              </div>
+              <ul className="space-y-3">
+                {courses.map((c) => (
+                  <li
+                    key={`course-${c.id}`}
+                    className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-5 py-4"
+                  >
+                    <span className="font-bold text-slate-800">
+                      {counselingDisplayTitle(c.title)}
+                    </span>
+                    <span className="font-bold text-slate-600">
+                      {c.price.toLocaleString()}원
+                    </span>
+                  </li>
+                ))}
+                {selectedLetters.map((t) => (
+                  <li
+                    key={`letter-${t}`}
+                    className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-5 py-4"
+                  >
+                    <span className="font-bold text-slate-800">
+                      {LEGAL_LETTER_LABEL[t]} 작성
+                    </span>
+                    <span className="font-bold text-slate-600">
+                      {(t === "repentance"
+                        ? letterInfo?.repentance_price
+                        : letterInfo?.petition_price
+                      )?.toLocaleString() ?? 0}
+                      원
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
 
             <section>
               <div className="mb-6 flex items-center gap-2">
@@ -481,55 +493,6 @@ export default function CheckoutBundleClient() {
                 })}
               </div>
             </section>
-
-            {letterInfo ? (
-              <section>
-                <div className="mb-6 flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">
-                    {stepLetters}
-                  </div>
-                  <h2 className="font-sans text-xl font-bold text-slate-900">
-                    반성문·탄원서 <span className="text-sm font-medium text-zinc-400">(선택)</span>
-                  </h2>
-                </div>
-                <p className="mb-4 text-sm text-slate-500">
-                  몇 가지 질문에 답하시면 답변을 바탕으로 작성해 드립니다. 결제 완료 후
-                  마이페이지에서 입력하실 수 있습니다.
-                </p>
-                <ul className="grid gap-2 sm:grid-cols-2">
-                  {LETTER_TYPES.map((t) => {
-                    const price = t === "repentance" ? letterInfo.repentance_price : letterInfo.petition_price;
-                    const checked = selectedLetters.includes(t);
-                    return (
-                      <li key={t}>
-                        <label
-                          className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-sm transition-colors ${
-                            checked
-                              ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5"
-                              : "border-zinc-200 bg-white hover:border-slate-300"
-                          }`}
-                        >
-                          <span className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleLetter(t)}
-                              className="h-4 w-4"
-                            />
-                            <span className="font-semibold text-slate-800">
-                              {LEGAL_LETTER_LABEL[t]} 작성
-                            </span>
-                          </span>
-                          <span className="shrink-0 font-bold text-slate-600">
-                            +{price.toLocaleString()}원
-                          </span>
-                        </label>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ) : null}
 
             <section>
               <div className="mb-6 flex items-center gap-2">
@@ -624,7 +587,7 @@ export default function CheckoutBundleClient() {
                       </span>
                     </div>
                   ))}
-                  <div className="flex justify-between border-b border-zinc-100 pb-4">
+                  <div className="flex justify-between border-t border-zinc-100 pt-4">
                     <span className="font-medium text-slate-500">소계</span>
                     <span className="font-bold text-slate-900">
                       {subtotal.toLocaleString()}원
