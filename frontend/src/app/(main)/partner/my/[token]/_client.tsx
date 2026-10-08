@@ -48,7 +48,7 @@ export default function LawyerPortalClient({ token }: { token: string }) {
         {!info.is_active ? (
           <div className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
             <AlertCircle className="h-4 w-4 shrink-0" />
-            현재 비활성 상태입니다. 추천 코드가 결제 화면에서 동작하지 않습니다 — 확인이
+            현재 비활성 상태입니다. 추천 코드가 결제 화면에서 동작하지 않습니다. 확인이
             필요하시면 010-6377-3325 · admin@kcpec.co.kr 로 문의해 주세요.
           </div>
         ) : null}
@@ -85,8 +85,7 @@ export default function LawyerPortalClient({ token }: { token: string }) {
           <h2 className="font-sans text-sm font-bold text-slate-900">이용 방법</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-600">
             위 추천 코드 또는 QR코드를 의뢰인께 안내해 주세요. 의뢰인이 결제 화면에서 코드를
-            입력(또는 QR 스캔)하면 10% 할인이 자동으로 적용됩니다. 사무실과의 별도 정산
-            절차는 없습니다.
+            입력(또는 QR 스캔)하면 10% 할인이 자동으로 적용됩니다.
           </p>
         </div>
 

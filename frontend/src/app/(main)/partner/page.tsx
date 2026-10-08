@@ -77,7 +77,7 @@ export default function PartnerPage() {
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-slate-600 sm:text-base">
             담당 변호사 사무실로부터 안내받은 추천 코드를 결제 화면에서 입력하시면 할인이
-            자동으로 적용됩니다. 사무실과의 별도 정산 절차는 없습니다.
+            자동으로 적용됩니다.
           </p>
           <Link
             href="/sentencing"
