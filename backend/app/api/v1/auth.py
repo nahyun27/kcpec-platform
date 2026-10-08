@@ -137,8 +137,14 @@ def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)) -> 
             detail="유효하지 않거나 만료된 인증 링크입니다.",
         )
     user.is_verified = True
-    user.email_verify_token = None
-    user.email_verify_expires_at = None
+    # 토큰은 성공 후에도 만료 전까지 그대로 둔다 — 예전엔 성공하자마자 바로
+    # null 처리해서, 스팸/보안 필터가 메일의 링크를 미리 한 번 열어보는
+    # "프리페치"에 토큰이 먼저 소모돼버리면 정작 사용자가 그 메일을 열어
+    # 눌렀을 때는 "유효하지 않은 링크"로 실패하는 문제가 있었다(2026-10,
+    # 실사용 중 "인증 이메일이 스팸메일로 확인되며 인증url를 누르면
+    # 인증실패로 처리가 되네요" 문의로 발견). 인증 자체는 멱등한 동작이라
+    # 같은 토큰으로 여러 번 다시 호출돼도 안전하다 — 만료 시간(24시간)이
+    # 그대로 노출 범위를 제한해준다.
     db.commit()
     return {"detail": "이메일 인증이 완료되었습니다."}
 
