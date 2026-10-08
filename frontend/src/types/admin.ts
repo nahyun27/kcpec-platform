@@ -58,6 +58,17 @@ export type AdminOrderRow = {
   status: OrderStatus;
   created_at: string;
   bundle_id: string | null;
+  // 결제 시 선택한 변호사 리퍼럴 — "{법무법인명} {변호사명}", 없으면 null.
+  lawyer_partner_name: string | null;
+};
+
+export type AdminLawyerPartnerRow = {
+  id: number;
+  law_firm_name: string;
+  lawyer_name: string;
+  is_active: boolean;
+  created_at: string;
+  referral_order_count: number;
 };
 
 // 환불 확인창에서 "이 주문을 환불하면 같이 환불되는 항목"을 보여주기 위한

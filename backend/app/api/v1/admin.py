@@ -49,6 +49,7 @@ from app.models.course import Course, CourseCategory
 from app.models.document import IssuedDocument, IssuedDocumentStatus, IssuedDocumentType
 from app.models.enrollment import Enrollment
 from app.models.faq import Faq
+from app.models.lawyer_partner import LawyerPartner
 from app.models.lecture import Lecture
 from app.models.order import Order, OrderStatus, PaymentMethod
 from app.models.quiz import Quiz, QuizOption, QuizQuestion
@@ -101,6 +102,11 @@ from app.schemas.document import (
     DocumentResponse,
 )
 from app.schemas.faq import FaqCreate, FaqPatch, FaqRead
+from app.schemas.lawyer_partner import (
+    AdminLawyerPartnerRow,
+    LawyerPartnerCreate,
+    LawyerPartnerPatch,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
@@ -136,7 +142,9 @@ def _kst_day_start(d: date) -> datetime:
     return datetime.combine(d, time.min, tzinfo=KST)
 
 
-def _row_from_order(o: Order, user: User, course: Course) -> AdminOrderRow:
+def _row_from_order(
+    o: Order, user: User, course: Course, lawyer_partner: LawyerPartner | None = None
+) -> AdminOrderRow:
     return AdminOrderRow(
         id=o.id,
         user_id=user.id,
@@ -150,6 +158,11 @@ def _row_from_order(o: Order, user: User, course: Course) -> AdminOrderRow:
         status=o.status,
         created_at=o.created_at,
         bundle_id=o.bundle_id,
+        lawyer_partner_name=(
+            f"{lawyer_partner.law_firm_name} {lawyer_partner.lawyer_name}"
+            if lawyer_partner
+            else None
+        ),
     )
 
 
@@ -732,9 +745,10 @@ def set_quiz(course_id: int, payload: QuizSet, db: Session = Depends(get_db)) ->
 # 화면에서만 안 보이게 걸러내고, 데이터/자동취소 로직은 그대로 둔다.
 def _order_query_for_admin(db: Session, *, status_filter: OrderStatus | None):
     base = (
-        select(Order, User, Course)
+        select(Order, User, Course, LawyerPartner)
         .join(User, User.id == Order.user_id)
         .join(Course, Course.id == Order.course_id)
+        .outerjoin(LawyerPartner, LawyerPartner.id == Order.lawyer_partner_id)
         .where(
             or_(
                 Order.status != OrderStatus.PENDING,
@@ -777,7 +791,7 @@ def list_orders(
         .limit(size)
     ).all()
 
-    items = [_row_from_order(o, u, c) for (o, u, c) in rows]
+    items = [_row_from_order(o, u, c, lp) for (o, u, c, lp) in rows]
     return AdminOrdersResponse(items=items, total=total, page=page, size=size)
 
 
@@ -1418,7 +1432,7 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
         .order_by(Order.created_at.desc())
         .limit(5)
     ).all()
-    recent = [_row_from_order(o, u, c) for (o, u, c) in recent_rows]
+    recent = [_row_from_order(o, u, c, lp) for (o, u, c, lp) in recent_rows]
 
     # 인기 강의 top 5 (paid 매출 기준)
     top_rows = db.execute(
@@ -2252,6 +2266,103 @@ def delete_faq(faq_id: int, db: Session = Depends(get_db)) -> OkResponse:
     if faq is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="FAQ를 찾을 수 없습니다.")
     db.delete(faq)
+    db.commit()
+    return OkResponse()
+
+
+# ---------- 변호사 사무실 리퍼럴 파트너 ----------------------------------------
+
+
+@router.get("/lawyer-partners", response_model=list[AdminLawyerPartnerRow])
+def admin_list_lawyer_partners(db: Session = Depends(get_db)) -> list[AdminLawyerPartnerRow]:
+    """비활성 항목까지 전부 반환(관리자 목록용) + 파트너별 누적 결제완료
+    주문 수(리퍼럴 통계)."""
+    counts: dict[int, int] = dict(
+        db.execute(
+            select(Order.lawyer_partner_id, func.count(Order.id))
+            .where(
+                Order.lawyer_partner_id.is_not(None),
+                Order.status == OrderStatus.PAID,
+            )
+            .group_by(Order.lawyer_partner_id)
+        ).all()
+    )
+    partners = list(
+        db.scalars(
+            select(LawyerPartner).order_by(LawyerPartner.created_at.desc())
+        ).all()
+    )
+    return [
+        AdminLawyerPartnerRow(
+            id=p.id,
+            law_firm_name=p.law_firm_name,
+            lawyer_name=p.lawyer_name,
+            is_active=p.is_active,
+            created_at=p.created_at,
+            referral_order_count=counts.get(p.id, 0),
+        )
+        for p in partners
+    ]
+
+
+@router.post(
+    "/lawyer-partners", response_model=AdminLawyerPartnerRow, status_code=status.HTTP_201_CREATED
+)
+def create_lawyer_partner(
+    payload: LawyerPartnerCreate, db: Session = Depends(get_db)
+) -> AdminLawyerPartnerRow:
+    partner = LawyerPartner(**payload.model_dump())
+    db.add(partner)
+    db.commit()
+    db.refresh(partner)
+    return AdminLawyerPartnerRow(
+        id=partner.id,
+        law_firm_name=partner.law_firm_name,
+        lawyer_name=partner.lawyer_name,
+        is_active=partner.is_active,
+        created_at=partner.created_at,
+        referral_order_count=0,
+    )
+
+
+@router.patch("/lawyer-partners/{partner_id}", response_model=AdminLawyerPartnerRow)
+def patch_lawyer_partner(
+    partner_id: int, payload: LawyerPartnerPatch, db: Session = Depends(get_db)
+) -> AdminLawyerPartnerRow:
+    partner = db.get(LawyerPartner, partner_id)
+    if partner is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="파트너를 찾을 수 없습니다.")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(partner, field, value)
+    db.commit()
+    db.refresh(partner)
+    referral_order_count = (
+        db.scalar(
+            select(func.count(Order.id)).where(
+                Order.lawyer_partner_id == partner.id, Order.status == OrderStatus.PAID
+            )
+        )
+        or 0
+    )
+    return AdminLawyerPartnerRow(
+        id=partner.id,
+        law_firm_name=partner.law_firm_name,
+        lawyer_name=partner.lawyer_name,
+        is_active=partner.is_active,
+        created_at=partner.created_at,
+        referral_order_count=referral_order_count,
+    )
+
+
+@router.delete("/lawyer-partners/{partner_id}", response_model=OkResponse)
+def delete_lawyer_partner(partner_id: int, db: Session = Depends(get_db)) -> OkResponse:
+    """실제 삭제해도 과거 주문은 안전하다 — Order.lawyer_partner_id 가
+    ON DELETE SET NULL 이라 주문 자체는 그대로 남고 리퍼럴 표시만 사라짐.
+    주문 기록은 유지하고 선택지에서만 빼고 싶으면 PATCH 로 비활성화 권장."""
+    partner = db.get(LawyerPartner, partner_id)
+    if partner is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="파트너를 찾을 수 없습니다.")
+    db.delete(partner)
     db.commit()
     return OkResponse()
 

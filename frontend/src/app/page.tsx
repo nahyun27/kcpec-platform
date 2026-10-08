@@ -18,6 +18,7 @@ import {
   PartyPopper,
   PlayCircle,
   Quote,
+  Scale,
   Search,
   ShieldCheck,
   Sparkles,
@@ -43,6 +44,7 @@ export default function HomePage() {
       <CaseTypesSection />
       <ReviewsSection />
       <SamplesSection />
+      <LawyerPartnerBanner />
       <FaqSection />
       <SiteFooter />
     </div>
@@ -161,6 +163,34 @@ function TrustSection() {
             </div>
           ))}
         </div>
+      </Reveal>
+    </section>
+  );
+}
+
+// ---------- 변호사 사무실 파트너 모집 ------------------------------------------
+
+function LawyerPartnerBanner() {
+  return (
+    <section className="px-4 py-12 md:px-6 md:py-16">
+      <Reveal className="mx-auto max-w-5xl overflow-hidden rounded-3xl border-2 border-[var(--color-primary)] bg-gradient-to-br from-blue-50 to-indigo-50 p-8 text-center shadow-sm sm:p-12">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-white">
+          <Scale className="h-6 w-6" />
+        </div>
+        <h2 className="mt-4 font-sans text-xl font-black text-slate-900 sm:text-2xl">
+          변호사 사무실 파트너 모집
+        </h2>
+        <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-slate-600 sm:text-base">
+          의뢰인 양형자료 준비를 KCPEC과 함께하세요. 사건 유형만 선택하면 필요한 교육과
+          제출 서류를 자동으로 안내하고, 의뢰인은 결제 시 담당 변호사 사무실을 선택해
+          10% 할인을 받을 수 있습니다.
+        </p>
+        <Link
+          href="/partner/apply"
+          className="mt-6 inline-flex items-center rounded-full bg-[var(--color-primary)] px-6 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[var(--color-primary-hover)]"
+        >
+          변호사 파트너 안내 보기 →
+        </Link>
       </Reveal>
     </section>
   );

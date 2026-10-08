@@ -361,6 +361,11 @@ function AdminOrdersPage() {
                     ) : null}
                     <td className="px-4 py-3 text-slate-700">
                       {r.course_title}
+                      {r.lawyer_partner_name ? (
+                        <div className="mt-0.5 text-[11px] font-medium text-violet-600">
+                          변호사 소개 · {r.lawyer_partner_name}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-slate-500">
                       {PAYMENT_METHOD_LABEL[r.payment_method]}

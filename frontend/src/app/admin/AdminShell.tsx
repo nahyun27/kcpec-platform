@@ -17,6 +17,7 @@ import {
   Menu,
   MessageSquare,
   Package,
+  Scale,
   ShoppingCart,
   Users,
   X,
@@ -96,6 +97,12 @@ const NAV: (SingleNav | GroupNav)[] = [
     label: "반성문·탄원서",
     icon: <ScrollText className="h-4 w-4" />,
     todoKey: "legal_letter_review",
+  },
+  {
+    kind: "single",
+    href: "/admin/lawyer-partners",
+    label: "변호사 파트너",
+    icon: <Scale className="h-4 w-4" />,
   },
   {
     kind: "group",

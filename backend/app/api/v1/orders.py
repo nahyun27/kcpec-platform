@@ -14,9 +14,11 @@ from app.core.deps import get_current_user
 from app.core.email import send_new_order_notification
 from app.models.course import Course, CourseCategory
 from app.models.enrollment import Enrollment
+from app.models.lawyer_partner import LawyerPartner
 from app.models.legal_letter import LegalLetterType
 from app.models.order import Order, OrderStatus, OrderType, PaymentMethod
 from app.models.user import User
+from app.schemas.lawyer_partner import LawyerPartnerPublic
 from app.schemas.order import (
     BankTransferConfirm,
     BundleCreateRequest,
@@ -253,6 +255,17 @@ def create_order(
     return order
 
 
+@router.get("/lawyer-partners", response_model=list[LawyerPartnerPublic])
+def list_lawyer_partners(db: Session = Depends(get_db)) -> list[LawyerPartnerPublic]:
+    """결제 화면의 "담당 변호사 사무실" 선택지 — 활성 파트너만."""
+    partners = db.scalars(
+        select(LawyerPartner)
+        .where(LawyerPartner.is_active.is_(True))
+        .order_by(LawyerPartner.law_firm_name, LawyerPartner.lawyer_name)
+    ).all()
+    return [LawyerPartnerPublic.model_validate(p) for p in partners]
+
+
 @router.post(
     "/bundle", response_model=BundleCreateResponse, status_code=status.HTTP_201_CREATED
 )
@@ -328,19 +341,49 @@ def create_order_bundle(
     letter_types = list(dict.fromkeys(payload.legal_letters))
     letter_courses = [get_or_create_letter_course(db, LegalLetterType(lt)) for lt in letter_types]
 
+    # 변호사 사무실 리퍼럴 — 금액 위변조 방지 원칙과 동일하게 할인율은 서버가
+    # 직접 계산(10%, 클라이언트 입력 신뢰 안 함). 묶음결제 할인(10,000원) 적용
+    # "후" 금액 기준으로 10%를 한 번 더 뺀다(2026-10, 의뢰인 확인).
+    lawyer_partner: LawyerPartner | None = None
+    if payload.lawyer_partner_id is not None:
+        lawyer_partner = db.get(LawyerPartner, payload.lawyer_partner_id)
+        if lawyer_partner is None or not lawyer_partner.is_active:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, detail="선택한 변호사 파트너를 찾을 수 없습니다."
+            )
+
     subtotal = sum(courses[cid].price or 0 for cid in course_ids) + sum(
         c.price or 0 for c in letter_courses
     )
     discount = BULK_DISCOUNT_AMOUNT if subtotal >= BULK_DISCOUNT_THRESHOLD else 0
-    total = subtotal - discount
+    after_bundle_discount = subtotal - discount
+    lawyer_discount = round(after_bundle_discount * 0.1) if lawyer_partner else 0
+    total = after_bundle_discount - lawyer_discount
 
     bundle_id = secrets.token_urlsafe(16)
-    items: list[BundleItem] = []
     # course_ids 와 letter_courses 를 하나의 목록으로 합쳐 마지막 항목에서만
-    # 할인액을 차감 — 기존 "마지막 항목에서 차감" 규칙을 그대로 유지.
+    # 묶음결제 할인액을 차감 — 기존 "마지막 항목에서 차감" 규칙을 그대로 유지.
     all_courses = [courses[cid] for cid in course_ids] + letter_courses
-    for i, c in enumerate(all_courses):
-        amount = (c.price or 0) - (discount if i == len(all_courses) - 1 else 0)
+    base_amounts = [
+        (c.price or 0) - (discount if i == len(all_courses) - 1 else 0)
+        for i, c in enumerate(all_courses)
+    ]
+    # 변호사 할인은 한 항목에 몰아 넣지 않고 금액 비중대로 나눈다 — 묶음 할인과
+    # 달리 10%는 항목 하나가 감당 못 할 만큼 클 수 있어(싼 항목 하나에 전액
+    # 몰리면 음수가 될 수 있음) 비례 배분하고, 반올림 오차만 마지막 항목이 흡수.
+    final_amounts = list(base_amounts)
+    if lawyer_discount > 0 and after_bundle_discount > 0:
+        allocated = 0
+        for i, amt in enumerate(base_amounts):
+            if i == len(base_amounts) - 1:
+                cut = lawyer_discount - allocated
+            else:
+                cut = (lawyer_discount * amt) // after_bundle_discount
+                allocated += cut
+            final_amounts[i] = amt - cut
+
+    items: list[BundleItem] = []
+    for c, amount in zip(all_courses, final_amounts):
         order = Order(
             user_id=current_user.id,
             course_id=c.id,
@@ -351,6 +394,7 @@ def create_order_bundle(
             amount=amount,
             status=OrderStatus.PENDING,
             bundle_id=bundle_id,
+            lawyer_partner_id=lawyer_partner.id if lawyer_partner else None,
         )
         db.add(order)
         db.flush()
@@ -363,6 +407,7 @@ def create_order_bundle(
         bundle_id=bundle_id,
         subtotal=subtotal,
         discount=discount,
+        lawyer_discount=lawyer_discount,
         total=total,
         payment_method=payload.payment_method,
         items=items,

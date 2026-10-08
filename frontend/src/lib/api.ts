@@ -13,6 +13,7 @@ import type {
 import type {
   BundleCreateResponse,
   DocumentResponse,
+  LawyerPartnerPublic,
   OrderResponse,
   PaymentMethod,
 } from "@/types/order";
@@ -45,6 +46,7 @@ import type {
   AdminLectureCreate,
   AdminLectureFull,
   AdminLecturePatch,
+  AdminLawyerPartnerRow,
   AdminOrderBundleSibling,
   AdminOrdersResponse,
   AdminQuizQuestion,
@@ -367,8 +369,14 @@ export async function createOrderBundle(payload: {
   course_ids: number[];
   payment_method: PaymentMethod;
   legal_letters?: LegalLetterType[];
+  lawyer_partner_id?: number | null;
 }): Promise<BundleCreateResponse> {
   const { data } = await api.post<BundleCreateResponse>("/orders/bundle", payload);
+  return data;
+}
+
+export async function getLawyerPartners(): Promise<LawyerPartnerPublic[]> {
+  const { data } = await api.get<LawyerPartnerPublic[]>("/orders/lawyer-partners");
   return data;
 }
 
@@ -1023,6 +1031,34 @@ export async function patchFaq(faqId: number, payload: FaqPatch): Promise<Faq> {
 
 export async function deleteFaq(faqId: number): Promise<void> {
   await api.delete(`/admin/faq/${faqId}`);
+}
+
+export async function getAdminLawyerPartners(): Promise<AdminLawyerPartnerRow[]> {
+  const { data } = await api.get<AdminLawyerPartnerRow[]>("/admin/lawyer-partners");
+  return data;
+}
+
+export async function createLawyerPartner(payload: {
+  law_firm_name: string;
+  lawyer_name: string;
+}): Promise<AdminLawyerPartnerRow> {
+  const { data } = await api.post<AdminLawyerPartnerRow>("/admin/lawyer-partners", payload);
+  return data;
+}
+
+export async function patchLawyerPartner(
+  partnerId: number,
+  payload: { law_firm_name?: string; lawyer_name?: string; is_active?: boolean },
+): Promise<AdminLawyerPartnerRow> {
+  const { data } = await api.patch<AdminLawyerPartnerRow>(
+    `/admin/lawyer-partners/${partnerId}`,
+    payload,
+  );
+  return data;
+}
+
+export async function deleteLawyerPartner(partnerId: number): Promise<void> {
+  await api.delete(`/admin/lawyer-partners/${partnerId}`);
 }
 
 export async function getPost(

@@ -78,6 +78,13 @@ class Order(Base):
     detention_inmate: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+    # 변호사 사무실 리퍼럴 — 결제 시 의뢰인이 담당 변호사를 선택했으면 기록
+    # (10% 할인 적용 근거 + 관리자가 리퍼럴 통계를 볼 수 있게, 2026-10).
+    # 정산 목적이 아니라 기록용이라 파트너가 삭제돼도 주문은 남아야 하므로
+    # ondelete=SET NULL.
+    lawyer_partner_id: Mapped[int | None] = mapped_column(
+        ForeignKey("lawyer_partners.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

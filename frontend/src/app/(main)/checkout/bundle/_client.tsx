@@ -4,9 +4,15 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
-import { createOrderBundle, getCourseDetail, getLegalLetterInfo, tokenStorage } from "@/lib/api";
+import {
+  createOrderBundle,
+  getCourseDetail,
+  getLawyerPartners,
+  getLegalLetterInfo,
+  tokenStorage,
+} from "@/lib/api";
 import type { CourseDetail } from "@/types/course";
-import { PAYMENT_METHOD_LABEL, type PaymentMethod } from "@/types/order";
+import { PAYMENT_METHOD_LABEL, type LawyerPartnerPublic, type PaymentMethod } from "@/types/order";
 import { counselingDisplayTitle } from "@/types/counseling";
 import { LEGAL_LETTER_LABEL, type LegalLetterInfo, type LegalLetterType } from "@/types/legalLetter";
 import {
@@ -106,6 +112,16 @@ export default function CheckoutBundleClient() {
     setSelectedLetters((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
   }
 
+  // 변호사 사무실 리퍼럴 — 결제 시 선택하면 10% 추가 할인(별도 코드/정산 없음).
+  const [lawyerPartners, setLawyerPartners] = useState<LawyerPartnerPublic[]>([]);
+  const [lawyerPartnerId, setLawyerPartnerId] = useState<number | "">("");
+
+  useEffect(() => {
+    getLawyerPartners()
+      .then(setLawyerPartners)
+      .catch(() => {});
+  }, []);
+
   // 토스 결제창에서 실패/취소 시 failUrl(이 페이지 자체)로 code/message 를
   // 쿼리스트링에 실어 되돌아온다. 예전엔 이걸 그냥 무시해서, 사용자가
   // 왜 결제가 안 됐는지 전혀 모른 채 조용히 결제 폼으로만 돌아왔었다.
@@ -179,7 +195,9 @@ export default function CheckoutBundleClient() {
   }, 0);
   const subtotal = coursesSubtotal + letterTotal;
   const discount = subtotal >= BULK_DISCOUNT_THRESHOLD ? BULK_DISCOUNT_AMOUNT : 0;
-  const total = subtotal - discount;
+  const afterBundleDiscount = subtotal - discount;
+  const lawyerDiscount = lawyerPartnerId !== "" ? Math.round(afterBundleDiscount * 0.1) : 0;
+  const total = afterBundleDiscount - lawyerDiscount;
 
   async function handleCheckout() {
     if (courses.length === 0) return;
@@ -190,6 +208,7 @@ export default function CheckoutBundleClient() {
         course_ids: courseIds,
         payment_method: paymentMethod,
         legal_letters: selectedLetters,
+        lawyer_partner_id: lawyerPartnerId === "" ? null : lawyerPartnerId,
       });
 
       const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
@@ -472,6 +491,38 @@ export default function CheckoutBundleClient() {
                 </ul>
               </section>
             ) : null}
+
+            {lawyerPartners.length > 0 ? (
+              <section>
+                <div className="mb-6 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">
+                    {letterInfo ? 4 : 3}
+                  </div>
+                  <h2 className="font-sans text-xl font-bold text-slate-900">
+                    변호사 사무실 소개{" "}
+                    <span className="text-sm font-medium text-zinc-400">(선택, 10% 할인)</span>
+                  </h2>
+                </div>
+                <p className="mb-4 text-sm text-slate-500">
+                  담당 변호사 사무실을 소개받아 오셨다면 선택해 주세요. 결제 시 10% 할인이
+                  자동으로 적용됩니다.
+                </p>
+                <select
+                  value={lawyerPartnerId}
+                  onChange={(e) =>
+                    setLawyerPartnerId(e.target.value === "" ? "" : Number(e.target.value))
+                  }
+                  className="w-full rounded-xl border-2 border-zinc-200 bg-white px-4 py-3 text-sm focus:border-[var(--color-primary)] focus:outline-none"
+                >
+                  <option value="">선택 안 함</option>
+                  {lawyerPartners.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.law_firm_name} {p.lawyer_name} 변호사
+                    </option>
+                  ))}
+                </select>
+              </section>
+            ) : null}
           </div>
 
           <div className="lg:col-span-4">
@@ -509,6 +560,16 @@ export default function CheckoutBundleClient() {
                       </span>
                       <span className="font-bold text-[var(--color-accent)]">
                         -{discount.toLocaleString()}원
+                      </span>
+                    </div>
+                  ) : null}
+                  {lawyerDiscount > 0 ? (
+                    <div className="flex justify-between pb-2">
+                      <span className="font-medium text-[var(--color-accent)]">
+                        변호사 소개 할인 10%
+                      </span>
+                      <span className="font-bold text-[var(--color-accent)]">
+                        -{lawyerDiscount.toLocaleString()}원
                       </span>
                     </div>
                   ) : null}

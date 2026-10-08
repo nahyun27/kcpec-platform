@@ -6,6 +6,7 @@ from app.models.document import IssuedDocument, IssuedDocumentStatus, IssuedDocu
 from app.models.enrollment import Enrollment, LectureProgress
 from app.models.faq import Faq, FaqCategory
 from app.models.legal_letter import LegalLetter, LegalLetterType
+from app.models.lawyer_partner import LawyerPartner
 from app.models.lecture import Lecture
 from app.models.order import Order, OrderStatus, OrderType, PaymentMethod
 from app.models.quiz import Quiz, QuizAttempt, QuizOption, QuizQuestion
@@ -30,6 +31,7 @@ __all__ = [
     "IssuedDocumentType",
     "LegalLetter",
     "LegalLetterType",
+    "LawyerPartner",
     "Lecture",
     "LectureProgress",
     "Order",

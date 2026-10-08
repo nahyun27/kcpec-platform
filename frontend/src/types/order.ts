@@ -53,9 +53,16 @@ export type BundleCreateResponse = {
   bundle_id: string;
   subtotal: number;
   discount: number;
+  lawyer_discount: number;
   total: number;
   payment_method: PaymentMethod;
   items: BundleItem[];
+};
+
+export type LawyerPartnerPublic = {
+  id: number;
+  law_firm_name: string;
+  lawyer_name: string;
 };
 
 export type IssuedDocumentType = "certificate" | "guide" | "cbt" | "counseling";

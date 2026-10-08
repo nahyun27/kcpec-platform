@@ -54,6 +54,8 @@ class BundleCreateRequest(BaseModel):
     payment_method: PaymentMethod
     # 함께 담을 반성문·탄원서(각 10,000원) — 선택.
     legal_letters: list[Literal["repentance", "petition"]] = []
+    # 결제 시 선택한 담당 변호사 사무실 — 있으면 10% 추가 할인(2026-10).
+    lawyer_partner_id: int | None = None
 
 
 class BundleItem(BaseModel):
@@ -67,6 +69,9 @@ class BundleCreateResponse(BaseModel):
     bundle_id: str
     subtotal: int
     discount: int
+    # 변호사 리퍼럴 10% 할인 — 묶음 할인(discount) 적용 후 금액 기준으로 계산.
+    # 선택 안 했으면 0.
+    lawyer_discount: int = 0
     total: int
     payment_method: PaymentMethod
     items: list[BundleItem]

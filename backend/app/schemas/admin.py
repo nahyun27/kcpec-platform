@@ -135,6 +135,8 @@ class AdminOrderRow(BaseModel):
     status: OrderStatus
     created_at: datetime
     bundle_id: str | None = None
+    # 결제 시 선택한 변호사 리퍼럴 — "{법무법인명} {변호사명}" 합쳐서, 없으면 None.
+    lawyer_partner_name: str | None = None
 
 
 class AdminOrderBundleSibling(BaseModel):
