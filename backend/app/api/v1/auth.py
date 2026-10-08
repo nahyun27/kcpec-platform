@@ -22,7 +22,7 @@ from app.core.config import settings
 from app.core.cookies import clear_auth_cookies, get_refresh_token, set_auth_cookies
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.core.email import send_password_reset_email, send_verification_email
+from app.core.email import send_password_reset_email
 from app.core.rate_limit import client_ip, enforce_rate_limit
 from app.core.security import (
     create_access_token,
@@ -45,13 +45,11 @@ from app.schemas.auth import (
     SocialProvider,
     TokenResponse,
     UserResponse,
-    VerifyEmailRequest,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 PASSWORD_RESET_EXPIRE_MINUTES = 60
-EMAIL_VERIFY_EXPIRE_HOURS = 24
 
 
 def _issue_tokens(user_id: int) -> TokenResponse:
@@ -79,7 +77,6 @@ def _lookup_active_lawyer_partner_id(db: Session, code: str | None) -> int | Non
 @router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def signup(
     payload: SignupRequest,
-    background_tasks: BackgroundTasks,
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
@@ -95,80 +92,19 @@ def signup(
             detail="이미 사용 중인 아이디 또는 이메일입니다.",
         )
 
-    verify_token = secrets.token_urlsafe(32)
     user = User(
         username=payload.username,
         password_hash=hash_password(payload.password),
         email=payload.email,
         birth_date=payload.birth_date,
-        is_verified=False,
-        email_verify_token=hash_lookup_token(verify_token),
-        email_verify_expires_at=datetime.now(timezone.utc)
-        + timedelta(hours=EMAIL_VERIFY_EXPIRE_HOURS),
         lawyer_partner_id=_lookup_active_lawyer_partner_id(db, payload.lawyer_referral_code),
     )
     db.add(user)
     db.commit()
     db.refresh(user)
 
-    verify_url = f"{settings.FRONTEND_BASE_URL}/verify-email?token={verify_token}"
-    background_tasks.add_task(send_verification_email, to_email=user.email, verify_url=verify_url)
-
     set_auth_cookies(response, _issue_tokens(user.id))
     return user
-
-
-@router.post("/verify-email", status_code=status.HTTP_200_OK)
-def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)) -> dict[str, str]:
-    user = db.scalar(
-        select(User).where(User.email_verify_token == hash_lookup_token(payload.token))
-    )
-    if user is None or user.email_verify_expires_at is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="유효하지 않거나 만료된 인증 링크입니다.",
-        )
-    expires_at = user.email_verify_expires_at
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-    if expires_at < datetime.now(timezone.utc):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="유효하지 않거나 만료된 인증 링크입니다.",
-        )
-    user.is_verified = True
-    # 토큰은 성공 후에도 만료 전까지 그대로 둔다 — 예전엔 성공하자마자 바로
-    # null 처리해서, 스팸/보안 필터가 메일의 링크를 미리 한 번 열어보는
-    # "프리페치"에 토큰이 먼저 소모돼버리면 정작 사용자가 그 메일을 열어
-    # 눌렀을 때는 "유효하지 않은 링크"로 실패하는 문제가 있었다(2026-10,
-    # 실사용 중 "인증 이메일이 스팸메일로 확인되며 인증url를 누르면
-    # 인증실패로 처리가 되네요" 문의로 발견). 인증 자체는 멱등한 동작이라
-    # 같은 토큰으로 여러 번 다시 호출돼도 안전하다 — 만료 시간(24시간)이
-    # 그대로 노출 범위를 제한해준다.
-    db.commit()
-    return {"detail": "이메일 인증이 완료되었습니다."}
-
-
-@router.post("/resend-verification", status_code=status.HTTP_200_OK)
-def resend_verification(
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> dict[str, str]:
-    enforce_rate_limit(f"resend-verify:user:{current_user.id}", max_attempts=3, window_seconds=3600)
-    if current_user.is_verified:
-        return {"detail": "이미 인증된 이메일입니다."}
-    token = secrets.token_urlsafe(32)
-    current_user.email_verify_token = hash_lookup_token(token)
-    current_user.email_verify_expires_at = datetime.now(timezone.utc) + timedelta(
-        hours=EMAIL_VERIFY_EXPIRE_HOURS
-    )
-    db.commit()
-    verify_url = f"{settings.FRONTEND_BASE_URL}/verify-email?token={token}"
-    background_tasks.add_task(
-        send_verification_email, to_email=current_user.email, verify_url=verify_url
-    )
-    return {"detail": "인증 메일을 다시 보냈습니다."}
 
 
 @router.post("/login", response_model=UserResponse)
@@ -300,15 +236,14 @@ def me(current_user: User = Depends(get_current_user)) -> User:
 @router.patch("/me", response_model=UserResponse)
 def patch_me(
     payload: ProfileUpdateRequest,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> User:
     """이메일 / 비밀번호 변경. 소셜 로그인 사용자는 비밀번호 변경 불가."""
     is_social = current_user.social_provider is not None
 
-    # 1) 이메일 변경 — 새 주소는 아직 검증 안 됐으므로 다시 미인증 처리하고
-    # 인증 메일을 재발송한다 (검증된 옛 이메일을 계속 인증완료로 두면 의미 없음).
+    # 1) 이메일 변경 — 서류 발송용 연락처일 뿐이라 인증 없이 바로 저장
+    # (2026-10, 인증 메일이 스팸함에 들어가 혼란만 주던 이메일 인증 제거).
     if payload.email and payload.email != current_user.email:
         dup = db.scalar(
             select(User).where(User.email == payload.email, User.id != current_user.id)
@@ -319,17 +254,6 @@ def patch_me(
                 detail="이미 사용 중인 이메일입니다.",
             )
         current_user.email = payload.email
-        if not is_social:
-            token = secrets.token_urlsafe(32)
-            current_user.is_verified = False
-            current_user.email_verify_token = hash_lookup_token(token)
-            current_user.email_verify_expires_at = datetime.now(timezone.utc) + timedelta(
-                hours=EMAIL_VERIFY_EXPIRE_HOURS
-            )
-            verify_url = f"{settings.FRONTEND_BASE_URL}/verify-email?token={token}"
-            background_tasks.add_task(
-                send_verification_email, to_email=current_user.email, verify_url=verify_url
-            )
 
     # 2) 비밀번호 변경
     if payload.new_password is not None:

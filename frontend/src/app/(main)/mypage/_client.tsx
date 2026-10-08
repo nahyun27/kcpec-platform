@@ -19,7 +19,6 @@ import {
   getPosts,
   getSurveyStatus,
   markDocumentDownloaded,
-  resendVerification,
   tokenStorage,
   updateMe,
   updatePost,
@@ -45,7 +44,7 @@ import {
   type DocumentResponse,
   type OrderResponse,
 } from "@/types/order";
-import { BookOpen, Check, Clock, CreditCard, Download, FileSignature, FileText, Phone, User, ChevronRight, PlayCircle, Loader2, MailWarning, MessageSquare, Edit3, AlertCircle, Star } from "lucide-react";
+import { BookOpen, Check, Clock, CreditCard, Download, FileSignature, FileText, Phone, User, ChevronRight, PlayCircle, Loader2, MessageSquare, Edit3, AlertCircle, Star } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { useDialog } from "@/components/ui/DialogProvider";
@@ -169,7 +168,6 @@ export default function MyPageClient() {
   const [editOpen, setEditOpen] = useState(false);
   const [answersSurveyId, setAnswersSurveyId] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [resending, setResending] = useState(false);
 
   async function handleCancelOrder(orderId: number) {
     if (
@@ -225,18 +223,6 @@ export default function MyPageClient() {
       return;
     }
     router.push(`/checkout/bundle?courses=${courseIds.join(",")}`);
-  }
-
-  async function handleResendVerification() {
-    setResending(true);
-    try {
-      await resendVerification();
-      setToast("인증 메일을 다시 보냈습니다. 메일함을 확인해 주세요.");
-    } catch {
-      setToast("발송에 실패했습니다. 잠시 후 다시 시도해 주세요.");
-    } finally {
-      setResending(false);
-    }
   }
 
   useEffect(() => {
@@ -335,26 +321,6 @@ export default function MyPageClient() {
       </div>
 
       <div className="mx-auto max-w-5xl space-y-8 md:space-y-12 px-4 md:px-6 pt-8 md:pt-12">
-      {me && !me.is_verified ? (
-        <div className="flex flex-col items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-2.5">
-            <MailWarning className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>
-              <strong>{me.email}</strong> 이메일 인증이 아직 안 됐어요. 수료증·심리상담
-              의견서가 이 주소로 발송되니 인증을 완료해 주세요.
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={handleResendVerification}
-            disabled={resending}
-            className="shrink-0 rounded-full bg-amber-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-amber-700 disabled:opacity-60"
-          >
-            {resending ? "발송 중..." : "인증 메일 재발송"}
-          </button>
-        </div>
-      ) : null}
-
       {/* 탭 네비게이션 */}
       <div className="hide-scrollbar -mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
         <div className="inline-flex w-max gap-1 rounded-full bg-slate-100/80 p-1 shadow-inner sm:w-auto sm:gap-1.5 border border-slate-200/60">

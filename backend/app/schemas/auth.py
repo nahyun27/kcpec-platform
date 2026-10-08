@@ -33,10 +33,6 @@ class TokenResponse(BaseModel):
 SocialProvider = Literal["kakao", "naver", "google"]
 
 
-class VerifyEmailRequest(BaseModel):
-    token: str = Field(min_length=1)
-
-
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 

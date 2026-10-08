@@ -230,16 +230,6 @@ export async function getMe(): Promise<UserResponse> {
   return data;
 }
 
-export async function verifyEmail(token: string): Promise<{ detail: string }> {
-  const { data } = await api.post<{ detail: string }>("/auth/verify-email", { token });
-  return data;
-}
-
-export async function resendVerification(): Promise<{ detail: string }> {
-  const { data } = await api.post<{ detail: string }>("/auth/resend-verification");
-  return data;
-}
-
 export async function forgotPassword(email: string): Promise<{ detail: string }> {
   const { data } = await api.post<{ detail: string }>("/auth/forgot-password", { email });
   return data;

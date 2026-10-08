@@ -104,52 +104,6 @@ def send_final_to_user(
     return True
 
 
-def send_verification_email(*, to_email: str, verify_url: str) -> bool:
-    subject = "[KCPEC] 이메일 인증을 완료해 주세요"
-    body = dedent(
-        f"""\
-        안녕하세요.
-
-        KCPEC 회원가입을 환영합니다. 아래 링크를 눌러 이메일 인증을 완료해 주세요.
-        수료증, 심리상담 의견서 등 발급 서류가 이 이메일 주소로 발송되니
-        본인 이메일이 맞는지 꼭 확인 부탁드립니다.
-
-        {verify_url}
-
-        본인이 가입하지 않으셨다면 이 메일은 무시하셔도 됩니다.
-
-        — 한국범죄예방교육센터 —
-        """
-    )
-
-    if not (settings.SMTP_HOST and to_email):
-        logger.info("[EMAIL DEV MODE] 이메일 인증 — 콘솔 출력")
-        print("=" * 60)
-        print(f"To: {to_email or '(미설정)'}")
-        print(f"Subject: {subject}")
-        print("-" * 60)
-        print(body)
-        print("=" * 60)
-        return True
-
-    msg = EmailMessage()
-    msg["From"] = settings.SMTP_FROM or settings.SMTP_USER or "no-reply@kcpec.kr"
-    msg["To"] = to_email
-    msg["Subject"] = subject
-    msg.set_content(body)
-
-    try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
-            smtp.starttls()
-            if settings.SMTP_USER and settings.SMTP_PASSWORD:
-                smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            smtp.send_message(msg)
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("SMTP 발송 실패: %s", exc)
-        return False
-    return True
-
-
 def send_password_reset_email(*, to_email: str, reset_url: str) -> bool:
     subject = "[KCPEC] 비밀번호 재설정 안내"
     body = dedent(
