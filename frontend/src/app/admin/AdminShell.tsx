@@ -67,29 +67,11 @@ const NAV: (SingleNav | GroupNav)[] = [
     ],
   },
   {
-    kind: "group",
-    basePath: "/admin/statistics",
-    paramKey: "tab",
-    label: "통계",
-    icon: <BarChart2 className="h-4 w-4" />,
-    children: [
-      { value: "sales", label: "매출 통계" },
-      { value: "visitors", label: "방문자 통계" },
-    ],
-  },
-  {
     kind: "single",
     href: "/admin/documents",
     label: "심리상담 의견서",
     icon: <FileText className="h-4 w-4" />,
     todoKey: "counseling_draft_review",
-  },
-  {
-    kind: "single",
-    href: "/admin/detention",
-    label: "구속수용자 교육",
-    icon: <Package className="h-4 w-4" />,
-    todoKey: "detention_to_process",
   },
   {
     kind: "single",
@@ -118,6 +100,24 @@ const NAV: (SingleNav | GroupNav)[] = [
       { value: "review", label: "수강후기" },
       { value: "faq", label: "FAQ" },
     ],
+  },
+  {
+    kind: "group",
+    basePath: "/admin/statistics",
+    paramKey: "tab",
+    label: "통계",
+    icon: <BarChart2 className="h-4 w-4" />,
+    children: [
+      { value: "sales", label: "매출 통계" },
+      { value: "visitors", label: "방문자 통계" },
+    ],
+  },
+  {
+    kind: "single",
+    href: "/admin/detention",
+    label: "구속수용자 교육",
+    icon: <Package className="h-4 w-4" />,
+    todoKey: "detention_to_process",
   },
   { kind: "single", href: "/admin/health", label: "시스템 상태", icon: <Activity className="h-4 w-4" /> },
 ];
