@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { isAxiosError } from "axios";
 import { login } from "@/lib/api";
 import { getCookie, LAWYER_REFERRAL_COOKIE } from "@/lib/cookies";
 import { Loader2 } from "lucide-react";
-import { SocialLoginButtons } from "../_social";
+import { SOCIAL_NEXT_KEY, SocialLoginButtons } from "../_social";
 
 // `?next=` 는 같은 origin 의 절대경로만 허용 (open-redirect 방지).
 function safeNext(raw: string | null): string {
@@ -20,6 +20,24 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = safeNext(searchParams.get("next"));
+
+  // 소셜 로그인을 취소하거나 실패하면 백엔드가 ?next 없이 /login?social_error=
+  // 로 돌려보낸다 — 떠나기 전 적어둔 목적지를 주소에 다시 붙여, 이후 로그인/
+  // 가입/소셜 재시도가 모두 원래 가려던 결제 화면으로 이어지게 한다.
+  useEffect(() => {
+    if (searchParams.get("next") || !searchParams.get("social_error")) return;
+    let stored: string | null = null;
+    try {
+      stored = sessionStorage.getItem(SOCIAL_NEXT_KEY);
+    } catch {
+      return;
+    }
+    if (!stored || safeNext(stored) === "/") return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("next", stored);
+    router.replace(`/login?${params.toString()}`);
+  }, [searchParams, router]);
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);

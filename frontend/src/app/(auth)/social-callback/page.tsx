@@ -44,8 +44,10 @@ export default function SocialCallbackPage() {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-sm font-semibold text-red-600">{error}</p>
+        {/* social_error 를 붙여야 로그인 페이지가 떠나기 전 적어둔 목적지(결제
+            화면 등)를 되살린다 */}
         <Link
-          href="/login"
+          href="/login?social_error=fail"
           className="rounded-full border border-zinc-300 bg-white px-5 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"
         >
           로그인 페이지로
