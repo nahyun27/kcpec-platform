@@ -8,9 +8,12 @@ import { absUrl, getOrderDocuments, issueDocument, tokenStorage } from "@/lib/ap
 import type { DocumentResponse } from "@/types/order";
 import { Award } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { BirthDateInput, formatBirthKorean } from "@/components/ui/BirthDateInput";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 export default function IssuePage() {
   const router = useRouter();
+  const dialog = useDialog();
   const searchParams = useSearchParams();
   const orderIdParam = searchParams.get("order_id");
   const orderId = orderIdParam ? Number(orderIdParam) : NaN;
@@ -59,6 +62,15 @@ export default function IssuePage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    if (!birth) {
+      setError("생년월일 8자리를 정확히 입력해 주세요.");
+      return;
+    }
+    const ok = await dialog.confirm(
+      `아래 정보로 수료증을 발급합니다.\n\n성명: ${name.trim()}\n생년월일: ${formatBirthKorean(birth)}\n\n발급 후에는 수정할 수 없어요. 정확한가요?`,
+      { title: "발급 정보를 확인해 주세요", confirmText: "맞아요, 발급하기", cancelText: "다시 확인할게요" },
+    );
+    if (!ok) return;
     setSubmitting(true);
     try {
       const doc = await issueDocument(orderId, {
@@ -159,19 +171,17 @@ export default function IssuePage() {
             <label htmlFor="birth" className="block text-sm font-medium text-zinc-800">
               생년월일
             </label>
-            <input
+            <BirthDateInput
               id="birth"
-              type="date"
               required
-              min="1900-01-01"
-              max={new Date().toISOString().slice(0, 10)}
               value={birth}
-              onChange={(e) => setBirth(e.target.value)}
+              onChange={setBirth}
+              note="수료증에 그대로 인쇄됩니다."
               className="w-full rounded border border-[var(--color-border)] px-3 py-2.5 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
             />
           </div>
 
-          <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+          <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
             발급 후에는 성명·생년월일을 수정할 수 없으니, 수강자의 정보를
             정확히 입력하시기 바랍니다.
           </p>

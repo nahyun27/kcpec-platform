@@ -8,6 +8,7 @@ import { signup } from "@/lib/api";
 import { getCookie, LAWYER_REFERRAL_COOKIE } from "@/lib/cookies";
 import { Loader2 } from "lucide-react";
 import { SocialLoginButtons } from "../_social";
+import { BirthDateInput } from "@/components/ui/BirthDateInput";
 
 type FormState = {
   username: string;
@@ -162,13 +163,11 @@ export default function SignupClient() {
         </Field>
 
         <Field label="생년월일" htmlFor="birthDate">
-          <input
+          <BirthDateInput
             id="birthDate"
-            name="birthDate"
-            type="date"
             required
             value={form.birthDate}
-            onChange={(e) => update("birthDate", e.target.value)}
+            onChange={(v) => update("birthDate", v)}
             className={inputClass}
           />
         </Field>

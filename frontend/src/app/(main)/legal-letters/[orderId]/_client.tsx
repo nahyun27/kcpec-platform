@@ -7,6 +7,7 @@ import { isAxiosError } from "axios";
 import { CheckCircle2, Clock, Download, FileText, Loader2, Sparkles } from "lucide-react";
 import { absUrl, getLegalLetterInfo, getLegalLetterStatus, submitLegalLetter, tokenStorage } from "@/lib/api";
 import { LEGAL_LETTER_LABEL, type LegalLetterInfo, type LegalLetterStatus } from "@/types/legalLetter";
+import { BirthDateInput } from "@/components/ui/BirthDateInput";
 
 const inputCls =
   "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[var(--color-primary)]";
@@ -343,9 +344,8 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
                 onChange={(e) => set("writer_name", e.target.value)} />
             </Field>
             <Field label="생년월일" required>
-              <input type="date" className={inputCls} value={form.writer_birth} required
-                min="1900-01-01" max={new Date().toISOString().slice(0, 10)}
-                onChange={(e) => set("writer_birth", e.target.value)} />
+              <BirthDateInput className={inputCls} value={form.writer_birth} required
+                onChange={(v) => set("writer_birth", v)} />
             </Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">

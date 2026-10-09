@@ -10,6 +10,8 @@ import { TIER_SORT_INDEX } from "@/lib/courseTiers";
 import type { DetentionCourse, DetentionInfo } from "@/types/detention";
 import { counselingDisplayTitle } from "@/types/counseling";
 import { PAYMENT_METHOD_LABEL, type PaymentMethod } from "@/types/order";
+import { BirthDateInput, formatBirthKorean } from "@/components/ui/BirthDateInput";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 type DaumPostcodeData = { zonecode: string; roadAddress: string; jibunAddress: string };
 type DaumWindow = Window & {
@@ -93,6 +95,7 @@ function CheckList({
 
 export default function DetentionClient() {
   const router = useRouter();
+  const dialog = useDialog();
   const searchParams = useSearchParams();
   const [info, setInfo] = useState<DetentionInfo | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -209,6 +212,15 @@ export default function DetentionClient() {
       setError("개인정보 수집·이용에 동의해 주세요.");
       return;
     }
+    if (!form.inmate_birth) {
+      setError("수용자 생년월일 8자리를 정확히 입력해 주세요.");
+      return;
+    }
+    const ok = await dialog.confirm(
+      `수료증에 아래 정보가 그대로 인쇄됩니다.\n\n수용자 성명: ${form.inmate_name.trim()}\n생년월일: ${formatBirthKorean(form.inmate_birth)}\n\n정확한가요?`,
+      { title: "수용자 정보를 확인해 주세요", confirmText: "맞아요, 계속하기", cancelText: "다시 확인할게요" },
+    );
+    if (!ok) return;
     setSubmitting(true);
     try {
       const bundle = await applyDetention({
@@ -327,9 +339,9 @@ export default function DetentionClient() {
                 onChange={(e) => set("inmate_name", e.target.value)} required />
             </Field>
             <Field label="수용자 생년월일" required>
-              <input type="date" className={inputCls} value={form.inmate_birth}
-                min="1900-01-01" max={new Date().toISOString().slice(0, 10)}
-                onChange={(e) => set("inmate_birth", e.target.value)} required />
+              <BirthDateInput className={inputCls} value={form.inmate_birth} required
+                note="수료증에 그대로 인쇄됩니다."
+                onChange={(v) => set("inmate_birth", v)} />
             </Field>
             <Field label="수용번호" required hint="우편물 전달에 필요합니다.">
               <input className={inputCls} value={form.inmate_number} maxLength={50}

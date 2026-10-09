@@ -13,6 +13,7 @@ import {
 import { FileText } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useDialog } from "@/components/ui/DialogProvider";
+import { BirthDateInput } from "@/components/ui/BirthDateInput";
 
 // ---------- 인적사항 (구조화 입력) -------------------------------------------
 
@@ -600,12 +601,9 @@ function PersonalSection({
 
         <div className="space-y-1.5">
           <FieldLabel required>생년월일</FieldLabel>
-          <input
-            type="date"
-            min="1900-01-01"
-            max={new Date().toISOString().slice(0, 10)}
+          <BirthDateInput
             value={personal.birthdate}
-            onChange={(e) => onChange("birthdate", e.target.value)}
+            onChange={(v) => onChange("birthdate", v)}
             className={inputCls}
           />
         </div>
