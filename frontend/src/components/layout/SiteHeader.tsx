@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Menu, X, ChevronRight } from "lucide-react";
 import { logout, tokenStorage } from "@/lib/api";
+import { LawyerReferralBanner } from "@/components/layout/LawyerReferralBanner";
 
 const NAV = [
   { href: "/sentencing", label: "맞춤 강의 찾기" },
@@ -59,6 +60,8 @@ export default function SiteHeader() {
   const needsMutedBackdrop = /^\/courses\/[^/]+\/watch/.test(pathname);
 
   return (
+    <>
+    <LawyerReferralBanner />
     <header
       className={`sticky top-0 md:top-4 z-50 transition-all px-0 md:px-6 pointer-events-none ${
         needsMutedBackdrop ? "bg-[var(--color-muted)]" : ""
@@ -221,5 +224,6 @@ export default function SiteHeader() {
         </div>
       </div>
     </header>
+    </>
   );
 }

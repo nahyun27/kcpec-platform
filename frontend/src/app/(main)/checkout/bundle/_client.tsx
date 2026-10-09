@@ -204,7 +204,7 @@ export default function CheckoutBundleClient() {
     }
     if (!tokenStorage.getAccess()) {
       router.replace(
-        `/login?next=${encodeURIComponent(`/checkout/bundle?courses=${coursesParam}`)}`,
+        `/login?next=${encodeURIComponent(`/checkout/bundle?${searchParams.toString()}`)}`,
       );
       return;
     }
@@ -228,7 +228,7 @@ export default function CheckoutBundleClient() {
         // 로그인 후 이 페이지로 되돌아오게 한다.
         if (isAxiosError(err) && err.response?.status === 401) {
           router.replace(
-            `/login?next=${encodeURIComponent(`/checkout/bundle?courses=${coursesParam}`)}`,
+            `/login?next=${encodeURIComponent(`/checkout/bundle?${searchParams.toString()}`)}`,
           );
           return;
         }

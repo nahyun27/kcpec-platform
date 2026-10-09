@@ -519,12 +519,6 @@ export default function SentencingPage() {
 
   async function handleCheckout() {
     if (recommendation.activeCourseCount === 0) return;
-    if (!tokenStorage.getAccess()) {
-      router.push(
-        `/login?next=${encodeURIComponent("/sentencing")}`,
-      );
-      return;
-    }
 
     const activeItems = recommendation.courses.filter((c) => !disabledCourses.has(c.id));
 
@@ -561,7 +555,14 @@ export default function SentencingPage() {
 
       const lettersParam =
         selectedLetters.size > 0 ? `&letters=${Array.from(selectedLetters).join(",")}` : "";
-      router.push(`/checkout/bundle?courses=${resolvedIds.join(",")}${lettersParam}`);
+      const checkoutUrl = `/checkout/bundle?courses=${resolvedIds.join(",")}${lettersParam}`;
+      // 로그인 전이면 고른 강의가 담긴 결제 화면 주소를 그대로 next 로 넘긴다
+      // — 예전엔 /sentencing 으로만 돌려보내서 선택이 전부 날아갔다(2026-10).
+      router.push(
+        tokenStorage.getAccess()
+          ? checkoutUrl
+          : `/login?next=${encodeURIComponent(checkoutUrl)}`,
+      );
     } catch {
       setCheckoutError("강의 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {

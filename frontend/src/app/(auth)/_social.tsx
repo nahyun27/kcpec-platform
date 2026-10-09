@@ -3,6 +3,11 @@
 import { useSearchParams } from "next/navigation";
 import { API_BASE_URL } from "@/lib/api";
 
+// 소셜 로그인은 백엔드 OAuth 를 한 바퀴 돌고 /social-callback 으로 돌아오는데,
+// 그 과정에서 ?next= 가 사라진다 — 떠나기 직전 같은 탭의 sessionStorage 에
+// 적어두고 콜백에서 꺼내 쓴다.
+export const SOCIAL_NEXT_KEY = "kcpec_social_next";
+
 type Provider = "kakao" | "naver" | "google";
 
 const PROVIDERS: { key: Provider; label: string; icon: string; cls: string }[] = [
@@ -44,7 +49,8 @@ function PROVIDER_LABEL(p: string): string {
 /**
  * 로그인/회원가입 페이지 공통 — 소셜 로그인 버튼 3개 + 구분선 + 에러 안내.
  * 클릭 시 백엔드 GET /auth/social/{provider}/login 으로 이동 → OAuth 인가 →
- * 콜백에서 토큰 발급 → /auth/social-callback 에서 tokenStorage 저장 → /mypage.
+ * 콜백에서 토큰 발급 → /auth/social-callback 에서 tokenStorage 저장 → ?next
+ * (없으면 /mypage).
  */
 export function SocialLoginButtons() {
   const searchParams = useSearchParams();
@@ -52,6 +58,16 @@ export function SocialLoginButtons() {
   const provider = searchParams.get("provider");
   // 백엔드가 상세 메시지를 보내주면 그걸 우선 노출, 아니면 코드별 기본 메시지.
   const customMsg = searchParams.get("social_message");
+  const next = searchParams.get("next");
+
+  function rememberNext() {
+    try {
+      if (next) sessionStorage.setItem(SOCIAL_NEXT_KEY, next);
+      else sessionStorage.removeItem(SOCIAL_NEXT_KEY);
+    } catch {
+      /* 저장소 차단 환경 — 그냥 기본(마이페이지)으로 돌아간다 */
+    }
+  }
   const errorMsg = errKey
     ? `${provider ? PROVIDER_LABEL(provider) + ": " : ""}${
         customMsg || ERROR_MESSAGES[errKey] || "소셜 로그인에 실패했습니다."
@@ -76,6 +92,7 @@ export function SocialLoginButtons() {
           <a
             key={p.key}
             href={`${API_BASE_URL}/auth/social/${p.key}/login`}
+            onClick={rememberNext}
             className={`flex w-full items-center justify-center gap-3 rounded-xl py-3 text-sm font-bold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${p.cls}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -37,7 +37,7 @@ export default function LawyerPortalClient({ token }: { token: string }) {
   const smsText = [
     `${info.law_firm_name} 안내드립니다.`,
     "재판에 제출할 재범방지교육 수료증과 반성문, 탄원서 등 양형자료를 온라인으로 준비하실 수 있습니다. 아래 링크로 들어가시면 10% 할인이 자동으로 적용되고, 수강을 마치는 즉시 수료증이 발급됩니다.",
-    `바로가기: ${shortLink}`,
+    `바로가기: ${shortLink}\n코드: ${info.referral_code}`,
     "문의: 010-6377-3325 · admin@kcpec.co.kr",
     "한국범죄예방교육센터",
   ].join("\n\n");

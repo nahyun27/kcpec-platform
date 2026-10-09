@@ -5,6 +5,20 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getMe, tokenStorage } from "@/lib/api";
 import { Spinner } from "@/components/ui/Spinner";
+import { SOCIAL_NEXT_KEY } from "../_social";
+
+// login/_client.tsx 의 safeNext 와 동일 — 같은 origin 의 절대경로만 허용.
+function takeSafeNext(): string {
+  let raw: string | null = null;
+  try {
+    raw = sessionStorage.getItem(SOCIAL_NEXT_KEY);
+    sessionStorage.removeItem(SOCIAL_NEXT_KEY);
+  } catch {
+    /* 저장소 차단 환경 */
+  }
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/mypage";
+  return raw;
+}
 
 /**
  * 백엔드 OAuth callback 이 redirect 한 후 도착하는 페이지.
@@ -19,7 +33,7 @@ export default function SocialCallbackPage() {
     getMe()
       .then(() => {
         tokenStorage.set();
-        router.replace("/mypage");
+        router.replace(takeSafeNext());
       })
       .catch(() => {
         setError("로그인에 실패했습니다. 다시 시도해 주세요.");
