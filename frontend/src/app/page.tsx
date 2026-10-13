@@ -98,7 +98,7 @@ function Hero() {
       <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col items-center px-4 md:px-6 text-center">
         <div className="mb-6 mx-auto flex w-fit max-w-[92%] items-center gap-2 rounded-2xl sm:rounded-full bg-gradient-to-r from-amber-400 to-orange-400 px-4 py-2 sm:py-1.5 text-[12px] sm:text-sm font-extrabold text-[#1C3461] shadow-lg shadow-orange-500/20 text-center animate-in fade-in slide-in-from-top-4 duration-700 ease-out">
           <PartyPopper className="h-4 w-4 shrink-0" />
-          <span>리뉴얼 기념 할인 이벤트 · 40~60% 할인 중! 국내 최저가! + 10만원 이상 구매 시 10,000원 추가 할인</span>
+          <span>리뉴얼 기념 할인 이벤트 · 50~60% 할인 중! 국내 최저가! + 10만원 이상 구매 시 10,000원 추가 할인</span>
         </div>
         <div className="mb-8 inline-flex items-center rounded-full border border-white bg-white/5 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-md animate-in fade-in slide-in-from-top-4 duration-700 delay-150 ease-out">
           <span>법원 및 수사기관 제출용 신뢰할 수 있는 양형자료</span>
