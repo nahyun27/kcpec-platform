@@ -10,7 +10,8 @@ const API_BASE_URL =
 
 async function fetchCourses(): Promise<CourseListItem[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/courses`, { next: { revalidate: 3600 } });
+    // 관리자 페이지에서 가격을 바꾸면 1분 안에 반영되도록 짧게 둔다.
+    const res = await fetch(`${API_BASE_URL}/courses`, { next: { revalidate: 60 } });
     if (!res.ok) return [];
     return await res.json();
   } catch {

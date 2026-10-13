@@ -1,6 +1,25 @@
 import { CheckCircle2, Clock3, FileCheck2, HeartHandshake, Scale, Sparkles } from "lucide-react";
 import { Reveal } from "@/components/ui/Reveal";
 import PartnerApplyForm from "./_ApplyForm";
+import type { CourseListItem } from "@/types/course";
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
+
+// 서면 심리상담(기본 프로그램) 가격 — 관리자 페이지에서 바꾸면 1분 안에 반영.
+// 불러오지 못하면 가격 없이 문장만 보여준다.
+async function fetchWrittenCounselingPrice(): Promise<number | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/courses?category=${encodeURIComponent("심리상담")}`, {
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return null;
+    const list: CourseListItem[] = await res.json();
+    return list.find((c) => c.title === "기본 프로그램")?.price ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export const metadata = {
   title: "변호사 사무실 파트너 모집 | KCPEC",
@@ -28,7 +47,7 @@ const REASONS = [
   {
     icon: HeartHandshake,
     title: "전문가 심리상담 의견서",
-    desc: "서면 상담 77,000원. 신청 시 자기성찰 리포트, 교육이수 소감문 등 4가지 서류를 추가 비용 없이 함께 제공합니다.",
+    desc: "{PRICE}신청 시 자기성찰 리포트, 교육이수 소감문 등 4가지 서류를 추가 비용 없이 함께 제공합니다.",
   },
 ];
 
@@ -60,7 +79,9 @@ const DOCUMENTS = [
   "탄원서 작성 (AI 초안 지원)",
 ];
 
-export default function PartnerPage() {
+export default async function PartnerPage() {
+  const counselingPrice = await fetchWrittenCounselingPrice();
+  const priceText = counselingPrice != null ? `서면 상담 ${counselingPrice.toLocaleString()}원. ` : "";
   return (
     <div id="top" className="min-h-screen bg-slate-50/50">
       {/* 히어로 — 신청서를 스크롤 없이 바로 보이게 상단에 배치 */}
@@ -146,7 +167,7 @@ export default function PartnerPage() {
                 <h3 className="mt-3 font-sans text-base font-bold text-slate-900">
                   {r.title}
                 </h3>
-                <p className="mt-1 text-sm leading-relaxed text-slate-600">{r.desc}</p>
+                <p className="mt-1 text-sm leading-relaxed text-slate-600">{r.desc.replace("{PRICE}", priceText)}</p>
               </div>
             ))}
           </div>

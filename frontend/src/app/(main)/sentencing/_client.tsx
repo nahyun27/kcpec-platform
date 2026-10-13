@@ -22,8 +22,8 @@ const LETTER_TYPES: LegalLetterType[] = ["repentance", "petition"];
 
 // ---------- 강의 카탈로그 -----------------------------------------------------
 //
-// 가격은 backend courses.price(할인가 기준) 와 동기화 필요 — TODO: 클라이언트
-// 확정가 변경 시 함께 갱신(backend/scripts/seed.py COURSES 참고).
+// 여기 가격은 서버 가격을 불러오기 전까지만 쓰는 기본값이다 — 화면에는
+// 관리자 페이지에서 바꾼 실제 가격(livePrices)이 덮어써져 표시된다(2026-10).
 
 type CourseId =
   | "law" // 준법의식 강화 (모든 경우 기본 포함)
@@ -104,6 +104,13 @@ const COURSE_ID_BY_TITLE: Record<string, CourseId> = Object.fromEntries(
     .filter((c) => c.id !== "counseling" && c.id !== "counseling_phone")
     .map((c) => [c.name, c.id]),
 );
+
+// 심리상담 CourseId → 백엔드 Course.title 매핑 (counseling_purchase.py 의
+// TITLE_BY_TYPE 과 반드시 동일하게 유지할 것).
+const COUNSELING_BACKEND_TITLE: Record<"counseling" | "counseling_phone", string> = {
+  counseling: "기본 프로그램",
+  counseling_phone: "전화 심화상담",
+};
 
 // ---------- Page 1: 메인 강의 --------------------------------------------------
 // "기타" 는 특정 CourseId 로 매핑되지 않아 별도 boolean(etcSelected)으로 관리.
@@ -277,6 +284,40 @@ export default function SentencingPage() {
   // 어차피 거부하지만(중복 결제 방지), 프런트에서 애초에 선택을 막아야
   // 사용자가 골랐다가 결제 단계에서야 막히는 걸 방지할 수 있다
   // (2026-09, 실사용 중 발견).
+  // 관리자 페이지에서 바꾼 실제 가격 — 불러오기 전/실패 시엔 COURSES 기본값.
+  const [livePrices, setLivePrices] = useState<Partial<Record<CourseId, number>>>({});
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getCourses(), getCounselingCourses()])
+      .then(([courses, counseling]) => {
+        if (cancelled) return;
+        const next: Partial<Record<CourseId, number>> = {};
+        for (const c of courses) {
+          const id = COURSE_ID_BY_TITLE[c.title];
+          if (id) next[id] = c.price;
+        }
+        for (const id of ["counseling", "counseling_phone"] as const) {
+          const c = counseling.find((x) => x.title === COUNSELING_BACKEND_TITLE[id]);
+          if (c) next[id] = c.price;
+        }
+        setLivePrices(next);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const catalog = useMemo(
+    () =>
+      Object.fromEntries(
+        (Object.keys(COURSES) as CourseId[]).map((id) => [
+          id,
+          { ...COURSES[id], price: livePrices[id] ?? COURSES[id].price },
+        ]),
+      ) as Record<CourseId, CourseInfo>,
+    [livePrices],
+  );
+
   const [ownedCourseIds, setOwnedCourseIds] = useState<Set<CourseId>>(new Set());
   // 예전에 구매했지만 수강기간이 만료된 강의 — 재구매 자체는 막지 않지만
   // (수강기간 만료 후 재결제는 정상 시나리오), 모르고 또 결제하는 일이
@@ -459,7 +500,7 @@ export default function SentencingPage() {
   // (백엔드 /orders/bundle 이 심리상담 상품도 sibling Order 로 받아준다) 전부
   // 합쳐서 소계/할인/합계를 계산한다.
   const recommendation = useMemo(() => {
-    const courses = Array.from(currentCourseIds).map((id) => COURSES[id]);
+    const courses = Array.from(currentCourseIds).map((id) => catalog[id]);
     const isCounseling = (id: CourseId) => id === "counseling" || id === "counseling_phone";
     const activeCourses = courses.filter((c) => !disabledCourses.has(c.id));
     // 서면/전화 복수 선택이 가능하므로 심리상담 항목이 0~2개일 수 있다.
@@ -508,14 +549,7 @@ export default function SentencingPage() {
       total,
       activeCourseCount: activeCourses.length,
     };
-  }, [currentCourseIds, disabledCourses, letterInfo, selectedLetters]);
-
-  // 심리상담 CourseId → 백엔드 Course.title 매핑 (counseling_purchase.py 의
-  // TITLE_BY_TYPE 과 반드시 동일하게 유지할 것).
-  const COUNSELING_BACKEND_TITLE: Record<"counseling" | "counseling_phone", string> = {
-    counseling: "기본 프로그램",
-    counseling_phone: "전화 심화상담",
-  };
+  }, [currentCourseIds, disabledCourses, letterInfo, selectedLetters, catalog]);
 
   async function handleCheckout() {
     if (recommendation.activeCourseCount === 0) return;
@@ -634,6 +668,7 @@ export default function SentencingPage() {
                 onToggleEtc={() => setEtcSelected((v) => !v)}
                 ownedCourseIds={ownedCourseIds}
                 expiredCourseIds={expiredCourseIds}
+                catalog={catalog}
               />
             ) : null}
             {step === 2 ? (
@@ -644,6 +679,7 @@ export default function SentencingPage() {
                 etcOnly={etcSelected && selectedMain.size === 0}
                 ownedCourseIds={ownedCourseIds}
                 expiredCourseIds={expiredCourseIds}
+                catalog={catalog}
               />
             ) : null}
             {step === 3 ? (
@@ -653,6 +689,7 @@ export default function SentencingPage() {
                   onAnswer={answerCounseling}
                   counselingTypes={counselingTypes}
                   onToggleType={toggleCounselingType}
+                  prices={{ basic: catalog.counseling.price, phone: catalog.counseling_phone.price }}
                 />
                 <Step3AddOns
                   letterInfo={letterInfo}
@@ -913,6 +950,7 @@ function Step1({
   onToggleEtc,
   ownedCourseIds,
   expiredCourseIds,
+  catalog,
 }: {
   selectedMain: Set<CourseId>;
   etcSelected: boolean;
@@ -920,6 +958,7 @@ function Step1({
   onToggleEtc: () => void;
   ownedCourseIds: Set<CourseId>;
   expiredCourseIds: Set<CourseId>;
+  catalog: Record<CourseId, CourseInfo>;
 }) {
   return (
     <section className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm md:p-7">
@@ -932,7 +971,7 @@ function Step1({
 
       <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
         {MAIN_CARDS.map((card) => {
-          const course = COURSES[card.id];
+          const course = catalog[card.id];
           const active = selectedMain.has(card.id);
           const owned = ownedCourseIds.has(card.id);
           const previouslyPurchased = expiredCourseIds.has(card.id);
@@ -1038,6 +1077,7 @@ function Step2({
   etcOnly,
   ownedCourseIds,
   expiredCourseIds,
+  catalog,
 }: {
   selectedAddon: Set<CourseId>;
   recommendedIds: Set<CourseId>;
@@ -1048,6 +1088,7 @@ function Step2({
   etcOnly: boolean;
   ownedCourseIds: Set<CourseId>;
   expiredCourseIds: Set<CourseId>;
+  catalog: Record<CourseId, CourseInfo>;
 }) {
   return (
     <section className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm md:p-7">
@@ -1071,7 +1112,7 @@ function Step2({
 
       <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
         {ADDON_CARDS.map((card) => {
-          const course = COURSES[card.id];
+          const course = catalog[card.id];
           const active = selectedAddon.has(card.id);
           const recommended = recommendedIds.has(card.id);
           const owned = ownedCourseIds.has(card.id);
@@ -1146,12 +1187,12 @@ const COUNSELING_TYPE_OPTIONS: {
   {
     type: "basic",
     label: "전문가 심리상담 (서면)",
-    desc: "온라인 설문 기반 · 77,000원",
+    desc: "온라인 설문 기반",
   },
   {
     type: "phone",
     label: "심화 상담 (전화)",
-    desc: "회당 15분 × 3회 · 330,000원",
+    desc: "회당 15분 × 3회",
   },
 ];
 
@@ -1160,11 +1201,13 @@ function Step3Counseling({
   onAnswer,
   counselingTypes,
   onToggleType,
+  prices,
 }: {
   answer: "Y" | "N" | "";
   onAnswer: (val: "Y" | "N") => void;
   counselingTypes: Set<"basic" | "phone">;
   onToggleType: (type: "basic" | "phone") => void;
+  prices: Record<"basic" | "phone", number>;
 }) {
   const [explainerOpen, setExplainerOpen] = useState(false);
   return (
@@ -1233,7 +1276,9 @@ function Step3Counseling({
                     >
                       {opt.label}
                     </p>
-                    <p className="mt-0.5 text-[13px] text-slate-500">{opt.desc}</p>
+                    <p className="mt-0.5 text-[13px] text-slate-500">
+                      {opt.desc} · {prices[opt.type].toLocaleString()}원
+                    </p>
                   </button>
                 );
               })}
