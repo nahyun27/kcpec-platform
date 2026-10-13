@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, false, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, event, false, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -51,6 +51,10 @@ class Order(Base):
         nullable=False,
     )
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    # 결제 당시 강의 정가(할인 전) — 나중에 관리자가 강의 가격을 바꿔도 예전
+    # 주문의 "정가 대비 할인" 표시가 흔들리지 않도록 주문에 같이 박아둔다.
+    # 직접 넣지 않으면 저장 순간 아래 before_insert 훅이 courses.price 로 채운다.
+    list_price: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[OrderStatus] = mapped_column(
         Enum(OrderStatus, name="order_status", values_callable=lambda e: [m.value for m in e]),
         nullable=False,
@@ -94,6 +98,16 @@ class Order(Base):
         back_populates="order",
         cascade="all, delete-orphan",
     )
+
+
+# 주문 생성 위치가 여러 곳(단건·묶음·심리상담·구속수용자 등)이라 각자 정가를
+# 넣게 하지 않고 저장 순간 한 군데서 채운다.
+@event.listens_for(Order, "before_insert")
+def _fill_list_price(_mapper, connection, target: Order) -> None:
+    if target.list_price is None and target.course_id is not None:
+        target.list_price = connection.execute(
+            text("SELECT price FROM courses WHERE id = :id"), {"id": target.course_id}
+        ).scalar()
 
 
 from app.models.document import IssuedDocument  # noqa: E402,F401

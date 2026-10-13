@@ -162,7 +162,7 @@ def _row_from_order(
         email=user.email,
         course_title=course.title,
         amount=o.amount,
-        course_price=course.price,
+        course_price=o.list_price if o.list_price is not None else course.price,
         payment_method=o.payment_method,
         status=o.status,
         created_at=o.created_at,
