@@ -703,6 +703,15 @@ export async function cancelAdminOrder(orderId: number): Promise<void> {
   await api.post(`/admin/orders/${orderId}/cancel`);
 }
 
+export async function getAdminRefundPreview(
+  orderId: number,
+): Promise<{ refund_amount: number; forfeited_discount: number }> {
+  const { data } = await api.get<{ refund_amount: number; forfeited_discount: number }>(
+    `/admin/orders/${orderId}/refund-preview`,
+  );
+  return data;
+}
+
 export async function refundAdminOrder(orderId: number): Promise<void> {
   await api.post(`/admin/orders/${orderId}/refund`);
 }

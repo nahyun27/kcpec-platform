@@ -13,6 +13,7 @@ import {
   getAdminOrders,
   getAdminUser,
   refundAdminOrder,
+  getAdminRefundPreview,
   uploadFinalCertificate,
 } from "@/lib/api";
 import type { AdminOrderRow, AdminOrdersResponse, AdminUser } from "@/types/admin";
@@ -186,16 +187,33 @@ function AdminOrdersPage() {
         ? "가상계좌 건은 자동으로 환불되지 않으니, 계좌로 직접 환불해 주세요."
         : "토스 결제가 자동으로 취소되어 고객에게 실제 환불됩니다.";
 
-    // 묶음결제여도 이 항목만 부분 환불된다(백엔드 refund_order, 2026-10) —
-    // 다른 항목은 그대로 남는다는 걸 확인창에서 분명히 보여준다.
+    // 묶음결제여도 이 항목만 부분 환불된다. 일부 환불로 10만 원 할인 조건이
+    // 깨지면 그 할인만큼 빼고 환불되므로, 실제 환불액을 서버에서 받아 보여준다.
+    let refundAmount = row.amount;
+    let forfeited = 0;
+    try {
+      const preview = await getAdminRefundPreview(row.id);
+      refundAmount = preview.refund_amount;
+      forfeited = preview.forfeited_discount;
+    } catch (err) {
+      const detail = isAxiosError(err)
+        ? (err.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      await dialog.alert(detail ?? "환불 금액을 계산하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
     const bundleNote = row.bundle_id
       ? "\n함께 결제한 다른 항목은 환불되지 않고 그대로 유지됩니다."
       : "";
+    const forfeitNote =
+      forfeited > 0
+        ? `\n\n※ 남은 금액이 10만 원 미만이 되어 묶음 할인 ${forfeited.toLocaleString()}원을 제외하고 환불됩니다.`
+        : "";
     const docNote = "이 항목의 수강 등록이 취소되고, 이 항목으로 발급된 서류가 있다면 함께 무효화됩니다.";
 
     if (
       !(await dialog.confirm(
-        `${row.course_title} ${row.amount.toLocaleString()}원만 환불합니다.\n(주문 #${row.id}, ${row.name ?? row.username})${bundleNote}\n\n${paymentNote}\n${docNote}`,
+        `${row.course_title}: ${refundAmount.toLocaleString()}원을 환불합니다.\n(주문 #${row.id}, ${row.name ?? row.username})${bundleNote}${forfeitNote}\n\n${paymentNote}\n${docNote}`,
         { title: "이 항목만 환불할까요?", confirmText: "환불하기", cancelText: "취소" },
       ))
     )

@@ -1,4 +1,5 @@
 import secrets
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Literal
@@ -903,6 +904,106 @@ def _revoke_issued_document(doc: IssuedDocument, db: Session) -> None:
     doc.pledge_pdf_url = None
 
 
+@dataclass
+class _RefundPlan:
+    amount: int
+    # 할인 조건(10만 원 이상)이 깨져 환불액에서 빠진 묶음 할인액
+    forfeited_discount: int
+    # 남는 항목들의 새 결제액(합계 = 남은 항목의 올바른 가격). 계산이 안 되는
+    # 묶음(이관 데이터 등)은 None — 이때는 이 항목 결제액만 그대로 환불한다.
+    remaining_amounts: dict[int, int] | None
+    is_last: bool
+
+
+def _plan_refund(db: Session, order: Order) -> _RefundPlan:
+    """이 항목만 환불할 때 돌려줄 금액 계산(2026-10).
+
+    묶음 할인 1만 원은 결제 시 마지막 항목 하나에 몰려 저장돼서, 그 금액
+    그대로 환불하면 어느 항목을 고르느냐에 따라 결과가 들쭉날쭉하고, 일부
+    환불로 10만 원 조건이 깨져도 할인이 그대로 남았다. 그래서 "지금 고객이
+    낸 돈 - 남는 항목들의 올바른 가격(정가 기준, 조건 다시 판단)"을 환불한다.
+    """
+    from app.api.v1.orders import (
+        BULK_DISCOUNT_AMOUNT,
+        BULK_DISCOUNT_THRESHOLD,
+        DETENTION_FEE_COURSE_TITLE,
+    )
+
+    if not order.bundle_id:
+        return _RefundPlan(order.amount, 0, {}, True)
+    paid = list(
+        db.scalars(
+            select(Order)
+            .where(Order.bundle_id == order.bundle_id, Order.status == OrderStatus.PAID)
+            .order_by(Order.id)
+        ).all()
+    )
+    remaining = [o for o in paid if o.id != order.id]
+    held = sum(o.amount for o in paid)
+    if not remaining:
+        return _RefundPlan(held, 0, {}, True)
+    fallback = _RefundPlan(order.amount, 0, None, False)
+    if order.bundle_id.startswith("legacy-") or any(o.list_price is None for o in paid):
+        return fallback
+
+    fee_ids = set(
+        db.scalars(select(Course.id).where(Course.title == DETENTION_FEE_COURSE_TITLE)).all()
+    )
+    has_lawyer = any(o.lawyer_partner_id for o in paid)
+
+    def total_for(lines: list[Order], bd: int) -> int:
+        base = sum(o.list_price for o in lines) - bd
+        return base - (round(base * 0.1) if has_lawyer else 0)
+
+    # 지금 묶음에 할인이 적용돼 있는지 결제액으로 역산 — 할인이 원래 없던
+    # 묶음(심리상담 단독 구매 등)에 새로 생기지 않게 한다.
+    current_bd = next(
+        (bd for bd in (BULK_DISCOUNT_AMOUNT, 0) if total_for(paid, bd) == held), None
+    )
+    if current_bd is None:
+        return fallback
+
+    nonfee_remaining = sum(o.list_price for o in remaining if o.course_id not in fee_ids)
+    new_bd = current_bd if nonfee_remaining >= BULK_DISCOUNT_THRESHOLD else 0
+    new_total = total_for(remaining, new_bd)
+    refund = max(0, min(held, held - new_total))
+
+    # 남는 항목 결제액 재배분 — 결제 시와 같은 규칙(묶음 할인은 마지막 항목,
+    # 변호사 할인은 금액 비중대로). 발송비 줄에는 할인을 몰지 않는다.
+    amounts = {o.id: o.list_price for o in remaining}
+    if new_bd:
+        target = next(
+            (o for o in reversed(remaining) if o.course_id not in fee_ids), remaining[-1]
+        )
+        amounts[target.id] -= new_bd
+    if has_lawyer:
+        base_sum = sum(amounts.values())
+        lawyer = base_sum - new_total
+        allocated = 0
+        for i, o in enumerate(remaining):
+            if i == len(remaining) - 1:
+                cut = lawyer - allocated
+            else:
+                cut = (lawyer * amounts[o.id]) // base_sum if base_sum else 0
+                allocated += cut
+            amounts[o.id] -= cut
+    return _RefundPlan(refund, current_bd - new_bd, amounts, False)
+
+
+class RefundPreview(BaseModel):
+    refund_amount: int
+    forfeited_discount: int
+
+
+@router.get("/orders/{order_id}/refund-preview", response_model=RefundPreview)
+def refund_preview(order_id: int, db: Session = Depends(get_db)) -> RefundPreview:
+    order = db.get(Order, order_id)
+    if order is None or order.status != OrderStatus.PAID:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제 완료된 주문만 환불할 수 있습니다.")
+    plan = _plan_refund(db, order)
+    return RefundPreview(refund_amount=plan.amount, forfeited_discount=plan.forfeited_discount)
+
+
 @router.post("/orders/{order_id}/refund", response_model=OkResponse)
 def refund_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
     """결제 완료(PAID) 주문 환불 — 수강등록 취소 + 발급된 서류(있다면) 무효화까지 한 번에.
@@ -918,24 +1019,10 @@ def refund_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
             status.HTTP_400_BAD_REQUEST, detail="결제 완료된 주문만 환불 처리할 수 있습니다."
         )
 
-    # 누른 항목만 환불한다. 예전엔 "토스는 결제 1건 단위로만 취소된다"고 보고
-    # 묶음 전체를 한꺼번에 취소했는데, 탄원서만 환불하려다 이미 수료증까지
-    # 받은 강의들까지 전부 환불되는 사고가 있었다(2026-10). 토스는 금액을
-    # 지정한 부분 취소를 지원하므로 이 주문 금액만큼만 취소한다.
-    remaining_paid = (
-        db.scalar(
-            select(func.count(Order.id)).where(
-                Order.bundle_id == order.bundle_id,
-                Order.status == OrderStatus.PAID,
-                Order.id != order.id,
-            )
-        )
-        if order.bundle_id
-        else 0
-    )
-    # 묶음의 마지막 남은 항목이면 금액 지정 없이 남은 잔액 전체를 취소(반올림
-    # 차이 등으로 잔액과 항목 금액이 어긋나도 깔끔하게 0원으로 끝나게).
-    cancel_amount = order.amount if remaining_paid else None
+    # 누른 항목만 환불한다(토스 부분 취소). 금액 계산은 _plan_refund 참고 —
+    # 일부 환불로 10만 원 할인 조건이 깨지면 그 할인만큼 빼고 돌려준다.
+    plan = _plan_refund(db, order)
+    cancel_amount = None if plan.is_last else plan.amount
     bundle_orders = [order]
 
     # 카드/간편결제(Toss) 로 결제된 건이면 Toss 결제취소 API를 먼저 호출해 실제로
@@ -980,6 +1067,13 @@ def refund_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
                 status.HTTP_400_BAD_REQUEST,
                 detail=f"토스 결제 취소 실패: {res.text}",
             )
+
+    # 남는 항목들의 결제액을 새 가격으로 맞춰야 매출 통계와 다음 환불 계산이 맞는다.
+    if plan.remaining_amounts:
+        for o in db.scalars(select(Order).where(Order.id.in_(plan.remaining_amounts))).all():
+            o.amount = plan.remaining_amounts[o.id]
+    # 환불된 항목 금액은 실제로 돌려준 금액으로 남긴다.
+    order.amount = plan.amount
 
     for o in bundle_orders:
         o.status = OrderStatus.REFUNDED
