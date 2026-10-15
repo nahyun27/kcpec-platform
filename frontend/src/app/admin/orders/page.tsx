@@ -211,11 +211,18 @@ function AdminOrdersPage() {
         : "";
     const docNote = "이 항목의 수강 등록이 취소되고, 이 항목으로 발급된 서류가 있다면 함께 무효화됩니다.";
 
+    // 할인 조건이 깨져 돌려줄 돈이 0원인 경우 — 그냥 넘어가기 쉬워서 따로
+    // 경고한다. 진행하면 돈은 그대로 두고 이 항목만 이용 불가로 바뀐다.
+    const message =
+      refundAmount === 0
+        ? `${row.course_title}: 돌려드릴 금액이 0원입니다.\n(주문 #${row.id}, ${row.name ?? row.username})\n\n이 항목을 빼면 남은 금액이 10만 원 미만이 되어 묶음 할인 ${forfeited.toLocaleString()}원이 사라지는데, 이 항목 금액이 그 할인액과 같거나 작아서 환불할 돈이 남지 않아요.\n\n진행하면 결제 금액은 그대로이고 이 항목만 이용할 수 없게 됩니다. 고객에게 먼저 안내한 뒤 진행해 주세요.`
+        : `${row.course_title}: ${refundAmount.toLocaleString()}원을 환불합니다.\n(주문 #${row.id}, ${row.name ?? row.username})${bundleNote}${forfeitNote}\n\n${paymentNote}\n${docNote}`;
     if (
-      !(await dialog.confirm(
-        `${row.course_title}: ${refundAmount.toLocaleString()}원을 환불합니다.\n(주문 #${row.id}, ${row.name ?? row.username})${bundleNote}${forfeitNote}\n\n${paymentNote}\n${docNote}`,
-        { title: "이 항목만 환불할까요?", confirmText: "환불하기", cancelText: "취소" },
-      ))
+      !(await dialog.confirm(message, {
+        title: refundAmount === 0 ? "환불 금액이 0원이에요" : "이 항목만 환불할까요?",
+        confirmText: refundAmount === 0 ? "그래도 취소 처리" : "환불하기",
+        cancelText: "돌아가기",
+      }))
     )
       return;
     setMutatingId(row.id);
