@@ -85,6 +85,20 @@ export default function AdminDetentionPage() {
       );
     });
 
+  // 누르는 순간부터 7일 뒤 보호자 "학습 완료 확인"이 열리므로, 실제로 자료를
+  // 부치기 전에 잘못 누르지 않게 확인창으로 한 번 더 묻는다.
+  const confirmMaterialsSent = async (r: AdminDetentionRow) => {
+    const ok = await dialog.confirm(
+      `${r.inmate_name}님 교육자료를 실제로 우편 발송하셨나요?\n\n` +
+        "• 오늘이 발송일로 기록되고, 7일 뒤부터 보호자가 마이페이지에서 \"학습 완료 확인\"을 누를 수 있어요.\n" +
+        "• 보호자가 학습 완료를 확인하면 과목별 수료증을 발급할 수 있어요.\n" +
+        "• 고객에게 문자·메일이 자동으로 가지는 않아요.\n\n" +
+        "아직 부치지 않았다면 발송한 날 눌러주세요.",
+      { title: "자료 발송 완료 처리", confirmText: "발송했어요", cancelText: "아직이에요" },
+    );
+    if (ok) saveInfo(r, "materials_sent");
+  };
+
   const issue = (r: AdminDetentionRow, orderId: number) =>
     run(`issue-${orderId}`, async () => {
       replaceRow(await issueDetentionCertificate(r.id, orderId));
@@ -216,7 +230,7 @@ export default function AdminDetentionPage() {
                   <button
                     type="button"
                     disabled={busy !== null || !r.paid}
-                    onClick={() => saveInfo(r, "materials_sent")}
+                    onClick={() => confirmMaterialsSent(r)}
                     className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
                   >
                     자료 발송 완료 처리
