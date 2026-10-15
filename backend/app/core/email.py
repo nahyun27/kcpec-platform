@@ -632,3 +632,88 @@ def send_lawyer_partner_portal(
         logger.exception("SMTP 발송 실패: %s", exc)
         return False
     return True
+
+
+WELCOME_MAIL_SUBJECT = "(광고) 회원님, 수료증 준비를 도와드릴게요"
+
+
+def send_welcome_marketing_mail(*, to_email: str, unsubscribe_url: str) -> bool:
+    """가입 다음 날, 아직 결제하지 않은 회원에게 1회 보내는 안내 메일.
+
+    정보통신망법상 광고성 정보라 수신 동의자에게만 보내고, 제목 앞 (광고)
+    표시와 수신거부 방법을 반드시 넣는다(2026-10)."""
+    sentencing_url = f"{settings.FRONTEND_BASE_URL}/sentencing"
+    body = (
+        "회원님, 안녕하세요.\n"
+        "한국범죄예방교육센터(KCPEC)입니다.\n\n"
+        "가입해 주셔서 감사합니다.\n"
+        "지금 어려운 시간을 보내고 계실 수도 있겠지만, 이렇게 준비를 시작하신 것만으로도 "
+        "충분히 의미 있는 한 걸음입니다.\n\n"
+        "사건 유형만 선택하시면 필요한 재범방지교육과 제출 서류를 바로 안내해 드립니다.\n"
+        "수강을 마치시면 법원·검찰·경찰에 제출할 수 있는 수료증이 즉시 발급됩니다.\n\n"
+        "· 수료증 22,000원부터, 사건별 교육 44,000원\n"
+        "· 24시간 언제든 수강, 수료 즉시 PDF 발급\n"
+        "· 반성문·탄원서 작성 지원, 전문가 심리상담 의견서\n\n"
+        f"내 사건에 맞는 교육 확인하기: {sentencing_url}\n\n"
+        "궁금하신 점은 언제든 편하게 연락 주세요.\n\n"
+        "모든 수강생 여러분의 앞날을 응원합니다.\n"
+        "감사합니다.\n\n"
+        "한국범죄예방교육센터 드림\n"
+        "010-6377-3325 · admin@kcpec.co.kr\n\n"
+        "본 메일은 혜택·안내 메일 수신에 동의하신 회원님께 발송되었습니다.\n"
+        f"더 이상 받지 않으시려면 아래 링크에서 수신거부해 주세요.\n{unsubscribe_url}\n"
+    )
+    html = f"""\
+<!DOCTYPE html>
+<html><body style="margin:0;padding:0;background-color:#f1f5f9;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:32px 16px;"><tr><td align="center">
+<table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;">
+<tr><td style="background-color:#0f172a;padding:24px 32px;">
+<p style="margin:0;color:#ffffff;font-size:18px;font-weight:700;">한국범죄예방교육센터</p></td></tr>
+<tr><td style="padding:32px;color:#334155;font-size:15px;line-height:1.7;">
+<p style="margin:0 0 16px;">회원님, 안녕하세요.<br>한국범죄예방교육센터(KCPEC)입니다.</p>
+<p style="margin:0 0 16px;">가입해 주셔서 감사합니다.<br>지금 어려운 시간을 보내고 계실 수도 있겠지만, 이렇게 준비를 시작하신 것만으로도 충분히 의미 있는 한 걸음입니다.</p>
+<p style="margin:0 0 16px;">사건 유형만 선택하시면 필요한 재범방지교육과 제출 서류를 바로 안내해 드립니다.<br>수강을 마치시면 법원·검찰·경찰에 제출할 수 있는 수료증이 즉시 발급됩니다.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;margin:0 0 24px;"><tr><td style="padding:16px 20px;font-size:14px;color:#334155;line-height:1.9;">
+· 수료증 22,000원부터, 사건별 교육 44,000원<br>· 24시간 언제든 수강, 수료 즉시 PDF 발급<br>· 반성문·탄원서 작성 지원, 전문가 심리상담 의견서
+</td></tr></table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+<a href="{sentencing_url}" style="display:inline-block;background-color:#0f172a;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 30px;border-radius:999px;">내 사건에 맞는 교육 확인하기</a>
+</td></tr></table>
+<p style="margin:24px 0 0;">궁금하신 점은 언제든 편하게 연락 주세요.</p>
+<p style="margin:16px 0 0;">모든 수강생 여러분의 앞날을 응원합니다.<br>감사합니다.</p>
+<p style="margin:16px 0 0;font-weight:700;">한국범죄예방교육센터 드림</p>
+<p style="margin:4px 0 0;font-size:13px;color:#64748b;">010-6377-3325 · admin@kcpec.co.kr</p>
+</td></tr>
+<tr><td style="padding:18px 32px;background-color:#f8fafc;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;line-height:1.6;text-align:center;">
+본 메일은 혜택·안내 메일 수신에 동의하신 회원님께 발송되었습니다.<br>
+더 이상 받지 않으시려면 <a href="{unsubscribe_url}" style="color:#64748b;">수신거부</a>를 눌러주세요.
+</td></tr></table></td></tr></table></body></html>
+"""
+    if not (settings.SMTP_HOST and to_email):
+        logger.info("[EMAIL DEV MODE] 가입 안내(광고) 메일 — 콘솔 출력")
+        print("=" * 60)
+        print(f"To: {to_email or '(미설정)'}")
+        print(f"Subject: {WELCOME_MAIL_SUBJECT}")
+        print("-" * 60)
+        print(body)
+        print("=" * 60)
+        return True
+
+    msg = EmailMessage()
+    msg["From"] = settings.SMTP_FROM or settings.SMTP_USER or "no-reply@kcpec.kr"
+    msg["To"] = to_email
+    msg["Subject"] = WELCOME_MAIL_SUBJECT
+    msg["List-Unsubscribe"] = f"<{unsubscribe_url}>"
+    msg.set_content(body)
+    msg.add_alternative(html, subtype="html")
+    try:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
+            smtp.starttls()
+            if settings.SMTP_USER and settings.SMTP_PASSWORD:
+                smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            smtp.send_message(msg)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("SMTP 발송 실패: %s", exc)
+        return False
+    return True

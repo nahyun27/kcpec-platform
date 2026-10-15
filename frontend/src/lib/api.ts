@@ -193,6 +193,7 @@ export type SignupPayload = {
   email: string;
   birth_date: string; // YYYY-MM-DD
   lawyer_referral_code?: string | null;
+  marketing_consent?: boolean;
 };
 
 export type LoginPayload = {
@@ -210,6 +211,8 @@ export type UserResponse = {
   is_active: boolean;
   is_admin: boolean;
   is_verified: boolean;
+  // null = 아직 묻지 않음(소셜 가입 직후 한 번 묻는다)
+  marketing_consent: boolean | null;
   created_at: string;
 };
 
@@ -255,6 +258,7 @@ export type ProfileUpdatePayload = {
   email?: string;
   current_password?: string;
   new_password?: string;
+  marketing_consent?: boolean;
 };
 
 export async function updateMe(payload: ProfileUpdatePayload): Promise<UserResponse> {

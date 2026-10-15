@@ -41,6 +41,7 @@ export default function SignupClient() {
   const [form, setForm] = useState<FormState>(initialState);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [marketing, setMarketing] = useState(false);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -66,6 +67,7 @@ export default function SignupClient() {
         // 있으면 가입 즉시 계정에 연결돼 결제 화면 코드 입력칸이 자동으로
         // 채워진다.
         lawyer_referral_code: getCookie(LAWYER_REFERRAL_COOKIE),
+        marketing_consent: marketing,
       });
       // 가입 즉시 로그인 상태가 되므로(signup() 내부에서 토큰 세팅), /login?next=...
       // 을 거치지 않고 바로 next 로 이동 — 예전엔 무조건 "/" 로 보내서, 로그인 안
@@ -171,6 +173,18 @@ export default function SignupClient() {
             className={inputClass}
           />
         </Field>
+
+        <label className="flex cursor-pointer items-start gap-2.5 pt-1 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={marketing}
+            onChange={(e) => setMarketing(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0"
+          />
+          <span>
+            혜택·안내 메일 수신 동의 <span className="text-slate-400">(선택)</span>
+          </span>
+        </label>
 
         {error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600 shadow-sm">

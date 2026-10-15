@@ -1672,6 +1672,7 @@ function EditProfileModal({
 }) {
   const isSocial = me.social_provider !== null;
   const [email, setEmail] = useState(me.email);
+  const [marketing, setMarketing] = useState(me.marketing_consent === true);
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -1705,8 +1706,10 @@ function EditProfileModal({
       email?: string;
       current_password?: string;
       new_password?: string;
+      marketing_consent?: boolean;
     } = {};
     if (email !== me.email) payload.email = email;
+    if (marketing !== (me.marketing_consent === true)) payload.marketing_consent = marketing;
     if (wantsPwChange) {
       payload.current_password = currentPw;
       payload.new_password = newPw;
@@ -1803,6 +1806,21 @@ function EditProfileModal({
               소셜 로그인 계정은 비밀번호를 변경할 수 없습니다.
             </p>
           )}
+
+          <label className="flex cursor-pointer items-start gap-2.5 border-t border-zinc-200 pt-4 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={marketing}
+              onChange={(e) => setMarketing(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0"
+            />
+            <span>
+              혜택·안내 메일 수신 동의 <span className="text-slate-400">(선택)</span>
+              <span className="mt-0.5 block text-xs text-slate-500">
+                수료증 등 서비스 이용에 필요한 메일은 동의와 관계없이 발송됩니다.
+              </span>
+            </span>
+          </label>
 
           {error ? (
             <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

@@ -14,6 +14,7 @@ class SignupRequest(BaseModel):
     # 변호사 추천 링크(/r/{code})를 거쳐 왔으면 프런트가 쿠키에서 읽어 함께
     # 보낸다 — 유효하지 않아도 가입 자체는 그대로 진행(조용히 무시).
     lawyer_referral_code: str | None = Field(default=None, max_length=16)
+    marketing_consent: bool = False
 
     _validate_birth_date = field_validator("birth_date")(validate_birth_date)
 
@@ -51,6 +52,7 @@ class ProfileUpdateRequest(BaseModel):
     email: EmailStr | None = None
     current_password: str | None = None
     new_password: str | None = Field(default=None, min_length=8, max_length=128)
+    marketing_consent: bool | None = None
 
 
 class UserResponse(BaseModel):
@@ -64,6 +66,7 @@ class UserResponse(BaseModel):
     is_active: bool
     is_admin: bool
     is_verified: bool
+    marketing_consent: bool | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

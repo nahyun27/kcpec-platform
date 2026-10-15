@@ -13,7 +13,7 @@ from fastapi import (
     Response,
     status,
 )
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -23,6 +23,7 @@ from app.core.cookies import clear_auth_cookies, get_refresh_token, set_auth_coo
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.email import send_password_reset_email
+from app.core.marketing import verify_unsubscribe
 from app.core.rate_limit import client_ip, enforce_rate_limit
 from app.core.security import (
     create_access_token,
@@ -98,6 +99,8 @@ def signup(
         email=payload.email,
         birth_date=payload.birth_date,
         lawyer_partner_id=_lookup_active_lawyer_partner_id(db, payload.lawyer_referral_code),
+        marketing_consent=payload.marketing_consent,
+        marketing_consent_at=datetime.now(timezone.utc),
     )
     db.add(user)
     db.commit()
@@ -254,6 +257,10 @@ def patch_me(
                 detail="이미 사용 중인 이메일입니다.",
             )
         current_user.email = payload.email
+
+    if payload.marketing_consent is not None and payload.marketing_consent != current_user.marketing_consent:
+        current_user.marketing_consent = payload.marketing_consent
+        current_user.marketing_consent_at = datetime.now(timezone.utc)
 
     # 2) 비밀번호 변경
     if payload.new_password is not None:
@@ -647,3 +654,52 @@ def social_callback(
 # 엔드포인트였고 실제 provider 검증 없이는 안전하게 만들 방법이 없어 완전히
 # 제거함(2026-09, 버그 감사 중 발견).
 
+
+
+# ---------- 광고성 메일 수신거부 ------------------------------------------------
+# 메일 속 링크(GET)는 확인 버튼만 있는 화면을 보여주고, 실제 거부는 그 버튼의
+# POST 에서 처리한다 — 메일 보안 필터가 링크를 미리 열어보는 것만으로 거부
+# 처리되는 걸 막기 위함(이메일 인증 링크가 같은 이유로 소모됐던 전례).
+
+def _unsubscribe_page(body: str) -> HTMLResponse:
+    return HTMLResponse(f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>수신거부 | KCPEC</title>
+<style>body{{margin:0;font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#f1f5f9;color:#0f172a}}
+.c{{max-width:420px;margin:12vh auto;background:#fff;border-radius:16px;padding:32px 28px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.08)}}
+h1{{font-size:20px;margin:0 0 12px}}p{{color:#475569;font-size:14px;line-height:1.6}}
+button{{margin-top:20px;background:#0f172a;color:#fff;border:0;border-radius:999px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer}}
+a{{color:#2563eb;font-size:13px}}</style></head><body><div class="c">{body}</div></body></html>""")
+
+
+@router.get("/marketing/unsubscribe", response_class=HTMLResponse)
+def marketing_unsubscribe_page(u: int = Query(...), t: str = Query(...)) -> HTMLResponse:
+    if not verify_unsubscribe(u, t):
+        return _unsubscribe_page("<h1>잘못된 링크입니다</h1><p>메일에 있는 링크를 다시 확인해 주세요.</p>")
+    return _unsubscribe_page(
+        f"""<h1>혜택·안내 메일 수신거부</h1>
+<p>앞으로 한국범죄예방교육센터의 혜택·안내 메일을 받지 않으시겠어요?<br>
+수료증 등 서비스 이용에 필요한 메일은 계속 발송됩니다.</p>
+<form method="post"><input type="hidden" name="u" value="{u}"><input type="hidden" name="t" value="{t}">
+<button type="submit">수신거부하기</button></form>"""
+    )
+
+
+@router.post("/marketing/unsubscribe", response_class=HTMLResponse)
+async def marketing_unsubscribe(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    form = await request.form()
+    try:
+        user_id = int(str(form.get("u", "")))
+    except ValueError:
+        user_id = 0
+    if not user_id or not verify_unsubscribe(user_id, str(form.get("t", ""))):
+        return _unsubscribe_page("<h1>잘못된 링크입니다</h1><p>메일에 있는 링크를 다시 확인해 주세요.</p>")
+    user = db.get(User, user_id)
+    if user is not None and user.marketing_consent is not False:
+        user.marketing_consent = False
+        user.marketing_consent_at = datetime.now(timezone.utc)
+        db.commit()
+    return _unsubscribe_page(
+        """<h1>수신거부가 완료되었습니다</h1>
+<p>앞으로 혜택·안내 메일을 보내드리지 않습니다.<br>마이페이지에서 언제든 다시 받도록 바꾸실 수 있어요.</p>
+<p><a href="/">한국범죄예방교육센터 홈으로</a></p>"""
+    )

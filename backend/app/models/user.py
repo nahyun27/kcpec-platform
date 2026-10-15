@@ -30,6 +30,17 @@ class User(Base):
         ForeignKey("lawyer_partners.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
+    # 광고성(혜택·안내) 메일 수신 동의 — 정보통신망법상 동의한 사람에게만 보낼
+    # 수 있다. None = 아직 묻지 않음(소셜 가입 직후 한 번 묻는 창을 띄우는 기준).
+    marketing_consent: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    marketing_consent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # 가입 다음 날 미결제 회원 안내 메일 — 한 사람에게 한 번만 보내기 위한 기록.
+    welcome_mail_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # 비밀번호 재설정 — 토큰은 추측 불가능한 랜덤값, 발급 후 일정 시간 지나면
     # (core/security 의 PASSWORD_RESET_EXPIRE_MINUTES) 무효 처리.
     password_reset_token: Mapped[str | None] = mapped_column(
