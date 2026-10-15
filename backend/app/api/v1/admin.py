@@ -918,23 +918,25 @@ def refund_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
             status.HTTP_400_BAD_REQUEST, detail="결제 완료된 주문만 환불 처리할 수 있습니다."
         )
 
-    # 묶음결제(여러 강의를 한 결제로 + 10만원 이상 할인)의 일부면, 하나의 Toss
-    # 결제(paymentKey 공유)에 여러 Order row 가 걸려있는 것이므로 그 중 하나만
-    # 환불하는 건 의미가 없다 — Toss 결제취소는 결제 1건 단위라 부분 취소가
-    # 안 되고, 강의 하나만 DB 상 REFUNDED 로 바꿔봤자 실제 결제는 그대로다.
-    # 같은 bundle_id 의 PAID 주문 전체를 함께 환불한다.
-    bundle_orders = (
-        list(
-            db.scalars(
-                select(Order).where(
-                    Order.bundle_id == order.bundle_id,
-                    Order.status == OrderStatus.PAID,
-                )
-            ).all()
+    # 누른 항목만 환불한다. 예전엔 "토스는 결제 1건 단위로만 취소된다"고 보고
+    # 묶음 전체를 한꺼번에 취소했는데, 탄원서만 환불하려다 이미 수료증까지
+    # 받은 강의들까지 전부 환불되는 사고가 있었다(2026-10). 토스는 금액을
+    # 지정한 부분 취소를 지원하므로 이 주문 금액만큼만 취소한다.
+    remaining_paid = (
+        db.scalar(
+            select(func.count(Order.id)).where(
+                Order.bundle_id == order.bundle_id,
+                Order.status == OrderStatus.PAID,
+                Order.id != order.id,
+            )
         )
         if order.bundle_id
-        else [order]
+        else 0
     )
+    # 묶음의 마지막 남은 항목이면 금액 지정 없이 남은 잔액 전체를 취소(반올림
+    # 차이 등으로 잔액과 항목 금액이 어긋나도 깔끔하게 0원으로 끝나게).
+    cancel_amount = order.amount if remaining_paid else None
+    bundle_orders = [order]
 
     # 카드/간편결제(Toss) 로 결제된 건이면 Toss 결제취소 API를 먼저 호출해 실제로
     # 고객에게 돈이 돌아가게 한다. 이 호출 없이 DB 상태만 REFUNDED 로 바꾸면
@@ -942,8 +944,6 @@ def refund_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
     # "환불 처리했다고 안내했는데 고객 카드에는 돈이 안 돌아온" 사고로 이어질
     # 수 있었다(2026-09 발견). TOSS_SECRET_KEY 미설정(로컬 개발) 환경에서는
     # 실 호출이 불가능하므로 기존처럼 DB 상태만 갱신한다.
-    # 묶음결제는 모든 구성 주문이 같은 paymentKey 를 공유하므로 취소 호출은
-    # 한 번만 하면 된다.
     #
     # 가상계좌(무통장입금 자동화 업그레이드 이후)는 toss_payment_key 가
     # 있어도 이 자동 취소에서 제외한다 — 토스 결제취소 API는 가상계좌
@@ -952,17 +952,23 @@ def refund_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
     # 이 호출이 그대로 400 에러로 실패해 환불 전체가 막혀버린다
     # (2026-09 발견). 환불계좌 입력 UI를 따로 만들기 전까진 기존처럼
     # 관리자가 계좌로 직접 환불해야 한다.
+    # 할인이 몰려 0원이 된 항목은 돌려줄 돈이 없으니 토스 호출 없이 상태만 바꾼다.
     if (
         order.toss_payment_key
         and settings.TOSS_SECRET_KEY
         and order.payment_method != PaymentMethod.BANK_TRANSFER
+        and cancel_amount != 0
     ):
         try:
             with httpx.Client(timeout=10.0) as client:
                 res = client.post(
                     f"{settings.TOSS_API_BASE}/v1/payments/{order.toss_payment_key}/cancel",
                     auth=(settings.TOSS_SECRET_KEY, ""),
-                    json={"cancelReason": "관리자 환불 처리"},
+                    json=(
+                        {"cancelReason": "관리자 환불 처리", "cancelAmount": cancel_amount}
+                        if cancel_amount is not None
+                        else {"cancelReason": "관리자 환불 처리"}
+                    ),
                 )
         except httpx.HTTPError as exc:
             raise HTTPException(
