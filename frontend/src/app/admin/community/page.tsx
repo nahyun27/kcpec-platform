@@ -339,7 +339,7 @@ function AdminCommunityPage() {
           />
         ) : (
           <div className="overflow-x-auto rounded-xl border border-slate-200/60 bg-white shadow-sm">
-            <table className="w-full text-left text-[13px]">
+            <table className="w-full whitespace-nowrap text-left text-[13px]">
               <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
                 <tr>
                   <th className="px-4 py-3">카테고리</th>
@@ -361,20 +361,14 @@ function AdminCommunityPage() {
                   rows.map((r) => (
                     <Fragment key={`${r.table}-${r.id}`}>
                     <tr className="transition-colors hover:bg-slate-50/80">
-                      <td className="px-4 py-3 text-xs">
+                      <td className="whitespace-nowrap px-4 py-3 text-xs">
                         <CategoryBadge category={r.category} />
                       </td>
-                      <td className="max-w-[280px] px-4 py-3">
+                      <td className="w-full max-w-0 px-4 py-3">
                         <div className="flex items-center gap-2">
                           {r.is_pinned ? (
                             <span className="text-[var(--color-accent)]">📌</span>
                           ) : null}
-                          <span
-                            title={r.title}
-                            className="block truncate text-[13px] font-semibold text-slate-900"
-                          >
-                            {r.title}
-                          </span>
                           {r.category === "review" && r.rating ? (
                             <span
                               className="shrink-0 text-[12px] tracking-tight text-amber-400"
@@ -384,6 +378,12 @@ function AdminCommunityPage() {
                               <span className="text-slate-200">{"★".repeat(5 - r.rating)}</span>
                             </span>
                           ) : null}
+                          <span
+                            title={r.title}
+                            className="block min-w-0 truncate text-[13px] font-semibold text-slate-900"
+                          >
+                            {r.title}
+                          </span>
                           {r.category === "review" && r.content ? (
                             <button
                               type="button"
@@ -400,7 +400,10 @@ function AdminCommunityPage() {
                           ) : null}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-slate-500">
+                      <td
+                        className="max-w-[120px] truncate whitespace-nowrap px-4 py-3 text-slate-500"
+                        title={displayAuthor(r.category, r.author)}
+                      >
                         {displayAuthor(r.category, r.author)}
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-slate-700">
@@ -800,7 +803,7 @@ function CategoryBadge({ category }: { category: CommunityCategory }) {
     review: "bg-emerald-100 text-emerald-700",
   };
   return (
-    <span className={`rounded px-2 py-0.5 text-xs font-semibold ${map[category]}`}>
+    <span className={`whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ${map[category]}`}>
       {COMMUNITY_LABEL[category]}
     </span>
   );
