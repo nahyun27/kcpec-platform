@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Fragment, Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isAxiosError } from "axios";
 import { TiptapEditor } from "@/components/ui/TiptapEditor";
@@ -47,6 +47,9 @@ type UnifiedRow = {
   // Q&A 답변 모달용 (Q&A 카테고리에서만 채워짐)
   question_content?: string | null;
   admin_reply?: string | null;
+  // 수강후기 전용 — 목록에서 별점과 전문을 바로 확인하기 위함
+  content?: string | null;
+  rating?: number;
 };
 
 // 작성자 표시 규칙: 사용자 생성 카테고리(QNA/REVIEW)는 실제 author_name,
@@ -127,6 +130,7 @@ function AdminCommunityPage() {
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<UnifiedRow | null>(null);
+  const [openReviewId, setOpenReviewId] = useState<number | null>(null);
   const [replying, setReplying] = useState<UnifiedRow | null>(null);
   const [faqFormOpen, setFaqFormOpen] = useState<"new" | Faq | null>(null);
 
@@ -264,6 +268,8 @@ function AdminCommunityPage() {
         author: p.author_name,
         view_count: p.view_count,
         created_at: p.created_at,
+        content: p.content,
+        rating: p.rating,
       })),
     ];
     const filtered = filter === "all" ? all : all.filter((r) => r.category === filter);
@@ -353,7 +359,8 @@ function AdminCommunityPage() {
                   </tr>
                 ) : (
                   rows.map((r) => (
-                    <tr key={`${r.table}-${r.id}`} className="transition-colors hover:bg-slate-50/80">
+                    <Fragment key={`${r.table}-${r.id}`}>
+                    <tr className="transition-colors hover:bg-slate-50/80">
                       <td className="px-4 py-3 text-xs">
                         <CategoryBadge category={r.category} />
                       </td>
@@ -368,6 +375,24 @@ function AdminCommunityPage() {
                           >
                             {r.title}
                           </span>
+                          {r.category === "review" && r.rating ? (
+                            <span
+                              className="shrink-0 text-[12px] tracking-tight text-amber-400"
+                              title={`별점 ${r.rating}점`}
+                            >
+                              {"★".repeat(r.rating)}
+                              <span className="text-slate-200">{"★".repeat(5 - r.rating)}</span>
+                            </span>
+                          ) : null}
+                          {r.category === "review" && r.content ? (
+                            <button
+                              type="button"
+                              onClick={() => setOpenReviewId(openReviewId === r.id ? null : r.id)}
+                              className="shrink-0 text-[11px] font-bold text-[var(--color-primary)] hover:underline"
+                            >
+                              {openReviewId === r.id ? "접기" : "전문 보기"}
+                            </button>
+                          ) : null}
                           {r.category === "qna" && r.admin_reply ? (
                             <span className="ml-1 shrink-0 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
                               답변완료
@@ -393,6 +418,17 @@ function AdminCommunityPage() {
                         />
                       </td>
                     </tr>
+                    {r.category === "review" && openReviewId === r.id ? (
+                      <tr className="bg-slate-50/60">
+                        <td />
+                        <td colSpan={5} className="px-4 pb-4 pt-1">
+                          <p className="whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-4 text-[13px] leading-relaxed text-slate-700">
+                            {r.content}
+                          </p>
+                        </td>
+                      </tr>
+                    ) : null}
+                    </Fragment>
                   ))
                 )}
               </tbody>

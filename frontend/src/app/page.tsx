@@ -315,7 +315,9 @@ function ReviewsSection() {
                     <p className="truncate text-sm font-bold text-slate-800">
                       {maskName(r.author_name)}
                     </p>
-                    <p className="text-xs text-slate-400">수강생</p>
+                    <p className="text-xs text-slate-400">
+                      수강생 · {new Date(r.created_at).toLocaleDateString("ko-KR")}
+                    </p>
                   </div>
                 </div>
               </Reveal>
