@@ -92,11 +92,11 @@ const NAV: (SingleNav | GroupNav)[] = [
     label: "커뮤니티",
     icon: <MessageSquare className="h-4 w-4" />,
     children: [
+      { value: "qna", label: "1:1 문의", todoKey: "unanswered_qna" },
+      { value: "review", label: "수강후기" },
       { value: "notice", label: "공지사항" },
       { value: "resource", label: "자료실" },
-      { value: "qna", label: "1:1 문의", todoKey: "unanswered_qna" },
       { value: "column", label: "전문가 칼럼" },
-      { value: "review", label: "수강후기" },
       { value: "faq", label: "FAQ" },
     ],
   },

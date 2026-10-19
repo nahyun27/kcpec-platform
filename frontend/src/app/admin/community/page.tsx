@@ -72,11 +72,11 @@ type Filter = "all" | CommunityCategory | "faq";
 
 const SIDEBAR: { key: Filter; label: string }[] = [
   { key: "all", label: "전체 게시물" },
+  { key: "qna", label: "1:1 문의" },
+  { key: "review", label: "수강 후기" },
   { key: "notice", label: "공지사항" },
   { key: "resource", label: "자료실" },
-  { key: "qna", label: "1:1 문의" },
   { key: "column", label: "전문가 칼럼" },
-  { key: "review", label: "수강 후기" },
   { key: "faq", label: "자주 묻는 질문" },
 ];
 

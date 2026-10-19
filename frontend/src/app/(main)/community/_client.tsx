@@ -607,6 +607,9 @@ function maskName(name: string): string {
 
 function ReviewListItem({ post }: { post: PostListItem }) {
   const body = post.content ?? post.title;
+  // 목록에서는 4줄까지만 보이고, 긴 후기는 "더보기"로 전문을 펼친다
+  // (강의 상세 페이지 후기와 같은 기준 — 120자 넘으면 버튼 표시).
+  const [expanded, setExpanded] = useState(false);
   const displayName = post.author_name ? maskName(post.author_name) : "익명";
   return (
     <li className="flex flex-col rounded-3xl border border-slate-200 bg-white p-5 md:p-7 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
@@ -629,9 +632,22 @@ function ReviewListItem({ post }: { post: PostListItem }) {
         <StarRow rating={post.rating} />
       </div>
 
-      <p className="flex-1 whitespace-pre-wrap text-[15px] leading-relaxed text-slate-700 font-medium line-clamp-4">
+      <p
+        className={`flex-1 whitespace-pre-wrap text-[15px] leading-relaxed text-slate-700 font-medium ${
+          expanded ? "" : "line-clamp-4"
+        }`}
+      >
         "{body}"
       </p>
+      {body.length > 120 ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-3 self-start text-[13px] font-bold text-[var(--color-primary)] hover:underline"
+        >
+          {expanded ? "접기" : "더보기"}
+        </button>
+      ) : null}
     </li>
   );
 }
