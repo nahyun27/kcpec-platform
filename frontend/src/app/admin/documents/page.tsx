@@ -81,6 +81,17 @@ export default function AdminSurveysPage() {
   }, []);
 
   async function handleUpload(surveyId: number, file: File) {
+    // 사건 경위를 빼고 만든 초안이면, 사건 경위를 채우지 않은 채 최종본을
+    // 올리는 일이 없도록 업로드 직전에 한 번 더 확인한다.
+    if (rows.find((r) => r.id === surveyId)?.draft_narrative_omitted) {
+      const ok = await dialog.confirm(
+        "이 의견서 초안은 구글 AI가 사건 경위를 처리하지 않아, 사건 경위를 빼고 만들어졌어요.\n\n" +
+          "사건 경위는 반드시 수동으로 적어야 해요. 올리려는 최종본에 사건 경위를 직접 적어 넣으셨나요?\n" +
+          "(초안 맨 위의 '※ [사건 경위 제외 생성]' 안내 줄도 지웠는지 확인해 주세요)",
+        { title: "사건 경위 작성 확인", confirmText: "적었어요, 업로드", cancelText: "아직이에요" },
+      );
+      if (!ok) return;
+    }
     setUploadingId(surveyId);
     try {
       const updated = await uploadFinalPdf(surveyId, file);
@@ -185,6 +196,11 @@ export default function AdminSurveysPage() {
                     <SurveyStatusBadge status={r.status} />
                   </td>
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    {r.draft_narrative_omitted ? (
+                      <p className="mb-1.5 text-[11px] font-bold text-red-600">
+                        ⚠️ 사건 경위 수동 작성 필요
+                      </p>
+                    ) : null}
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -571,6 +587,7 @@ function SurveyDetailModal({
             <p className="text-sm text-zinc-500">불러오는 중...</p>
           ) : (
             <>
+              {detail.draft_narrative_omitted ? <NarrativeOmittedBanner /> : null}
               {detail.course_title === PHONE_COUNSELING_TITLE ? (
                 <CallNotesSection detail={detail} onSaved={setDetail} />
               ) : null}
@@ -629,6 +646,20 @@ function SurveyDetailModal({
 
 // ---------- draft viewer modal -------------------------------------------
 
+// backend/app/core/gemini_client.py 의 NARRATIVE_OMITTED_MARKER 와 동일해야 함.
+const NARRATIVE_OMITTED_MARKER = "[사건 경위 제외 생성]";
+
+function NarrativeOmittedBanner() {
+  return (
+    <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+      ⚠️ 구글 AI가 사건 경위를 처리하지 않아, 사건 경위를 빼고 만든 초안입니다.
+      <br />
+      사건 경위는 반드시 수동으로 적어 주세요. (추가 지시에 사건을 한두 줄로
+      요약해 넣고 다시 돌리면 AI가 채워 줄 수도 있어요)
+    </div>
+  );
+}
+
 function DraftViewerModal({
   surveyId,
   path,
@@ -647,6 +678,9 @@ function DraftViewerModal({
   const [previewing, setPreviewing] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [extraInstructions, setExtraInstructions] = useState("");
+  // 사건 경위 제외 초안 여부. 관리자가 본문의 안내 줄을 지워도 경고가
+  // 사라지지 않도록 불러올 때/재생성할 때의 값으로 따로 들고 있는다.
+  const [narrativeOmitted, setNarrativeOmitted] = useState(false);
 
   useEffect(() => {
     if (!path) {
@@ -666,7 +700,10 @@ function DraftViewerModal({
         return r.text();
       })
       .then((body) => {
-        if (!cancelled) setText(body);
+        if (!cancelled) {
+          setText(body);
+          setNarrativeOmitted(body.includes(NARRATIVE_OMITTED_MARKER));
+        }
       })
       .catch(() => {
         if (!cancelled) setError("초안 파일을 불러오지 못했습니다.");
@@ -745,6 +782,7 @@ function DraftViewerModal({
     try {
       const res = await regenerateCounselingDraft(surveyId, extraInstructions);
       setText(res.draft_text);
+      setNarrativeOmitted(!!res.is_narrative_omitted);
       setExtraInstructions("");
       if (res.is_content_blocked) {
         await dialog.alert(
@@ -824,6 +862,7 @@ function DraftViewerModal({
                   마세요.
                 </div>
               ) : null}
+              {narrativeOmitted ? <NarrativeOmittedBanner /> : null}
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}

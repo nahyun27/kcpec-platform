@@ -210,6 +210,9 @@ class AdminSurveyRow(BaseModel):
     completed_at: datetime | None
     ai_draft_url: str | None
     final_pdf_url: str | None
+    # 구글 AI 거부로 사건 경위를 빼고 만든 초안이면 True — 관리자가 사건 경위를
+    # 직접 적어야 하므로 화면에서 빨간 글씨/업로드 전 확인창으로 알린다.
+    draft_narrative_omitted: bool = False
 
 
 class AdminSurveyDetail(AdminSurveyRow):

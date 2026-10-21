@@ -132,6 +132,17 @@ PHONE_COUNSELING_TITLE = "전화 심화상담"
 DRAFTS_DIR = Path(__file__).resolve().parents[3] / "static" / "drafts"
 
 
+def _draft_narrative_omitted(ai_draft_url: str | None) -> bool:
+    """저장된 초안 파일에 '사건 경위 제외 생성' 표시가 있는지."""
+    if not ai_draft_url:
+        return False
+    path = DRAFTS_DIR / Path(ai_draft_url).name
+    try:
+        return is_narrative_omitted_draft(path.read_text(encoding="utf-8"))
+    except OSError:
+        return False
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -1130,6 +1141,7 @@ def list_surveys(db: Session = Depends(get_db)) -> list[AdminSurveyRow]:
             completed_at=s.completed_at,
             ai_draft_url=s.ai_draft_url,
             final_pdf_url=s.final_pdf_url,
+            draft_narrative_omitted=_draft_narrative_omitted(s.ai_draft_url),
         )
         for (s, u, c, ot, bundle_id) in rows
     ]
@@ -1158,6 +1170,7 @@ def get_survey_detail(survey_id: int, db: Session = Depends(get_db)) -> AdminSur
         completed_at=survey.completed_at,
         ai_draft_url=survey.ai_draft_url,
         final_pdf_url=survey.final_pdf_url,
+        draft_narrative_omitted=_draft_narrative_omitted(survey.ai_draft_url),
         responses=survey.responses or {},
         call_note_1=survey.call_note_1,
         call_note_2=survey.call_note_2,
@@ -1287,6 +1300,7 @@ async def upload_final(
         completed_at=survey.completed_at,
         ai_draft_url=survey.ai_draft_url,
         final_pdf_url=survey.final_pdf_url,
+        draft_narrative_omitted=_draft_narrative_omitted(survey.ai_draft_url),
     )
 
 

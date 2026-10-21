@@ -214,6 +214,8 @@ export type AdminSurveyRow = {
   completed_at: string | null;
   ai_draft_url: string | null;
   final_pdf_url: string | null;
+  // 구글 AI 거부로 사건 경위를 빼고 만든 초안 — 사건 경위를 직접 적어야 함.
+  draft_narrative_omitted?: boolean;
 };
 
 export type AdminSurveyDetail = AdminSurveyRow & {
