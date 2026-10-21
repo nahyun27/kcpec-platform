@@ -12,7 +12,7 @@ from email.utils import make_msgid
 from textwrap import dedent
 
 from app.core.config import settings
-from app.core.gemini_client import is_dummy_draft
+from app.core.gemini_client import is_content_blocked_draft, is_dummy_draft
 from app.core.qr import generate_qr_png
 
 logger = logging.getLogger(__name__)
@@ -169,7 +169,13 @@ def send_draft_to_staff(
     # 사이에 묻혀 훑어보다 놓치기 쉽다 — 제목에서부터 눈에 띄게 표시한다.
     # 실제로 더미가 나갔는지는 draft_text 자체로 판단한다(설정값만으로는
     # "키는 있는데 무효/실패"인 경우를 놓친다).
-    dummy_prefix = "[⚠️ 더미 초안 - AI 자동 생성 실패] " if is_dummy_draft(draft_text) else ""
+    dummy_prefix = (
+        "[⚠️ AI 처리 불가 - 내용상 직접 작성 필요] "
+        if is_content_blocked_draft(draft_text)
+        else "[⚠️ 더미 초안 - AI 자동 생성 실패] "
+        if is_dummy_draft(draft_text)
+        else ""
+    )
     subject = (
         f"[KCPEC] {dummy_prefix}심리상담 의견서 초안 검토 요청 - "
         f"{user_info.get('이름', user_info.get('아이디', '수강자'))}"

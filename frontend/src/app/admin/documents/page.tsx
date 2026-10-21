@@ -746,6 +746,12 @@ function DraftViewerModal({
       const res = await regenerateCounselingDraft(surveyId, extraInstructions);
       setText(res.draft_text);
       setExtraInstructions("");
+      if (res.is_content_blocked) {
+        await dialog.alert(
+          "구글 AI가 이 설문 내용(사건 경위 등)을 정책상 처리하지 않아 초안을 만들 수 없어요.\n다시 생성해도 결과가 같으니, 설문 응답을 보고 직접 작성해 주세요.",
+          { title: "AI 처리 불가" },
+        );
+      }
     } catch (err) {
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail

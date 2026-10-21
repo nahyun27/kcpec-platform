@@ -173,6 +173,29 @@ DUMMY_DRAFT_MARKER = "[시스템 점검용 더미 텍스트]"
 TRANSIENT_OVERLOAD_MARKER = "[일시적 서버 과부하]"
 
 
+# 구글이 입력 내용 자체를 정책상 거부한 경우(prompt_feedback.block_reason,
+# 예: PROHIBITED_CONTENT) — 재시도해도 결과가 같아서, 관리자가 "다시 생성"을
+# 반복하지 않고 바로 직접 작성하도록 따로 표시한다(2026-10, 성범죄 사건
+# 경위가 담긴 설문에서 확인).
+CONTENT_BLOCKED_MARKER = "[AI 정책상 처리 불가]"
+
+
+def is_content_blocked_draft(draft_text: str) -> bool:
+    return CONTENT_BLOCKED_MARKER in draft_text
+
+
+def _block_reason(response) -> str | None:
+    fb = getattr(response, "prompt_feedback", None)
+    reason = getattr(fb, "block_reason", None) if fb else None
+    if reason:
+        return str(reason)
+    for cand in getattr(response, "candidates", None) or []:
+        fr = str(getattr(cand, "finish_reason", "") or "")
+        if any(k in fr for k in ("SAFETY", "PROHIBITED", "BLOCKLIST", "SPII")):
+            return fr
+    return None
+
+
 def is_dummy_draft(draft_text: str) -> bool:
     return DUMMY_DRAFT_MARKER in draft_text
 
@@ -243,7 +266,13 @@ def generate_counseling_draft(
                 config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
             )
             text = (response.text or "").strip()
-            return text or _dummy_draft(survey_responses, course_title)
+            if text:
+                return text
+            reason = _block_reason(response)
+            if reason:
+                logger.warning("Gemini 가 설문 내용을 정책상 거부: %s", reason)
+                return _dummy_draft(survey_responses, course_title, blocked=True)
+            return _dummy_draft(survey_responses, course_title)
         except Exception as e:  # noqa: BLE001
             last_exc = e
             if attempt < max_attempts - 1 and _is_worth_retrying(e):
@@ -272,12 +301,18 @@ def generate_counseling_draft(
 
 
 def _dummy_draft(
-    survey_responses: dict, course_title: str, transient: bool = False
+    survey_responses: dict, course_title: str, transient: bool = False, blocked: bool = False
 ) -> str:
     """AI 초안 생성이 불가능하거나 실패했을 때 대신 반환하는 더미 초안.
     document_generator 가 기대하는 [상담배경]/[상담내용] 섹션 포맷 유지.
     """
-    if transient:
+    if blocked:
+        cause_line = "1. " + (
+            f"{DUMMY_DRAFT_MARKER} {CONTENT_BLOCKED_MARKER} 구글 AI가 입력 내용(사건 경위 등)을"
+            " 정책상 처리하지 않아 자동 생성이 불가합니다. '다시 생성'을 눌러도 결과가"
+            " 같으니 설문 응답을 보고 직접 작성해 주세요."
+        )
+    elif transient:
         cause_line = (
             f"1. 본 초안은 {DUMMY_DRAFT_MARKER}으로, {TRANSIENT_OVERLOAD_MARKER}"
             " Google Gemini 서버가 일시적으로 과부하 상태라 자동 생성에 실패하여"
@@ -397,7 +432,13 @@ def generate_phone_counseling_draft(
                 config=types.GenerateContentConfig(system_instruction=PHONE_SYSTEM_PROMPT),
             )
             text = (response.text or "").strip()
-            return text or _dummy_phone_draft(call_notes)
+            if text:
+                return text
+            reason = _block_reason(response)
+            if reason:
+                logger.warning("Gemini 가 통화 메모 내용을 정책상 거부: %s", reason)
+                return _dummy_phone_draft(call_notes, blocked=True)
+            return _dummy_phone_draft(call_notes)
         except Exception as e:  # noqa: BLE001
             last_exc = e
             if attempt < max_attempts - 1 and _is_worth_retrying(e):
@@ -418,10 +459,18 @@ def generate_phone_counseling_draft(
     )
 
 
-def _dummy_phone_draft(call_notes: list[str | None], transient: bool = False) -> str:
+def _dummy_phone_draft(
+    call_notes: list[str | None], transient: bool = False, blocked: bool = False
+) -> str:
     """document_generator.fill_phone_counseling_template 이 기대하는 7개
     섹션 마커 포맷을 유지하는 더미 초안."""
-    if transient:
+    if blocked:
+        cause_line = (
+            f"{DUMMY_DRAFT_MARKER} {CONTENT_BLOCKED_MARKER} 구글 AI가 입력 내용(사건 경위 등)을"
+            " 정책상 처리하지 않아 자동 생성이 불가합니다. '다시 생성'을 눌러도 결과가"
+            " 같으니 설문 응답을 보고 직접 작성해 주세요."
+        )
+    elif transient:
         cause_line = (
             f"{DUMMY_DRAFT_MARKER} {TRANSIENT_OVERLOAD_MARKER} Google Gemini 서버가"
             " 일시적으로 과부하 상태라 자동 생성에 실패하여 대신 표시됨 — 저희 쪽"
@@ -449,5 +498,7 @@ __all__ = [
     "is_dummy_draft",
     "is_transient_overload_draft",
     "DUMMY_DRAFT_MARKER",
+    "CONTENT_BLOCKED_MARKER",
+    "is_content_blocked_draft",
     "TRANSIENT_OVERLOAD_MARKER",
 ]

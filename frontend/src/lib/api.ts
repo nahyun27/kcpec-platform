@@ -770,6 +770,7 @@ export type RegenerateDraftResponse = {
   draft_url: string;
   is_dummy: boolean;
   is_transient_overload: boolean;
+  is_content_blocked?: boolean;
 };
 
 export async function regenerateCounselingDraft(

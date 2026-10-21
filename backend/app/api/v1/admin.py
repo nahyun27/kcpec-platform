@@ -35,6 +35,7 @@ from app.core.email import (
 from app.core.gemini_client import (
     generate_counseling_draft,
     generate_phone_counseling_draft,
+    is_content_blocked_draft,
     is_dummy_draft,
     is_transient_overload_draft,
 )
@@ -1385,6 +1386,7 @@ class RegenerateDraftResponse(BaseModel):
     # 실패한 경우 — 프론트가 "잠시 후 다시 시도해주세요" 안내로 다르게
     # 보여줄 수 있도록 별도 플래그로 노출.
     is_transient_overload: bool = False
+    is_content_blocked: bool = False
 
 
 @router.post(
@@ -1451,6 +1453,7 @@ def regenerate_draft(
         draft_url=draft_url,
         is_dummy=is_dummy_draft(draft),
         is_transient_overload=is_transient_overload_draft(draft),
+        is_content_blocked=is_content_blocked_draft(draft),
     )
 
 
