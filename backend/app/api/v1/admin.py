@@ -37,6 +37,7 @@ from app.core.gemini_client import (
     generate_phone_counseling_draft,
     is_content_blocked_draft,
     is_dummy_draft,
+    is_narrative_omitted_draft,
     is_transient_overload_draft,
 )
 from app.core.health import run_all_checks
@@ -1387,6 +1388,7 @@ class RegenerateDraftResponse(BaseModel):
     # 보여줄 수 있도록 별도 플래그로 노출.
     is_transient_overload: bool = False
     is_content_blocked: bool = False
+    is_narrative_omitted: bool = False
 
 
 @router.post(
@@ -1454,6 +1456,7 @@ def regenerate_draft(
         is_dummy=is_dummy_draft(draft),
         is_transient_overload=is_transient_overload_draft(draft),
         is_content_blocked=is_content_blocked_draft(draft),
+        is_narrative_omitted=is_narrative_omitted_draft(draft),
     )
 
 

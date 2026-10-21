@@ -771,6 +771,7 @@ export type RegenerateDraftResponse = {
   is_dummy: boolean;
   is_transient_overload: boolean;
   is_content_blocked?: boolean;
+  is_narrative_omitted?: boolean;
 };
 
 export async function regenerateCounselingDraft(

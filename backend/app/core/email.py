@@ -12,7 +12,11 @@ from email.utils import make_msgid
 from textwrap import dedent
 
 from app.core.config import settings
-from app.core.gemini_client import is_content_blocked_draft, is_dummy_draft
+from app.core.gemini_client import (
+    is_content_blocked_draft,
+    is_dummy_draft,
+    is_narrative_omitted_draft,
+)
 from app.core.qr import generate_qr_png
 
 logger = logging.getLogger(__name__)
@@ -174,6 +178,8 @@ def send_draft_to_staff(
         if is_content_blocked_draft(draft_text)
         else "[⚠️ 더미 초안 - AI 자동 생성 실패] "
         if is_dummy_draft(draft_text)
+        else "[사건 경위 직접 보완 필요] "
+        if is_narrative_omitted_draft(draft_text)
         else ""
     )
     subject = (

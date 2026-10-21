@@ -748,8 +748,13 @@ function DraftViewerModal({
       setExtraInstructions("");
       if (res.is_content_blocked) {
         await dialog.alert(
-          "구글 AI가 이 설문 내용(사건 경위 등)을 정책상 처리하지 않아 초안을 만들 수 없어요.\n다시 생성해도 결과가 같으니, 설문 응답을 보고 직접 작성해 주세요.",
+          "구글 AI가 이 설문 내용을 정책상 처리하지 않아 초안을 만들 수 없어요. 사건 경위를 빼고 다시 요청해도 거부됐어요.\n설문 응답을 보고 직접 작성해 주세요.",
           { title: "AI 처리 불가" },
+        );
+      } else if (res.is_narrative_omitted) {
+        await dialog.alert(
+          "구글 AI가 사건 경위 서술을 정책상 처리하지 않아, 그 부분만 빼고 초안을 만들었어요.\n사건 경위 문단을 직접 보완하거나, 아래 '추가 지시' 칸에 사건을 한두 줄로 요약해 넣고 다시 돌려 주세요.\n예) 디지털 성범죄 사건으로 기소, 피해자와 합의 진행 중",
+          { title: "사건 경위 보완 필요" },
         );
       }
     } catch (err) {
@@ -841,6 +846,10 @@ function DraftViewerModal({
                 </label>
                 <p className="mt-0.5 text-[11px] text-slate-500">
                   Gemini 에 전달할 추가 요청사항. 비워두면 기본 프롬프트로 재생성합니다.
+                </p>
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  구글 AI가 사건 경위를 거부한 경우, 여기에 사건을 한두 줄로 담담하게 요약해 넣고 다시 돌려 주세요.
+                  (예: 디지털 성범죄 사건으로 기소, 피해자와 합의 진행 중)
                 </p>
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                   <textarea

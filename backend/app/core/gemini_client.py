@@ -180,6 +180,31 @@ TRANSIENT_OVERLOAD_MARKER = "[일시적 서버 과부하]"
 CONTENT_BLOCKED_MARKER = "[AI 정책상 처리 불가]"
 
 
+# 거부되면 사건 경위 서술(q2)만 빼고 한 번 더 요청해 만든 초안 표시 — 사건
+# 경위 문단은 관리자가 직접 보완해야 한다는 뜻(2026-10).
+NARRATIVE_OMITTED_MARKER = "[사건 경위 제외 생성]"
+
+
+def is_narrative_omitted_draft(draft_text: str) -> bool:
+    return NARRATIVE_OMITTED_MARKER in draft_text
+
+
+def _without_narrative(survey_responses: dict, has_admin_summary: bool) -> dict:
+    """사건 경위 서술(신형 q2 / 구형 사건내용)만 비운 사본. 이 문항은 고객이
+    사건을 자유롭게 서술하는 칸이라 구글 정책 거부가 주로 여기서 걸린다.
+    단어를 골라 지우는 게 아니라 문항 전체를 빼서, 원문이 왜곡되지 않게 한다."""
+    placeholder = (
+        "(사건 경위는 아래 '추가 지시'의 관리자 요약을 참고)"
+        if has_admin_summary
+        else "(사건 경위는 관리자가 별도로 보완 예정. 일반적인 표현으로만 작성)"
+    )
+    copy = dict(survey_responses)
+    for key in ("q2", "사건내용"):
+        if key in copy:
+            copy[key] = placeholder
+    return copy
+
+
 def is_content_blocked_draft(draft_text: str) -> bool:
     return CONTENT_BLOCKED_MARKER in draft_text
 
@@ -270,8 +295,10 @@ def generate_counseling_draft(
                 return text
             reason = _block_reason(response)
             if reason:
-                logger.warning("Gemini 가 설문 내용을 정책상 거부: %s", reason)
-                return _dummy_draft(survey_responses, course_title, blocked=True)
+                logger.warning("Gemini 가 설문 내용을 정책상 거부: %s — 사건 경위 제외 후 재요청", reason)
+                return _retry_without_narrative(
+                    client, types, survey_responses, course_title, extra_instructions, call_notes
+                )
             return _dummy_draft(survey_responses, course_title)
         except Exception as e:  # noqa: BLE001
             last_exc = e
@@ -300,6 +327,39 @@ def generate_counseling_draft(
     )
 
 
+def _retry_without_narrative(
+    client, types, survey_responses: dict, course_title: str,
+    extra_instructions: str, call_notes: list[str] | None,
+) -> str:
+    has_summary = bool((extra_instructions or "").strip())
+    contents = _format_user_prompt(
+        _without_narrative(survey_responses, has_summary), course_title, extra_instructions, call_notes
+    )
+    try:
+        response = client.models.generate_content(
+            model=settings.GEMINI_MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
+        )
+        text = (response.text or "").strip()
+    except Exception:  # noqa: BLE001
+        logger.exception("사건 경위 제외 재요청 실패")
+        text = ""
+    if not text:
+        return _dummy_draft(survey_responses, course_title, blocked=True)
+    if has_summary:
+        # 관리자가 사건 요약을 직접 넣어준 경우라 따로 보완할 게 없다.
+        return text
+    note = (
+        f"※ {NARRATIVE_OMITTED_MARKER} 구글 AI가 사건 경위 서술을 정책상 처리하지 않아"
+        " 그 부분을 빼고 만든 초안입니다. 사건 경위 문단을 직접 보완하거나, '추가 지시'에"
+        " 사건을 한두 줄로 요약해 넣고 'LLM 다시 돌리기'를 눌러 주세요. (발급 전 이 줄은 지워주세요)"
+    )
+    if "[상담배경]" in text:
+        return text.replace("[상담배경]", f"[상담배경]\n{note}", 1)
+    return f"{note}\n{text}"
+
+
 def _dummy_draft(
     survey_responses: dict, course_title: str, transient: bool = False, blocked: bool = False
 ) -> str:
@@ -309,8 +369,8 @@ def _dummy_draft(
     if blocked:
         cause_line = "1. " + (
             f"{DUMMY_DRAFT_MARKER} {CONTENT_BLOCKED_MARKER} 구글 AI가 입력 내용(사건 경위 등)을"
-            " 정책상 처리하지 않아 자동 생성이 불가합니다. '다시 생성'을 눌러도 결과가"
-            " 같으니 설문 응답을 보고 직접 작성해 주세요."
+            " 정책상 처리하지 않아 자동 생성이 불가합니다(사건 경위를 빼고 다시 요청해도"
+            " 거부됨). 설문 응답을 보고 직접 작성해 주세요."
         )
     elif transient:
         cause_line = (
@@ -467,8 +527,8 @@ def _dummy_phone_draft(
     if blocked:
         cause_line = (
             f"{DUMMY_DRAFT_MARKER} {CONTENT_BLOCKED_MARKER} 구글 AI가 입력 내용(사건 경위 등)을"
-            " 정책상 처리하지 않아 자동 생성이 불가합니다. '다시 생성'을 눌러도 결과가"
-            " 같으니 설문 응답을 보고 직접 작성해 주세요."
+            " 정책상 처리하지 않아 자동 생성이 불가합니다(사건 경위를 빼고 다시 요청해도"
+            " 거부됨). 설문 응답을 보고 직접 작성해 주세요."
         )
     elif transient:
         cause_line = (
@@ -499,6 +559,8 @@ __all__ = [
     "is_transient_overload_draft",
     "DUMMY_DRAFT_MARKER",
     "CONTENT_BLOCKED_MARKER",
+    "NARRATIVE_OMITTED_MARKER",
+    "is_narrative_omitted_draft",
     "is_content_blocked_draft",
     "TRANSIENT_OVERLOAD_MARKER",
 ]
