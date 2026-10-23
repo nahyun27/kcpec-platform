@@ -32,7 +32,6 @@ const PUBLIC_PAGES = [
   ["/community?tab=review"],
   ["/guide"],
   ["/partner"],
-  ["/partner/apply"],
   ["/login"],
   ["/signup"],
 ];
