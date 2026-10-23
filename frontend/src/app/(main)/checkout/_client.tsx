@@ -72,8 +72,9 @@ function PaymentMethodIcon({
   }
   if (method === "samsungpay") {
     return (
-      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-black text-[9px] font-bold text-white">
-        Pay
+      <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-md">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/samsungpay.png" alt="" className="h-6 w-6" />
       </span>
     );
   }
