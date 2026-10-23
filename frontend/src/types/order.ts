@@ -40,6 +40,8 @@ export type OrderResponse = {
   va_bank_code?: string | null;
   va_customer_name?: string | null;
   va_due_date?: string | null;
+  // 결제 시 쓸 토스 클라이언트 키(강의 전용 상점). null 이면 기본 키.
+  toss_client_key?: string | null;
 };
 
 export type BundleItem = {
@@ -57,6 +59,8 @@ export type BundleCreateResponse = {
   total: number;
   payment_method: PaymentMethod;
   items: BundleItem[];
+  // 결제 시 쓸 토스 클라이언트 키(강의 전용 상점). null 이면 기본 키.
+  toss_client_key?: string | null;
 };
 
 // 추천 코드 확인(검증) 응답용 — 코드를 정확히 아는 사람에게만 보여주는

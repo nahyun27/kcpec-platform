@@ -34,6 +34,8 @@ class OrderResponse(BaseModel):
     va_bank_code: str | None = None
     va_customer_name: str | None = None
     va_due_date: datetime | None = None
+    # 이 주문을 결제할 때 쓸 토스 클라이언트 키. None 이면 기본 키.
+    toss_client_key: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -84,6 +86,8 @@ class BundleCreateResponse(BaseModel):
     total: int
     payment_method: PaymentMethod
     items: list[BundleItem]
+    # 이 묶음을 결제할 때 쓸 토스 클라이언트 키. None 이면 기본 키.
+    toss_client_key: str | None = None
 
 
 class BundleTossConfirm(BaseModel):

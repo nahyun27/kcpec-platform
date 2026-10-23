@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.cert_config import CERT_TEMPLATE_MAP
 from app.core.config import settings
+from app.core.toss import course_mid
 from app.core.pdf import TEMPLATES_DIR, _find_soffice
 from app.core.storage import _aws_configured
 from app.models.course import Course, CourseCategory
@@ -189,6 +190,8 @@ def check_toss() -> HealthItem:
     if not settings.TOSS_SECRET_KEY:
         return _fail("결제(토스)", "미설정 — 결제가 시뮬레이션 모드로 동작합니다.")
     mode = "테스트 모드(test_)" if settings.TOSS_SECRET_KEY.startswith("test_") else "실 결제 모드"
+    if course_mid():
+        mode += f", 온라인 강의는 {settings.TOSS_COURSE_MID} 상점"
     return _ok("결제(토스)", mode)
 
 

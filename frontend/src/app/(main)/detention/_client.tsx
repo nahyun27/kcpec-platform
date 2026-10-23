@@ -260,6 +260,9 @@ export default function DetentionClient() {
         orderName,
         successUrl: `${window.location.origin}/detention/success`,
         failUrl: `${window.location.origin}/detention`,
+        // 에스크로(구매안전) 미사용 — 디지털 강의·서비스라 배송 확인 단계가 없다.
+        ...(tossMethod === "VIRTUAL_ACCOUNT" ? { virtualAccount: { useEscrow: false } } : {}),
+        ...(tossMethod === "TRANSFER" ? { transfer: { useEscrow: false } } : {}),
       } as unknown as Parameters<typeof widget.requestPayment>[0]);
     } catch (err) {
       const c = (err as { code?: string; name?: string } | null) ?? {};

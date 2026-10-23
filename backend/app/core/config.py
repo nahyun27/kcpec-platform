@@ -32,6 +32,13 @@ class Settings(BaseSettings):
 
     TOSS_SECRET_KEY: str | None = None
     TOSS_API_BASE: str = "https://api.tosspayments.com"
+    # 온라인 강의 전용 토스 상점(직접 계약, 2026-10 승인). 클라이언트/시크릿
+    # 키가 둘 다 있을 때만 강의 결제를 이 상점으로 받고, 나머지(심리상담·
+    # 구속수용자 교육, 상담이 섞인 묶음)와 기존 결제는 TOSS_SECRET_KEY
+    # 상점(아임웹 경유 iw_kcpecg1vyc)을 그대로 쓴다. app/core/toss.py 참고.
+    TOSS_COURSE_MID: str = "kcpecbs0xp"
+    TOSS_COURSE_CLIENT_KEY: str | None = None
+    TOSS_COURSE_SECRET_KEY: str | None = None
 
     BANK_TRANSFER_ACCOUNT: str = (
         "국민은행 123-456-789012 (예금주: 한국범죄예방교육센터)"

@@ -13,6 +13,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.email import send_new_order_notification
 from app.core.qr import generate_qr_png
+from app.core.toss import client_key_for_mid, course_mid, secret_key_for_mid
 from app.models.course import Course, CourseCategory
 from app.models.enrollment import Enrollment
 from app.models.lawyer_partner import LawyerPartner, LawyerPartnerStatus, generate_portal_token, generate_referral_code
@@ -190,7 +191,7 @@ def create_order(
     payload: OrderCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> Order:
+) -> OrderResponse:
     _cancel_stale_pending(db, current_user.id)
 
     course = db.get(Course, payload.course_id)
@@ -255,11 +256,15 @@ def create_order(
         payment_method=payload.payment_method,
         amount=payload.amount,
         status=OrderStatus.PENDING,
+        # 온라인 강의만 강의 전용 상점으로 — 심리상담은 기본 상점.
+        toss_mid=course_mid() if course.category != CourseCategory.COUNSELING else None,
     )
     db.add(order)
     db.commit()
     db.refresh(order)
-    return order
+    return OrderResponse.model_validate(order).model_copy(
+        update={"toss_client_key": client_key_for_mid(order.toss_mid)}
+    )
 
 
 @router.get("/lawyer-partners/verify", response_model=LawyerPartnerPublic)
@@ -504,6 +509,12 @@ def create_order_bundle(
                 allocated += cut
             final_amounts[i] = amt - cut
 
+    # 묶음결제는 당분간 전부 기본 상점으로 받는다 — 강의 전용 상점은 강의
+    # 단건결제로 먼저 시험 운영 중(2026-10). 넓힐 때는 온라인 강의만 담긴
+    # 묶음만 강의 상점으로: 반성문·탄원서는 전문가 검토가 들어가 토스 업종상
+    # 상담/멘토링으로 분류된다(고객사 확인). 결제 한 번엔 상점 하나만 쓸 수 있다.
+    toss_mid = None
+
     items: list[BundleItem] = []
     for c, amount in zip(all_courses, final_amounts):
         order = Order(
@@ -517,6 +528,7 @@ def create_order_bundle(
             status=OrderStatus.PENDING,
             bundle_id=bundle_id,
             lawyer_partner_id=lawyer_partner.id if lawyer_partner else None,
+            toss_mid=toss_mid,
         )
         db.add(order)
         db.flush()
@@ -533,6 +545,7 @@ def create_order_bundle(
         total=total,
         payment_method=payload.payment_method,
         items=items,
+        toss_client_key=client_key_for_mid(toss_mid),
     )
 
 
@@ -625,7 +638,7 @@ def cancel_order(
                     with httpx.Client(timeout=10.0) as client:
                         client.post(
                             f"{settings.TOSS_API_BASE}/v1/payments/{o.toss_payment_key}/cancel",
-                            auth=(settings.TOSS_SECRET_KEY, ""),
+                            auth=(secret_key_for_mid(o.toss_mid), ""),
                             json={"cancelReason": "고객 주문 취소"},
                         )
                 except httpx.HTTPError:
@@ -749,7 +762,7 @@ def toss_confirm(
         with httpx.Client(timeout=10.0) as client:
             res = client.post(
                 f"{settings.TOSS_API_BASE}/v1/payments/confirm",
-                auth=(settings.TOSS_SECRET_KEY, ""),
+                auth=(secret_key_for_mid(order.toss_mid), ""),
                 json={
                     "paymentKey": payload.payment_key,
                     # 위젯 호출 시 사용한 형식과 동일해야 confirm 이 통과.
@@ -770,6 +783,8 @@ def toss_confirm(
         )
 
     data = res.json()
+    # 실제로 결제를 받은 상점을 기록 — 이후 환불은 이 상점 키로 한다.
+    order.toss_mid = data.get("mId") or order.toss_mid
     toss_status = data.get("status")
     just_paid = False
     if toss_status == "DONE":
@@ -864,7 +879,7 @@ def bundle_toss_confirm(
         with httpx.Client(timeout=10.0) as client:
             res = client.post(
                 f"{settings.TOSS_API_BASE}/v1/payments/confirm",
-                auth=(settings.TOSS_SECRET_KEY, ""),
+                auth=(secret_key_for_mid(orders[0].toss_mid), ""),
                 json={
                     "paymentKey": payload.payment_key,
                     "orderId": f"KCPEC-BUNDLE-{payload.bundle_id}",
@@ -884,6 +899,8 @@ def bundle_toss_confirm(
         )
 
     data = res.json()
+    for o in orders:
+        o.toss_mid = data.get("mId") or o.toss_mid
     toss_status = data.get("status")
     just_paid = False
     if toss_status == "DONE":

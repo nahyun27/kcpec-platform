@@ -55,6 +55,8 @@ class Order(Base):
     # 주문의 "정가 대비 할인" 표시가 흔들리지 않도록 주문에 같이 박아둔다.
     # 직접 넣지 않으면 저장 순간 아래 before_insert 훅이 courses.price 로 채운다.
     list_price: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # 결제를 받은(받을) 토스 상점 아이디. NULL 이면 기본 상점 — app/core/toss.py.
+    toss_mid: Mapped[str | None] = mapped_column(String(32), nullable=True)
     status: Mapped[OrderStatus] = mapped_column(
         Enum(OrderStatus, name="order_status", values_callable=lambda e: [m.value for m in e]),
         nullable=False,

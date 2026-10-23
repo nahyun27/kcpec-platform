@@ -275,7 +275,8 @@ export default function CheckoutBundleClient() {
         lawyer_referral_code: verifiedPartner ? lawyerCode.trim() : null,
       });
 
-      const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
+      // 강의만 담긴 묶음은 강의 전용 토스 상점 키를 서버가 내려준다(없으면 기본 키).
+      const tossClientKey = bundle.toss_client_key ?? process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
       if (!tossClientKey) {
         router.push(
           `/checkout/bundle/success?bundle_id=${bundle.bundle_id}&amount=${bundle.total}&simulated=1`,
@@ -329,6 +330,9 @@ export default function CheckoutBundleClient() {
         successUrl: `${window.location.origin}/checkout/bundle/success?courses=${coursesParam}`,
         failUrl: `${window.location.origin}/checkout/bundle?courses=${coursesParam}`,
         ...(easyPayCode ? { card: { flowMode: "DIRECT", easyPay: easyPayCode } } : {}),
+        // 에스크로(구매안전) 미사용 — 디지털 강의·서비스라 배송 확인 단계가 없다.
+        ...(tossMethod === "VIRTUAL_ACCOUNT" ? { virtualAccount: { useEscrow: false } } : {}),
+        ...(tossMethod === "TRANSFER" ? { transfer: { useEscrow: false } } : {}),
       } as unknown as Parameters<typeof widget.requestPayment>[0]);
     } catch (err) {
       // 결제창에서 X 눌러 그냥 닫기만 해도 SDK가 UserCancelError(code:

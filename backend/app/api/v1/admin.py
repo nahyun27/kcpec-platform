@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.admin import require_admin
 from app.core.cert_sequence import reserve_next_sequence
 from app.core.config import settings
+from app.core.toss import secret_key_for_mid
 from app.core.database import get_db
 from app.core.document_generator import fill_counseling_template, fill_phone_counseling_template
 from app.core.email import (
@@ -1070,7 +1071,7 @@ def refund_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
             with httpx.Client(timeout=10.0) as client:
                 res = client.post(
                     f"{settings.TOSS_API_BASE}/v1/payments/{order.toss_payment_key}/cancel",
-                    auth=(settings.TOSS_SECRET_KEY, ""),
+                    auth=(secret_key_for_mid(order.toss_mid), ""),
                     json=(
                         {"cancelReason": "관리자 환불 처리", "cancelAmount": cancel_amount}
                         if cancel_amount is not None
