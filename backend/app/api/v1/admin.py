@@ -416,7 +416,14 @@ def admin_user_enrollments(
     doc_rows = db.execute(
         select(IssuedDocument, Order.course_id)
         .join(Order, Order.id == IssuedDocument.order_id)
-        .where(Order.user_id == user_id, Order.course_id.in_(course_ids))
+        # 수용자용 주문(구속수용자 교육)의 수료증은 수용자 명의라 이 회원 본인
+        # 수강 기록에 섞이면 안 된다 — 같은 강의를 본인용으로도 산 보호자에게
+        # 수용자 수료증이 본인 것처럼 보였다(2026-10).
+        .where(
+            Order.user_id == user_id,
+            Order.course_id.in_(course_ids),
+            Order.detention_inmate.is_(False),
+        )
         .order_by(IssuedDocument.id.desc())
     ).all()
     for doc, cid in doc_rows:
@@ -1095,10 +1102,17 @@ def refund_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
         # 항상 Enrollment 가 생성되므로(심리상담도 예외 아님) 환불 시에도
         # order_type 으로 가르지 않고 항상 정리한다 — COURSE 만 지웠을 때는
         # 환불된 심리상담이 "수강 중"으로 계속 남는 버그가 있었음.
-        enrollment = db.scalar(
-            select(Enrollment).where(
-                Enrollment.user_id == o.user_id,
-                Enrollment.course_id == o.course_id,
+        # 수용자용 주문은 신청자 수강 등록을 만들지 않는다(_ensure_enrollment).
+        # 여기서 지우면 같은 강의를 본인용으로도 산 신청자의 수강 기록(진도·
+        # 수료)이 함께 날아간다(2026-10 점검 중 발견).
+        enrollment = (
+            None
+            if o.detention_inmate
+            else db.scalar(
+                select(Enrollment).where(
+                    Enrollment.user_id == o.user_id,
+                    Enrollment.course_id == o.course_id,
+                )
             )
         )
         if enrollment is not None:
