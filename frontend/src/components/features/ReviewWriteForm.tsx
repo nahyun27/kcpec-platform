@@ -82,10 +82,12 @@ export function ReviewWriteForm({
         <h3 className="font-sans text-xl font-bold text-slate-900">새로운 후기 작성</h3>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+      {/* 별점 칸은 별 5개 폭 그대로, 나머지는 수강 과정 — 3칸으로 나누면 좁은
+          화면(마이페이지)에서 다섯 번째 별이 잘렸다. */}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-[auto_1fr]">
         <div className="space-y-2">
           <label className="block text-sm font-bold text-slate-700">별점</label>
-          <div className="flex items-center gap-1.5 h-11">
+          <div className="flex h-11 shrink-0 items-center gap-1.5">
             {[1, 2, 3, 4, 5].map((n) => (
               <button
                 key={n}
