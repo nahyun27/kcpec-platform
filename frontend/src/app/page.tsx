@@ -212,7 +212,7 @@ function TrustSection() {
               <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[var(--color-accent)] transition-colors duration-300 group-hover:bg-[var(--color-accent)] group-hover:text-white md:h-12 md:w-12">
                 <s.icon className="h-5 w-5 md:h-6 md:w-6" />
               </div>
-              <dd className="font-sans text-xl font-extrabold text-[var(--color-primary)] md:text-3xl whitespace-nowrap">
+              <dd className="font-sans text-xl font-extrabold text-[var(--color-primary)] md:text-2xl lg:text-3xl whitespace-nowrap">
                 {s.value}
               </dd>
               <dt className="mt-1 text-xs font-medium text-slate-500 md:text-sm">

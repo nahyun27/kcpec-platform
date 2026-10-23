@@ -39,7 +39,8 @@ function ReviewPromptModal({
   prompt: ReviewPromptState;
   onClose: () => void;
 }) {
-  const [rating, setRating] = useState(0);
+  // 기본 5점으로 채워 둔다(고객사 요청) — 다른 점수는 별을 눌러 바꾼다.
+  const [rating, setRating] = useState(5);
   const [hover, setHover] = useState(0);
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);

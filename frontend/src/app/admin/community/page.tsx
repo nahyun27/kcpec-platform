@@ -312,7 +312,7 @@ function AdminCommunityPage() {
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[220px_1fr]">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="space-y-1 rounded-lg border border-zinc-200 bg-white p-3 text-sm">
           {SIDEBAR.map((s) => (
             <button
@@ -364,7 +364,7 @@ function AdminCommunityPage() {
                       <td className="whitespace-nowrap px-4 py-3 text-xs">
                         <CategoryBadge category={r.category} />
                       </td>
-                      <td className="w-full max-w-0 px-4 py-3">
+                      <td className="w-full min-w-[260px] max-w-0 px-4 py-3">
                         <div className="flex items-center gap-2">
                           {r.is_pinned ? (
                             <span className="text-[var(--color-accent)]">📌</span>

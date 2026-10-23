@@ -186,7 +186,7 @@ function AdminUsersPageInner() {
         </select>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[260px_1fr]">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="space-y-1 rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm">
           <p className="mb-3 px-3 py-1 text-[12px] font-bold uppercase tracking-widest text-slate-400">
             강의별 수강생
@@ -215,7 +215,7 @@ function AdminUsersPageInner() {
 
         <div>
         <div className="overflow-x-auto rounded-xl border border-slate-200/60 bg-white shadow-sm">
-          <table className="w-full text-left text-[13px]">
+          <table className="w-full whitespace-nowrap text-left text-[13px]">
             <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
               <tr>
                 <th
