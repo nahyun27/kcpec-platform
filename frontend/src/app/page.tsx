@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Spinner } from "@/components/ui/Spinner";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { Reveal } from "@/components/ui/Reveal";
+import { CountUp } from "@/components/ui/CountUp";
+import { SectionHeading } from "@/components/ui/SectionHeading";
 import { useCallback, useEffect, useState } from "react";
 import { getFaqs, getPosts } from "@/lib/api";
 import type { Faq, PostListItem } from "@/types/community";
@@ -19,7 +21,16 @@ import {
 } from "@/components/reviews/reviewSummary";
 import {
   ArrowRight,
+  Car,
   ChevronDown,
+  Dices,
+  Eye,
+  Hand,
+  Pill,
+  ShieldAlert,
+  Smartphone,
+  UserX,
+  Wallet,
   CreditCard,
   FileDown,
   FileText,
@@ -61,26 +72,53 @@ export default function HomePage() {
 
 // ---------- case types (사건 유형별 교육 바로가기) ---------------------------
 
+// 사건 유형 바로가기 아이콘 — CASE_LANDINGS 의 slug 기준(없으면 기본 아이콘).
+const CASE_ICONS: Record<string, typeof Scale> = {
+  "drunk-driving": Car,
+  "sexual-crime": ShieldAlert,
+  prostitution: UserX,
+  violence: Hand,
+  "property-crime": Wallet,
+  drugs: Pill,
+  gambling: Dices,
+  "digital-crime": Smartphone,
+  stalking: Eye,
+  "law-compliance": Scale,
+};
+
 function CaseTypesSection() {
   return (
-    <section className="bg-white px-6 py-12 md:py-16">
-      <div className="mx-auto max-w-5xl text-center">
-        <h2 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
-          사건 유형별 재범방지교육
-        </h2>
-        <p className="mt-2 text-sm text-slate-500">
-          내 사건과 같은 유형의 교육을 바로 확인하세요.
-        </p>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
-          {CASE_LANDINGS.map((c) => (
-            <Link
-              key={c.slug}
-              href={`/education/${c.slug}`}
-              className="rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-            >
-              {c.name}
-            </Link>
-          ))}
+    <section className="bg-white px-4 py-14 md:px-6 md:py-20">
+      <div className="mx-auto max-w-5xl">
+        <Reveal>
+          <SectionHeading
+            eyebrow="By case"
+            title="사건 유형별 재범방지교육"
+            description="내 사건과 같은 유형의 교육을 바로 확인하세요."
+          />
+        </Reveal>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+          {CASE_LANDINGS.map((c, idx) => {
+            const Icon = CASE_ICONS[c.slug] ?? Scale;
+            return (
+              <Reveal key={c.slug} delay={(idx % 5) * 60}>
+                <Link
+                  href={`/education/${c.slug}`}
+                  className="group flex h-full items-center gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-900/5"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[var(--color-accent)] transition-colors duration-300 group-hover:bg-[var(--color-accent)] group-hover:text-white">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-bold text-slate-800">{c.name}</span>
+                    <span className="flex items-center gap-0.5 text-[11.5px] font-medium text-slate-400 transition-colors group-hover:text-[var(--color-accent)]">
+                      교육 보기 <ArrowRight className="h-3 w-3" />
+                    </span>
+                  </span>
+                </Link>
+              </Reveal>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -201,7 +239,7 @@ const TRUST_STATS = [
 function TrustSection() {
   return (
     <section className="relative z-20 -mt-16 px-4 md:px-6">
-      <Reveal className="mx-auto max-w-5xl rounded-2xl border border-white/20 bg-white/80 p-8 shadow-2xl backdrop-blur-xl sm:p-12">
+      <Reveal className="mx-auto max-w-5xl rounded-3xl border border-slate-200/70 bg-white p-7 shadow-[0_24px_60px_-20px_rgba(15,23,42,0.25)] sm:p-11">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
           {TRUST_STATS.map((s, idx) => (
             <div
@@ -213,7 +251,7 @@ function TrustSection() {
                 <s.icon className="h-5 w-5 md:h-6 md:w-6" />
               </div>
               <dd className="font-sans text-xl font-extrabold text-[var(--color-primary)] md:text-2xl lg:text-3xl whitespace-nowrap">
-                {s.value}
+                <CountUp value={s.value} />
               </dd>
               <dt className="mt-1 text-xs font-medium text-slate-500 md:text-sm">
                 {s.label}
@@ -231,7 +269,7 @@ function TrustSection() {
 function LawyerPartnerBanner() {
   return (
     <section className="px-4 py-12 md:px-6 md:py-16">
-      <Reveal className="mx-auto max-w-5xl overflow-hidden rounded-3xl border-2 border-[var(--color-primary)] bg-gradient-to-br from-blue-50 to-indigo-50 p-8 text-center shadow-sm sm:p-12">
+      <Reveal className="mx-auto max-w-5xl overflow-hidden rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-8 text-center shadow-[0_20px_50px_-24px_rgba(37,99,235,0.35)] sm:p-12">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-white">
           <Scale className="h-6 w-6" />
         </div>
@@ -315,12 +353,13 @@ function ReviewsSection() {
             <p className="font-medium">아직 등록된 후기가 없습니다.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          // 모바일은 카드를 옆으로 넘겨 보게(세로로 6개 쌓이면 너무 길다), 태블릿 이상은 격자.
+          <div className="hide-scrollbar -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-6 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3">
             {reviews.map((r, idx) => (
               <Reveal
                 key={r.id}
                 delay={(idx % 3) * 120}
-                className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 md:p-7 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--color-primary)]/20 hover:shadow-xl hover:shadow-[var(--color-primary)]/10"
+                className="group relative flex h-full w-[84%] shrink-0 snap-center flex-col overflow-hidden rounded-2xl sm:w-auto border border-zinc-200 bg-white p-6 md:p-7 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--color-primary)]/20 hover:shadow-xl hover:shadow-[var(--color-primary)]/10"
               >
                 <Quote
                   className="pointer-events-none absolute -right-1 -top-1 h-16 w-16 -rotate-6 text-blue-50 transition-colors duration-300 group-hover:text-blue-100"
@@ -380,7 +419,7 @@ function ReviewsSection() {
 
 // ---------- 4-step guide ---------------------------------------------------
 
-const STEP_ICONS = [Search, PlayCircle, CreditCard, FileDown];
+const STEP_ICONS = [Search, CreditCard, PlayCircle, FileDown];
 const STEP_TONES = [
   "from-blue-500 to-indigo-500",
   "from-indigo-500 to-[var(--color-primary)]",

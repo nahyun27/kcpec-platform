@@ -132,12 +132,20 @@ function scan() {
 }
 
 (async () => {
-  const browser = await chromium.launch();
+  // 메모리가 빠듯하면 시스템이 테스트 브라우저를 강제로 닫는 일이 있다 — 그때는
+  // 브라우저를 새로 띄우고 그 페이지를 한 번 더 시도한다(문제 없는 페이지가
+  // "열기 실패"로 보이지 않게).
+  let browser = await chromium.launch();
+  const ensureBrowser = async () => {
+    if (!browser.isConnected()) browser = await chromium.launch();
+    return browser;
+  };
   let total = 0;
+  let failed = 0;
   // 로그인은 한 번만 하고 세션을 재사용한다(사이트의 로그인 횟수 제한에 걸리지 않게).
   let session;
   const login = async (id = process.env.LOGIN_ID, pw = process.env.LOGIN_PW) => {
-    const ctx = await browser.newContext();
+    const ctx = await (await ensureBrowser()).newContext();
     const page = await ctx.newPage();
     await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });
     await page.waitForTimeout(1500); // 화면이 다 준비되기 전에 입력하면 값이 날아간다
@@ -149,32 +157,44 @@ function scan() {
     session = await ctx.storageState();
     await ctx.close();
   };
+  const checkOne = async (w, path, action, loggedIn) => {
+    const ctx = await (await ensureBrowser()).newContext({
+      viewport: { width: w, height: 900 },
+      ...(loggedIn ? { storageState: session } : {}),
+    });
+    try {
+      const page = await ctx.newPage();
+      await page.goto(BASE + path, { waitUntil: "networkidle", timeout: 30000 });
+      await page.waitForTimeout(1500);
+      if (action) {
+        await action(page);
+        await page.waitForTimeout(1200);
+      }
+      return await page.evaluate(scan);
+    } finally {
+      await ctx.close().catch(() => {});
+    }
+  };
   const run = async (pages, loggedIn) => {
     for (const w of WIDTHS) {
-      const ctx = await browser.newContext({
-        viewport: { width: w, height: 900 },
-        ...(loggedIn ? { storageState: session } : {}),
-      });
-      const page = await ctx.newPage();
       for (const [path, action] of pages) {
         if (ONLY && !path.includes(ONLY)) continue;
-        try {
-          await page.goto(BASE + path, { waitUntil: "networkidle", timeout: 30000 });
-          await page.waitForTimeout(1500);
-          if (action) {
-            await action(page);
-            await page.waitForTimeout(1200);
+        let issues = null;
+        for (let attempt = 1; attempt <= 2 && issues == null; attempt++) {
+          try {
+            issues = await checkOne(w, path, action, loggedIn);
+          } catch (e) {
+            if (attempt === 2) {
+              failed++;
+              console.log(`[${w}px] ${path} — 열기 실패: ${String(e.message).split("\n")[0]}`);
+            }
           }
-          const issues = await page.evaluate(scan);
-          for (const i of issues) {
-            total++;
-            console.log(`[${w}px] ${path}${action ? " (+동작)" : ""} — ${i.kind} ${i.px}px: ${i.where}${i.box ? `  ⟵ ${i.box}` : ""}`);
-          }
-        } catch (e) {
-          console.log(`[${w}px] ${path} — 열기 실패: ${String(e.message).split("\n")[0]}`);
+        }
+        for (const i of issues ?? []) {
+          total++;
+          console.log(`[${w}px] ${path}${action ? " (+동작)" : ""} — ${i.kind} ${i.px}px: ${i.where}${i.box ? `  ⟵ ${i.box}` : ""}`);
         }
       }
-      await ctx.close();
     }
   };
   await run(PUBLIC_PAGES, false);
@@ -186,7 +206,7 @@ function scan() {
     await login(process.env.ADMIN_ID, process.env.ADMIN_PW);
     await run(ADMIN_PAGES, true);
   }
-  await browser.close();
-  console.log(total ? `\n문제 ${total}건` : "\n문제 없음");
-  process.exit(total ? 1 : 0);
+  await browser.close().catch(() => {});
+  console.log(total || failed ? `\n문제 ${total}건, 열기 실패 ${failed}건` : "\n문제 없음");
+  process.exit(total || failed ? 1 : 0);
 })();

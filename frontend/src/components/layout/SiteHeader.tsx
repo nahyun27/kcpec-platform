@@ -71,14 +71,13 @@ export default function SiteHeader() {
         {/* 좌: 로고 — md~lg 구간(심볼 로고)에서는 flex-1로 우측 영역과 폭을
             강제로 맞추면 안 됨. 그러면 "마이페이지"/"로그아웃"이 좁아진 우측
             칸에 눌려 줄바꿈되므로, 이 구간만 로고 내용만큼만 차지하게 줄임. */}
-        <div className="flex flex-1 items-center justify-start md:flex-none md:shrink-0 lg:flex-1">
-          {/* 모바일과 넓은 화면에서는 가로 로고, 애매한 중간 너비(md~lg)에서는 심볼 로고 */}
-          <Logo className="md:hidden lg:flex" />
-          <Logo kind="mark" className="hidden md:flex lg:hidden" />
+        <div className="flex flex-1 items-center justify-start">
+          {/* 태블릿(md~lg)도 메뉴를 ☰ 로 접으므로(2026-10) 가로 로고를 그대로 쓴다. */}
+          <Logo />
         </div>
 
         {/* 중: 메뉴 */}
-        <nav className="hidden flex-[2] items-center justify-center gap-4 text-sm font-bold lg:gap-8 lg:text-[15px] text-slate-600 md:flex">
+        <nav className="hidden flex-[2] items-center justify-center gap-4 text-sm font-bold lg:gap-8 lg:text-[15px] text-slate-600 lg:flex">
           {NAV.map((item) => (
             <Link
               key={item.href}
@@ -132,7 +131,7 @@ export default function SiteHeader() {
           <button
             type="button"
             onClick={() => setIsMenuOpen(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 md:hidden transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 lg:hidden transition-colors"
             aria-label="메뉴 열기"
           >
             <Menu className="h-5 w-5" />
@@ -142,7 +141,7 @@ export default function SiteHeader() {
 
       {/* 모바일 메뉴 사이드 드로어 */}
       <div
-        className={`fixed inset-0 z-[100] transition-all duration-300 md:hidden pointer-events-auto ${
+        className={`fixed inset-0 z-[100] transition-all duration-300 lg:hidden pointer-events-auto ${
           isMenuOpen ? "visible" : "invisible"
         }`}
       >

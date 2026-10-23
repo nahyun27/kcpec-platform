@@ -36,6 +36,10 @@ body {
 
 body {
   font-family: var(--font-sans-stack);
+  /* 한글이 단어 중간에서 끊기지 않게("발견/하고", "수강 후/기") 띄어쓰기 단위로 줄바꿈.
+     아주 긴 영문·메일 주소는 그래도 칸 안에서 끊기도록 break-word 를 함께 둔다. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 /* ---------- 리치 텍스트 (TipTap) 콘텐츠 스타일 ----------
@@ -103,4 +107,76 @@ body {
 }
 .hide-scrollbar::-webkit-scrollbar {
   display: none; /* Chrome / Safari / Edge */
+}
+
+/* ---------- 등장 애니메이션 (2026-10) ----------
+   코드 곳곳에 "animate-in fade-in slide-in-from-top-4 duration-700 delay-150"
+   식으로 적혀 있었지만 이를 해석하는 플러그인이 없어 아무 효과가 없었다.
+   필요한 만큼만 직접 정의한다. 길이는 Tailwind 의 duration-* 값을 그대로 쓰고,
+   지연은 delay-* 와 함께 쓰일 때만 animation-delay 로 옮긴다.
+   요소는 애니메이션 시작 전부터 처음 상태(투명·살짝 이동)로 있어 깜빡임이 없다. */
+/* 투명도만 바뀌는 경우(kc-fade)와 위치·크기도 바뀌는 경우(kc-enter)를 나눈다 —
+   transform 이 걸린 동안에는 안쪽의 화면 고정(fixed) 요소가 그 상자 기준으로
+   움직이므로, 페이지 전체를 감싸는 fade 에는 transform 을 쓰지 않는다. 끝난 뒤
+   상태를 붙잡아 두지 않도록(fill: backwards) 해 애니메이션 후엔 흔적이 없다. */
+@keyframes kc-fade {
+  from {
+    opacity: var(--kc-enter-opacity, 1);
+  }
+}
+@keyframes kc-enter {
+  from {
+    opacity: var(--kc-enter-opacity, 1);
+    transform: translate3d(var(--kc-enter-x, 0), var(--kc-enter-y, 0), 0)
+      scale(var(--kc-enter-scale, 1));
+  }
+}
+@utility animate-in {
+  animation: var(--kc-enter-name, kc-fade) var(--tw-duration, 500ms)
+    cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@utility fade-in {
+  --kc-enter-opacity: 0;
+}
+@utility zoom-in-* {
+  --kc-enter-name: kc-enter;
+  --kc-enter-scale: calc(--value(integer) * 1%);
+}
+@utility slide-in-from-top-* {
+  --kc-enter-name: kc-enter;
+  --kc-enter-y: calc(--value(integer) * -0.25rem);
+}
+@utility slide-in-from-bottom-* {
+  --kc-enter-name: kc-enter;
+  --kc-enter-y: calc(--value(integer) * 0.25rem);
+}
+@utility slide-in-from-left-* {
+  --kc-enter-name: kc-enter;
+  --kc-enter-x: calc(--value(integer) * -0.25rem);
+}
+@utility slide-in-from-right-* {
+  --kc-enter-name: kc-enter;
+  --kc-enter-x: calc(--value(integer) * 0.25rem);
+}
+.animate-in.delay-75 { animation-delay: 75ms; }
+.animate-in.delay-100 { animation-delay: 100ms; }
+.animate-in.delay-150 { animation-delay: 150ms; }
+.animate-in.delay-200 { animation-delay: 200ms; }
+.animate-in.delay-300 { animation-delay: 300ms; }
+.animate-in.delay-500 { animation-delay: 500ms; }
+.animate-in.delay-700 { animation-delay: 700ms; }
+.animate-in.delay-1000 { animation-delay: 1000ms; }
+
+/* 기기에서 "동작 줄이기"를 켠 사람에게는 움직임을 끈다. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
 }
