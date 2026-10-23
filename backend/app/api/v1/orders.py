@@ -186,8 +186,16 @@ def _cancel_stale_pending(db: Session, user_id: int) -> None:
         o.status = OrderStatus.CANCELLED
 
 
-# 카카오페이·네이버페이·토스페이는 강의 전용 상점에만 간편결제 계약이 있다.
-EASY_PAY_METHODS = {PaymentMethod.KAKAOPAY, PaymentMethod.NAVERPAY, PaymentMethod.TOSSPAY}
+# 간편결제는 강의 전용 상점에만 계약이 있다.
+EASY_PAY_METHODS = {
+    PaymentMethod.KAKAOPAY,
+    PaymentMethod.NAVERPAY,
+    PaymentMethod.TOSSPAY,
+    PaymentMethod.SAMSUNGPAY,
+    PaymentMethod.PAYCO,
+    PaymentMethod.LPAY,
+    PaymentMethod.SSGPAY,
+}
 
 
 @router.get("/payment-options")

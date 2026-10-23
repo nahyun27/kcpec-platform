@@ -3,6 +3,9 @@ export type PaymentMethod =
   | "kakaopay"
   | "naverpay"
   | "tosspay"
+  | "payco"
+  | "lpay"
+  | "ssgpay"
   | "samsungpay"
   | "mobile_phone"
   | "transfer"
@@ -13,6 +16,9 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   kakaopay: "카카오페이",
   naverpay: "네이버페이",
   tosspay: "토스페이",
+  payco: "페이코",
+  lpay: "엘페이",
+  ssgpay: "SSG페이",
   samsungpay: "삼성페이",
   mobile_phone: "휴대폰 결제",
   transfer: "실시간 계좌이체",

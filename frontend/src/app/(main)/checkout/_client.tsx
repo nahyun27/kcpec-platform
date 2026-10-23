@@ -43,8 +43,30 @@ function PaymentMethodIcon({
   }
   if (method === "tosspay") {
     return (
-      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#0064FF] text-[10px] font-black text-white">
-        toss
+      <span className="flex h-6 w-6 items-center justify-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/toss.png" alt="" className="h-6 w-6" />
+      </span>
+    );
+  }
+  if (method === "payco") {
+    return (
+      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#FA2828] text-[7px] font-black tracking-tight text-white">
+        PAYCO
+      </span>
+    );
+  }
+  if (method === "lpay") {
+    return (
+      <span className="flex h-6 w-6 items-center justify-center rounded-md border border-[#1E5BD8] bg-white text-[7px] font-black text-[#1E5BD8]">
+        L.PAY
+      </span>
+    );
+  }
+  if (method === "ssgpay") {
+    return (
+      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#FF5452] text-[8px] font-black text-white">
+        SSG
       </span>
     );
   }
@@ -66,14 +88,15 @@ function PaymentMethodIcon({
 // 휴대폰결제는 별도 PG 연동이 아직 안 끝나 지금 선택하면 결제 시도 중
 // 에러가 난다 — 실제로 연동 완료되면 하나씩 다시 추가한다(2026-09).
 const PAYMENT_METHODS: PaymentMethod[] = ["card", "transfer", "bank_transfer"];
-// 강의 전용 상점(kcpecbs0xp)은 간편결제 계약이 있어 따로 고를 수 있게 한다(2026-10).
-const PAYMENT_METHODS_WITH_EASY_PAY: PaymentMethod[] = [
-  "card",
+// 강의 전용 상점(kcpecbs0xp)은 간편결제 계약이 있어 따로 모아 고를 수 있게 한다(2026-10).
+const EASY_PAY_METHODS: PaymentMethod[] = [
   "kakaopay",
   "naverpay",
   "tosspay",
-  "transfer",
-  "bank_transfer",
+  "samsungpay",
+  "payco",
+  "lpay",
+  "ssgpay",
 ];
 
 export default function CheckoutPage() {
@@ -201,7 +224,13 @@ export default function CheckoutPage() {
               ? "SAMSUNGPAY"
               : paymentMethod === "tosspay"
                 ? "TOSSPAY"
-                : undefined;
+                : paymentMethod === "payco"
+                  ? "PAYCO"
+                  : paymentMethod === "lpay"
+                    ? "LPAY"
+                    : paymentMethod === "ssgpay"
+                      ? "SSG"
+                      : undefined;
       // 휴대폰결제/실시간계좌이체는 card 의 easyPay 가 아니라 완전히 다른
       // method 값 — 나머지(카드/카카오/네이버/삼성페이)는 전부 "CARD".
       const tossMethod =
@@ -343,13 +372,13 @@ export default function CheckoutPage() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">1</div>
                 <h2 className="font-sans text-xl font-bold text-slate-900">결제 수단</h2>
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {(easyPay ? PAYMENT_METHODS_WITH_EASY_PAY : PAYMENT_METHODS).map((m) => {
+              <div className="grid grid-cols-3 gap-3">
+                {PAYMENT_METHODS.map((m) => {
                   const selected = paymentMethod === m;
                   return (
                     <label
                       key={m}
-                      className={`relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 p-4 text-center transition-all duration-200 ${
+                      className={`relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 px-2 py-4 text-center transition-all duration-200 ${
                         selected
                           ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5 text-[var(--color-primary)] shadow-sm"
                           : "border-zinc-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
@@ -364,7 +393,7 @@ export default function CheckoutPage() {
                         className="sr-only"
                       />
                       <PaymentMethodIcon method={m} selected={selected} />
-                      <span className="text-sm font-bold">{PAYMENT_METHOD_LABEL[m]}</span>
+                      <span className="text-[13px] font-bold sm:text-sm">{PAYMENT_METHOD_LABEL[m]}</span>
                       {selected && (
                         <div className="absolute top-2 right-2 text-[var(--color-primary)]">
                           <CheckCircle2 className="h-4 w-4" />
@@ -374,6 +403,41 @@ export default function CheckoutPage() {
                   );
                 })}
               </div>
+
+              {easyPay ? (
+                <div className="mt-6">
+                  <p className="mb-3 text-sm font-bold text-slate-500">간편결제</p>
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                    {EASY_PAY_METHODS.map((m) => {
+                      const selected = paymentMethod === m;
+                      return (
+                        <label
+                          key={m}
+                          className={`flex cursor-pointer items-center gap-2.5 rounded-xl border-2 px-3 py-3 transition-all duration-200 ${
+                            selected
+                              ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5 text-[var(--color-primary)] shadow-sm"
+                              : "border-zinc-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="payment_method"
+                            value={m}
+                            checked={selected}
+                            onChange={() => setPaymentMethod(m)}
+                            className="sr-only"
+                          />
+                          <PaymentMethodIcon method={m} selected={selected} />
+                          <span className="min-w-0 flex-1 truncate text-sm font-bold">
+                            {PAYMENT_METHOD_LABEL[m]}
+                          </span>
+                          {selected ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : null}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
             </section>
           </div>
 
