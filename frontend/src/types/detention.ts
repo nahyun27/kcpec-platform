@@ -52,6 +52,9 @@ export type AdminDetentionOrder = {
   issue_number: string | null;
   pdf_url: string | null;
   pledge_pdf_url: string | null;
+  recipient_name?: string | null;
+  // 신청자 본인 수강 강의의 온라인 수료 여부(강의가 아니면 null).
+  own_completed?: boolean | null;
 };
 
 export type AdminDetentionRow = {

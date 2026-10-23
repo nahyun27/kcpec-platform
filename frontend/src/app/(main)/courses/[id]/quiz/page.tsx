@@ -65,7 +65,11 @@ export default function QuizPage({
     getMyOrders()
       .then((orders) => {
         if (cancelled) return;
-        const paid = orders.find((o) => o.course_id === courseId && o.status === "paid");
+        // 구속수용자 교육으로 같은 강의를 수용자용으로도 산 경우, 그 주문은 수용자
+        // 수료증 전용이라 제외 — 안 그러면 본인 수료증이 수용자 주문에 붙는다(2026-10).
+        const paid = orders.find(
+          (o) => o.course_id === courseId && o.status === "paid" && !o.detention_inmate,
+        );
         if (paid) setCertOrderId(paid.id);
       })
       .catch(() => {

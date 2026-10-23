@@ -361,7 +361,10 @@ export default function MyPageClient() {
                     <EnrollmentRow
                       key={e.course_id}
                       enrollment={e}
-                      order={orders.find((o) => o.course_id === e.course_id)}
+                      // 수용자용 주문(구속수용자 교육)은 본인 수강과 무관 — 제외.
+                      order={orders.find(
+                        (o) => o.course_id === e.course_id && !o.detention_inmate,
+                      )}
                     />
                   ))}
                 </ul>

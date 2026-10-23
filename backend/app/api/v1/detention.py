@@ -33,6 +33,7 @@ from app.models.document import (
     IssuedDocumentStatus,
     IssuedDocumentType,
 )
+from app.models.enrollment import Enrollment
 from app.models.order import Order, OrderStatus, OrderType, PaymentMethod
 from app.models.user import User
 from app.schemas.order import BundleCreateResponse, BundleItem
@@ -418,6 +419,9 @@ class AdminDetentionOrder(BaseModel):
     issue_number: str | None = None
     pdf_url: str | None = None
     pledge_pdf_url: str | None = None
+    recipient_name: str | None = None
+    # 신청자 본인 수강(is_own) 강의의 온라인 수료 여부. 강의가 아닌 상담 등은 None.
+    own_completed: bool | None = None
 
 
 class AdminDetentionRow(BaseModel):
@@ -464,6 +468,18 @@ def _admin_row(db: Session, a: DetentionApplication) -> AdminDetentionRow:
             )
         ).all()
     }
+    own_course_ids = [
+        c.id for o, c in pairs if not o.detention_inmate and c.category != CourseCategory.COUNSELING
+    ]
+    completed_ids = set(
+        db.scalars(
+            select(Enrollment.course_id).where(
+                Enrollment.user_id == a.user_id,
+                Enrollment.course_id.in_(own_course_ids),
+                Enrollment.is_completed.is_(True),
+            )
+        ).all()
+    ) if own_course_ids else set()
     orders = []
     for o, c in pairs:
         d = docs.get(o.id)
@@ -479,6 +495,10 @@ def _admin_row(db: Session, a: DetentionApplication) -> AdminDetentionRow:
                 issue_number=d.issue_number if d else None,
                 pdf_url=d.pdf_url if d else None,
                 pledge_pdf_url=d.pledge_pdf_url if d else None,
+                recipient_name=d.recipient_name if d else None,
+                own_completed=(
+                    c.id in completed_ids if c.id in own_course_ids else None
+                ),
             )
         )
     return AdminDetentionRow(

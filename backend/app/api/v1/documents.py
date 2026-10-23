@@ -50,6 +50,14 @@ def issue_document(
             status.HTTP_400_BAD_REQUEST,
             detail="결제 완료된 주문에 한해 수료증을 발급할 수 있습니다.",
         )
+    # 수용자용 주문의 수료증은 보호자 학습 완료 확인 뒤 관리자가 수용자 명의로
+    # 발급한다(detention.py). 이 경로로 발급되면 신청자 본인 수료증이 수용자
+    # 주문에 붙어 버린다(2026-10, 실제 발생).
+    if order.detention_inmate:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="구속수용자 교육 수료증은 신청 내역에서 발급 절차가 진행됩니다.",
+        )
 
     course = db.get(Course, order.course_id)
     if course is None:

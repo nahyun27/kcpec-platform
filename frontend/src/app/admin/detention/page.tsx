@@ -280,10 +280,33 @@ export default function AdminDetentionPage() {
               {ownOrders.length > 0 ? (
                 <div className="rounded-lg bg-blue-50 p-3 text-xs text-blue-900">
                   <p className="mb-1 font-bold">신청자 본인 수강·상담 (온라인, 수용자 수료증과 별개)</p>
-                  <ul className="space-y-0.5">
+                  <ul className="space-y-1">
                     {ownOrders.map((o) => (
-                      <li key={o.order_id}>
-                        {o.course_title} · {o.amount.toLocaleString()}원 · {o.status === "paid" ? "결제완료" : o.status}
+                      <li key={o.order_id} className="flex flex-wrap items-center justify-between gap-2">
+                        <span>
+                          {o.course_title} · {o.amount.toLocaleString()}원 · {o.status === "paid" ? "결제완료" : o.status}
+                        </span>
+                        {o.document_id ? (
+                          <span className="flex items-center gap-3">
+                            <span className="text-blue-900/70">
+                              {o.recipient_name} · {o.issue_number}
+                            </span>
+                            {o.pdf_url ? (
+                              <a href={absUrl(o.pdf_url)} target="_blank" rel="noreferrer" className="font-bold text-[var(--color-accent)] hover:underline">
+                                수료증
+                              </a>
+                            ) : null}
+                            {o.pledge_pdf_url ? (
+                              <a href={absUrl(o.pledge_pdf_url)} target="_blank" rel="noreferrer" className="font-bold text-[var(--color-accent)] hover:underline">
+                                서약서
+                              </a>
+                            ) : null}
+                          </span>
+                        ) : o.own_completed === true ? (
+                          <span className="text-blue-900/70">수료함 (수료증은 아직 발급받지 않음)</span>
+                        ) : o.own_completed === false ? (
+                          <span className="text-blue-900/70">미수료</span>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
