@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { CourseRatingBadge } from "@/components/reviews/CourseRatingBadge";
+import { Reveal } from "@/components/ui/Reveal";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ArrowRight, CheckCircle2, MessageSquare, ShieldCheck } from "lucide-react";
@@ -93,12 +95,12 @@ export default async function CaseLandingPage({
         <h2 className="font-sans text-xl font-extrabold text-slate-900 sm:text-2xl">
           이런 분께 필요한 교육이에요
         </h2>
-        <ul className="mt-6 space-y-3">
-          {landing.forWhom.map((line) => (
-            <li key={line} className="flex items-start gap-3">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-primary)]" />
+        <ul className="mt-6 grid gap-3 sm:grid-cols-3">
+          {landing.forWhom.map((line, idx) => (
+            <Reveal as="li" key={line} delay={idx * 100} className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-accent)]" />
               <span className="text-[15px] leading-relaxed text-slate-700">{line}</span>
-            </li>
+            </Reveal>
           ))}
         </ul>
       </section>
@@ -125,6 +127,7 @@ export default async function CaseLandingPage({
                 >
                   <div>
                     <h3 className="font-sans text-lg font-bold text-slate-900">{c.title}</h3>
+                    <CourseRatingBadge courseId={c.id} />
                     {c.description ? (
                       <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-slate-500">
                         {c.description}

@@ -213,7 +213,7 @@ export default async function PartnerPage() {
 
         <Reveal
           as="section"
-          className="rounded-3xl border-2 border-[var(--color-primary)] bg-gradient-to-br from-blue-50 to-indigo-50 p-6 text-center shadow-sm sm:p-10"
+          className="rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-6 text-center shadow-[0_20px_50px_-24px_rgba(37,99,235,0.35)] sm:p-10"
         >
           <p className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary)] px-3 py-1 text-[11px] font-extrabold uppercase tracking-widest text-white">
             Lawyer Referral

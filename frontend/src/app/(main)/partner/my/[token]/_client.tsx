@@ -79,7 +79,7 @@ export default function LawyerPortalClient({ token }: { token: string }) {
           </div>
         ) : null}
 
-        <div className="rounded-3xl border-2 border-[var(--color-primary)] bg-white p-6 text-center shadow-sm sm:p-8">
+        <div className="rounded-3xl border border-blue-100 bg-white p-6 text-center shadow-[0_20px_50px_-24px_rgba(37,99,235,0.35)] sm:p-8">
           <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-accent)]">
             나의 추천 코드
           </p>
