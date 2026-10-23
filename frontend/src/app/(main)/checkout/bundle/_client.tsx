@@ -1,5 +1,6 @@
 "use client";
 
+import { PaymentTrustNote } from "@/components/ui/PaymentTrustNote";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -496,7 +497,7 @@ export default function CheckoutBundleClient() {
                 </div>
                 <h2 className="font-sans text-xl font-bold text-slate-900">결제 수단</h2>
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-3 gap-3">
                 {PAYMENT_METHODS.map((m) => {
                   const selected = paymentMethod === m;
                   return (
@@ -684,6 +685,7 @@ export default function CheckoutBundleClient() {
                     </>
                   )}
                 </button>
+                <PaymentTrustNote className="mt-3 justify-center" />
 
                 {!process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ? (
                   <p className="mt-4 text-center text-xs font-medium text-amber-600 bg-amber-50 rounded-lg py-2">

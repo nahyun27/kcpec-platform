@@ -12,6 +12,8 @@ import {
 } from "@/lib/api";
 import type { CourseDetail, CourseReview } from "@/types/course";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
+import { PaymentTrustNote } from "@/components/ui/PaymentTrustNote";
+import { useMobileCtaSpace } from "@/components/ui/useMobileCtaSpace";
 import { ReviewWriteForm } from "@/components/features/ReviewWriteForm";
 import { Spinner } from "@/components/ui/Spinner";
 import { useDialog } from "@/components/ui/DialogProvider";
@@ -69,6 +71,7 @@ export default function CourseDetailPage({ id }: { id: string }) {
   const [expandedReviews, setExpandedReviews] = useState<Set<number>>(new Set());
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [sidebarFlash, setSidebarFlash] = useState(false);
+  useMobileCtaSpace();
   const sidebarRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -346,12 +349,12 @@ export default function CourseDetailPage({ id }: { id: string }) {
 
             {/* Reviews Section */}
             <section className="space-y-6">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2.5">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
                     <MessageSquare className="h-5 w-5" />
                   </div>
-                  <h2 className="font-sans text-2xl font-extrabold text-slate-900">
+                  <h2 className="whitespace-nowrap font-sans text-2xl font-extrabold text-slate-900">
                     수강 후기
                   </h2>
                   {reviewsLoaded && reviewTotal > 0 ? (
@@ -371,7 +374,7 @@ export default function CourseDetailPage({ id }: { id: string }) {
                 <button
                   type="button"
                   onClick={handleOpenReviewModal}
-                  className="rounded-full bg-white px-4 py-2 text-[13px] font-bold text-slate-700 shadow-sm ring-1 ring-inset ring-slate-200 transition-colors hover:bg-slate-50"
+                  className="whitespace-nowrap rounded-full bg-white px-4 py-2 text-[13px] font-bold text-slate-700 shadow-sm ring-1 ring-inset ring-slate-200 transition-colors hover:bg-slate-50"
                 >
                   후기 작성하기
                 </button>
@@ -511,10 +514,35 @@ export default function CourseDetailPage({ id }: { id: string }) {
                     {isEnrolled ? "수강하러 가기" : "결제하고 수강 시작"}
                   </span>
                 </button>
+                {!isEnrolled ? <PaymentTrustNote className="mt-3 justify-center" /> : null}
               </div>
             </div>
           </div>
 
+        </div>
+      </div>
+
+      {/* 모바일 하단 고정 바: 결제 상자가 커리큘럼·후기 아래 맨 끝에 있어 한참
+          내려가야 보였다(2026-10). 같은 handleStart 를 쓴다. */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.18)] backdrop-blur lg:hidden">
+        <div className="mx-auto flex max-w-xl items-center gap-3">
+          <div className="min-w-0 flex-1">
+            {course.original_price != null && course.original_price > course.price && !isEnrolled ? (
+              <p className="text-[11px] font-medium text-slate-400 line-through">
+                {course.original_price.toLocaleString()}원
+              </p>
+            ) : null}
+            <p className="truncate text-[17px] font-extrabold text-slate-900">
+              {isEnrolled ? course.title : `${course.price.toLocaleString()}원`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleStart}
+            className="shrink-0 rounded-xl bg-[var(--color-primary)] px-5 py-3 text-[15px] font-bold text-white shadow-lg shadow-[var(--color-primary)]/25 active:scale-[0.98]"
+          >
+            {isEnrolled ? "수강하러 가기" : "결제하고 수강 시작"}
+          </button>
         </div>
       </div>
 

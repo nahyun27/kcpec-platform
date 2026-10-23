@@ -10,6 +10,10 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { LegalLetterPromo } from "@/components/features/LegalLetterPromo";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { Spinner } from "@/components/ui/Spinner";
+import { Reveal } from "@/components/ui/Reveal";
+import { Stars } from "@/components/reviews/Stars";
+import { MIN_REVIEWS_TO_SHOW, formatAverage, useReviewSummary } from "@/components/reviews/reviewSummary";
+import type { ReviewCourseStat } from "@/types/community";
 import { ArrowRight, GraduationCap, BookOpen, BadgeCheck, Search, Sparkles, X } from "lucide-react";
 
 // 강의 제목 → 검색 키워드 사전. 카테고리 통합 후에도 강의 제목은
@@ -164,6 +168,7 @@ function CoursesListInner() {
       );
   }, [courses, category, activeTier, trimmedQuery]);
 
+  const reviewSummary = useReviewSummary();
   // 2글자 미만이면 빈 결과여도 검색어로 표시하지 않음 (안내 없이 전체 표시)
   const isQueryActive = trimmedQuery.length >= MIN_QUERY_LEN;
 
@@ -264,9 +269,16 @@ function CoursesListInner() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          // 모바일도 2열(예전엔 1열이라 강의 25개가 아주 길게 이어졌다).
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 lg:gap-8">
             {filteredCourses.map((c, idx) => (
-              <CourseCard key={c.id} course={c} eager={idx < 3} />
+              <Reveal key={c.id} delay={(idx % 3) * 80} className="h-full">
+                <CourseCard
+                  course={c}
+                  eager={idx < 3}
+                  rating={reviewSummary?.courses.find((x) => x.course_id === c.id) ?? null}
+                />
+              </Reveal>
             ))}
           </div>
         )}
@@ -300,12 +312,21 @@ function CategoryTab({
   );
 }
 
-function CourseCard({ course, eager = false }: { course: CourseListItem; eager?: boolean }) {
+function CourseCard({
+  course,
+  eager = false,
+  rating,
+}: {
+  course: CourseListItem;
+  eager?: boolean;
+  rating: ReviewCourseStat | null;
+}) {
+  const showRating = rating != null && rating.count >= MIN_REVIEWS_TO_SHOW;
   return (
     <Link
       href={`/courses/${course.id}`}
       prefetch
-      className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-slate-200 hover:shadow-xl hover:shadow-slate-900/10"
+      className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-slate-200 hover:shadow-xl hover:shadow-slate-900/10 md:rounded-3xl"
     >
       {/* 실사 썸네일이라 이미지가 곧 시각적 정체성 — 중앙 텍스트 오버레이 없이
           이미지를 그대로 보여주고, 카테고리 배지만 이미지 위에 얹어 아래
@@ -320,27 +341,34 @@ function CourseCard({ course, eager = false }: { course: CourseListItem; eager?:
           />
         </div>
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/45 to-transparent" />
-        <span className="absolute left-3 top-3 inline-flex items-center rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold tracking-wide text-slate-700 shadow-sm backdrop-blur-sm ring-1 ring-inset ring-black/5">
+        <span className="absolute left-2 top-2 inline-flex items-center rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-bold tracking-wide text-slate-700 shadow-sm backdrop-blur-sm ring-1 ring-inset ring-black/5 md:left-3 md:top-3 md:px-2.5 md:py-1 md:text-[11px]">
           {getTierLabel(course.title)}
         </span>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 p-4 md:p-6">
-        <h2 className="font-sans text-[15px] md:text-[17px] font-extrabold leading-snug text-slate-900 transition-colors group-hover:text-[var(--color-primary)] line-clamp-2">
+      <div className="flex flex-1 flex-col gap-2 p-3 md:gap-3 md:p-6">
+        <h2 className="font-sans text-[14px] md:text-[17px] font-extrabold leading-snug text-slate-900 transition-colors group-hover:text-[var(--color-primary)] line-clamp-2">
           {course.title}
         </h2>
-        <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4 text-sm">
-          <span className="inline-flex items-center gap-1.5 text-[13px] font-bold text-slate-500">
-            <BadgeCheck className="h-4 w-4 text-[var(--color-accent)]" />
+        {showRating ? (
+          <span className="flex items-center gap-1 text-[11.5px] text-slate-500 md:text-[13px]">
+            <Stars value={rating.average} className="h-3 w-3 md:h-3.5 md:w-3.5" />
+            <span className="font-bold text-slate-700">{formatAverage(rating.average)}</span>
+            <span>({rating.count})</span>
+          </span>
+        ) : null}
+        <div className="mt-auto flex flex-col gap-1.5 border-t border-slate-100 pt-3 text-sm md:flex-row md:items-center md:justify-between md:pt-4">
+          <span className="inline-flex items-center gap-1 text-[11.5px] font-bold text-slate-500 md:gap-1.5 md:text-[13px]">
+            <BadgeCheck className="h-3.5 w-3.5 text-[var(--color-accent)] md:h-4 md:w-4" />
             수료증 연계
           </span>
-          <span className="flex items-baseline gap-1.5">
+          <span className="flex flex-wrap items-baseline gap-x-1.5">
             {course.original_price != null && course.original_price > course.price ? (
-              <span className="text-[12px] font-medium text-slate-400 line-through">
+              <span className="text-[11px] font-medium text-slate-400 line-through md:text-[12px]">
                 {course.original_price.toLocaleString()}원
               </span>
             ) : null}
-            <span className="text-[16px] md:text-[17px] font-extrabold text-[var(--color-primary)]">
+            <span className="text-[15px] md:text-[17px] font-extrabold text-[var(--color-primary)]">
               {course.price.toLocaleString()}원~
             </span>
           </span>

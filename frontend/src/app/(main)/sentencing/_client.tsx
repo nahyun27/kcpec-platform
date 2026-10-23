@@ -662,7 +662,7 @@ export default function SentencingPage() {
 
         {/* Step 본문 */}
         <div className="mt-3 md:mt-8 grid gap-6 lg:grid-cols-[1fr_320px]">
-          <div className="space-y-6">
+          <div key={step} className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             {step === 1 ? (
               <Step1
                 selectedMain={selectedMain}
@@ -891,7 +891,7 @@ function StepIndicator({
               </div>
               {i < items.length - 1 ? (
                 <div
-                  className={`h-0.5 w-3 ${
+                  className={`h-0.5 w-3 transition-colors duration-500 ${
                     step > it.n ? "bg-[#1C3461]" : "bg-slate-200"
                   }`}
                 />
@@ -912,11 +912,11 @@ function StepIndicator({
           <div key={it.n} className="flex items-center gap-2 sm:gap-4">
             <div className="flex items-center gap-2">
               <div
-                className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-500 ${
                   done
                     ? "bg-[#1C3461] text-white"
                     : active
-                      ? "bg-[#1C3461] text-white shadow-md"
+                      ? "bg-[#1C3461] text-white shadow-md ring-4 ring-[#1C3461]/15"
                       : "bg-slate-200 text-slate-500"
                 }`}
               >
@@ -932,7 +932,7 @@ function StepIndicator({
             </div>
             {i < items.length - 1 ? (
               <div
-                className={`h-0.5 w-6 sm:w-16 ${
+                className={`h-0.5 w-6 rounded-full transition-colors duration-500 sm:w-16 ${
                   step > it.n ? "bg-[#1C3461]" : "bg-slate-200"
                 }`}
               />
@@ -999,7 +999,7 @@ function Step1({
                     : "border-slate-300 bg-white"
                 }`}
               >
-                {active ? <Check className="h-2.5 w-2.5 text-white" /> : null}
+                {active ? <Check className="h-2.5 w-2.5 text-white animate-in zoom-in-50 duration-200" /> : null}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -1143,7 +1143,7 @@ function Step2({
                     : "border-slate-300 bg-white"
                 }`}
               >
-                {active ? <Check className="h-2.5 w-2.5 text-white" /> : null}
+                {active ? <Check className="h-2.5 w-2.5 text-white animate-in zoom-in-50 duration-200" /> : null}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">

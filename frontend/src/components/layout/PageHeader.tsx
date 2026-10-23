@@ -26,7 +26,7 @@ export function PageHeader({
             {subtitle}
           </div>
         )}
-        <h1 className="font-sans text-3xl font-extrabold tracking-tight text-slate-900 md:text-[40px] md:leading-[1.2] animate-in fade-in slide-in-from-top-6 duration-700 delay-150 ease-out">
+        <h1 className="text-balance font-sans text-3xl font-extrabold tracking-tight text-slate-900 md:text-[40px] md:leading-[1.2] animate-in fade-in slide-in-from-top-6 duration-700 delay-150 ease-out">
           {title}
         </h1>
         {description && (

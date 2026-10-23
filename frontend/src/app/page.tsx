@@ -506,9 +506,10 @@ function SamplesSection() {
           <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[var(--color-primary)] ring-1 ring-blue-500/20">
             Documents
           </span>
-          <h2 className="mt-3 font-sans text-2xl font-extrabold leading-snug tracking-tight text-slate-900 sm:text-3xl md:text-4xl">
+          {/* 모바일은 줄 길이를 고르게(text-balance), 강제 줄바꿈은 태블릿부터 */}
+          <h2 className="mx-auto mt-3 max-w-[22rem] text-balance font-sans text-[22px] font-extrabold leading-snug tracking-tight text-slate-900 sm:max-w-none sm:text-3xl md:text-4xl">
             교육과 상담을 통해 변화된 자신을 발견하고
-            <br />
+            <br className="hidden sm:block" />{" "}
             건전한 사회구성원으로 복귀할 수 있습니다.
           </h2>
         </Reveal>

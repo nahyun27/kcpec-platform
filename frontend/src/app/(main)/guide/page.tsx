@@ -60,8 +60,17 @@ export default function GuidePage() {
         </div>
       </div>
       <div className="mx-auto max-w-4xl px-6 pt-8 md:pt-12 pb-24 space-y-12">
+      {/* 목차 — 원하는 항목으로 바로 이동 */}
+      <nav aria-label="이용 안내 목차" className="hide-scrollbar -mx-6 flex gap-2 overflow-x-auto px-6 pb-1">
+          <a href="#intro" className="shrink-0 rounded-full bg-white px-3.5 py-1.5 text-[13px] font-bold text-slate-600 shadow-sm ring-1 ring-slate-200 transition-colors hover:text-[var(--color-accent)] hover:ring-blue-200">서비스 소개</a>
+          <a href="#documents" className="shrink-0 rounded-full bg-white px-3.5 py-1.5 text-[13px] font-bold text-slate-600 shadow-sm ring-1 ring-slate-200 transition-colors hover:text-[var(--color-accent)] hover:ring-blue-200">발급 서류 안내</a>
+          <a href="#process" className="shrink-0 rounded-full bg-white px-3.5 py-1.5 text-[13px] font-bold text-slate-600 shadow-sm ring-1 ring-slate-200 transition-colors hover:text-[var(--color-accent)] hover:ring-blue-200">이용 절차</a>
+          <a href="#refund" className="shrink-0 rounded-full bg-white px-3.5 py-1.5 text-[13px] font-bold text-slate-600 shadow-sm ring-1 ring-slate-200 transition-colors hover:text-[var(--color-accent)] hover:ring-blue-200">환불 정책</a>
+          <a href="#copyright" className="shrink-0 rounded-full bg-white px-3.5 py-1.5 text-[13px] font-bold text-slate-600 shadow-sm ring-1 ring-slate-200 transition-colors hover:text-[var(--color-accent)] hover:ring-blue-200">저작권 안내</a>
+          <a href="#privacy" className="shrink-0 rounded-full bg-white px-3.5 py-1.5 text-[13px] font-bold text-slate-600 shadow-sm ring-1 ring-slate-200 transition-colors hover:text-[var(--color-accent)] hover:ring-blue-200">개인정보 보호</a>
+      </nav>
 
-      <Section title="서비스 소개">
+      <Section id="intro" title="서비스 소개">
         <p>
           한국범죄예방교육센터(KCPEC)는 형사 피의자·피고인 또는 일반인을 대상으로
           심리·준법교육 과정을 제공합니다. 강의를 결제하시면 바로 수강을 시작하실
@@ -75,7 +84,7 @@ export default function GuidePage() {
         </p>
       </Section>
 
-      <Section title="발급 서류 안내">
+      <Section id="documents" title="발급 서류 안내">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {DOCUMENTS.map((d) => (
             <div
@@ -102,7 +111,7 @@ export default function GuidePage() {
         </p>
       </Section>
 
-      <Section title="이용 절차">
+      <Section id="process" title="이용 절차">
         <ol className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {STEPS.map((s) => (
             <li
@@ -121,7 +130,7 @@ export default function GuidePage() {
         </ol>
       </Section>
 
-      <Section title="환불 정책">
+      <Section id="refund" title="환불 정책">
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           <p className="font-semibold text-slate-900">환불 가능</p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600">
@@ -141,7 +150,7 @@ export default function GuidePage() {
         </div>
       </Section>
 
-      <Section title="저작권 안내">
+      <Section id="copyright" title="저작권 안내">
         <p>
           본 사이트의 모든 강의 영상, 학습 자료, 수료증·의견서 양식의 저작권은
           (주)한국범죄예방교육센터에 있습니다. 무단 복제·배포·재가공을 금합니다.
@@ -149,7 +158,7 @@ export default function GuidePage() {
         </p>
       </Section>
 
-      <Section title="개인정보 보호">
+      <Section id="privacy" title="개인정보 보호">
         <p>
           회원 가입 시 수집되는 개인정보(아이디, 비밀번호 해시, 이메일, 생년월일)는
           본 서비스 운영 목적으로만 사용되며, 관련 법령이 정하는 보관 기간 종료 후
@@ -178,14 +187,17 @@ export default function GuidePage() {
 }
 
 function Section({
+  id,
   title,
   children,
 }: {
+  id?: string;
   title: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3">
+    // scroll-mt: 목차로 이동했을 때 상단 고정 헤더에 제목이 가리지 않게
+    <section id={id} className="scroll-mt-28 space-y-3">
       <h2 className="font-sans text-xl font-bold text-[var(--color-primary)] sm:text-2xl">
         {title}
       </h2>

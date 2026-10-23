@@ -1,5 +1,6 @@
 "use client";
 
+import { PaymentTrustNote } from "@/components/ui/PaymentTrustNote";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -491,6 +492,7 @@ export default function CheckoutPage() {
                     </>
                   )}
                 </button>
+                <PaymentTrustNote className="mt-3 justify-center" />
 
                 {!process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ? (
                   <p className="mt-4 text-center text-xs font-medium text-amber-600 bg-amber-50 rounded-lg py-2">

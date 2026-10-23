@@ -1,5 +1,6 @@
 "use client";
 
+import { PaymentTrustNote } from "@/components/ui/PaymentTrustNote";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -502,6 +503,7 @@ export default function DetentionClient() {
               `${total.toLocaleString()}원 결제하기`
             )}
           </button>
+          <PaymentTrustNote className="justify-center" />
           <p className="text-xs leading-relaxed text-zinc-500">
             교육자료는 결제 확인 후 즉시 발송 준비에 들어가며(신청 당일~다음 날 발송), 수용시설 사정에
             따라 도착까지 시일이 걸릴 수 있습니다. 수료증은 교육자료 발송 7일 후 신청하신 분이

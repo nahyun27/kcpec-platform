@@ -38,7 +38,7 @@ export function SectionHeading({
           </span>
         ) : null}
         <h2
-          className={`mt-3 font-sans text-[26px] font-extrabold leading-tight tracking-tight sm:text-[32px] ${
+          className={`mt-3 text-balance font-sans text-[26px] font-extrabold leading-tight tracking-tight sm:text-[32px] ${
             dark ? "text-white" : "text-slate-900"
           }`}
         >
