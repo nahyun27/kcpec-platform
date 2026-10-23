@@ -1,5 +1,8 @@
 "use client";
 
+import { Stars } from "@/components/reviews/Stars";
+import { MIN_REVIEWS_TO_SHOW, formatAverage, useReviewSummary } from "@/components/reviews/reviewSummary";
+import type { ReviewSummary } from "@/types/community";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -1374,6 +1377,19 @@ function Step3AddOns({
 
 // ---------- Page 4: 추천 결과 + 결제 ------------------------------------------
 
+// 추천 과정 이름 밑 별점 한 줄 — 그 강의 후기가 충분할 때만.
+function CourseRatingInline({ summary, title }: { summary: ReviewSummary | null; title: string }) {
+  const stat = summary?.courses.find((x) => x.course_title === title);
+  if (!stat || stat.count < MIN_REVIEWS_TO_SHOW) return null;
+  return (
+    <span className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
+      <Stars value={stat.average} className="h-3 w-3" />
+      <span className="font-bold text-slate-700">{formatAverage(stat.average)}</span>
+      <span>후기 {stat.count.toLocaleString()}개</span>
+    </span>
+  );
+}
+
 type Recommendation = {
   courses: CourseInfo[];
   documents: { name: string; active: boolean }[];
@@ -1400,6 +1416,7 @@ function Step4Result({
   onToggleLetter: (t: LegalLetterType) => void;
 }) {
   const hasDisabled = disabledCourses.size > 0;
+  const reviewSummary = useReviewSummary();
   // 항목마다 미리보기 이미지를 항상 DOM 에 올려두고 CSS로만 숨기면(hidden
   // + group-hover:block) 실제로는 여러 개의 큰 이미지를 전부 미리 로드/디코드
   // 하게 돼 스크롤이 버벅였다 — 실제로 마우스를 올린 항목 하나만 그때그때
@@ -1427,12 +1444,15 @@ function Step4Result({
                       onChange={() => onToggleCourse(c.id)}
                       className="h-4 w-4 shrink-0 accent-[#1C3461]"
                     />
-                    <span
-                      className={`truncate text-sm font-semibold ${
-                        active ? "text-slate-900" : "text-slate-400 line-through"
-                      }`}
-                    >
-                      {c.name}
+                    <span className="flex min-w-0 flex-col">
+                      <span
+                        className={`truncate text-sm font-semibold ${
+                          active ? "text-slate-900" : "text-slate-400 line-through"
+                        }`}
+                      >
+                        {c.name}
+                      </span>
+                      <CourseRatingInline summary={reviewSummary} title={c.name} />
                     </span>
                   </span>
                   <span

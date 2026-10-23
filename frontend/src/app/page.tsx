@@ -4,11 +4,19 @@ import Link from "next/link";
 import { Spinner } from "@/components/ui/Spinner";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { Reveal } from "@/components/ui/Reveal";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getFaqs, getPosts } from "@/lib/api";
 import type { Faq, PostListItem } from "@/types/community";
 import SiteHeader from "@/components/layout/SiteHeader";
 import { CASE_LANDINGS } from "@/lib/caseLandings";
+import { ReviewSheet } from "@/components/reviews/ReviewSheet";
+import { Stars } from "@/components/reviews/Stars";
+import {
+  MIN_REVIEWS_TO_SHOW,
+  formatAverage,
+  formatReviewDate,
+  useReviewSummary,
+} from "@/components/reviews/reviewSummary";
 import {
   ArrowRight,
   ChevronDown,
@@ -110,11 +118,13 @@ function Hero() {
             전문 교육으로 시작하세요
           </span>
         </h1>
-        <p className="mb-12 max-w-2xl text-[13px] leading-relaxed text-slate-300 sm:text-lg md:text-xl animate-in fade-in slide-in-from-top-4 duration-700 delay-500 ease-out">
+        <p className="mb-8 max-w-2xl text-[13px] leading-relaxed text-slate-300 sm:text-lg md:text-xl animate-in fade-in slide-in-from-top-4 duration-700 delay-500 ease-out">
           가장 확실한 <b className="font-extrabold text-red-400">양형 자료</b>를 준비하세요. 재범방지교육을 이수하면 공공기관에
           제출 가능한 교육이수 수료증, 서약서, 심리상담의견서를 과정을 마친{" "}
           <b className="font-extrabold text-red-400">즉시 발급</b>받을 수 있습니다.
         </p>
+
+        <HeroRating />
 
         <div className="flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-700 ease-out">
           <Link
@@ -128,6 +138,54 @@ function Hero() {
         </div>
       </div>
     </section>
+  );
+}
+
+// 첫 화면 별점 배지(배민 가게명 밑 "★4.9 (리뷰 1,234)" 같은 역할) + PC에선
+// 최근 후기 3개. 누르면 후기 창이 열린다 — 자동으로 뜨지는 않는다.
+function HeroRating() {
+  const summary = useReviewSummary();
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+  if (!summary || summary.count < MIN_REVIEWS_TO_SHOW) return null;
+  return (
+    <div className="mb-10 flex w-full max-w-4xl flex-col items-center gap-4 animate-in fade-in duration-700 delay-500 ease-out">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2.5 rounded-2xl bg-white px-4 py-2.5 text-slate-900 shadow-xl shadow-black/20 ring-4 ring-amber-300/50 transition-transform hover:-translate-y-0.5 sm:gap-3.5 sm:px-6 sm:py-3"
+      >
+        <Stars value={summary.average} className="h-4 w-4 sm:h-5 sm:w-5" />
+        <span className="font-sans text-lg font-black sm:text-2xl">{formatAverage(summary.average)}</span>
+        <span className="text-xs text-slate-500 sm:text-sm">
+          <span className="hidden sm:inline">수강생 </span>후기 {summary.count.toLocaleString()}개
+        </span>
+        <span className="hidden h-5 w-px bg-slate-200 sm:block" />
+        <span className="text-xs font-bold text-[var(--color-accent)] sm:text-sm">
+          <span className="hidden sm:inline">후기 보기 </span>›
+        </span>
+      </button>
+      {summary.recent.length > 0 ? (
+        <div className="hidden w-full grid-cols-3 gap-3 md:grid">
+          {summary.recent.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => setOpen(true)}
+              className="rounded-xl border border-white/15 bg-white/10 p-4 text-left backdrop-blur-sm transition-colors hover:bg-white/15"
+            >
+              <Stars value={r.rating} className="h-3 w-3" emptyClassName="fill-white/20 text-white/20" />
+              <p className="mt-2 line-clamp-2 text-sm leading-snug text-white/90">{r.content}</p>
+              <p className="mt-2 text-xs text-white/50">
+                {r.category ? `${r.category} · ` : ""}
+                {formatReviewDate(r.created_at)}
+              </p>
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {open ? <ReviewSheet summary={summary} onClose={close} /> : null}
+    </div>
   );
 }
 
@@ -209,22 +267,13 @@ const REVIEW_AVATAR_TONES = [
   "from-blue-600 to-indigo-600",
 ];
 
-// 후기 작성자명 익명화 — author_name 은 작성 시 자유 입력값이라 실명이
-// 그대로 노출될 수 있어(민감한 범죄예방 교육 서비스 특성상), 표시 시점에
-// 가운데 글자를 마스킹한다. "김민석" -> "김*석", "이해" -> "이*".
-function maskName(name: string): string {
-  const trimmed = name.trim();
-  if (trimmed.length <= 1) return trimmed;
-  if (trimmed.length === 2) return `${trimmed[0]}*`;
-  return `${trimmed[0]}${"*".repeat(trimmed.length - 2)}${trimmed[trimmed.length - 1]}`;
-}
-
 function ReviewsSection() {
   const [reviews, setReviews] = useState<PostListItem[] | null>(null);
 
   useEffect(() => {
-    getPosts("review", 1, 6)
-      .then((res) => setReviews(res.items))
+    // 별점만 남긴 후기는 글이 없어 카드로 보여줄 게 없으니 빼고 6개.
+    getPosts("review", 1, 20)
+      .then((res) => setReviews(res.items.filter((r) => r.content?.trim()).slice(0, 6)))
       .catch(() => setReviews([]));
   }, []);
 
@@ -309,11 +358,11 @@ function ReviewsSection() {
                       REVIEW_AVATAR_TONES[idx % REVIEW_AVATAR_TONES.length]
                     }`}
                   >
-                    {r.author_name.charAt(0)}
+                    익
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-slate-800">
-                      {maskName(r.author_name)}
+                      익명 수강생
                     </p>
                     <p className="text-xs text-slate-400">
                       수강생 · {new Date(r.created_at).toLocaleDateString("ko-KR")}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useReviewPrompt } from "@/components/reviews/ReviewPrompt";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
@@ -12,6 +13,7 @@ import { BirthDateInput, formatBirthKorean } from "@/components/ui/BirthDateInpu
 import { useDialog } from "@/components/ui/DialogProvider";
 
 export default function IssuePage() {
+  const reviewPrompt = useReviewPrompt();
   const router = useRouter();
   const dialog = useDialog();
   const searchParams = useSearchParams();
@@ -105,11 +107,13 @@ export default function IssuePage() {
                 href={absUrl(document.pdf_url)}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => reviewPrompt.maybeAsk(orderId)}
                 className="rounded bg-[var(--color-accent)] py-3 font-semibold text-white hover:bg-[var(--color-accent-hover)]"
               >
                 수료증 PDF 다운로드
               </a>
             ) : null}
+            {reviewPrompt.element}
             {document.pledge_pdf_url ? (
               <a
                 href={absUrl(document.pledge_pdf_url)}

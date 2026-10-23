@@ -29,7 +29,6 @@ export function ReviewWriteForm({
   const [courseId, setCourseId] = useState<number | null>(fixedCourseId ?? null);
   const [rating, setRating] = useState(5);
   const [content, setContent] = useState("");
-  const [author, setAuthor] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,10 +45,6 @@ export function ReviewWriteForm({
   }, [fixedCourseId]);
 
   async function handleSubmit() {
-    if (!content.trim()) {
-      setError("후기 본문을 입력해 주세요.");
-      return;
-    }
     if (courseId == null) {
       setError("강의를 선택해 주세요.");
       return;
@@ -60,9 +55,9 @@ export function ReviewWriteForm({
       const selected = courses.find((c) => c.id === courseId);
       await createPost({
         category: "review",
+        // 글은 선택 — 비우면 서버가 "별점 N점"을 제목으로 채운다.
         title: content.trim().slice(0, 80),
         content: content.trim(),
-        author_name: author.trim() || "익명",
         course_id: courseId,
         course_category: fixedCourseCategory ?? selected?.category,
         rating,
@@ -127,22 +122,12 @@ export function ReviewWriteForm({
           )}
         </div>
 
-        <div className="space-y-2">
-          <label className="block text-sm font-bold text-slate-700">
-            작성자 <span className="text-slate-400 font-normal">(선택)</span>
-          </label>
-          <input
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-            maxLength={50}
-            placeholder="비워두면 '익명'"
-            className="w-full h-11 rounded-xl border border-zinc-200 bg-slate-50 px-4 text-sm font-medium placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
-          />
-        </div>
       </div>
 
       <div className="space-y-2">
-        <label className="block text-sm font-bold text-slate-700">후기 본문</label>
+        <label className="block text-sm font-bold text-slate-700">
+          후기 본문 <span className="text-slate-400 font-normal">(선택 · 작성자 이름 없이 익명으로 공개돼요)</span>
+        </label>
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}

@@ -1,5 +1,6 @@
 "use client";
 
+import { CourseRating } from "@/components/reviews/CourseRating";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -267,6 +268,7 @@ export default function CourseDetailPage({ id }: { id: string }) {
               <h1 className="font-sans text-3xl font-extrabold leading-tight text-slate-900 sm:text-4xl lg:text-5xl lg:leading-[1.15]">
                 {course.title}
               </h1>
+              <CourseRating courseId={course.id} category={course.category} />
               <p className="whitespace-pre-wrap text-lg leading-relaxed text-slate-600 max-w-xl">
                 {course.description ?? "자세한 설명은 추후 업데이트됩니다."}
               </p>
@@ -399,11 +401,9 @@ export default function CourseDetailPage({ id }: { id: string }) {
                         <div className="mb-3 flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-primary)]/10 font-bold text-[var(--color-primary)]">
-                              {r.author_name.charAt(0)}
+                              익
                             </div>
-                            <span className="font-bold text-slate-900">
-                              {r.author_name}
-                            </span>
+                            <span className="font-bold text-slate-900">익명 수강생</span>
                           </div>
                           <span className="text-[13px] font-medium text-slate-400">
                             {formatReviewDate(r.created_at)}
@@ -412,13 +412,15 @@ export default function CourseDetailPage({ id }: { id: string }) {
                         <div className="mb-3">
                           <StarRow rating={r.rating} />
                         </div>
-                        <p
-                          className={`whitespace-pre-wrap text-[15px] leading-relaxed text-slate-600 ${
-                            expanded ? "" : "line-clamp-3"
-                          }`}
-                        >
-                          {r.content}
-                        </p>
+                        {r.content ? (
+                          <p
+                            className={`whitespace-pre-wrap text-[15px] leading-relaxed text-slate-600 ${
+                              expanded ? "" : "line-clamp-3"
+                            }`}
+                          >
+                            {r.content}
+                          </p>
+                        ) : null}
                         {r.content.length > 120 ? (
                           <button
                             type="button"

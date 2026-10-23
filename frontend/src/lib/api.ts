@@ -76,6 +76,9 @@ import type {
   NoticeDetail,
   PaginatedNotices,
   PaginatedPosts,
+  PaginatedReviews,
+  ReviewPromptState,
+  ReviewSummary,
   PostCategory,
   PostCreate,
   PostDetail,
@@ -344,6 +347,12 @@ export async function submitQuiz(
 }
 
 // ---------- orders / documents -----------------------------------
+
+// 강의 단건결제에서 카카오페이·네이버페이·토스페이를 보여줄지(강의 전용 상점 사용 중일 때만).
+export async function getPaymentOptions(): Promise<{ easy_pay: boolean }> {
+  const { data } = await api.get<{ easy_pay: boolean }>("/orders/payment-options");
+  return data;
+}
 
 export async function createOrder(payload: {
   course_id: number;
@@ -1021,6 +1030,39 @@ export async function uploadNoticeAttachment(
     { headers: { "Content-Type": "multipart/form-data" } },
   );
   return data;
+}
+
+export async function getReviewSummary(): Promise<ReviewSummary> {
+  const { data } = await api.get<ReviewSummary>("/reviews/summary");
+  return data;
+}
+
+export async function getReviews(params: {
+  category?: string | null;
+  course_id?: number | null;
+  page?: number;
+  size?: number;
+}): Promise<PaginatedReviews> {
+  const { data } = await api.get<PaginatedReviews>("/reviews", {
+    params: {
+      category: params.category || undefined,
+      course_id: params.course_id ?? undefined,
+      page: params.page ?? 1,
+      size: params.size ?? 10,
+    },
+  });
+  return data;
+}
+
+export async function getReviewPrompt(orderId: number): Promise<ReviewPromptState> {
+  const { data } = await api.get<ReviewPromptState>("/reviews/prompt", {
+    params: { order_id: orderId },
+  });
+  return data;
+}
+
+export async function dismissReviewPrompt(): Promise<void> {
+  await api.post("/reviews/prompt/dismiss");
 }
 
 export async function getPosts(

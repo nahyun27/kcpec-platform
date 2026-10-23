@@ -40,6 +40,11 @@ class User(Base):
     welcome_mail_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # 수료증 다운로드 직후 후기 요청 창에서 "다음에"를 누른 시각 — 있으면 다시
+    # 묻지 않는다(2026-10).
+    review_prompt_dismissed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     # 비밀번호 재설정 — 토큰은 추측 불가능한 랜덤값, 발급 후 일정 시간 지나면
     # (core/security 의 PASSWORD_RESET_EXPIRE_MINUTES) 무효 처리.

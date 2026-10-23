@@ -64,8 +64,9 @@ class PostUpdate(BaseModel):
 
 
 class PostCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=255)
-    content: str = Field(min_length=1)
+    title: str = Field(default="", max_length=255)
+    # 후기는 별점만 남겨도 된다(글은 선택, 2026-10). 다른 글은 아래 create_post 에서 필수 검사.
+    content: str = Field(default="", max_length=5000)
     category: PostCategory
     author_name: str = Field(default="익명", max_length=50)
     course_category: str | None = Field(default=None, max_length=50)
@@ -85,3 +86,58 @@ class PaginatedPosts(BaseModel):
     total: int
     page: int
     size: int
+
+
+# ---------- 후기 별점 요약 (홈 배지·후기 창·강의 페이지, 2026-10) ----------
+
+
+class ReviewItem(BaseModel):
+    # 작성자는 공개하지 않는다(완전 익명, 2026-10 고객사 요청).
+    id: int
+    rating: int
+    content: str
+    course_id: int | None = None
+    course_title: str | None = None
+    # 강의 분류(Course.category) — 사건별 칩 필터와 같은 값.
+    category: str | None = None
+    created_at: datetime
+
+
+class ReviewStat(BaseModel):
+    key: str
+    count: int
+    average: float
+
+
+class ReviewCourseStat(BaseModel):
+    course_id: int
+    course_title: str
+    category: str
+    count: int
+    average: float
+
+
+class ReviewSummary(BaseModel):
+    count: int
+    # 소수 둘째 자리까지(예: 4.98) — 한 자리로 반올림하면 5.0 이 되어버려
+    # 오히려 덜 믿기므로 그대로 보여준다(고객사 요청).
+    average: float
+    # "5" → 개수 … "1" → 개수
+    distribution: dict[str, int]
+    categories: list[ReviewStat]
+    courses: list[ReviewCourseStat]
+    recent: list[ReviewItem]
+
+
+class PaginatedReviews(BaseModel):
+    items: list[ReviewItem]
+    total: int
+    page: int
+    size: int
+
+
+class ReviewPromptState(BaseModel):
+    show: bool
+    course_id: int | None = None
+    course_title: str | None = None
+    course_category: str | None = None

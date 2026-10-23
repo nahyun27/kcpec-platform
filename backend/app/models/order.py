@@ -10,6 +10,7 @@ from app.core.database import Base
 class PaymentMethod(str, enum.Enum):
     CARD = "card"
     KAKAOPAY = "kakaopay"
+    TOSSPAY = "tosspay"
     NAVERPAY = "naverpay"
     SAMSUNGPAY = "samsungpay"
     MOBILE_PHONE = "mobile_phone"

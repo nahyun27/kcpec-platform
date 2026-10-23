@@ -1,5 +1,6 @@
 "use client";
 
+import { useReviewPrompt } from "@/components/reviews/ReviewPrompt";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
@@ -867,6 +868,7 @@ function EnrollmentRow({
   order?: OrderWithExtras;
 }) {
   const dialog = useDialog();
+  const reviewPrompt = useReviewPrompt();
   const [showReview, setShowReview] = useState(false);
   const isComplete = enrollment.is_completed;
   const issuedDoc = order?.documents?.[0];
@@ -956,12 +958,14 @@ function EnrollmentRow({
                       rel="noopener noreferrer"
                       onClick={() => {
                         if (order) void markDocumentDownloaded(order.id, issuedDoc.id).catch(() => {});
+                        if (order) reviewPrompt.maybeAsk(order.id);
                       }}
                       className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-900/10 transition-colors hover:from-blue-700 hover:to-blue-800"
                     >
                       <Download className="h-3.5 w-3.5" /> 수료증 다운로드
                     </a>
                   ) : null}
+                  {reviewPrompt.element}
                   {issuedDoc.pledge_pdf_url ? (
                     <a
                       href={absUrl(issuedDoc.pledge_pdf_url)}
@@ -1193,6 +1197,7 @@ function OrderPaidDetails({
   isCourseCompleted: boolean;
   progressPct: number;
 }) {
+  const reviewPrompt = useReviewPrompt();
   const hasStarted = progressPct > 0;
   const isDetention = !!order.detention_inmate;
   const legalLetterType = legalLetterTypeFromCourseTitle(order.course_title);
@@ -1221,12 +1226,16 @@ function OrderPaidDetails({
                       href={absUrl(d.pdf_url)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      onClick={() => void markDocumentDownloaded(order.id, d.id).catch(() => {})}
+                      onClick={() => {
+                        void markDocumentDownloaded(order.id, d.id).catch(() => {});
+                        reviewPrompt.maybeAsk(order.id);
+                      }}
                       className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white border border-zinc-200 px-3.5 py-2 text-sm font-bold text-slate-700 shadow-sm hover:border-blue-200 hover:text-[var(--color-accent)] transition-colors"
                     >
                       <Download className="h-4 w-4" /> 수료증 PDF
                     </a>
                   )}
+                  {reviewPrompt.element}
                   {d.pledge_pdf_url && (
                     <a
                       href={absUrl(d.pledge_pdf_url)}

@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -6,6 +8,7 @@ from app.core.admin import require_admin
 from app.core.database import get_db
 from app.core.deps import get_current_user, get_current_user_optional
 from app.core.email import send_new_qna_notification
+from app.models.course import Course, CourseCategory
 from app.models.community import Notice, NoticeCategory, Post, PostCategory
 from app.models.faq import Faq, FaqCategory
 from app.models.order import Order, OrderStatus
@@ -16,10 +19,16 @@ from app.schemas.community import (
     NoticeListItem,
     PaginatedNotices,
     PaginatedPosts,
+    PaginatedReviews,
     PostCreate,
     PostDetail,
     PostListItem,
     PostUpdate,
+    ReviewCourseStat,
+    ReviewItem,
+    ReviewPromptState,
+    ReviewStat,
+    ReviewSummary,
 )
 from app.schemas.faq import FaqRead
 
@@ -149,10 +158,15 @@ def list_posts(
     # review 카테고리 응답에만 본문을 포함 (별점 + 본문 한번에 노출용).
     # Q&A 는 list 단계에서 본문 + 관리자 답변까지 함께 보여줘야 하므로 본문 포함.
     # 그 외(column) 는 list 응답 크기를 줄이기 위해 content=None 으로 마스킹.
+    is_admin = current_user is not None and current_user.is_admin
+
     def to_dto(p: Post) -> PostListItem:
         dto = PostListItem.model_validate(p)
         if p.category not in (PostCategory.REVIEW, PostCategory.QNA):
             dto.content = None
+        # 후기는 완전 익명 — 아이디(가린 형태로도) 공개하지 않는다(2026-10).
+        if p.category == PostCategory.REVIEW and not is_admin:
+            dto.author_name = "익명"
         return dto
 
     return PaginatedPosts(
@@ -161,6 +175,134 @@ def list_posts(
         page=page,
         size=size,
     )
+
+
+# ---------- 후기 별점 요약 / 사건별 후기 목록 (2026-10) ----------------------
+
+
+def _review_rows(db: Session):
+    return (
+        select(Post, Course.title, Course.category)
+        .join(Course, Course.id == Post.course_id, isouter=True)
+        .where(Post.category == PostCategory.REVIEW)
+    )
+
+
+def _to_review(p: Post, title: str | None, cat) -> ReviewItem:
+    return ReviewItem(
+        id=p.id,
+        rating=p.rating,
+        content=p.content,
+        course_id=p.course_id,
+        course_title=title,
+        category=cat.value if cat is not None else p.course_category,
+        created_at=p.created_at,
+    )
+
+
+def _avg(total: int, count: int) -> float:
+    return round(total / count, 2) if count else 0.0
+
+
+@router.get("/reviews/summary", response_model=ReviewSummary)
+def review_summary(db: Session = Depends(get_db)) -> ReviewSummary:
+    rows = db.execute(_review_rows(db).order_by(Post.created_at.desc())).all()
+    dist = {str(i): 0 for i in range(5, 0, -1)}
+    by_cat: dict[str, list[int]] = {}
+    by_course: dict[int, tuple[str, str, list[int]]] = {}
+    for p, title, cat in rows:
+        dist[str(min(max(p.rating, 1), 5))] += 1
+        key = cat.value if cat is not None else (p.course_category or "기타")
+        by_cat.setdefault(key, []).append(p.rating)
+        if p.course_id is not None:
+            by_course.setdefault(p.course_id, (key, title or "", []))[2].append(p.rating)
+    total = sum(p.rating for p, _, _ in rows)
+    return ReviewSummary(
+        count=len(rows),
+        average=_avg(total, len(rows)),
+        distribution=dist,
+        categories=sorted(
+            (ReviewStat(key=k, count=len(v), average=_avg(sum(v), len(v))) for k, v in by_cat.items()),
+            key=lambda s: -s.count,
+        ),
+        courses=[
+            ReviewCourseStat(
+                course_id=cid, course_title=t, category=k, count=len(v), average=_avg(sum(v), len(v))
+            )
+            for cid, (k, t, v) in by_course.items()
+        ],
+        # 별점만 남긴 후기는 첫 화면 카드에 쓸 글이 없어 뺀다.
+        recent=[_to_review(p, t, c) for p, t, c in rows if p.content.strip()][:3],
+    )
+
+
+@router.get("/reviews", response_model=PaginatedReviews)
+def list_reviews(
+    category: CourseCategory | None = Query(default=None),
+    course_id: int | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=10, ge=1, le=50),
+    db: Session = Depends(get_db),
+) -> PaginatedReviews:
+    stmt = _review_rows(db)
+    if course_id is not None:
+        stmt = stmt.where(Post.course_id == course_id)
+    if category:
+        stmt = stmt.where(Course.category == category)
+    total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    rows = db.execute(
+        stmt.order_by(Post.created_at.desc()).offset((page - 1) * size).limit(size)
+    ).all()
+    return PaginatedReviews(
+        items=[_to_review(p, t, c) for p, t, c in rows], total=total, page=page, size=size
+    )
+
+
+@router.get("/reviews/prompt", response_model=ReviewPromptState)
+def review_prompt(
+    order_id: int = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ReviewPromptState:
+    """수료증 다운로드 직후 후기 요청 창을 띄울지. 한 사람에게 "다음에"를
+    누르기 전까지만, 그리고 아직 후기를 안 남긴 본인 수강 강의일 때만."""
+    no = ReviewPromptState(show=False)
+    if current_user.review_prompt_dismissed_at is not None:
+        return no
+    order = db.get(Order, order_id)
+    if (
+        order is None
+        or order.user_id != current_user.id
+        or order.status != OrderStatus.PAID
+        or order.detention_inmate
+    ):
+        return no
+    course = db.get(Course, order.course_id)
+    if course is None or course.category == CourseCategory.COUNSELING:
+        return no
+    reviewed = db.scalar(
+        select(func.count(Post.id)).where(
+            Post.category == PostCategory.REVIEW,
+            Post.course_id == course.id,
+            Post.author_name == current_user.username,
+        )
+    )
+    if reviewed:
+        return no
+    return ReviewPromptState(
+        show=True, course_id=course.id, course_title=course.title, course_category=course.category.value
+    )
+
+
+@router.post("/reviews/prompt/dismiss", status_code=status.HTTP_204_NO_CONTENT)
+def dismiss_review_prompt(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    user = db.get(User, current_user.id)
+    if user is not None and user.review_prompt_dismissed_at is None:
+        user.review_prompt_dismissed_at = datetime.now(timezone.utc)
+        db.commit()
 
 
 @router.get("/posts/{post_id}", response_model=PostDetail)
@@ -186,7 +328,10 @@ def get_post(
         post.view_count += 1
         db.commit()
         db.refresh(post)
-    return PostDetail.model_validate(post)
+    dto = PostDetail.model_validate(post)
+    if post.category == PostCategory.REVIEW and not (current_user is not None and current_user.is_admin):
+        dto.author_name = "익명"
+    return dto
 
 
 @router.patch("/posts/{post_id}", response_model=PostDetail)
@@ -232,6 +377,11 @@ def create_post(
             status.HTTP_403_FORBIDDEN,
             detail="전문가 칼럼은 관리자만 작성할 수 있습니다.",
         )
+    # 후기는 별점만 남겨도 되지만(2026-10) 다른 글은 제목·본문이 필수.
+    if payload.category != PostCategory.REVIEW and (
+        not payload.title.strip() or not payload.content.strip()
+    ):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="제목과 내용을 입력해 주세요.")
     # 후기는 실제 결제 완료한 강의에 대해서만 작성 가능 — course_id 만 있으면
     # 아무 강의에나 별점을 남길 수 있던 문제를 막는다.
     if payload.category == PostCategory.REVIEW:
@@ -277,9 +427,12 @@ def create_post(
             author = "관리자"
     else:
         author = current_user.username
+    title = payload.title.strip()
+    if payload.category == PostCategory.REVIEW and not title:
+        title = payload.content.strip()[:80] or f"별점 {payload.rating}점"
     post = Post(
-        title=payload.title,
-        content=payload.content,
+        title=title,
+        content=payload.content.strip() if payload.category == PostCategory.REVIEW else payload.content,
         category=payload.category,
         author_name=author,
         course_category=payload.course_category,

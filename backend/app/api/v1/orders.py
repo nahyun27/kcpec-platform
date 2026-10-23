@@ -186,6 +186,16 @@ def _cancel_stale_pending(db: Session, user_id: int) -> None:
         o.status = OrderStatus.CANCELLED
 
 
+# 카카오페이·네이버페이·토스페이는 강의 전용 상점에만 간편결제 계약이 있다.
+EASY_PAY_METHODS = {PaymentMethod.KAKAOPAY, PaymentMethod.NAVERPAY, PaymentMethod.TOSSPAY}
+
+
+@router.get("/payment-options")
+def payment_options() -> dict:
+    """강의 단건결제 화면에서 간편결제 버튼을 보여줄지."""
+    return {"easy_pay": course_mid() is not None}
+
+
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 def create_order(
     payload: OrderCreate,
@@ -250,14 +260,20 @@ def create_order(
                 detail="이미 입금 대기 중인 주문이 있습니다. 관리자 확인을 기다리거나 문의해 주세요.",
             )
 
+    # 온라인 강의만 강의 전용 상점으로 — 심리상담은 기본 상점.
+    toss_mid = course_mid() if course.category != CourseCategory.COUNSELING else None
+    if payload.payment_method in EASY_PAY_METHODS and toss_mid is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="이 결제에서는 간편결제를 쓸 수 없습니다. 신용/체크카드를 선택해 주세요.",
+        )
     order = Order(
         user_id=current_user.id,
         course_id=course.id,
         payment_method=payload.payment_method,
         amount=payload.amount,
         status=OrderStatus.PENDING,
-        # 온라인 강의만 강의 전용 상점으로 — 심리상담은 기본 상점.
-        toss_mid=course_mid() if course.category != CourseCategory.COUNSELING else None,
+        toss_mid=toss_mid,
     )
     db.add(order)
     db.commit()
@@ -514,6 +530,11 @@ def create_order_bundle(
     # 묶음만 강의 상점으로: 반성문·탄원서는 전문가 검토가 들어가 토스 업종상
     # 상담/멘토링으로 분류된다(고객사 확인). 결제 한 번엔 상점 하나만 쓸 수 있다.
     toss_mid = None
+    if payload.payment_method in EASY_PAY_METHODS:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="묶음결제에서는 간편결제를 쓸 수 없습니다. 신용/체크카드를 선택해 주세요.",
+        )
 
     items: list[BundleItem] = []
     for c, amount in zip(all_courses, final_amounts):

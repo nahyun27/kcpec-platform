@@ -117,3 +117,49 @@ export type FaqCreate = {
 };
 
 export type FaqPatch = Partial<FaqCreate>;
+
+// ---------- 후기 별점 요약 (홈 배지·후기 창·강의 페이지) ----------
+
+export type ReviewItem = {
+  id: number;
+  author_masked: string;
+  rating: number;
+  content: string;
+  course_id: number | null;
+  course_title: string | null;
+  category: string | null;
+  created_at: string;
+};
+
+export type ReviewStat = { key: string; count: number; average: number };
+
+export type ReviewCourseStat = {
+  course_id: number;
+  course_title: string;
+  category: string;
+  count: number;
+  average: number;
+};
+
+export type ReviewSummary = {
+  count: number;
+  average: number;
+  distribution: Record<string, number>;
+  categories: ReviewStat[];
+  courses: ReviewCourseStat[];
+  recent: ReviewItem[];
+};
+
+export type PaginatedReviews = {
+  items: ReviewItem[];
+  total: number;
+  page: number;
+  size: number;
+};
+
+export type ReviewPromptState = {
+  show: boolean;
+  course_id: number | null;
+  course_title: string | null;
+  course_category: string | null;
+};

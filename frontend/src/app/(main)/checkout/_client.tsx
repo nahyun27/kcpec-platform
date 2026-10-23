@@ -7,6 +7,7 @@ import { isAxiosError } from "axios";
 import {
   createOrder,
   getCourseDetail,
+  getPaymentOptions,
   tokenStorage,
 } from "@/lib/api";
 import type { CourseDetail } from "@/types/course";
@@ -40,6 +41,13 @@ function PaymentMethodIcon({
       </span>
     );
   }
+  if (method === "tosspay") {
+    return (
+      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#0064FF] text-[10px] font-black text-white">
+        toss
+      </span>
+    );
+  }
   if (method === "samsungpay") {
     return (
       <span className="flex h-6 w-6 items-center justify-center rounded-md bg-black text-[9px] font-bold text-white">
@@ -58,6 +66,15 @@ function PaymentMethodIcon({
 // 휴대폰결제는 별도 PG 연동이 아직 안 끝나 지금 선택하면 결제 시도 중
 // 에러가 난다 — 실제로 연동 완료되면 하나씩 다시 추가한다(2026-09).
 const PAYMENT_METHODS: PaymentMethod[] = ["card", "transfer", "bank_transfer"];
+// 강의 전용 상점(kcpecbs0xp)은 간편결제 계약이 있어 따로 고를 수 있게 한다(2026-10).
+const PAYMENT_METHODS_WITH_EASY_PAY: PaymentMethod[] = [
+  "card",
+  "kakaopay",
+  "naverpay",
+  "tosspay",
+  "transfer",
+  "bank_transfer",
+];
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -67,6 +84,12 @@ export default function CheckoutPage() {
 
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
+  const [easyPay, setEasyPay] = useState(false);
+  useEffect(() => {
+    getPaymentOptions()
+      .then((o) => setEasyPay(o.easy_pay))
+      .catch(() => {});
+  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -176,7 +199,9 @@ export default function CheckoutPage() {
             ? "NAVERPAY"
             : paymentMethod === "samsungpay"
               ? "SAMSUNGPAY"
-              : undefined;
+              : paymentMethod === "tosspay"
+                ? "TOSSPAY"
+                : undefined;
       // 휴대폰결제/실시간계좌이체는 card 의 easyPay 가 아니라 완전히 다른
       // method 값 — 나머지(카드/카카오/네이버/삼성페이)는 전부 "CARD".
       const tossMethod =
@@ -319,7 +344,7 @@ export default function CheckoutPage() {
                 <h2 className="font-sans text-xl font-bold text-slate-900">결제 수단</h2>
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {PAYMENT_METHODS.map((m) => {
+                {(easyPay ? PAYMENT_METHODS_WITH_EASY_PAY : PAYMENT_METHODS).map((m) => {
                   const selected = paymentMethod === m;
                   return (
                     <label
