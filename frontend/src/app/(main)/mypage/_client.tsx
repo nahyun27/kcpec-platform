@@ -1666,9 +1666,10 @@ function CounselingOrderCard({
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div className="py-3 flex justify-between items-center text-sm">
-      <dt className="font-medium text-slate-500">{label}</dt>
-      <dd className="font-semibold text-slate-900">{value}</dd>
+    <div className="py-3 flex justify-between items-start gap-4 text-sm">
+      <dt className="shrink-0 whitespace-nowrap font-medium text-slate-500">{label}</dt>
+      {/* 긴 메일 주소는 오른쪽 정렬로 끊어 보이게(라벨이 "이메/일"로 깨지던 문제) */}
+      <dd className="min-w-0 break-all text-right font-semibold text-slate-900">{value}</dd>
     </div>
   );
 }

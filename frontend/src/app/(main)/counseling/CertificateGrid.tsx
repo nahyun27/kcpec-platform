@@ -24,12 +24,12 @@ export default function CertificateGrid({ certificates }: { certificates: Certif
             className="group relative flex flex-col items-center overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--color-primary)]/30 hover:shadow-xl hover:shadow-slate-200/60"
           >
             <div className="absolute inset-x-0 top-0 h-1 origin-left scale-x-0 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-accent)] transition-transform duration-300 group-hover:scale-x-100" />
-            <div className="relative mb-4 h-24 w-20 overflow-hidden rounded-lg shadow-md ring-1 ring-slate-900/5">
+            <div className="relative mb-4 h-32 w-24 overflow-hidden rounded-lg shadow-md ring-1 ring-slate-900/5">
               <Image
                 src={`/certs/${c.slug}.jpg`}
                 alt={`${c.title} 자격증`}
                 fill
-                sizes="80px"
+                sizes="96px"
                 quality={80}
                 className="object-cover transition-transform duration-300 group-hover:scale-110"
               />
@@ -38,6 +38,9 @@ export default function CertificateGrid({ certificates }: { certificates: Certif
               {c.title}
             </p>
             <p className="mt-1.5 text-[11px] font-medium text-slate-400">{c.issuer}</p>
+            <span className="mt-2 text-[11px] font-bold text-[var(--color-accent)] opacity-70 transition-opacity group-hover:opacity-100">
+              크게 보기
+            </span>
           </button>
         ))}
       </div>

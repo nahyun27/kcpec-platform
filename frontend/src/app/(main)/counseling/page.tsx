@@ -197,8 +197,10 @@ export default function CounselingPage() {
                 delay={idx * 150}
                 as="div"
                 id={product.type}
-                className="relative overflow-hidden rounded-[2rem] border-2 border-[var(--color-primary)] bg-white p-8 shadow-xl shadow-[var(--color-primary)]/10 sm:p-10 scroll-mt-28"
+                className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.35)] transition-shadow duration-300 hover:shadow-[0_30px_70px_-28px_rgba(15,23,42,0.45)] sm:p-10 scroll-mt-28"
               >
+                {/* 굵은 검정 테두리 대신 위쪽 색 띠로 상품 카드임을 표시(2026-10) */}
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-[var(--color-primary)] via-blue-700 to-[var(--color-accent)]" />
                 <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
                   <div className="flex items-center gap-4">
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/30">

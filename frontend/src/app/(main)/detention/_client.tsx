@@ -75,7 +75,7 @@ function CheckList({
         return (
           <li key={c.id}>
             <label
-              className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-sm transition-colors ${
+              className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-sm transition-all duration-200 ${
                 on
                   ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5"
                   : "border-zinc-200 bg-white hover:border-slate-300"
@@ -287,7 +287,7 @@ export default function DetentionClient() {
   return (
     <div className="pb-24">
       <div className="mx-auto max-w-4xl px-6 pt-10">
-        <section>
+        <section className="rounded-2xl border border-blue-100 bg-blue-50/40 p-5 sm:p-7">
           <h2 className="font-sans text-xl font-bold text-slate-900">이용 금액</h2>
           <div className="mt-5 space-y-2 rounded-xl border border-zinc-200 bg-white p-5 text-sm text-slate-600">
             <p>
@@ -320,8 +320,8 @@ export default function DetentionClient() {
           </div>
         ) : null}
 
-        <section className="space-y-4">
-          <h2 className="font-sans text-xl font-bold text-slate-900">1. 수용자 교육과정 선택</h2>
+        <section className="space-y-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-7">
+          <h2 className="flex items-center gap-2.5 font-sans text-xl font-bold text-slate-900"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-[13px] font-extrabold text-white">1</span>수용자 교육과정 선택</h2>
           {loadError ? (
             <p className="text-sm text-red-600">과정 목록을 불러오지 못했습니다. 새로고침해 주세요.</p>
           ) : !info ? (
@@ -335,8 +335,8 @@ export default function DetentionClient() {
           </p>
         </section>
 
-        <section className="space-y-4">
-          <h2 className="font-sans text-xl font-bold text-slate-900">2. 수용자 정보</h2>
+        <section className="space-y-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-7">
+          <h2 className="flex items-center gap-2.5 font-sans text-xl font-bold text-slate-900"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-[13px] font-extrabold text-white">2</span>수용자 정보</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="수용자 성명" required>
               <input className={inputCls} value={form.inmate_name} maxLength={100}
@@ -384,8 +384,8 @@ export default function DetentionClient() {
           </div>
         </section>
 
-        <section className="space-y-4">
-          <h2 className="font-sans text-xl font-bold text-slate-900">3. 신청자(보호자) 연락처</h2>
+        <section className="space-y-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-7">
+          <h2 className="flex items-center gap-2.5 font-sans text-xl font-bold text-slate-900"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-[13px] font-extrabold text-white">3</span>신청자(보호자) 연락처</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="연락처" required>
               <input className={inputCls} value={form.contact_phone} maxLength={30}
@@ -403,9 +403,10 @@ export default function DetentionClient() {
           </div>
         </section>
 
-        <section className="space-y-4">
-          <h2 className="font-sans text-xl font-bold text-slate-900">
-            4. 신청자 본인 수강·심리상담 <span className="text-sm font-medium text-zinc-500">(선택)</span>
+        <section className="space-y-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-7">
+          <h2 className="flex flex-wrap items-center gap-2.5 font-sans text-xl font-bold text-slate-900">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-[13px] font-extrabold text-white">4</span>
+            신청자 본인 수강·심리상담 <span className="text-sm font-medium text-zinc-500">(선택)</span>
           </h2>
           <p className="text-sm text-slate-600">
             수용자 교육과 함께, 신청하시는 분도 본인 명의로 재범방지교육을 수강하거나 심리상담을 받으실 수
@@ -428,8 +429,8 @@ export default function DetentionClient() {
           </p>
         </section>
 
-        <section className="space-y-4">
-          <h2 className="font-sans text-xl font-bold text-slate-900">5. 결제</h2>
+        <section className="space-y-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-7">
+          <h2 className="flex items-center gap-2.5 font-sans text-xl font-bold text-slate-900"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-[13px] font-extrabold text-white">5</span>결제</h2>
           <div className="grid grid-cols-3 gap-3">
             {PAYMENT_METHODS.map((m) => (
               <label
