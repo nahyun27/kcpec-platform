@@ -197,7 +197,7 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
         <div className="rounded-2xl border border-blue-200 bg-blue-50 p-8 text-center">
           <Clock className="mx-auto h-10 w-10 text-blue-600" />
           <p className="mt-4 font-sans text-xl font-bold text-blue-900">
-            AI가 {label} 초안을 작성했습니다
+            {label} 초안이 작성되었습니다
           </p>
           <p className="mt-2 text-sm text-blue-800">
             현재 담당자가 내용을 검토하고 있습니다. 검토가 끝나면 신청하신 이메일로 알려드리고,
@@ -255,7 +255,7 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
       <div className="mb-8 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
         <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
         <p className="text-sm leading-relaxed text-blue-900">
-          아래 항목에 답해 주시면 AI가 답변을 바탕으로 {label} 본문을 자동으로 작성합니다. 입력하지
+          아래 항목에 답해 주시면 답변을 바탕으로 {label} 본문을 자동으로 작성합니다. 입력하지
           않은 내용을 임의로 지어내지 않으니, 최대한 구체적으로 적어 주세요.
         </p>
       </div>
@@ -362,7 +362,7 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
 
         <section className="space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">
-            AI 작성을 위한 질문
+            작성을 위한 질문
           </h2>
           {Object.entries(questionLabels).map(([key, questionLabel]) => (
             <Field key={key} label={questionLabel} required>
@@ -384,14 +384,14 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
         >
           {submitting ? (
             <>
-              <Loader2 className="h-5 w-5 animate-spin" /> AI가 작성 중...
+              <Loader2 className="h-5 w-5 animate-spin" /> 작성 중...
             </>
           ) : (
             `${label} 자동 작성하기`
           )}
         </button>
         <p className="text-center text-xs text-zinc-500">
-          제출하시면 AI가 초안을 작성하고, 담당자 검토 후 발급됩니다. 제출 후 내용 수정은 지원되지 않습니다.
+          제출하시면 초안을 작성하고, 담당자 검토 후 발급됩니다. 제출 후 내용 수정은 지원되지 않습니다.
         </p>
       </form>
     </div>

@@ -223,12 +223,12 @@ const DOC_PREVIEWS: { match: (name: string) => boolean; srcs: string[]; desc: st
   {
     match: (n) => n === "반성문 작성",
     srcs: ["/images/sample-repentance.png"],
-    desc: "질문에 답하면 AI가 작성해 드리는 반성문 예시입니다(가상 인물).",
+    desc: "질문에 답하면 작성해 드리는 반성문 예시입니다(가상 인물).",
   },
   {
     match: (n) => n === "탄원서 작성",
     srcs: ["/images/sample-petition.png"],
-    desc: "질문에 답하면 AI가 작성해 드리는 탄원서 예시입니다(가상 인물).",
+    desc: "질문에 답하면 작성해 드리는 탄원서 예시입니다(가상 인물).",
   },
 ];
 

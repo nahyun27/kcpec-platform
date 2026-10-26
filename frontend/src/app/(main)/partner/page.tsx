@@ -75,8 +75,8 @@ const DOCUMENTS = [
   "교육이수 소감문",
   "CBT 기반 재범방지 자가진단 검사지",
   "맞춤형 양형자료 준비 가이드북",
-  "반성문 작성 (AI 초안 지원)",
-  "탄원서 작성 (AI 초안 지원)",
+  "반성문 작성 (초안 작성 지원)",
+  "탄원서 작성 (초안 작성 지원)",
 ];
 
 export default async function PartnerPage() {

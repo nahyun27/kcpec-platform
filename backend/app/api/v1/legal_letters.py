@@ -17,6 +17,7 @@
 그대로 반영했다 — 바뀌면 그쪽만 교체하면 프론트 폼도 /info 응답을 통해
 자동으로 따라간다.
 """
+import logging
 
 import json
 import secrets
@@ -64,6 +65,7 @@ from app.models.user import User
 # (admin.py FINALS_DIR)과 같은 물리 경로.
 FINALS_DIR = Path(__file__).resolve().parents[3] / "static" / "finals"
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/legal-letters", tags=["legal-letters"])
 admin_router = APIRouter(
     prefix="/admin/legal-letters",
@@ -265,9 +267,11 @@ def submit_legal_letter(
     except LegalLetterAIError as exc:
         # 실패해도 결제는 이미 끝난 상태 — LegalLetter row 를 만들지 않으므로
         # 고객은 같은 화면에서 다시 제출을 시도할 수 있다(재결제 불필요).
+        # 실패 원인(내부 메시지)은 고객 화면 대신 서버 기록에만 남긴다.
+        logger.warning("반성문·탄원서 자동 작성 실패: %s", exc)
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY,
-            detail=f"자동 작성에 실패했습니다. 잠시 후 다시 시도해 주세요. ({exc})",
+            detail="자동 작성에 실패했습니다. 잠시 후 다시 시도해 주세요.",
         ) from exc
 
     # 이 시점엔 초안만 저장 — PDF 는 관리자가 검토 후 워드로 다듬어 직접

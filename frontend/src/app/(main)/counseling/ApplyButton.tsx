@@ -140,7 +140,7 @@ export default function ApplyButton({
       {letterInfo ? (
         <div className="mb-4 space-y-2 rounded-xl border border-dashed border-zinc-300 bg-slate-50/60 p-4">
           <p className="text-xs font-bold text-slate-500">
-            함께 신청하기 <span className="font-normal text-zinc-400">(선택, AI가 답변을 바탕으로 자동 작성)</span>
+            함께 신청하기 <span className="font-normal text-zinc-400">(선택, 답변을 바탕으로 자동 작성)</span>
           </p>
           {LETTER_TYPES.map((t) => {
             const letterPrice = t === "repentance" ? letterInfo.repentance_price : letterInfo.petition_price;
