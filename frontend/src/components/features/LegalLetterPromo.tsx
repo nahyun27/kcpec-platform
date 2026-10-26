@@ -29,7 +29,7 @@ export function LegalLetterPromo({ className = "" }: { className?: string }) {
           </span>
           <div>
             <p className="font-sans text-lg font-bold text-slate-900">
-              반성문·탄원서도 AI로 간편하게 준비하세요
+              반성문·탄원서도 간편하게 준비하세요
             </p>
             <p className="mt-1 text-sm leading-relaxed text-slate-600">
               몇 가지 질문에 답하시면 답변을 바탕으로 본문을 자동으로 작성해 서식에 맞춰
