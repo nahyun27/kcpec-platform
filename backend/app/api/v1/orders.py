@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
@@ -703,15 +703,23 @@ def _mark_paid(order: Order, payment_key: str | None) -> None:
         order.toss_payment_key = payment_key
 
 
-def _notify_new_order(db: Session, order: Order) -> None:
+def _notify_new_order(
+    db: Session, order: Order, background_tasks: BackgroundTasks | None = None
+) -> None:
     """주문이 방금 PAID 로 확정된 뒤(커밋 이후) 관리자에게 알림 메일 발송.
 
     SMTP 실패는 send_new_order_notification 내부에서 삼켜지므로 여기서
     예외가 나갈 일은 없다 — 결제 확정 자체를 이 알림 때문에 실패시키지 않는다.
+
+    background_tasks 를 주면 응답을 보낸 뒤에 메일을 보낸다. 토스 웹훅은 몇 초
+    안에 답하지 않으면 실패로 보고 "콜백 호출 실패" 메일을 보내는데, 묶음 주문은
+    메일이 과정 수만큼 이어 나가 그 시간을 넘긴 적이 있다(2026-10-28).
     """
     course = db.get(Course, order.course_id)
     buyer = db.get(User, order.user_id)
-    send_new_order_notification(
+    send = background_tasks.add_task if background_tasks is not None else (lambda f, **kw: f(**kw))
+    send(
+        send_new_order_notification,
         order_id=order.id,
         course_title=course.title if course else f"course#{order.course_id}",
         amount=order.amount,
@@ -1018,7 +1026,11 @@ def bank_confirm_body(
 
 
 @router.post("/webhook/toss", include_in_schema=False)
-def toss_webhook(payload: TossWebhookPayload, db: Session = Depends(get_db)) -> dict:
+def toss_webhook(
+    payload: TossWebhookPayload,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> dict:
     """토스 가상계좌 입금완료(DEPOSIT_CALLBACK) 웹훅 — 토스가 직접 호출.
 
     로그인 세션이 없는 서버 대 서버 호출이라 인증 의존성을 두지 않는다.
@@ -1079,7 +1091,7 @@ def toss_webhook(payload: TossWebhookPayload, db: Session = Depends(get_db)) -> 
         db.commit()
         for o in newly_paid:
             db.refresh(o)
-            _notify_new_order(db, o)
+            _notify_new_order(db, o, background_tasks)
     elif payload.status in ("CANCELED", "EXPIRED", "ABORTED"):
         # 가상계좌 입금기한이 지나 토스가 자동으로 계좌를 회수하는 경우 등 —
         # 처리 안 하면 주문이 영원히 PENDING으로 남아 마이페이지에 죽은
