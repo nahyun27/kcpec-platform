@@ -71,6 +71,8 @@ export type AdminLegalLetterRow = {
   pdf_url: string | null;
   created_at: string;
   released_at: string | null;
+  // 고객이 제출 후 내용을 고쳐 다시 낸 마지막 시각(발급 전에만 가능).
+  customer_updated_at?: string | null;
 };
 
 export type LegalLetterSubmitPayload = {
@@ -91,5 +93,19 @@ export type LegalLetterSubmitPayload = {
   case_stage?: string;
   settlement_status?: string;
   // 자유 서술 질문 key → 답변 — AI 가 이 답변을 바탕으로 본문을 작성한다.
+  answers: Record<string, string>;
+};
+
+// 고객이 제출한 내용 — 수정 화면에 미리 채우는 용도.
+export type LegalLetterSubmission = Omit<LegalLetterSubmitPayload, "case_number" | "writer_address" | "writer_phone" | "defendant_name" | "relationship" | "first_offense" | "prior_same_type_record" | "case_stage" | "settlement_status"> & {
+  case_number: string | null;
+  writer_address: string | null;
+  writer_phone: string | null;
+  defendant_name: string | null;
+  relationship: string | null;
+  first_offense: boolean | null;
+  prior_same_type_record: boolean | null;
+  case_stage: string | null;
+  settlement_status: string | null;
   answers: Record<string, string>;
 };

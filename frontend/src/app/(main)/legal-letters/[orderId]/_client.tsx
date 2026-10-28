@@ -5,7 +5,15 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
 import { CheckCircle2, Clock, Download, FileText, Loader2, Sparkles } from "lucide-react";
-import { absUrl, getLegalLetterInfo, getLegalLetterStatus, submitLegalLetter, tokenStorage } from "@/lib/api";
+import {
+  absUrl,
+  getLegalLetterInfo,
+  getLegalLetterStatus,
+  getLegalLetterSubmission,
+  resubmitLegalLetter,
+  submitLegalLetter,
+  tokenStorage,
+} from "@/lib/api";
 import { LEGAL_LETTER_LABEL, type LegalLetterInfo, type LegalLetterStatus } from "@/types/legalLetter";
 import { BirthDateInput } from "@/components/ui/BirthDateInput";
 
@@ -75,6 +83,10 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 최종본 발급 전 "제출한 내용 수정하기"(2026-10) — true 면 제출 양식을 다시 띄운다.
+  const [editing, setEditing] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     case_number: "",
@@ -117,6 +129,40 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
       });
   }, [orderId, router]);
 
+  async function startEdit() {
+    setLoadingEdit(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const sub = await getLegalLetterSubmission(orderId);
+      setForm({
+        case_number: sub.case_number ?? "",
+        charge: sub.charge,
+        court_name: sub.court_name,
+        writer_name: sub.writer_name,
+        writer_birth: sub.writer_birth,
+        writer_address: sub.writer_address ?? "",
+        writer_phone: sub.writer_phone ?? "",
+        defendant_name: sub.defendant_name ?? "",
+        relationship: sub.relationship ?? "",
+        case_stage: sub.case_stage ?? "",
+        settlement_status: sub.settlement_status ?? "",
+      });
+      setFirstOffense(sub.first_offense);
+      setPriorSameType(sub.prior_same_type_record);
+      setAnswers((prev) => ({ ...prev, ...sub.answers }));
+      setEditing(true);
+      window.scrollTo({ top: 0 });
+    } catch (err) {
+      const detail = isAxiosError(err)
+        ? (err.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      setNotice(detail ?? "제출한 내용을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setLoadingEdit(false);
+    }
+  }
+
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
   }
@@ -128,7 +174,8 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
     setSubmitting(true);
     try {
       const isPetition = status.letter_type === "petition";
-      const updated = await submitLegalLetter(orderId, {
+      const send = editing ? resubmitLegalLetter : submitLegalLetter;
+      const updated = await send(orderId, {
         case_number: form.case_number || undefined,
         charge: form.charge,
         court_name: form.court_name,
@@ -145,6 +192,11 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
         answers,
       });
       setStatus(updated);
+      if (editing) {
+        setEditing(false);
+        setNotice("수정한 내용으로 초안을 다시 작성했습니다. 담당자가 다시 검토한 뒤 발급해 드립니다.");
+        window.scrollTo({ top: 0 });
+      }
     } catch (err) {
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: unknown } | undefined)?.detail
@@ -191,9 +243,14 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
   const isPetition = status.letter_type === "petition";
   const questionLabels = isPetition ? info.petition_questions : info.repentance_questions;
 
-  if (status.status === "pending_review") {
+  if (status.status === "pending_review" && !editing) {
     return (
       <div className="mx-auto max-w-xl px-4 py-16">
+        {notice ? (
+          <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
+            {notice}
+          </p>
+        ) : null}
         <div className="rounded-2xl border border-blue-200 bg-blue-50 p-8 text-center">
           <Clock className="mx-auto h-10 w-10 text-blue-600" />
           <p className="mt-4 font-sans text-xl font-bold text-blue-900">
@@ -203,6 +260,22 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
             현재 담당자가 내용을 검토하고 있습니다. 검토가 끝나면 신청하신 이메일로 알려드리고,
             마이페이지에서도 바로 다운로드하실 수 있습니다.
           </p>
+          <div className="mt-6 rounded-xl bg-white/70 p-4 text-left">
+            <p className="text-sm font-bold text-slate-800">빠뜨린 내용이 있으신가요?</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
+              최종본이 발급되기 전까지는 제출한 내용을 고칠 수 있어요. 다시 제출하면 초안을 새로
+              작성해 담당자가 다시 검토합니다.
+            </p>
+            <button
+              type="button"
+              onClick={startEdit}
+              disabled={loadingEdit}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary)] px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+            >
+              {loadingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              제출한 내용 수정하기
+            </button>
+          </div>
           <div className="mt-6">
             <Link href="/mypage" className="text-sm font-bold text-blue-800 underline">
               마이페이지로
@@ -250,8 +323,24 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
     <div className="mx-auto max-w-2xl px-4 py-12">
       <div className="mb-8 flex items-center gap-2">
         <FileText className="h-6 w-6 text-[var(--color-primary)]" />
-        <h1 className="font-sans text-2xl font-bold text-slate-900">{label} 작성</h1>
+        <h1 className="font-sans text-2xl font-bold text-slate-900">
+          {label} {editing ? "수정" : "작성"}
+        </h1>
       </div>
+      {editing ? (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm leading-relaxed text-amber-900">
+            처음 제출하신 내용을 불러왔어요. 고칠 부분만 바꾸고 아래에서 다시 제출해 주세요.
+          </p>
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="shrink-0 rounded-full border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-100"
+          >
+            수정 취소
+          </button>
+        </div>
+      ) : null}
       <div className="mb-8 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
         <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
         <p className="text-sm leading-relaxed text-blue-900">
@@ -387,11 +476,11 @@ export default function LegalLetterClient({ orderId }: { orderId: number }) {
               <Loader2 className="h-5 w-5 animate-spin" /> 작성 중...
             </>
           ) : (
-            `${label} 자동 작성하기`
+            editing ? `수정한 내용으로 다시 작성하기` : `${label} 자동 작성하기`
           )}
         </button>
         <p className="text-center text-xs text-zinc-500">
-          제출하시면 초안을 작성하고, 담당자 검토 후 발급됩니다. 제출 후 내용 수정은 지원되지 않습니다.
+          제출하시면 초안을 작성하고, 담당자 검토 후 발급됩니다. 최종본이 발급되기 전까지는 제출한 내용을 고칠 수 있습니다.
         </p>
       </form>
     </div>

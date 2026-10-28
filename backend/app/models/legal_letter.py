@@ -72,6 +72,9 @@ class LegalLetter(Base):
     # 관리자가 최종 PDF 를 업로드한 시각 — None 이면 아직 검토 대기 중이라
     # 고객에게 pdf_url 을 보여주지 않는다.
     released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 고객이 제출 후(최종본 발급 전) 내용을 고쳐 다시 낸 마지막 시각 — 관리자에게
+    # "다시 검토 필요"를 알리는 표시용(2026-10).
+    customer_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

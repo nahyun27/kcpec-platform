@@ -150,6 +150,11 @@ export default function AdminLegalLettersPage() {
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500">
                       {new Date(r.created_at).toLocaleString("ko-KR")}
+                      {r.customer_updated_at && !r.released_at ? (
+                        <span className="mt-1 block font-bold text-red-600">
+                          고객 수정함 · {new Date(r.customer_updated_at).toLocaleString("ko-KR")}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3">
                       <span
@@ -338,6 +343,12 @@ function LegalLetterDetailModal({
               {row.buyer_username} · {row.buyer_email} ·{" "}
               {new Date(row.created_at).toLocaleString("ko-KR")}
             </p>
+            {row.customer_updated_at && !row.released_at ? (
+              <p className="mt-1.5 rounded-md bg-red-50 px-2 py-1 text-xs font-bold text-red-700">
+                고객이 {new Date(row.customer_updated_at).toLocaleString("ko-KR")}에 내용을 고쳐 다시
+                제출했습니다. 초안이 새로 작성됐으니 다시 검토해 주세요.
+              </p>
+            ) : null}
           </div>
           <button
             type="button"

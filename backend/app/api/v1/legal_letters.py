@@ -190,32 +190,11 @@ def _status_response(
     )
 
 
-@router.get("/{order_id}", response_model=LegalLetterStatus)
-def get_legal_letter_status(
-    order_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> LegalLetterStatus:
-    order, letter_type = _order_and_type(db, order_id, current_user.id)
-    letter = db.scalar(select(LegalLetter).where(LegalLetter.order_id == order.id))
-    return _status_response(db, order, letter_type, letter)
-
-
-@router.post("/{order_id}/submit", response_model=LegalLetterStatus)
-def submit_legal_letter(
-    order_id: int,
-    payload: LegalLetterSubmitRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> LegalLetterStatus:
-    order, letter_type = _order_and_type(db, order_id, current_user.id)
-    if order.status != OrderStatus.PAID:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제 완료된 주문만 작성할 수 있습니다.")
-
-    existing = db.scalar(select(LegalLetter).where(LegalLetter.order_id == order.id))
-    if existing is not None:
-        return _status_response(db, order, letter_type, existing)
-
+def _prepare_submission(
+    payload: "LegalLetterSubmitRequest", letter_type: LegalLetterType
+) -> tuple[dict, str]:
+    """제출·재제출 공통: 입력 검증 → 본문 초안 생성. (저장할 필드, 본문)을 돌려준다.
+    생성에 실패하면 502 — 기존 저장 내용은 건드리지 않는다."""
     charge = payload.charge.strip()
     answers = {k: (v or "").strip() for k, v in payload.answers.items()}
 
@@ -274,12 +253,7 @@ def submit_legal_letter(
             detail="자동 작성에 실패했습니다. 잠시 후 다시 시도해 주세요.",
         ) from exc
 
-    # 이 시점엔 초안만 저장 — PDF 는 관리자가 검토 후 워드로 다듬어 직접
-    # 업로드해야 생성/공개된다(/upload-final).
-    letter = LegalLetter(
-        order_id=order.id,
-        user_id=current_user.id,
-        letter_type=letter_type,
+    fields = dict(
         case_number=(payload.case_number or "").strip() or None,
         charge=charge,
         defendant_name=defendant_name,
@@ -294,12 +268,122 @@ def submit_legal_letter(
         case_stage=payload.case_stage,
         settlement_status=payload.settlement_status,
         structured_answers=json.dumps(answers, ensure_ascii=False),
+    )
+    return fields, content
+
+
+@router.get("/{order_id}", response_model=LegalLetterStatus)
+def get_legal_letter_status(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> LegalLetterStatus:
+    order, letter_type = _order_and_type(db, order_id, current_user.id)
+    letter = db.scalar(select(LegalLetter).where(LegalLetter.order_id == order.id))
+    return _status_response(db, order, letter_type, letter)
+
+
+@router.post("/{order_id}/submit", response_model=LegalLetterStatus)
+def submit_legal_letter(
+    order_id: int,
+    payload: LegalLetterSubmitRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> LegalLetterStatus:
+    order, letter_type = _order_and_type(db, order_id, current_user.id)
+    if order.status != OrderStatus.PAID:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제 완료된 주문만 작성할 수 있습니다.")
+
+    existing = db.scalar(select(LegalLetter).where(LegalLetter.order_id == order.id))
+    if existing is not None:
+        return _status_response(db, order, letter_type, existing)
+
+    fields, content = _prepare_submission(payload, letter_type)
+
+    # 이 시점엔 초안만 저장 — PDF 는 관리자가 검토 후 워드로 다듬어 직접
+    # 업로드해야 생성/공개된다(/upload-final).
+    letter = LegalLetter(
+        order_id=order.id,
+        user_id=current_user.id,
+        letter_type=letter_type,
         content=content,
+        **fields,
     )
     db.add(letter)
     db.commit()
     db.refresh(letter)
 
+    return _status_response(db, order, letter_type, letter)
+
+
+class LegalLetterSubmission(LegalLetterSubmitRequest):
+    """고객이 제출한 내용 — 수정 화면에 미리 채우는 용도."""
+
+    answers: dict[str, str]
+
+
+@router.get("/{order_id}/submission", response_model=LegalLetterSubmission)
+def get_legal_letter_submission(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> LegalLetterSubmission:
+    order, _ = _order_and_type(db, order_id, current_user.id)
+    letter = db.scalar(select(LegalLetter).where(LegalLetter.order_id == order.id))
+    if letter is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="제출한 내용이 없습니다.")
+    try:
+        answers = json.loads(letter.structured_answers) if letter.structured_answers else {}
+    except (json.JSONDecodeError, TypeError):
+        answers = {}
+    return LegalLetterSubmission(
+        case_number=letter.case_number,
+        charge=letter.charge,
+        court_name=letter.court_name,
+        writer_name=letter.writer_name,
+        writer_birth=letter.writer_birth,
+        writer_address=letter.writer_address,
+        writer_phone=letter.writer_phone,
+        defendant_name=letter.defendant_name,
+        relationship=letter.relationship_to_defendant,
+        first_offense=letter.first_offense,
+        prior_same_type_record=letter.prior_same_type_record,
+        case_stage=letter.case_stage,
+        settlement_status=letter.settlement_status,
+        answers=answers,
+    )
+
+
+@router.put("/{order_id}/submit", response_model=LegalLetterStatus)
+def resubmit_legal_letter(
+    order_id: int,
+    payload: LegalLetterSubmitRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> LegalLetterStatus:
+    """최종본이 올라가기 전까지 고객이 제출 내용을 고쳐 다시 낼 수 있다(2026-10,
+    "반성문 빠뜨린 게 있는데 수정이 안 되나요" 문의). 고친 답변으로 초안을 새로
+    만들고, 관리자 화면에 "고객 수정함"이 표시되도록 시각을 남긴다."""
+    order, letter_type = _order_and_type(db, order_id, current_user.id)
+    if order.status != OrderStatus.PAID:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="결제 완료된 주문만 수정할 수 있습니다.")
+    letter = db.scalar(
+        select(LegalLetter).where(LegalLetter.order_id == order.id).with_for_update()
+    )
+    if letter is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="제출한 내용이 없습니다.")
+    if letter.released_at is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="이미 최종본이 발급되어 수정할 수 없습니다. 수정이 필요하면 1:1 문의로 알려주세요.",
+        )
+    fields, content = _prepare_submission(payload, letter_type)
+    for k, v in fields.items():
+        setattr(letter, k, v)
+    letter.content = content
+    letter.customer_updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(letter)
     return _status_response(db, order, letter_type, letter)
 
 
@@ -332,6 +416,7 @@ class AdminLegalLetterRow(BaseModel):
     pdf_url: str | None
     created_at: datetime
     released_at: datetime | None
+    customer_updated_at: datetime | None = None
 
 
 def _admin_row(db: Session, letter: LegalLetter) -> AdminLegalLetterRow:
@@ -368,6 +453,7 @@ def _admin_row(db: Session, letter: LegalLetter) -> AdminLegalLetterRow:
         pdf_url=letter.pdf_url if letter.released_at else None,
         created_at=letter.created_at,
         released_at=letter.released_at,
+        customer_updated_at=letter.customer_updated_at,
     )
 
 

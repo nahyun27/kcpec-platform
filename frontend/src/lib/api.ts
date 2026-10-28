@@ -40,6 +40,7 @@ import type {
   LegalLetterInfo,
   LegalLetterStatus,
   LegalLetterSubmitPayload,
+  LegalLetterSubmission,
   LegalLetterType,
 } from "@/types/legalLetter";
 import type {
@@ -531,6 +532,20 @@ export async function getLegalLetterInfo(): Promise<LegalLetterInfo> {
 
 export async function getLegalLetterStatus(orderId: number): Promise<LegalLetterStatus> {
   const { data } = await api.get<LegalLetterStatus>(`/legal-letters/${orderId}`);
+  return data;
+}
+
+export async function getLegalLetterSubmission(orderId: number): Promise<LegalLetterSubmission> {
+  const { data } = await api.get<LegalLetterSubmission>(`/legal-letters/${orderId}/submission`);
+  return data;
+}
+
+// 최종본이 발급되기 전까지 제출 내용을 고쳐 다시 낸다(초안을 새로 작성).
+export async function resubmitLegalLetter(
+  orderId: number,
+  payload: LegalLetterSubmitPayload,
+): Promise<LegalLetterStatus> {
+  const { data } = await api.put<LegalLetterStatus>(`/legal-letters/${orderId}/submit`, payload);
   return data;
 }
 
