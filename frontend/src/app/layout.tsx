@@ -3,6 +3,8 @@ import { GA4 } from "@/components/analytics/GA4";
 import { GTM, GTMNoScript } from "@/components/analytics/GTM";
 import { DialogProvider } from "@/components/ui/DialogProvider";
 import "./globals.css";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { organizationLd, websiteLd } from "@/lib/seo";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 const TITLE = "한국범죄예방교육센터 KCPEC | 재범방지교육·수료증·양형자료·심리상담";
@@ -52,6 +54,9 @@ export default function RootLayout({
         suppressHydrationWarning
         className="min-h-full flex flex-col bg-white text-foreground"
       >
+        {/* 회사·사이트 정보 — 검색엔진과 AI 검색이 "이 사이트가 누구인지" 읽는 용도 */}
+        <JsonLd data={organizationLd()} />
+        <JsonLd data={websiteLd()} />
         <GTMNoScript />
         <GTM />
         <GA4 />

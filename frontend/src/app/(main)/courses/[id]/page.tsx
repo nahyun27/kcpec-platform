@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import CourseDetailPage from "./_client";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { courseLd, fetchApi } from "@/lib/seo";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
@@ -45,5 +47,16 @@ export default async function Page({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <CourseDetailPage id={id} />;
+  // 검색엔진용 강의 정보(이름·가격·별점) — 같은 요청은 Next 가 캐시해 위 메타데이터와 공유된다.
+  const [course, summary] = await Promise.all([
+    fetchApi<{ id: number; title: string; description: string | null; price: number }>(`/courses/${id}`, 3600),
+    fetchApi<{ courses: { course_id: number; average: number; count: number }[] }>("/reviews/summary"),
+  ]);
+  const rating = summary?.courses.find((c) => c.course_id === course?.id) ?? null;
+  return (
+    <>
+      {course ? <JsonLd data={courseLd({ ...course, rating })} /> : null}
+      <CourseDetailPage id={id} />
+    </>
+  );
 }
