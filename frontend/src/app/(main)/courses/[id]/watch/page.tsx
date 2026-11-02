@@ -82,6 +82,14 @@ export default function WatchPage({
     playerDurationRef.current = playerDuration;
   }, [playerDuration]);
 
+  // 강의를 바꾸면 이전 강의에서 잡힌 영상 길이를 지운다. 안 지우면 새 영상 메타데이터가
+  // 로드되기 전 몇 초 동안 "앞 강의 길이"가 진도 PATCH 에 실려 새 강의 길이를 잘못
+  // 늘려 놓았다(2026-11, 끝까지 봐도 진도가 넘어가지 않던 원인).
+  useEffect(() => {
+    playerDurationRef.current = 0;
+    setPlayerDuration(0);
+  }, [activeLectureId]);
+
   useEffect(() => {
     activeLectureDurationRef.current =
       course?.lectures.find((l) => l.id === activeLectureId)?.duration_seconds ?? 0;

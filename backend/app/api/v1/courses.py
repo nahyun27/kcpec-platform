@@ -442,14 +442,16 @@ def update_lecture_progress(
     progress.last_position_sec = max(
         progress.last_position_sec or 0, payload.last_position_sec or 0
     )
-    # 클라이언트가 영상 메타데이터에서 감지한 duration 으로 lecture.duration_seconds
-    # 를 보정. 어드민 백필 endpoint 와 달리 일반 유저도 호출 가능.
+    # 클라이언트가 영상 메타데이터에서 감지한 duration 은 길이가 아직 비어 있는(0)
+    # 강의에만 채운다. 예전엔 "더 길면 늘리기"였는데, 강의를 넘길 때 앞 강의 길이가
+    # 실려 와 실제보다 길게 덮어써지고 다시는 줄지 않아, 끝까지 봐도 90% 에 못 미쳐
+    # 다음 강의로 넘어가지 못했다(2026-10·11 두 번 발생). 길이 수정은 관리자만.
     if (
         payload.duration_seconds is not None
         and LECTURE_DURATION_SANE_MIN_SECONDS
         <= payload.duration_seconds
         <= LECTURE_DURATION_SANE_MAX_SECONDS
-        and (lecture.duration_seconds or 0) < payload.duration_seconds
+        and not lecture.duration_seconds
     ):
         lecture.duration_seconds = payload.duration_seconds
     if payload.is_completed and not progress.is_completed:
