@@ -8,6 +8,7 @@ import { isAxiosError } from "axios";
 import {
   createOrderBundle,
   getCourseDetail,
+  getPaymentOptions,
   getLegalLetterInfo,
   getMyLawyerPartner,
   tokenStorage,
@@ -21,58 +22,28 @@ import { LEGAL_LETTER_LABEL, type LegalLetterInfo, type LegalLetterType } from "
 import {
   CheckCircle2,
   ChevronLeft,
-  CreditCard,
   Award,
   ChevronRight,
   Receipt,
   Loader2,
-  Landmark,
-  Smartphone,
-  Zap,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
-
-function PaymentMethodIcon({
-  method,
-  selected,
-}: {
-  method: PaymentMethod;
-  selected: boolean;
-}) {
-  if (method === "kakaopay") {
-    return (
-      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#FEE500]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icons/kakao.svg" alt="" className="h-3.5 w-3.5" />
-      </span>
-    );
-  }
-  if (method === "naverpay") {
-    return (
-      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#03C75A]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icons/naver.svg" alt="" className="h-3.5 w-3.5" />
-      </span>
-    );
-  }
-  if (method === "samsungpay") {
-    return (
-      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-black text-[9px] font-bold text-white">
-        Pay
-      </span>
-    );
-  }
-  const cls = `h-6 w-6 ${selected ? "text-[var(--color-primary)]" : "text-slate-400"}`;
-  if (method === "mobile_phone") return <Smartphone className={cls} />;
-  if (method === "transfer") return <Zap className={cls} />;
-  if (method === "bank_transfer") return <Landmark className={cls} />;
-  return <CreditCard className={cls} />;
-}
+import { PaymentMethodIcon } from "@/components/checkout/PaymentMethodIcon";
 
 // 카카오페이/네이버페이는 애초에 제공한 적 없는 결제수단이고, 삼성페이/
 // 휴대폰결제는 별도 PG 연동이 아직 안 끝나 지금 선택하면 결제 시도 중
 // 에러가 난다 — 실제로 연동 완료되면 하나씩 다시 추가한다(2026-09).
 const PAYMENT_METHODS: PaymentMethod[] = ["card", "transfer", "bank_transfer"];
+// 묶음결제도 강의 전용 상점(kcpecbs0xp)으로 옮기면서 간편결제를 연다(2026-11).
+const EASY_PAY_METHODS: PaymentMethod[] = [
+  "kakaopay",
+  "naverpay",
+  "tosspay",
+  "samsungpay",
+  "payco",
+  "lpay",
+  "ssgpay",
+];
 
 // sentencing/page.tsx 의 BULK_DISCOUNT_* 와 동일 값 — 여기서는 결제 전 미리보기
 // 표시용일 뿐, 실제 금액은 /orders/bundle 서버 응답이 최종 기준.
@@ -90,6 +61,12 @@ export default function CheckoutBundleClient() {
     .filter((n) => Number.isFinite(n));
   const [courses, setCourses] = useState<CourseDetail[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
+  const [easyPay, setEasyPay] = useState(false);
+  useEffect(() => {
+    getPaymentOptions()
+      .then((o) => setEasyPay(o.easy_pay))
+      .catch(() => {});
+  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -276,7 +253,7 @@ export default function CheckoutBundleClient() {
         lawyer_referral_code: verifiedPartner ? lawyerCode.trim() : null,
       });
 
-      // 강의만 담긴 묶음은 강의 전용 토스 상점 키를 서버가 내려준다(없으면 기본 키).
+      // 강의 전용 토스 상점 키를 서버가 내려준다(없으면 기본 키).
       const tossClientKey = bundle.toss_client_key ?? process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
       if (!tossClientKey) {
         router.push(
@@ -301,7 +278,15 @@ export default function CheckoutBundleClient() {
             ? "NAVERPAY"
             : paymentMethod === "samsungpay"
               ? "SAMSUNGPAY"
-              : undefined;
+              : paymentMethod === "tosspay"
+                ? "TOSSPAY"
+                : paymentMethod === "payco"
+                  ? "PAYCO"
+                  : paymentMethod === "lpay"
+                    ? "LPAY"
+                    : paymentMethod === "ssgpay"
+                      ? "SSG"
+                      : undefined;
       // 휴대폰결제/실시간계좌이체는 card 의 easyPay 가 아니라 완전히 다른
       // method 값 — 나머지(카드/카카오/네이버/삼성페이)는 전부 "CARD".
       const tossMethod =
@@ -528,6 +513,41 @@ export default function CheckoutBundleClient() {
                   );
                 })}
               </div>
+
+              {easyPay ? (
+                <div className="mt-6">
+                  <p className="mb-3 text-sm font-bold text-slate-500">간편결제</p>
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                    {EASY_PAY_METHODS.map((m) => {
+                      const selected = paymentMethod === m;
+                      return (
+                        <label
+                          key={m}
+                          className={`flex cursor-pointer items-center gap-2.5 rounded-xl border-2 px-3 py-3 transition-all duration-200 ${
+                            selected
+                              ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5 text-[var(--color-primary)] shadow-sm"
+                              : "border-zinc-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="payment_method"
+                            value={m}
+                            checked={selected}
+                            onChange={() => setPaymentMethod(m)}
+                            className="sr-only"
+                          />
+                          <PaymentMethodIcon method={m} selected={selected} />
+                          <span className="min-w-0 flex-1 truncate text-sm font-bold">
+                            {PAYMENT_METHOD_LABEL[m]}
+                          </span>
+                          {selected ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : null}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
             </section>
 
             <section>

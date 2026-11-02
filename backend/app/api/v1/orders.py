@@ -200,7 +200,7 @@ EASY_PAY_METHODS = {
 
 @router.get("/payment-options")
 def payment_options() -> dict:
-    """강의 단건결제 화면에서 간편결제 버튼을 보여줄지."""
+    """강의 단건·묶음결제 화면에서 간편결제 버튼을 보여줄지."""
     return {"easy_pay": course_mid() is not None}
 
 
@@ -533,12 +533,10 @@ def create_order_bundle(
                 allocated += cut
             final_amounts[i] = amt - cut
 
-    # 묶음결제는 당분간 전부 기본 상점으로 받는다 — 강의 전용 상점은 강의
-    # 단건결제로 먼저 시험 운영 중(2026-10). 넓힐 때는 온라인 강의만 담긴
-    # 묶음만 강의 상점으로: 반성문·탄원서는 전문가 검토가 들어가 토스 업종상
-    # 상담/멘토링으로 분류된다(고객사 확인). 결제 한 번엔 상점 하나만 쓸 수 있다.
-    toss_mid = None
-    if payload.payment_method in EASY_PAY_METHODS:
+    # 묶음결제도 강의 전용 상점으로 받는다(2026-11). 반성문·탄원서·심리상담이 섞인
+    # 묶음도 어느 상점으로 받든 된다고 토스가 답했다. 결제 한 번엔 상점 하나만 쓸 수 있다.
+    toss_mid = course_mid()
+    if payload.payment_method in EASY_PAY_METHODS and toss_mid is None:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             detail="묶음결제에서는 간편결제를 쓸 수 없습니다. 신용/체크카드를 선택해 주세요.",
