@@ -16,6 +16,8 @@ export const metadata: Metadata = {
   // 페이지마다 자기 주소를 정식 주소로 알린다("./" = 현재 경로). 쿼리 붙은 주소·
   // www 등으로 들어와도 구글이 kcpec.co.kr 의 한 주소로 모아서 평가하게 한다.
   alternates: { canonical: "./" },
+  // 구글 서치콘솔 소유 확인(2026-11)
+  verification: { google: "86tpjMvlJ9tFR8Mp7Dm9LaYLBxv6HKW1iVPo0W33RN4" },
   title: TITLE,
   description: DESCRIPTION,
   keywords: [
