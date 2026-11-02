@@ -13,6 +13,9 @@ const DESCRIPTION =
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
+  // 페이지마다 자기 주소를 정식 주소로 알린다("./" = 현재 경로). 쿼리 붙은 주소·
+  // www 등으로 들어와도 구글이 kcpec.co.kr 의 한 주소로 모아서 평가하게 한다.
+  alternates: { canonical: "./" },
   title: TITLE,
   description: DESCRIPTION,
   keywords: [
