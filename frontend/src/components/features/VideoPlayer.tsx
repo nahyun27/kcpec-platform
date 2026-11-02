@@ -9,6 +9,7 @@ interface PlyrLike {
   readonly duration: number;
   readonly playing: boolean;
   readonly seeking: boolean;
+  play(): unknown;
   on(event: string, callback: () => void): void;
   destroy(): void;
 }
@@ -27,9 +28,15 @@ interface Props {
   onLoadedMetadata?: (duration: number) => void;
   onTimeUpdate?: (info: VideoPlayerTimeUpdate) => void;
   onEnded?: () => void;
+  // 재생 주소(서명 URL)는 1시간 뒤 만료된다. 오래 멈춰 뒀다가 다시 틀면 영상 요청이
+  // 거절돼 재생이 멈추던 문제(2026-11) — 오류가 나면 이 함수로 새 주소를 받아
+  // 보던 위치부터 이어 재생한다.
+  refreshSrc?: () => Promise<string>;
 }
 
 const SEEK_TOLERANCE_SEC = 0.5;
+// 새 주소로도 계속 실패하면(영상 자체 문제 등) 무한 반복하지 않도록 횟수 제한.
+const MAX_SRC_REFRESH = 3;
 const PLAYER_THEME: CSSProperties = {
   ["--plyr-color-main" as string]: "#1C3461",
 };
@@ -47,13 +54,14 @@ export default function VideoPlayer({
   onLoadedMetadata,
   onTimeUpdate,
   onEnded,
+  refreshSrc,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   // 콜백을 ref 로 동기화 — Plyr 핸들러는 마운트 시 closure 를 잡으므로
   // 부모가 콜백 신규 생성해도 stale 안 되도록.
-  const cbRef = useRef({ onLoadedMetadata, onTimeUpdate, onEnded });
+  const cbRef = useRef({ onLoadedMetadata, onTimeUpdate, onEnded, refreshSrc });
   useEffect(() => {
-    cbRef.current = { onLoadedMetadata, onTimeUpdate, onEnded };
+    cbRef.current = { onLoadedMetadata, onTimeUpdate, onEnded, refreshSrc };
   });
 
   useEffect(() => {
@@ -72,6 +80,34 @@ export default function VideoPlayer({
     let overlay: HTMLDivElement | null = null;
     // max_watched_position — 서버 last_position_sec 로 초기화, 자연 재생으로 자동 증가.
     let maxWatched = initialTime ?? 0;
+    // loadedmetadata 때 이동할 위치. 처음엔 이어보기 위치, 주소를 새로 받은 뒤엔 멈춘 위치.
+    let resumeAt = initialTime ?? 0;
+    let resumePlaying = false;
+    let srcRefreshCount = 0;
+    let refreshingSrc = false;
+    // 사용자가 재생하려던 상태인지(play/pause 이벤트로 추적). 오류가 나는 순간의
+    // paused 값은 브라우저마다 달라 믿을 수 없다.
+    let wantsPlay = false;
+
+    async function recoverFromError() {
+      const refresh = cbRef.current.refreshSrc;
+      if (!refresh || refreshingSrc || srcRefreshCount >= MAX_SRC_REFRESH) return;
+      refreshingSrc = true;
+      srcRefreshCount += 1;
+      resumeAt = video.currentTime || resumeAt;
+      resumePlaying = wantsPlay;
+      try {
+        const next = await refresh();
+        if (cancelled) return;
+        video.src = next;
+        video.load();
+      } catch {
+        /* 주소 재발급 실패 — 그대로 둔다(새로고침 안내는 브라우저 기본 오류 표시) */
+      } finally {
+        refreshingSrc = false;
+      }
+    }
+    video.addEventListener("error", () => void recoverFromError());
 
     function updateOverlay() {
       if (!overlay || !player || !player.duration) return;
@@ -120,13 +156,13 @@ export default function VideoPlayer({
 
       instance.on("loadedmetadata", () => {
         // 이어보기 위치로 seek (programmatic 플래그로 seek-block 회피)
-        if (
-          initialTime != null &&
-          initialTime > 0 &&
-          initialTime < instance.duration
-        ) {
+        if (resumeAt > 0 && resumeAt < instance.duration) {
           isProgrammaticSeek = true;
-          instance.currentTime = initialTime;
+          instance.currentTime = resumeAt;
+        }
+        if (resumePlaying) {
+          resumePlaying = false;
+          void Promise.resolve(instance.play()).catch(() => {});
         }
         if (Number.isFinite(instance.duration) && instance.duration > 0) {
           cbRef.current.onLoadedMetadata?.(instance.duration);
@@ -153,6 +189,7 @@ export default function VideoPlayer({
       // pause 직후에는 다음 tick이 없어 상위의 "재생 중" 상태가 stale 하게 남는다
       // (이탈 경고가 일시정지 후에도 계속 뜨는 원인이었음).
       instance.on("pause", () => {
+        if (!refreshingSrc) wantsPlay = false;
         cbRef.current.onTimeUpdate?.({
           currentTime: instance.currentTime,
           duration: instance.duration,
@@ -162,6 +199,7 @@ export default function VideoPlayer({
       });
 
       instance.on("play", () => {
+        wantsPlay = true;
         cbRef.current.onTimeUpdate?.({
           currentTime: instance.currentTime,
           duration: instance.duration,

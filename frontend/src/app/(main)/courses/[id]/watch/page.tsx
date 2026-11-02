@@ -392,6 +392,13 @@ export default function WatchPage({
     void markCompleted(activeLectureId, playerDuration);
   }, [activeLectureId, markCompleted, playerDuration]);
 
+  // 재생 주소 만료 시 플레이어가 호출 — 새 주소만 받아 넘긴다. streamUrl state 는
+  // 바꾸지 않는다(바꾸면 플레이어가 처음부터 다시 그려진다).
+  const refreshStreamUrl = useCallback(async () => {
+    if (activeLectureId == null) throw new Error("no lecture");
+    return (await getStreamUrl(activeLectureId)).url;
+  }, [activeLectureId]);
+
   // 강의 전환 직전 — 현재 진도 한 번 더 PATCH 해 저장 보장
   const flushProgressNow = useCallback(async () => {
     if (activeLectureId == null) return;
@@ -497,6 +504,7 @@ export default function WatchPage({
                 onLoadedMetadata={handleLoadedMetadata}
                 onTimeUpdate={handleTimeUpdate}
                 onEnded={handleEnded}
+                refreshSrc={refreshStreamUrl}
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-sm text-zinc-300">
