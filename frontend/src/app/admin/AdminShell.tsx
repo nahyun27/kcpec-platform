@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronUp,
   FileText,
+  KeyRound,
   LayoutDashboard,
   ScrollText,
   Menu,
@@ -120,6 +121,7 @@ const NAV: (SingleNav | GroupNav)[] = [
     todoKey: "detention_to_process",
   },
   { kind: "single", href: "/admin/health", label: "시스템 상태", icon: <Activity className="h-4 w-4" /> },
+  { kind: "single", href: "/admin/password", label: "비밀번호 변경", icon: <KeyRound className="h-4 w-4" /> },
 ];
 
 type DenyReason =

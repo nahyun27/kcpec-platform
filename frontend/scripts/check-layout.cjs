@@ -48,6 +48,7 @@ const ADMIN_PAGES = [
   ["/admin/courses"],
   ["/admin/statistics"],
   ["/admin/health"],
+  ["/admin/password"],
 ];
 const PRIVATE_PAGES = [
   ["/mypage"],
