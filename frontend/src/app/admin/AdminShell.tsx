@@ -101,7 +101,7 @@ const NAV: (SingleNav | GroupNav)[] = [
       { value: "faq", label: "FAQ" },
     ],
   },
-  { kind: "single", href: "/admin/courses", label: "강의 관리", icon: <BookOpen className="h-4 w-4" /> },
+  { kind: "single", href: "/admin/courses", label: "상품 관리", icon: <BookOpen className="h-4 w-4" /> },
   {
     kind: "group",
     basePath: "/admin/statistics",

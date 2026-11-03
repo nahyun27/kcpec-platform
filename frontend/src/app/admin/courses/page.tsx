@@ -8,7 +8,7 @@ import {
   type FormEvent,
   type DragEvent as ReactDragEvent,
 } from "react";
-import { GripVertical } from "lucide-react";
+import { BookOpen, FileSignature, GripVertical, HeartHandshake, Phone } from "lucide-react";
 import { isAxiosError } from "axios";
 import {
   addLecture,
@@ -116,11 +116,23 @@ export default function AdminCoursesPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-baseline justify-between gap-3">
+      <header>
+        <h1 className="font-sans text-2xl font-bold text-[var(--color-primary)]">
+          상품 관리
+        </h1>
+        <p className="mt-1 text-sm text-zinc-500">
+          심리상담 가격과 온라인 강의(영상·퀴즈·가격)를 관리합니다.
+        </p>
+      </header>
+
+      <CounselingPrices />
+
+      <div className="flex flex-wrap items-end justify-between gap-3 pt-2">
         <div>
-          <h1 className="font-sans text-2xl font-bold text-[var(--color-primary)]">
-            강의 관리
-          </h1>
+          <h2 className="flex items-center gap-2 font-sans text-lg font-bold text-slate-900">
+            <BookOpen className="h-5 w-5 text-[var(--color-primary)]" />
+            온라인 강의
+          </h2>
           <p className="mt-1 text-sm text-zinc-500">
             전체 {courses.length.toLocaleString()}개 · 행을 클릭해 영상 목록 확인
           </p>
@@ -132,7 +144,7 @@ export default function AdminCoursesPage() {
         >
           + 새 강의 등록
         </button>
-      </header>
+      </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
@@ -281,8 +293,6 @@ export default function AdminCoursesPage() {
         </table>
       </div>
 
-      <CounselingPrices />
-
       {modal?.kind === "new-course" ? (
         <NewCourseModal
           onClose={() => setModal(null)}
@@ -326,6 +336,12 @@ export default function AdminCoursesPage() {
 // 심리상담 상품은 강의가 아니라 위 표에서 빠져 있어 가격을 고칠 곳이 없었다(2026-11).
 // 결제 금액과 심리상담·맞춤 강의 찾기 화면 표시가 모두 여기 값을 따른다.
 
+// 상품별 한 줄 설명(심리상담 페이지 문구와 같게).
+const COUNSELING_META: Record<string, { subtitle: string; icon: "phone" | "doc" }> = {
+  "기본 프로그램": { subtitle: "서면상담 · 심리상담 의견서", icon: "doc" },
+  "전화 심화상담": { subtitle: "전화 상담 · 회당 15분 × 3회", icon: "phone" },
+};
+
 function CounselingPrices() {
   const dialog = useDialog();
   const [items, setItems] = useState<CourseListItem[] | null>(null);
@@ -348,22 +364,27 @@ function CounselingPrices() {
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">
-          심리상담 상품 가격
+        <h2 className="flex items-center gap-2 font-sans text-lg font-bold text-slate-900">
+          <HeartHandshake className="h-5 w-5 text-[var(--color-primary)]" />
+          심리상담
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
-          바꾸면 바로 결제 금액과 심리상담 페이지에 반영됩니다. 이미 결제된 주문 금액은 바뀌지 않습니다.
+          저장하면 1분 안에 결제 금액과 심리상담 페이지에 반영됩니다. 이미 결제된 주문은 그대로입니다.
         </p>
       </div>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      <div className="divide-y divide-slate-100 rounded-xl border border-slate-200/60 bg-white shadow-sm">
-        {items == null ? (
-          <p className="px-4 py-6 text-center text-sm text-zinc-500">불러오는 중...</p>
-        ) : items.length === 0 ? (
-          <p className="px-4 py-6 text-center text-sm text-zinc-500">판매 중인 심리상담 상품이 없습니다.</p>
-        ) : (
-          items.map((c) => (
-            <CounselingPriceRow
+      {items == null ? (
+        <p className="rounded-xl border border-slate-200/60 bg-white px-4 py-8 text-center text-sm text-zinc-500">
+          불러오는 중...
+        </p>
+      ) : items.length === 0 ? (
+        <p className="rounded-xl border border-slate-200/60 bg-white px-4 py-8 text-center text-sm text-zinc-500">
+          판매 중인 심리상담 상품이 없습니다.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {items.map((c) => (
+            <CounselingPriceCard
               key={`${c.id}-${c.price}-${c.original_price}`}
               course={c}
               onSaved={async (msg) => {
@@ -371,20 +392,58 @@ function CounselingPrices() {
                 await dialog.alert(msg);
               }}
             />
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
 
-function CounselingPriceRow({
+// "270,000" 처럼 쉼표 넣어 보여주고, 저장할 땐 숫자만.
+function toDigits(v: string): string {
+  return v.replace(/[^0-9]/g, "");
+}
+function withCommas(digits: string): string {
+  return digits === "" ? "" : Number(digits).toLocaleString();
+}
+
+function WonInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (digits: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold text-slate-500">{label}</span>
+      <span className="mt-1 flex items-center rounded-lg border border-slate-200 bg-white px-3 focus-within:border-[var(--color-primary)] focus-within:ring-2 focus-within:ring-[var(--color-primary)]/15">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={withCommas(value)}
+          onChange={(e) => onChange(toDigits(e.target.value))}
+          placeholder={placeholder}
+          className="w-full min-w-0 bg-transparent py-2 text-right text-[15px] font-semibold text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-300"
+        />
+        <span className="ml-1.5 shrink-0 text-sm text-slate-400">원</span>
+      </span>
+    </label>
+  );
+}
+
+function CounselingPriceCard({
   course,
   onSaved,
 }: {
   course: CourseListItem;
   onSaved: (message: string) => Promise<void>;
 }) {
+  const meta = COUNSELING_META[course.title];
   const [price, setPrice] = useState(String(course.price));
   const [originalPrice, setOriginalPrice] = useState(
     course.original_price != null ? String(course.original_price) : "",
@@ -393,19 +452,23 @@ function CounselingPriceRow({
   const [err, setErr] = useState<string | null>(null);
 
   const nextPrice = Number(price);
-  const nextOriginal = originalPrice.trim() === "" ? null : Number(originalPrice);
+  const nextOriginal = originalPrice === "" ? null : Number(originalPrice);
   const changed =
     nextPrice !== course.price || nextOriginal !== (course.original_price ?? null);
+  const discountPct =
+    nextOriginal != null && nextOriginal > nextPrice && nextPrice > 0
+      ? Math.round((1 - nextPrice / nextOriginal) * 100)
+      : null;
 
   async function save(e: FormEvent) {
     e.preventDefault();
     setErr(null);
     if (!Number.isInteger(nextPrice) || nextPrice <= 0) {
-      setErr("판매가를 숫자로 입력해 주세요.");
+      setErr("판매가를 입력해 주세요.");
       return;
     }
-    if (nextOriginal != null && (!Number.isInteger(nextOriginal) || nextOriginal <= nextPrice)) {
-      setErr("정가(할인 전)는 판매가보다 커야 합니다. 할인 표시가 필요 없으면 비워 두세요.");
+    if (nextOriginal != null && nextOriginal <= nextPrice) {
+      setErr("정가는 판매가보다 커야 합니다. 할인 표시가 필요 없으면 비워 두세요.");
       return;
     }
     setSaving(true);
@@ -421,41 +484,53 @@ function CounselingPriceRow({
   }
 
   return (
-    <form onSubmit={save} className="flex flex-wrap items-end gap-3 px-4 py-4">
-      <div className="min-w-[8rem] flex-1">
-        <p className="text-sm font-semibold text-slate-900">{course.title}</p>
-        {err ? <p className="mt-1 text-xs text-red-600">{err}</p> : null}
+    <form
+      onSubmit={save}
+      className="flex flex-col rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm"
+    >
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+          {meta?.icon === "phone" ? <Phone className="h-5 w-5" /> : <FileSignature className="h-5 w-5" />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-sans text-base font-bold text-slate-900">{course.title}</p>
+          {meta ? <p className="mt-0.5 text-xs text-slate-500">{meta.subtitle}</p> : null}
+        </div>
       </div>
-      <label className="text-xs font-semibold text-slate-500">
-        판매가(원)
-        <input
-          type="number"
-          inputMode="numeric"
-          min={0}
-          step={1000}
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          className="mt-1 block w-32 rounded border border-[var(--color-border)] px-2 py-1.5 text-sm text-slate-900"
-        />
-      </label>
-      <label className="text-xs font-semibold text-slate-500">
-        정가(할인 전, 선택)
-        <input
-          type="number"
-          inputMode="numeric"
-          min={0}
-          step={1000}
-          value={originalPrice}
-          onChange={(e) => setOriginalPrice(e.target.value)}
-          className="mt-1 block w-32 rounded border border-[var(--color-border)] px-2 py-1.5 text-sm text-slate-900"
-        />
-      </label>
+
+      {/* 고객에게 보이는 모양 미리보기 */}
+      <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-semibold text-slate-400">고객에게 보이는 가격</p>
+          {discountPct != null ? (
+            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-500">
+              {discountPct}% 할인
+            </span>
+          ) : null}
+        </div>
+        {discountPct != null ? (
+          <p className="mt-1 text-xs text-slate-400 line-through">
+            {nextOriginal!.toLocaleString()}원
+          </p>
+        ) : null}
+        <p className="font-sans text-2xl font-extrabold text-[var(--color-primary)]">
+          {nextPrice > 0 ? nextPrice.toLocaleString() : "-"}원
+        </p>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <WonInput label="판매가" value={price} onChange={setPrice} />
+        <WonInput label="정가 (선택)" value={originalPrice} onChange={setOriginalPrice} placeholder="할인 표시 없음" />
+      </div>
+
+      {err ? <p className="mt-3 text-xs text-red-600">{err}</p> : null}
+
       <button
         type="submit"
         disabled={!changed || saving}
-        className="rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-40"
+        className="mt-4 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--color-primary-hover)] disabled:bg-slate-100 disabled:text-slate-400"
       >
-        {saving ? "저장 중..." : "저장"}
+        {saving ? "저장 중..." : changed ? "저장" : "변경 사항 없음"}
       </button>
     </form>
   );
