@@ -37,6 +37,28 @@ function errMsg(err: unknown, fallback: string): string {
   return typeof detail === "string" ? detail : fallback;
 }
 
+// 목록에서 신청마다 지금 관리자가 할 일을 한 줄로(2026-11, 카드형 전체 펼침에서 목록형으로).
+function nextStep(
+  r: AdminDetentionRow,
+  confirmed: boolean,
+  allIssued: boolean,
+): { label: string; urgent: boolean } {
+  if (r.status === "cancelled") return { label: "-", urgent: false };
+  if (r.status === "completed") return { label: "완료", urgent: false };
+  if (!r.paid) return { label: "결제 확인 필요", urgent: true };
+  if (r.status === "received") return { label: "교육자료 발송", urgent: true };
+  if (!confirmed) {
+    return {
+      label: r.confirm_available_at
+        ? `보호자 확인 대기 (${new Date(r.confirm_available_at).toLocaleDateString("ko-KR")}~)`
+        : "보호자 확인 대기",
+      urgent: false,
+    };
+  }
+  if (!allIssued) return { label: "수료증 발급", urgent: true };
+  return { label: "완료 처리", urgent: true };
+}
+
 export default function AdminDetentionPage() {
   const dialog = useDialog();
   const [rows, setRows] = useState<AdminDetentionRow[] | null>(null);
@@ -44,6 +66,7 @@ export default function AdminDetentionPage() {
   const [filter, setFilter] = useState<"" | DetentionStatus>("");
   const [busy, setBusy] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<number, { tracking: string; memo: string }>>({});
+  const [openId, setOpenId] = useState<number | null>(null);
 
   useEffect(() => {
     getAdminDetentionList()
@@ -156,176 +179,225 @@ export default function AdminDetentionPage() {
           해당하는 신청이 없습니다.
         </p>
       ) : (
-        shown.map((r) => {
-          const courseOrders = r.orders.filter((o) => !o.is_fee && !o.is_own && o.status === "paid");
-          const ownOrders = r.orders.filter((o) => o.is_own);
-          const confirmed = !!r.learning_confirmed_at;
-          const allIssued = courseOrders.length > 0 && courseOrders.every((o) => o.document_id);
-          const d = drafts[r.id] ?? { tracking: "", memo: "" };
-          return (
-            <article key={r.id} className="space-y-4 rounded-xl border border-slate-200/60 bg-white p-5 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-900">
-                    #{r.id} · {r.inmate_name}
-                  </span>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${STATUS_CLS[r.status]}`}>
-                    {DETENTION_STATUS_LABEL[r.status]}
-                  </span>
-                  {!r.paid ? (
-                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
-                      환불/미결제
-                    </span>
-                  ) : null}
-                </div>
-                <span className="text-xs text-zinc-500">
-                  {new Date(r.created_at).toLocaleString("ko-KR")} · {r.total.toLocaleString()}원
-                </span>
-              </div>
-
-              <dl className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
-                {[
-                  ["생년월일", r.inmate_birth],
-                  ["수용번호", r.inmate_number],
-                  ["수용시설", r.facility_name],
-                  ["주소", `${r.postal_code ? `(${r.postal_code}) ` : ""}${r.address}`],
-                  ["배송 요청", r.delivery_note ?? "-"],
-                  ["신청자", `${r.buyer_username} (${r.buyer_email})`],
-                  ["연락처", r.contact_phone],
-                  ["수용자와의 관계", r.applicant_relation ?? "-"],
-                ].map(([k, v]) => (
-                  <div key={k} className="flex gap-2">
-                    <dt className="w-24 shrink-0 text-slate-500">{k}</dt>
-                    <dd className="font-medium text-slate-800">{v}</dd>
-                  </div>
-                ))}
-              </dl>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <input
-                  placeholder="송장/등기 번호"
-                  value={d.tracking}
-                  onChange={(e) =>
-                    setDrafts((p) => ({ ...p, [r.id]: { ...d, tracking: e.target.value } }))
-                  }
-                  className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                />
-                <input
-                  placeholder="관리자 메모"
-                  value={d.memo}
-                  onChange={(e) => setDrafts((p) => ({ ...p, [r.id]: { ...d, memo: e.target.value } }))}
-                  className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={busy !== null}
-                  onClick={() => saveInfo(r)}
-                  className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-bold text-slate-700 disabled:opacity-50"
-                >
-                  송장·메모 저장
-                </button>
-                {r.status === "received" ? (
-                  <button
-                    type="button"
-                    disabled={busy !== null || !r.paid}
-                    onClick={() => confirmMaterialsSent(r)}
-                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+        <div className="overflow-x-auto rounded-xl border border-slate-200/60 bg-white shadow-sm">
+          <table className="w-full min-w-[760px] text-left text-[13px]">
+            <thead className="border-b border-slate-200/60 bg-slate-50/50 text-[12px] font-bold text-slate-500">
+              <tr>
+                <th className="w-16 px-4 py-3">#</th>
+                <th className="px-4 py-3">신청일</th>
+                <th className="px-4 py-3">수용자</th>
+                <th className="px-4 py-3">교육 과정</th>
+                <th className="px-4 py-3 text-right">금액</th>
+                <th className="px-4 py-3">상태</th>
+                <th className="px-4 py-3">다음 할 일</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {shown.flatMap((r) => {
+                const courseOrders = r.orders.filter((o) => !o.is_fee && !o.is_own && o.status === "paid");
+                const ownOrders = r.orders.filter((o) => o.is_own);
+                const confirmed = !!r.learning_confirmed_at;
+                const allIssued = courseOrders.length > 0 && courseOrders.every((o) => o.document_id);
+                const d = drafts[r.id] ?? { tracking: "", memo: "" };
+                const open = openId === r.id;
+                const next = nextStep(r, confirmed, allIssued);
+                return [
+                  <tr
+                    key={r.id}
+                    onClick={() => setOpenId(open ? null : r.id)}
+                    className={`cursor-pointer transition-colors ${open ? "bg-slate-50/80" : "hover:bg-slate-50/50"}`}
                   >
-                    자료 발송 완료 처리
-                  </button>
-                ) : null}
-              </div>
-
-              <p className={`border-t border-zinc-100 pt-4 text-sm font-semibold ${confirmed ? "text-emerald-700" : "text-zinc-500"}`}>
-                {confirmed
-                  ? `보호자 학습 완료 확인: ${new Date(r.learning_confirmed_at!).toLocaleString("ko-KR")}`
-                  : r.confirm_available_at
-                    ? `보호자 학습 완료 확인 대기 (${new Date(r.confirm_available_at).toLocaleDateString("ko-KR")} 이후 확인 가능)`
-                    : "교육자료 발송 후 보호자 확인이 가능합니다."}
-              </p>
-              <ul className="space-y-2">
-                {courseOrders.map((o) => (
-                  <li key={o.order_id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                    <span className="font-semibold text-slate-800">{o.course_title}</span>
-                    {o.document_id ? (
-                      <span className="flex items-center gap-3 text-xs">
-                        <span className="text-zinc-500">{o.issue_number}</span>
-                        {o.pdf_url ? (
-                          <a href={absUrl(o.pdf_url)} target="_blank" rel="noreferrer" className="font-bold text-[var(--color-accent)] hover:underline">
-                            수료증
-                          </a>
-                        ) : null}
-                        {o.pledge_pdf_url ? (
-                          <a href={absUrl(o.pledge_pdf_url)} target="_blank" rel="noreferrer" className="font-bold text-[var(--color-accent)] hover:underline">
-                            서약서
-                          </a>
-                        ) : null}
+                    <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-500">
+                      <span className={`mr-1.5 inline-block text-slate-400 transition-transform ${open ? "rotate-90" : ""}`}>▶</span>
+                      {r.id}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+                      {new Date(r.created_at).toLocaleDateString("ko-KR")}
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-slate-900">{r.inmate_name}</p>
+                      <p className="text-xs text-slate-500">{r.facility_name}</p>
+                    </td>
+                    <td className="max-w-[220px] px-4 py-3 text-slate-700">
+                      <p className="truncate">{courseOrders.map((o) => o.course_title).join(", ") || "-"}</p>
+                      {courseOrders.length > 1 ? (
+                        <p className="text-xs text-slate-400">{courseOrders.length}개 과정</p>
+                      ) : null}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-medium text-slate-700">
+                      {r.total.toLocaleString()}원
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-bold ${STATUS_CLS[r.status]}`}>
+                        {DETENTION_STATUS_LABEL[r.status]}
                       </span>
-                    ) : (
+                      {!r.paid ? (
+                        <span className="ml-1 whitespace-nowrap rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
+                          환불/미결제
+                        </span>
+                      ) : null}
+                    </td>
+                    <td
+                      className={`whitespace-nowrap px-4 py-3 text-xs font-semibold ${
+                        next.urgent ? "text-[var(--color-accent)]" : "text-slate-400"
+                      }`}
+                    >
+                      {next.label}
+                    </td>
+                  </tr>,
+                  open ? (
+                    <tr key={`${r.id}-detail`} className="bg-slate-50/30">
+                      <td colSpan={7} className="px-4 py-4">
+                        <div className="space-y-4 rounded-xl border border-slate-200/60 bg-white p-5">
+                    <dl className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
+                      {[
+                        ["생년월일", r.inmate_birth],
+                        ["수용번호", r.inmate_number],
+                        ["수용시설", r.facility_name],
+                        ["주소", `${r.postal_code ? `(${r.postal_code}) ` : ""}${r.address}`],
+                        ["배송 요청", r.delivery_note ?? "-"],
+                        ["신청자", `${r.buyer_username} (${r.buyer_email})`],
+                        ["연락처", r.contact_phone],
+                        ["수용자와의 관계", r.applicant_relation ?? "-"],
+                      ].map(([k, v]) => (
+                        <div key={k} className="flex gap-2">
+                          <dt className="w-24 shrink-0 text-slate-500">{k}</dt>
+                          <dd className="font-medium text-slate-800">{v}</dd>
+                        </div>
+                      ))}
+                    </dl>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <input
+                        placeholder="송장/등기 번호"
+                        value={d.tracking}
+                        onChange={(e) =>
+                          setDrafts((p) => ({ ...p, [r.id]: { ...d, tracking: e.target.value } }))
+                        }
+                        className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                      />
+                      <input
+                        placeholder="관리자 메모"
+                        value={d.memo}
+                        onChange={(e) => setDrafts((p) => ({ ...p, [r.id]: { ...d, memo: e.target.value } }))}
+                        className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        disabled={busy !== null || r.status === "completed" || !confirmed}
-                        onClick={() => issue(r, o.order_id)}
-                        className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                        disabled={busy !== null}
+                        onClick={() => saveInfo(r)}
+                        className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-bold text-slate-700 disabled:opacity-50"
                       >
-                        {busy === `issue-${o.order_id}` ? "발급 중..." : "수료증 발급"}
+                        송장·메모 저장
                       </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
+                      {r.status === "received" ? (
+                        <button
+                          type="button"
+                          disabled={busy !== null || !r.paid}
+                          onClick={() => confirmMaterialsSent(r)}
+                          className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                        >
+                          자료 발송 완료 처리
+                        </button>
+                      ) : null}
+                    </div>
 
-              {ownOrders.length > 0 ? (
-                <div className="rounded-lg bg-blue-50 p-3 text-xs text-blue-900">
-                  <p className="mb-1 font-bold">신청자 본인 수강·상담 (온라인, 수용자 수료증과 별개)</p>
-                  <ul className="space-y-1">
-                    {ownOrders.map((o) => (
-                      <li key={o.order_id} className="flex flex-wrap items-center justify-between gap-2">
-                        <span>
-                          {o.course_title} · {o.amount.toLocaleString()}원 · {o.status === "paid" ? "결제완료" : o.status}
-                        </span>
-                        {o.document_id ? (
-                          <span className="flex items-center gap-3">
-                            <span className="text-blue-900/70">
-                              {o.recipient_name} · {o.issue_number}
+                    <p className={`border-t border-zinc-100 pt-4 text-sm font-semibold ${confirmed ? "text-emerald-700" : "text-zinc-500"}`}>
+                      {confirmed
+                        ? `보호자 학습 완료 확인: ${new Date(r.learning_confirmed_at!).toLocaleString("ko-KR")}`
+                        : r.confirm_available_at
+                          ? `보호자 학습 완료 확인 대기 (${new Date(r.confirm_available_at).toLocaleDateString("ko-KR")} 이후 확인 가능)`
+                          : "교육자료 발송 후 보호자 확인이 가능합니다."}
+                    </p>
+                    <ul className="space-y-2">
+                      {courseOrders.map((o) => (
+                        <li key={o.order_id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                          <span className="font-semibold text-slate-800">{o.course_title}</span>
+                          {o.document_id ? (
+                            <span className="flex items-center gap-3 text-xs">
+                              <span className="text-zinc-500">{o.issue_number}</span>
+                              {o.pdf_url ? (
+                                <a href={absUrl(o.pdf_url)} target="_blank" rel="noreferrer" className="font-bold text-[var(--color-accent)] hover:underline">
+                                  수료증
+                                </a>
+                              ) : null}
+                              {o.pledge_pdf_url ? (
+                                <a href={absUrl(o.pledge_pdf_url)} target="_blank" rel="noreferrer" className="font-bold text-[var(--color-accent)] hover:underline">
+                                  서약서
+                                </a>
+                              ) : null}
                             </span>
-                            {o.pdf_url ? (
-                              <a href={absUrl(o.pdf_url)} target="_blank" rel="noreferrer" className="font-bold text-[var(--color-accent)] hover:underline">
-                                수료증
-                              </a>
-                            ) : null}
-                            {o.pledge_pdf_url ? (
-                              <a href={absUrl(o.pledge_pdf_url)} target="_blank" rel="noreferrer" className="font-bold text-[var(--color-accent)] hover:underline">
-                                서약서
-                              </a>
-                            ) : null}
-                          </span>
-                        ) : o.own_completed === true ? (
-                          <span className="text-blue-900/70">수료함 (수료증은 아직 발급받지 않음)</span>
-                        ) : o.own_completed === false ? (
-                          <span className="text-blue-900/70">미수료</span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={busy !== null || r.status === "completed" || !confirmed}
+                              onClick={() => issue(r, o.order_id)}
+                              className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                            >
+                              {busy === `issue-${o.order_id}` ? "발급 중..." : "수료증 발급"}
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
 
-              {r.status !== "completed" && r.status !== "cancelled" ? (
-                <button
-                  type="button"
-                  disabled={busy !== null || !confirmed || !allIssued}
-                  onClick={() => send(r)}
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
-                >
-                  {allIssued ? "수료증 발급 완료 처리" : "모든 과정 수료증 발급 후 완료 처리 가능"}
-                </button>
-              ) : null}
-            </article>
-          );
-        })
+                    {ownOrders.length > 0 ? (
+                      <div className="rounded-lg bg-blue-50 p-3 text-xs text-blue-900">
+                        <p className="mb-1 font-bold">신청자 본인 수강·상담 (온라인, 수용자 수료증과 별개)</p>
+                        <ul className="space-y-1">
+                          {ownOrders.map((o) => (
+                            <li key={o.order_id} className="flex flex-wrap items-center justify-between gap-2">
+                              <span>
+                                {o.course_title} · {o.amount.toLocaleString()}원 · {o.status === "paid" ? "결제완료" : o.status}
+                              </span>
+                              {o.document_id ? (
+                                <span className="flex items-center gap-3">
+                                  <span className="text-blue-900/70">
+                                    {o.recipient_name} · {o.issue_number}
+                                  </span>
+                                  {o.pdf_url ? (
+                                    <a href={absUrl(o.pdf_url)} target="_blank" rel="noreferrer" className="font-bold text-[var(--color-accent)] hover:underline">
+                                      수료증
+                                    </a>
+                                  ) : null}
+                                  {o.pledge_pdf_url ? (
+                                    <a href={absUrl(o.pledge_pdf_url)} target="_blank" rel="noreferrer" className="font-bold text-[var(--color-accent)] hover:underline">
+                                      서약서
+                                    </a>
+                                  ) : null}
+                                </span>
+                              ) : o.own_completed === true ? (
+                                <span className="text-blue-900/70">수료함 (수료증은 아직 발급받지 않음)</span>
+                              ) : o.own_completed === false ? (
+                                <span className="text-blue-900/70">미수료</span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    {r.status !== "completed" && r.status !== "cancelled" ? (
+                      <button
+                        type="button"
+                        disabled={busy !== null || !confirmed || !allIssued}
+                        onClick={() => send(r)}
+                        className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                      >
+                        {allIssued ? "수료증 발급 완료 처리" : "모든 과정 수료증 발급 후 완료 처리 가능"}
+                      </button>
+                    ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null,
+                ];
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
