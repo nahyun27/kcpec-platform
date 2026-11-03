@@ -22,6 +22,7 @@ export async function GET() {
     "",
     "## 주요 안내",
     `- [강의 전체보기](${SITE_URL}/courses): 사건 유형별 재범방지교육 과정과 가격`,
+    `- [양형자료 수료증 안내](${SITE_URL}/sentencing-certificate): 양형자료로 제출하는 재범방지교육 수료증의 발급 방법과 함께 준비할 자료`,
     `- [맞춤 강의 찾기](${SITE_URL}/sentencing): 사건 유형을 고르면 필요한 교육과 발급 서류를 안내`,
     `- [전문가 심리상담](${SITE_URL}/counseling): 공인 심리상담사의 심리상담 의견서(서면·전화)`,
     `- [구속수용자 교육](${SITE_URL}/detention): 수감 중인 분을 위한 우편 교육자료`,

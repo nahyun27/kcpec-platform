@@ -63,6 +63,7 @@ export function SiteFooter() {
             ⓒ 2024 한국범죄예방교육센터. All rights reserved.
           </p>
           <div className="flex gap-4 text-sm text-slate-500">
+            <Link href="/sentencing-certificate" className="hover:text-white transition-colors">양형자료 수료증 안내</Link>
             <Link href="/terms" className="hover:text-white transition-colors">이용약관</Link>
             <Link href="/privacy" className="hover:text-white transition-colors font-medium">개인정보처리방침</Link>
           </div>

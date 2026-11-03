@@ -26,6 +26,7 @@ const PUBLIC_PAGES = [
   ["/courses"],
   ["/courses/1"],
   ["/sentencing"],
+  ["/sentencing-certificate"],
   ["/counseling"],
   ["/detention"],
   ["/community"],

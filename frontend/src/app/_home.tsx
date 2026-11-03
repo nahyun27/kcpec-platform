@@ -99,6 +99,12 @@ function CaseTypesSection() {
             description="내 사건과 같은 유형의 교육을 바로 확인하세요."
           />
         </Reveal>
+        <p className="-mt-4 mb-6 text-center text-sm text-slate-500 md:-mt-8">
+          양형자료로 낼 수료증이 처음이신가요?{" "}
+          <Link href="/sentencing-certificate" className="font-semibold text-[var(--color-accent)] underline underline-offset-2">
+            양형자료 수료증 안내 보기
+          </Link>
+        </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
           {CASE_LANDINGS.map((c, idx) => {
             const Icon = CASE_ICONS[c.slug] ?? Scale;
