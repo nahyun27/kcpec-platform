@@ -8,7 +8,7 @@ import {
   type FormEvent,
   type DragEvent as ReactDragEvent,
 } from "react";
-import { BookOpen, FileSignature, GripVertical, HeartHandshake, Phone } from "lucide-react";
+import { BookOpen, FileSignature, GripVertical, HeartHandshake, Package, Phone, ScrollText } from "lucide-react";
 import { isAxiosError } from "axios";
 import {
   addLecture,
@@ -36,6 +36,21 @@ import type {
 } from "@/types/admin";
 import { useDialog } from "@/components/ui/DialogProvider";
 
+// 상품 관리 탭(2026-11). 반성문·탄원서·구속수용자 발송비는 결제용으로 courses 테이블에
+// 들어 있는 (비활성) 상품이라 강의 목록에 섞여 보였다 — 탭으로 따로 뺀다.
+type ProductTab = "all" | "courses" | "counseling" | "letters" | "detention";
+const PRODUCT_TABS: { key: ProductTab; label: string }[] = [
+  { key: "all", label: "전체" },
+  { key: "courses", label: "온라인 강의" },
+  { key: "counseling", label: "심리상담" },
+  { key: "letters", label: "반성문·탄원서" },
+  { key: "detention", label: "구속수용자" },
+];
+// backend orders.py 의 *_COURSE_TITLE 과 같은 문자열.
+const LETTER_TITLES = ["반성문 작성", "탄원서 작성"];
+const DETENTION_FEE_TITLE = "구속수용자 교육자료·발송비";
+const NON_LECTURE_TITLES = new Set([...LETTER_TITLES, DETENTION_FEE_TITLE]);
+
 type Modal =
   | { kind: "new-course" }
   | { kind: "edit-course"; course: CourseListItem }
@@ -54,6 +69,11 @@ export default function AdminCoursesPage() {
     Record<number, AdminLectureFull[]>
   >({});
   const [quizByCourse, setQuizByCourse] = useState<Record<number, AdminQuizRead>>({});
+  const [tab, setTab] = useState<ProductTab>("all");
+  const show = (k: ProductTab) => tab === "all" || tab === k;
+  const lectureCourses = courses.filter((c) => !NON_LECTURE_TITLES.has(c.title));
+  const letterCourses = LETTER_TITLES.flatMap((t) => courses.filter((c) => c.title === t));
+  const detentionFee = courses.filter((c) => c.title === DETENTION_FEE_TITLE);
 
   async function load(isInitial = false) {
     if (!isInitial) setError(null);
@@ -121,12 +141,60 @@ export default function AdminCoursesPage() {
           상품 관리
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
-          심리상담 가격과 온라인 강의(영상·퀴즈·가격)를 관리합니다.
+          판매 중인 상품의 가격과 온라인 강의(영상·퀴즈)를 관리합니다.
         </p>
       </header>
 
-      <CounselingPrices />
+      <div className="-mx-1 flex gap-1 overflow-x-auto border-b border-slate-200 px-1" role="tablist">
+        {PRODUCT_TABS.map((t) => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(t.key)}
+              className={`-mb-px shrink-0 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+                active
+                  ? "border-[var(--color-primary)] text-[var(--color-primary)]"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
 
+      {show("counseling") ? <CounselingPrices /> : null}
+
+      {show("letters") ? (
+        <FixedPriceSection
+          icon={<ScrollText className="h-5 w-5 text-[var(--color-primary)]" />}
+          title="반성문·탄원서"
+          description="심리상담이나 맞춤 강의 찾기에서 함께 신청할 때의 1건 가격입니다."
+          items={letterCourses}
+          subtitle={() => "작성 대행 · 1건"}
+          itemIcon={<FileSignature className="h-5 w-5" />}
+          onSaved={() => load()}
+        />
+      ) : null}
+
+      {show("detention") ? (
+        <FixedPriceSection
+          icon={<Package className="h-5 w-5 text-[var(--color-primary)]" />}
+          title="구속수용자 교육"
+          description="신청 1건마다 붙는 교육자료 인쇄·발송비입니다. 교육 과정 가격은 온라인 강의·심리상담 가격을 그대로 따릅니다."
+          items={detentionFee}
+          subtitle={() => "교육자료 인쇄·발송 · 신청 1건당"}
+          itemIcon={<Package className="h-5 w-5" />}
+          onSaved={() => load()}
+        />
+      ) : null}
+
+      {show("courses") ? (
+      <>
       <div className="flex flex-wrap items-end justify-between gap-3 pt-2">
         <div>
           <h2 className="flex items-center gap-2 font-sans text-lg font-bold text-slate-900">
@@ -134,7 +202,7 @@ export default function AdminCoursesPage() {
             온라인 강의
           </h2>
           <p className="mt-1 text-sm text-zinc-500">
-            전체 {courses.length.toLocaleString()}개 · 행을 클릭해 영상 목록 확인
+            전체 {lectureCourses.length.toLocaleString()}개 · 행을 클릭해 영상 목록 확인
           </p>
         </div>
         <button
@@ -161,14 +229,14 @@ export default function AdminCoursesPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {courses.length === 0 ? (
+            {lectureCourses.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-12 text-center text-sm text-zinc-500">
                   등록된 강의가 없습니다.
                 </td>
               </tr>
             ) : (
-              courses.flatMap((c) => {
+              lectureCourses.flatMap((c) => {
                 const open = openId === c.id;
                 return [
                   <tr
@@ -292,6 +360,8 @@ export default function AdminCoursesPage() {
           </tbody>
         </table>
       </div>
+      </>
+      ) : null}
 
       {modal?.kind === "new-course" ? (
         <NewCourseModal
@@ -384,9 +454,18 @@ function CounselingPrices() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {items.map((c) => (
-            <CounselingPriceCard
+            <ProductPriceCard
               key={`${c.id}-${c.price}-${c.original_price}`}
               course={c}
+              subtitle={COUNSELING_META[c.title]?.subtitle}
+              icon={
+                COUNSELING_META[c.title]?.icon === "phone" ? (
+                  <Phone className="h-5 w-5" />
+                ) : (
+                  <FileSignature className="h-5 w-5" />
+                )
+              }
+              withOriginal
               onSaved={async (msg) => {
                 await load();
                 await dialog.alert(msg);
@@ -436,14 +515,72 @@ function WonInput({
   );
 }
 
-function CounselingPriceCard({
+// 판매가만 있는 상품(반성문·탄원서, 구속수용자 발송비) 묶음.
+function FixedPriceSection({
+  icon,
+  title,
+  description,
+  items,
+  subtitle,
+  itemIcon,
+  onSaved,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  items: CourseListItem[];
+  subtitle: (c: CourseListItem) => string;
+  itemIcon: React.ReactNode;
+  onSaved: () => Promise<void>;
+}) {
+  const dialog = useDialog();
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="flex items-center gap-2 font-sans text-lg font-bold text-slate-900">
+          {icon}
+          {title}
+        </h2>
+        <p className="mt-1 text-sm text-zinc-500">{description}</p>
+      </div>
+      {items.length === 0 ? (
+        <p className="rounded-xl border border-slate-200/60 bg-white px-4 py-8 text-center text-sm text-zinc-500">
+          불러오는 중...
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {items.map((c) => (
+            <ProductPriceCard
+              key={`${c.id}-${c.price}`}
+              course={c}
+              subtitle={subtitle(c)}
+              icon={itemIcon}
+              onSaved={async (msg) => {
+                await onSaved();
+                await dialog.alert(msg);
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ProductPriceCard({
   course,
+  subtitle,
+  icon,
+  withOriginal = false,
   onSaved,
 }: {
   course: CourseListItem;
+  subtitle?: string;
+  icon: React.ReactNode;
+  // 정가(줄 그은 가격)를 고객 화면에 보여주는 상품만 true.
+  withOriginal?: boolean;
   onSaved: (message: string) => Promise<void>;
 }) {
-  const meta = COUNSELING_META[course.title];
   const [price, setPrice] = useState(String(course.price));
   const [originalPrice, setOriginalPrice] = useState(
     course.original_price != null ? String(course.original_price) : "",
@@ -452,9 +589,10 @@ function CounselingPriceCard({
   const [err, setErr] = useState<string | null>(null);
 
   const nextPrice = Number(price);
-  const nextOriginal = originalPrice === "" ? null : Number(originalPrice);
+  const nextOriginal = !withOriginal || originalPrice === "" ? null : Number(originalPrice);
   const changed =
-    nextPrice !== course.price || nextOriginal !== (course.original_price ?? null);
+    nextPrice !== course.price ||
+    (withOriginal && nextOriginal !== (course.original_price ?? null));
   const discountPct =
     nextOriginal != null && nextOriginal > nextPrice && nextPrice > 0
       ? Math.round((1 - nextPrice / nextOriginal) * 100)
@@ -473,7 +611,10 @@ function CounselingPriceCard({
     }
     setSaving(true);
     try {
-      await patchCourse(course.id, { price: nextPrice, original_price: nextOriginal });
+      await patchCourse(
+        course.id,
+        withOriginal ? { price: nextPrice, original_price: nextOriginal } : { price: nextPrice },
+      );
       await onSaved(`"${course.title}" 가격을 ${nextPrice.toLocaleString()}원으로 바꿨습니다.`);
     } catch (e2) {
       const detail = isAxiosError(e2) ? e2.response?.data?.detail : null;
@@ -490,11 +631,11 @@ function CounselingPriceCard({
     >
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
-          {meta?.icon === "phone" ? <Phone className="h-5 w-5" /> : <FileSignature className="h-5 w-5" />}
+          {icon}
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-sans text-base font-bold text-slate-900">{course.title}</p>
-          {meta ? <p className="mt-0.5 text-xs text-slate-500">{meta.subtitle}</p> : null}
+          {subtitle ? <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p> : null}
         </div>
       </div>
 
@@ -518,9 +659,11 @@ function CounselingPriceCard({
         </p>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      <div className={`mt-4 grid gap-3 ${withOriginal ? "grid-cols-2" : "grid-cols-1"}`}>
         <WonInput label="판매가" value={price} onChange={setPrice} />
-        <WonInput label="정가 (선택)" value={originalPrice} onChange={setOriginalPrice} placeholder="할인 표시 없음" />
+        {withOriginal ? (
+          <WonInput label="정가 (선택)" value={originalPrice} onChange={setOriginalPrice} placeholder="할인 표시 없음" />
+        ) : null}
       </div>
 
       {err ? <p className="mt-3 text-xs text-red-600">{err}</p> : null}
