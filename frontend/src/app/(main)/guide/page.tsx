@@ -109,6 +109,13 @@ export default function GuidePage() {
         <p className="mt-3 text-xs text-slate-500">
           가격은 각 강의 상세 페이지 및 결제 화면에서 확인하실 수 있습니다.
         </p>
+        <Link
+          href="/sentencing-certificate"
+          className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-blue-100 bg-blue-50/60 px-5 py-4 text-sm font-semibold text-slate-800 transition-colors hover:border-blue-200 hover:bg-blue-50"
+        >
+          <span>수료증을 양형자료로 제출하실 예정인가요? 양형자료 수료증 자세히 보기</span>
+          <span className="shrink-0 text-[var(--color-accent)]">→</span>
+        </Link>
       </Section>
 
       <Section id="process" title="이용 절차">
