@@ -96,7 +96,7 @@ const COURSES: Record<CourseId, CourseInfo> = {
   org_school_ethics: { id: "org_school_ethics", name: "단체·학교 내 윤리 교육", price: 33_000 },
 
   counseling: { id: "counseling", name: "심리상담 의견서(서면)", price: 77_000 },
-  counseling_phone: { id: "counseling_phone", name: "심화 상담(전화)", price: 330_000 },
+  counseling_phone: { id: "counseling_phone", name: "심화 상담(전화)", price: 270_000 },
 };
 
 // 백엔드 강의명(Course.title) → 이 페이지의 CourseId 역매핑. 이미 구매해

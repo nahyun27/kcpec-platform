@@ -5,6 +5,7 @@ import SampleGallery from "./SampleGallery";
 import type { CounselingType } from "@/types/counseling";
 import { CheckCircle2, FileSignature, Phone, ShieldCheck, Award } from "lucide-react";
 import { Reveal } from "@/components/ui/Reveal";
+import { fetchApi } from "@/lib/seo";
 
 export const metadata = {
   title: "심리상담 소견서·재범방지 심리상담 | KCPEC",
@@ -40,9 +41,14 @@ const CERTIFICATES: { slug: string; title: string; issuer: string }[] = [
   },
 ];
 
-// 가격은 backend courses.price/original_price (category=심리상담) 와 동기화
-// 필요 — TODO: 클라이언트 확정가 변경 시 함께 갱신(backend/scripts/seed.py
-// COUNSELING_PROGRAMS 참고).
+// 아래 price/originalPrice 는 서버에서 가격을 못 불러왔을 때만 쓰는 기본값이다.
+// 실제 가격은 관리자 강의 관리 > 심리상담 상품 가격에서 바꾼 값(courses 테이블)을
+// 불러와 쓴다(2026-11, 전에는 여기 적힌 숫자가 그대로 보여 결제 금액과 어긋날 수 있었다).
+const BACKEND_TITLE: Record<"basic" | "phone", string> = {
+  basic: "기본 프로그램",
+  phone: "전화 심화상담",
+};
+
 type CounselingProduct = {
   type: CounselingType;
   title: string;
@@ -74,7 +80,7 @@ const COUNSELING_PRODUCTS: CounselingProduct[] = [
   {
     type: "phone",
     title: "전화 심화상담 의견서",
-    price: 330_000,
+    price: 270_000,
     originalPrice: 660_000,
     composition: "전화 상담 · 회당 15분 · 총 3회",
     goals: [
@@ -92,7 +98,21 @@ const COUNSELING_PRODUCTS: CounselingProduct[] = [
   },
 ];
 
-export default function CounselingPage() {
+async function withLivePrices(products: CounselingProduct[]): Promise<CounselingProduct[]> {
+  const live = await fetchApi<{ title: string; price: number; original_price: number | null }[]>(
+    `/courses?category=${encodeURIComponent("심리상담")}`,
+    60,
+  );
+  if (!live) return products;
+  return products.map((p) => {
+    const c = live.find((x) => x.title === BACKEND_TITLE[p.type as "basic" | "phone"]);
+    if (!c) return p;
+    return { ...p, price: c.price, originalPrice: c.original_price ?? 0 };
+  });
+}
+
+export default async function CounselingPage() {
+  const products = await withLivePrices(COUNSELING_PRODUCTS);
   return (
     <div className="bg-white">
       {/* 1) Hero */}
@@ -191,7 +211,7 @@ export default function CounselingPage() {
           </Reveal>
 
           <div className="space-y-8">
-            {COUNSELING_PRODUCTS.map((product, idx) => (
+            {products.map((product, idx) => (
               <Reveal
                 key={product.type}
                 delay={idx * 150}
@@ -220,9 +240,11 @@ export default function CounselingPage() {
                     </div>
                   </div>
                   <div className="text-left sm:ml-auto sm:text-right">
-                    <p className="text-xs font-medium text-slate-400 line-through">
-                      {product.originalPrice.toLocaleString()}원
-                    </p>
+                    {product.originalPrice > product.price ? (
+                      <p className="text-xs font-medium text-slate-400 line-through">
+                        {product.originalPrice.toLocaleString()}원
+                      </p>
+                    ) : null}
                     <p className="font-sans text-xl font-extrabold text-[var(--color-primary)] sm:text-2xl">
                       {product.price.toLocaleString()}원
                     </p>

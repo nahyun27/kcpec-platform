@@ -18,6 +18,7 @@ import {
   getAdminCourseQuiz,
   getAdminCourses,
   getAdminStreamUrl,
+  getCounselingCourses,
   getCourseDetail,
   patchAdminLecture,
   patchCourse,
@@ -280,6 +281,8 @@ export default function AdminCoursesPage() {
         </table>
       </div>
 
+      <CounselingPrices />
+
       {modal?.kind === "new-course" ? (
         <NewCourseModal
           onClose={() => setModal(null)}
@@ -316,6 +319,145 @@ export default function AdminCoursesPage() {
         />
       ) : null}
     </div>
+  );
+}
+
+// ---------- 심리상담 상품 가격 ------------------------------------------------
+// 심리상담 상품은 강의가 아니라 위 표에서 빠져 있어 가격을 고칠 곳이 없었다(2026-11).
+// 결제 금액과 심리상담·맞춤 강의 찾기 화면 표시가 모두 여기 값을 따른다.
+
+function CounselingPrices() {
+  const dialog = useDialog();
+  const [items, setItems] = useState<CourseListItem[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    try {
+      setItems(await getCounselingCourses());
+    } catch {
+      setError("심리상담 상품을 불러오지 못했습니다.");
+    }
+  }
+
+  useEffect(() => {
+    getCounselingCourses()
+      .then(setItems)
+      .catch(() => setError("심리상담 상품을 불러오지 못했습니다."));
+  }, []);
+
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="font-sans text-lg font-bold text-[var(--color-primary)]">
+          심리상담 상품 가격
+        </h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          바꾸면 바로 결제 금액과 심리상담 페이지에 반영됩니다. 이미 결제된 주문 금액은 바뀌지 않습니다.
+        </p>
+      </div>
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      <div className="divide-y divide-slate-100 rounded-xl border border-slate-200/60 bg-white shadow-sm">
+        {items == null ? (
+          <p className="px-4 py-6 text-center text-sm text-zinc-500">불러오는 중...</p>
+        ) : items.length === 0 ? (
+          <p className="px-4 py-6 text-center text-sm text-zinc-500">판매 중인 심리상담 상품이 없습니다.</p>
+        ) : (
+          items.map((c) => (
+            <CounselingPriceRow
+              key={`${c.id}-${c.price}-${c.original_price}`}
+              course={c}
+              onSaved={async (msg) => {
+                await load();
+                await dialog.alert(msg);
+              }}
+            />
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function CounselingPriceRow({
+  course,
+  onSaved,
+}: {
+  course: CourseListItem;
+  onSaved: (message: string) => Promise<void>;
+}) {
+  const [price, setPrice] = useState(String(course.price));
+  const [originalPrice, setOriginalPrice] = useState(
+    course.original_price != null ? String(course.original_price) : "",
+  );
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const nextPrice = Number(price);
+  const nextOriginal = originalPrice.trim() === "" ? null : Number(originalPrice);
+  const changed =
+    nextPrice !== course.price || nextOriginal !== (course.original_price ?? null);
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    if (!Number.isInteger(nextPrice) || nextPrice <= 0) {
+      setErr("판매가를 숫자로 입력해 주세요.");
+      return;
+    }
+    if (nextOriginal != null && (!Number.isInteger(nextOriginal) || nextOriginal <= nextPrice)) {
+      setErr("정가(할인 전)는 판매가보다 커야 합니다. 할인 표시가 필요 없으면 비워 두세요.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await patchCourse(course.id, { price: nextPrice, original_price: nextOriginal });
+      await onSaved(`"${course.title}" 가격을 ${nextPrice.toLocaleString()}원으로 바꿨습니다.`);
+    } catch (e2) {
+      const detail = isAxiosError(e2) ? e2.response?.data?.detail : null;
+      setErr(typeof detail === "string" ? detail : "저장하지 못했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="flex flex-wrap items-end gap-3 px-4 py-4">
+      <div className="min-w-[8rem] flex-1">
+        <p className="text-sm font-semibold text-slate-900">{course.title}</p>
+        {err ? <p className="mt-1 text-xs text-red-600">{err}</p> : null}
+      </div>
+      <label className="text-xs font-semibold text-slate-500">
+        판매가(원)
+        <input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          step={1000}
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          className="mt-1 block w-32 rounded border border-[var(--color-border)] px-2 py-1.5 text-sm text-slate-900"
+        />
+      </label>
+      <label className="text-xs font-semibold text-slate-500">
+        정가(할인 전, 선택)
+        <input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          step={1000}
+          value={originalPrice}
+          onChange={(e) => setOriginalPrice(e.target.value)}
+          className="mt-1 block w-32 rounded border border-[var(--color-border)] px-2 py-1.5 text-sm text-slate-900"
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={!changed || saving}
+        className="rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-40"
+      >
+        {saving ? "저장 중..." : "저장"}
+      </button>
+    </form>
   );
 }
 
