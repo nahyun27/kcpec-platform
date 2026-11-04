@@ -69,20 +69,20 @@ type CourseInfo = {
 const COURSES: Record<CourseId, CourseInfo> = {
   law: { id: "law", name: "준법의식 강화", price: 22_000 },
 
-  drunk: { id: "drunk", name: "음주운전 예방", price: 55_000 },
-  sex: { id: "sex", name: "성범죄 예방", price: 55_000 },
-  prostitution: { id: "prostitution", name: "성매매 예방", price: 55_000 },
-  digital_sex: { id: "digital_sex", name: "디지털 성범죄 예방", price: 55_000 },
-  drug: { id: "drug", name: "마약 예방", price: 55_000 },
-  gambling: { id: "gambling", name: "도박 및 도박개장 예방", price: 55_000 },
-  phishing: { id: "phishing", name: "피싱범죄 예방", price: 55_000 },
-  property: { id: "property", name: "사기횡령배임 등 재산범죄 예방", price: 55_000 },
-  stalking: { id: "stalking", name: "스토킹범죄 예방", price: 55_000 },
-  school: { id: "school", name: "학교폭력 예방", price: 55_000 },
-  violence: { id: "violence", name: "폭력범죄 예방교육", price: 55_000 },
-  youth: { id: "youth", name: "청소년범죄예방교육", price: 55_000 },
-  driving_habit: { id: "driving_habit", name: "운전습관·도로교통법 교육", price: 55_000 },
-  defamation: { id: "defamation", name: "명예훼손·모욕 예방 교육", price: 55_000 },
+  drunk: { id: "drunk", name: "음주운전 예방", price: 44_000 },
+  sex: { id: "sex", name: "성범죄 예방", price: 44_000 },
+  prostitution: { id: "prostitution", name: "성매매 예방", price: 44_000 },
+  digital_sex: { id: "digital_sex", name: "디지털 성범죄 예방", price: 44_000 },
+  drug: { id: "drug", name: "마약 예방", price: 44_000 },
+  gambling: { id: "gambling", name: "도박 및 도박개장 예방", price: 44_000 },
+  phishing: { id: "phishing", name: "피싱범죄 예방", price: 44_000 },
+  property: { id: "property", name: "사기횡령배임 등 재산범죄 예방", price: 44_000 },
+  stalking: { id: "stalking", name: "스토킹범죄 예방", price: 44_000 },
+  school: { id: "school", name: "학교폭력 예방", price: 44_000 },
+  violence: { id: "violence", name: "폭력범죄 예방교육", price: 44_000 },
+  youth: { id: "youth", name: "청소년범죄예방교육", price: 44_000 },
+  driving_habit: { id: "driving_habit", name: "운전습관·도로교통법 교육", price: 44_000 },
+  defamation: { id: "defamation", name: "명예훼손·모욕 예방 교육", price: 44_000 },
 
   anger: { id: "anger", name: "분노 조절·감정 통제 교육", price: 22_000 },
   alcohol: { id: "alcohol", name: "알코올·중독 습관 교정 교육", price: 22_000 },
@@ -652,7 +652,7 @@ export default function SentencingPage() {
         {step !== 4 ? (
           <div className="mt-4 flex flex-col items-center gap-2 rounded-2xl border border-[var(--color-accent)]/20 bg-gradient-to-r from-blue-50 to-amber-50 px-5 py-3.5 text-center sm:flex-row sm:justify-between sm:text-left">
             <p className="text-sm font-medium text-slate-600">
-              마지막 단계(추천 결과)에서 예상 금액을 확인하실 수 있어요.
+              선택하시는 대로 예상 금액이 바로 계산돼요.
             </p>
             <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-3.5 py-1.5 text-sm font-bold text-white shadow-sm">
               10만원 이상 구매 시 10,000원 할인
@@ -762,7 +762,7 @@ export default function SentencingPage() {
               <FileText className="h-3 w-3 text-[#1C3461]" />
               발급 가능 서류
               {recommendation.documents.length > 0 ? (
-                <span className="font-mono text-slate-500">
+                <span className="tabular-nums text-slate-500">
                   ({recommendation.documentCount}개)
                 </span>
               ) : null}
@@ -806,14 +806,24 @@ export default function SentencingPage() {
             </button>
 
             {step < 4 ? (
-              <button
-                type="button"
-                onClick={() => setStep((s) => ((s + 1) as Step))}
-                disabled={!canGoNext}
-                className="inline-flex items-center gap-1 rounded-full bg-[#1C3461] px-5 py-2 text-sm font-bold text-white shadow-md disabled:opacity-40"
-              >
-                다음 <ArrowRight className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-3">
+                {recommendation.activeCourseCount > 0 ? (
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-slate-500">예상 금액</p>
+                    <p className="text-base font-extrabold text-[#1C3461]">
+                      {recommendation.total.toLocaleString()}원
+                    </p>
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setStep((s) => ((s + 1) as Step))}
+                  disabled={!canGoNext}
+                  className="inline-flex items-center gap-1 rounded-full bg-[#1C3461] px-5 py-2 text-sm font-bold text-white shadow-md disabled:opacity-40"
+                >
+                  다음 <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
             ) : (
               <div className="flex items-center gap-3">
                 <div className="text-right">
@@ -984,7 +994,7 @@ function Step1({
               type="button"
               disabled={owned}
               onClick={() => onToggleMain(card.id)}
-              className={`relative flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+              className={`relative flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-all ${
                 owned
                   ? "cursor-not-allowed border-zinc-200 bg-zinc-50 opacity-60"
                   : active
@@ -1020,8 +1030,16 @@ function Step1({
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-0.5 text-[13px] text-slate-500 truncate">
+                <p className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-slate-500">
                   {card.description}
+                </p>
+                <p
+                  className={`mt-1.5 text-[15px] font-extrabold tabular-nums ${
+                    active ? "text-[#1C3461]" : "text-slate-800"
+                  }`}
+                >
+                  {course.price.toLocaleString()}
+                  <span className="ml-0.5 text-[13px] font-semibold">원</span>
                 </p>
               </div>
             </button>
@@ -1032,7 +1050,7 @@ function Step1({
         <button
           type="button"
           onClick={onToggleEtc}
-          className={`relative flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+          className={`relative flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-all ${
             etcSelected
               ? "border-[#1C3461] bg-[#1C3461]/5 shadow-sm"
               : "border-zinc-200 bg-white hover:border-slate-300 hover:bg-slate-50"
@@ -1126,7 +1144,7 @@ function Step2({
               type="button"
               disabled={owned}
               onClick={() => onToggleAddon(card.id)}
-              className={`relative flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+              className={`relative flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-all ${
                 owned
                   ? "cursor-not-allowed border-zinc-200 bg-zinc-50 opacity-60"
                   : active
@@ -1168,8 +1186,16 @@ function Step2({
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-0.5 text-[13px] text-slate-500 truncate">
+                <p className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-slate-500">
                   {card.description}
+                </p>
+                <p
+                  className={`mt-1.5 text-[15px] font-extrabold tabular-nums ${
+                    active ? "text-[#1C3461]" : "text-slate-800"
+                  }`}
+                >
+                  {course.price.toLocaleString()}
+                  <span className="ml-0.5 text-[13px] font-semibold">원</span>
                 </p>
               </div>
             </button>
@@ -1456,7 +1482,7 @@ function Step4Result({
                     </span>
                   </span>
                   <span
-                    className={`shrink-0 font-mono text-sm font-bold ${
+                    className={`shrink-0 tabular-nums text-sm font-bold ${
                       active ? "text-slate-900" : "text-slate-400 line-through"
                     }`}
                   >
@@ -1497,7 +1523,7 @@ function Step4Result({
                         </span>
                       </span>
                       <span
-                        className={`shrink-0 font-mono text-sm font-bold ${
+                        className={`shrink-0 tabular-nums text-sm font-bold ${
                           active ? "text-slate-900" : "text-slate-400 line-through"
                         }`}
                       >
@@ -1528,7 +1554,7 @@ function Step4Result({
           <h2 className="font-sans text-lg font-extrabold text-slate-900">
             발급 가능 서류
             {recommendation.documents.length > 0 ? (
-              <span className="ml-1.5 font-mono text-sm font-medium text-slate-400">
+              <span className="ml-1.5 tabular-nums text-sm font-medium text-slate-400">
                 ({recommendation.documentCount}개)
               </span>
             ) : null}
@@ -1635,16 +1661,19 @@ function CartSummary({
                   }`}
                 >
                   {c.name}
+                  {c.id === "law" ? (
+                    <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 align-middle text-[11px] font-bold text-slate-500">
+                      기본 포함
+                    </span>
+                  ) : null}
                 </span>
-                {step === 4 ? (
-                  <span
-                    className={`shrink-0 font-mono text-[15px] font-bold ${
-                      active ? "text-slate-700" : "text-slate-400 line-through"
-                    }`}
-                  >
-                    {c.price.toLocaleString()}원
-                  </span>
-                ) : null}
+                <span
+                  className={`shrink-0 tabular-nums text-[15px] font-bold ${
+                    active ? "text-slate-700" : "text-slate-400 line-through"
+                  }`}
+                >
+                  {c.price.toLocaleString()}원
+                </span>
               </li>
             );
           })
@@ -1659,11 +1688,9 @@ function CartSummary({
                   <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-slate-800">
                     {LEGAL_LETTER_LABEL[t]} 작성
                   </span>
-                  {step === 4 ? (
-                    <span className="shrink-0 font-mono text-[15px] font-bold text-slate-700">
-                      {price.toLocaleString()}원
-                    </span>
-                  ) : null}
+                  <span className="shrink-0 tabular-nums text-[15px] font-bold text-slate-700">
+                    {price.toLocaleString()}원
+                  </span>
                 </li>
               );
             })
@@ -1677,7 +1704,7 @@ function CartSummary({
           <FileText className="h-3.5 w-3.5 text-[#1C3461]" />
           발급 가능 서류
           {recommendation.documents.length > 0 ? (
-            <span className="font-mono text-slate-400">
+            <span className="tabular-nums text-slate-400">
               ({recommendation.documentCount}개)
             </span>
           ) : null}
@@ -1708,8 +1735,8 @@ function CartSummary({
       </div>
 
       {/* 결제 직전 가장 먼저 눈에 들어와야 하는 정보라 카드로 강조.
-          1~3단계 안내/할인 문구는 페이지 상단 배너로 옮겨서 여기선 4단계에서만 노출. */}
-      {step === 4 ? (
+          1~3단계에서도 선택한 게 있으면 예상 금액을 보여주고, 결제 버튼은 4단계에서만. */}
+      {step === 4 || !noneSelected ? (
         <>
           <div className="mt-5 rounded-xl bg-slate-50 p-5">
             {recommendation.discount > 0 && (
@@ -1733,7 +1760,9 @@ function CartSummary({
                   : ""
               }`}
             >
-              <span className="text-sm font-bold text-slate-600">총 결제 합계</span>
+              <span className="text-sm font-bold text-slate-600">
+                {step === 4 ? "총 결제 합계" : "예상 결제 금액"}
+              </span>
               <span className="font-sans text-[28px] font-black leading-tight text-[#1C3461]">
                 {recommendation.total.toLocaleString()}
                 <span className="ml-1 text-base font-bold text-slate-500">원</span>
@@ -1747,6 +1776,8 @@ function CartSummary({
             )}
           </div>
 
+          {step === 4 ? (
+          <>
           <button
             type="button"
             onClick={onCheckout}
@@ -1765,6 +1796,8 @@ function CartSummary({
             <p className="mt-2 text-center text-sm font-medium text-amber-600">
               최소 1개 이상의 강의를 선택해 주세요.
             </p>
+          ) : null}
+          </>
           ) : null}
         </>
       ) : null}
