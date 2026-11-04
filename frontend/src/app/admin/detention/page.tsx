@@ -144,6 +144,8 @@ export default function AdminDetentionPage() {
   if (!rows) return <p className="py-20 text-center text-sm text-zinc-500">불러오는 중...</p>;
 
   const shown = filter ? rows.filter((r) => r.status === filter) : rows;
+  // 화면용 순번: 결제된 신청만 오래된 순으로 1, 2, 3… (DB id는 미결제 시도로 건너뛰므로 쓰지 않음).
+  const seq = new Map([...rows].sort((x, y) => x.id - y.id).map((r, i) => [r.id, i + 1]));
 
   return (
     <div className="space-y-6">
@@ -209,7 +211,7 @@ export default function AdminDetentionPage() {
                   >
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-500">
                       <span className={`mr-1.5 inline-block text-slate-400 transition-transform ${open ? "rotate-90" : ""}`}>▶</span>
-                      {r.id}
+                      {seq.get(r.id)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-slate-600">
                       {new Date(r.created_at).toLocaleDateString("ko-KR")}
