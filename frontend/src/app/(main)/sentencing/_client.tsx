@@ -64,6 +64,8 @@ type CourseInfo = {
   id: CourseId;
   name: string;
   price: number;
+  // 정가(관리자 페이지 "정가") — 판매가보다 클 때만 줄 그어 표시.
+  originalPrice?: number | null;
 };
 
 const COURSES: Record<CourseId, CourseInfo> = {
@@ -298,20 +300,22 @@ export default function SentencingPage() {
   // 사용자가 골랐다가 결제 단계에서야 막히는 걸 방지할 수 있다
   // (2026-09, 실사용 중 발견).
   // 관리자 페이지에서 바꾼 실제 가격 — 불러오기 전/실패 시엔 COURSES 기본값.
-  const [livePrices, setLivePrices] = useState<Partial<Record<CourseId, number>>>({});
+  const [livePrices, setLivePrices] = useState<
+    Partial<Record<CourseId, { price: number; original: number | null }>>
+  >({});
   useEffect(() => {
     let cancelled = false;
     Promise.all([getCourses(), getCounselingCourses()])
       .then(([courses, counseling]) => {
         if (cancelled) return;
-        const next: Partial<Record<CourseId, number>> = {};
+        const next: Partial<Record<CourseId, { price: number; original: number | null }>> = {};
         for (const c of courses) {
           const id = COURSE_ID_BY_TITLE[c.title];
-          if (id) next[id] = c.price;
+          if (id) next[id] = { price: c.price, original: c.original_price ?? null };
         }
         for (const id of ["counseling", "counseling_phone"] as const) {
           const c = counseling.find((x) => x.title === COUNSELING_BACKEND_TITLE[id]);
-          if (c) next[id] = c.price;
+          if (c) next[id] = { price: c.price, original: c.original_price ?? null };
         }
         setLivePrices(next);
       })
@@ -325,7 +329,11 @@ export default function SentencingPage() {
       Object.fromEntries(
         (Object.keys(COURSES) as CourseId[]).map((id) => [
           id,
-          { ...COURSES[id], price: livePrices[id] ?? COURSES[id].price },
+          {
+            ...COURSES[id],
+            price: livePrices[id]?.price ?? COURSES[id].price,
+            originalPrice: livePrices[id]?.original ?? null,
+          },
         ]),
       ) as Record<CourseId, CourseInfo>,
     [livePrices],
@@ -557,6 +565,8 @@ export default function SentencingPage() {
         )
       : 0;
     const subtotal = activeCourses.reduce((sum, c) => sum + c.price, 0) + letterTotal;
+    const originalSubtotal =
+      activeCourses.reduce((sum, c) => sum + Math.max(c.originalPrice ?? 0, c.price), 0) + letterTotal;
     const discount = subtotal >= BULK_DISCOUNT_THRESHOLD ? BULK_DISCOUNT_AMOUNT : 0;
     const total = subtotal - discount;
     return {
@@ -564,6 +574,7 @@ export default function SentencingPage() {
       documents: docs,
       documentCount: docs.filter((d) => d.active).reduce((sum, d) => sum + d.count, 0),
       subtotal,
+      originalSubtotal,
       discount,
       total,
       activeCourseCount: activeCourses.length,
@@ -974,6 +985,29 @@ function StepIndicator({
 
 // ---------- Page 1: 메인 강의 선택 -------------------------------------------
 
+// 카드 가격 줄: 판매가(굵게) + 정가 줄긋기 + 할인율. 정가가 없거나
+// 판매가 이하이면 판매가만.
+function PriceLine({ course, active }: { course: CourseInfo; active: boolean }) {
+  const original = course.originalPrice ?? 0;
+  const onSale = original > course.price;
+  return (
+    <p className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 tabular-nums">
+      <span className={`text-[15px] font-extrabold ${active ? "text-[#1C3461]" : "text-slate-800"}`}>
+        {course.price.toLocaleString()}
+        <span className="ml-0.5 text-[13px] font-semibold">원</span>
+      </span>
+      {onSale ? (
+        <>
+          <span className="text-[12px] text-slate-400 line-through">{original.toLocaleString()}원</span>
+          <span className="text-[12px] font-bold text-rose-500">
+            {Math.round((1 - course.price / original) * 100)}%
+          </span>
+        </>
+      ) : null}
+    </p>
+  );
+}
+
 function Step1({
   selectedMain,
   etcSelected,
@@ -1060,14 +1094,7 @@ function Step1({
                 <p className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-slate-500">
                   {card.description}
                 </p>
-                <p
-                  className={`mt-1.5 text-[15px] font-extrabold tabular-nums ${
-                    active ? "text-[#1C3461]" : "text-slate-800"
-                  }`}
-                >
-                  {course.price.toLocaleString()}
-                  <span className="ml-0.5 text-[13px] font-semibold">원</span>
-                </p>
+                <PriceLine course={course} active={active} />
               </div>
             </button>
           );
@@ -1216,14 +1243,7 @@ function Step2({
                 <p className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-slate-500">
                   {card.description}
                 </p>
-                <p
-                  className={`mt-1.5 text-[15px] font-extrabold tabular-nums ${
-                    active ? "text-[#1C3461]" : "text-slate-800"
-                  }`}
-                >
-                  {course.price.toLocaleString()}
-                  <span className="ml-0.5 text-[13px] font-semibold">원</span>
-                </p>
+                <PriceLine course={course} active={active} />
               </div>
             </button>
           );
@@ -1448,6 +1468,8 @@ type Recommendation = {
   documents: { name: string; active: boolean }[];
   documentCount: number;
   subtotal: number;
+  // 정가 기준 합계 — subtotal 보다 크면 "정가 / 강의 할인" 줄을 보여준다.
+  originalSubtotal: number;
   discount: number;
   total: number;
   activeCourseCount: number;
@@ -1766,14 +1788,29 @@ function CartSummary({
       {step === 4 || !noneSelected ? (
         <>
           <div className="mt-5 rounded-xl bg-slate-50 p-5">
-            {recommendation.discount > 0 && (
+            {recommendation.originalSubtotal > recommendation.subtotal ? (
+              <>
+                <div className="flex items-center justify-between text-[15px] text-slate-400">
+                  <span>정가</span>
+                  <span className="line-through">
+                    {recommendation.originalSubtotal.toLocaleString()}원
+                  </span>
+                </div>
+                <div className="mt-1.5 flex items-center justify-between text-[15px] font-bold text-rose-500">
+                  <span>강의 할인</span>
+                  <span>
+                    -{(recommendation.originalSubtotal - recommendation.subtotal).toLocaleString()}원
+                  </span>
+                </div>
+              </>
+            ) : recommendation.discount > 0 ? (
               <div className="flex items-center justify-between text-[15px] text-slate-400">
                 <span>상품 금액</span>
                 <span className="line-through">
                   {recommendation.subtotal.toLocaleString()}원
                 </span>
               </div>
-            )}
+            ) : null}
             {recommendation.discount > 0 && (
               <div className="mt-1.5 flex items-center justify-between text-[15px] font-bold text-[var(--color-accent)]">
                 <span>10만원 이상 할인</span>
@@ -1782,7 +1819,8 @@ function CartSummary({
             )}
             <div
               className={`flex flex-col gap-1 ${
-                recommendation.discount > 0
+                recommendation.discount > 0 ||
+                recommendation.originalSubtotal > recommendation.subtotal
                   ? "mt-3 border-t border-dashed border-zinc-200 pt-3"
                   : ""
               }`}
