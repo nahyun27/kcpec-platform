@@ -253,6 +253,7 @@ export default function AdminDetentionPage() {
                         <div className="space-y-4 rounded-xl border border-slate-200/60 bg-white p-5">
                     <dl className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
                       {[
+                        ["신청 고유번호", String(r.id)],
                         ["생년월일", r.inmate_birth],
                         ["수용번호", r.inmate_number],
                         ["수용시설", r.facility_name],
