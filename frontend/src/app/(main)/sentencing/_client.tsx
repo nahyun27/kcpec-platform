@@ -29,7 +29,7 @@ const LETTER_TYPES: LegalLetterType[] = ["repentance", "petition"];
 // 관리자 페이지에서 바꾼 실제 가격(livePrices)이 덮어써져 표시된다(2026-10).
 
 type CourseId =
-  | "law" // 준법의식 강화 (모든 경우 기본 포함)
+  | "law" // 준법의식 강화 (1단계 맨 위, 기본 체크 — 해제 가능)
   // ---- 메인 강의 (Page 1) ----
   | "drunk" // 음주운전 예방
   | "sex" // 성범죄 예방
@@ -117,6 +117,12 @@ const COUNSELING_BACKEND_TITLE: Record<"counseling" | "counseling_phone", string
 
 // ---------- Page 1: 메인 강의 --------------------------------------------------
 // "기타" 는 특정 CourseId 로 매핑되지 않아 별도 boolean(etcSelected)으로 관리.
+
+// 1단계 맨 위 — 어떤 사건이든 권하는 기본 강의(기본 체크, 해제 가능).
+const LAW_CARD: { id: CourseId; description: string } = {
+  id: "law",
+  description: "어떤 사건이든 함께 듣는 기본 과정",
+};
 
 // 강의 전체보기 페이지와 동일한 순서로 맞춤(2026-09).
 const MAIN_CARDS: { id: CourseId; description: string }[] = [
@@ -252,6 +258,10 @@ export default function SentencingPage() {
   // Page 1
   const [selectedMain, setSelectedMain] = useState<Set<CourseId>>(new Set());
   const [etcSelected, setEtcSelected] = useState(false);
+  // 준법의식 강화 — 어떤 사건이든 권하는 기본 강의라 처음부터 체크해 두되,
+  // 고객이 원하면 해제할 수 있다(2026-11, 예전엔 항상 포함·해제 불가였고
+  // 1단계 목록에도 없어서 왜 담겼는지 알기 어려웠음).
+  const [lawSelected, setLawSelected] = useState(true);
   const [checkingOut, setCheckingOut] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   // Page 2
@@ -429,6 +439,12 @@ export default function SentencingPage() {
     });
   }
 
+  function toggleLaw() {
+    if (ownedCourseIds.has("law")) return;
+    if (lawSelected) pruneDisabled("law");
+    setLawSelected(!lawSelected);
+  }
+
   function toggleAddon(id: CourseId) {
     if (ownedCourseIds.has(id)) return;
     setSelectedAddon((prev) => {
@@ -485,7 +501,7 @@ export default function SentencingPage() {
   // 지금 선택 상태 기준으로 실제 포함되는 강의 id 집합.
   const currentCourseIds = useMemo(() => {
     const s = new Set<CourseId>();
-    if (!ownedCourseIds.has("law")) s.add("law"); // 준법의식 항상 포함(이미 보유한 경우 제외)
+    if (lawSelected && !ownedCourseIds.has("law")) s.add("law");
     selectedMain.forEach((k) => {
       if (!ownedCourseIds.has(k)) s.add(k);
     });
@@ -497,7 +513,7 @@ export default function SentencingPage() {
       if (counselingTypes.has("phone")) s.add("counseling_phone");
     }
     return s;
-  }, [selectedMain, selectedAddon, counselingAnswer, counselingTypes, ownedCourseIds]);
+  }, [lawSelected, selectedMain, selectedAddon, counselingAnswer, counselingTypes, ownedCourseIds]);
 
   // 추천 결과 계산 — 심리상담도 이제 강의와 함께 한 번의 묶음결제로 처리되므로
   // (백엔드 /orders/bundle 이 심리상담 상품도 sibling Order 로 받아준다) 전부
@@ -609,7 +625,7 @@ export default function SentencingPage() {
 
   const canGoNext =
     step === 1
-      ? selectedMain.size > 0 || etcSelected
+      ? selectedMain.size > 0 || etcSelected || (lawSelected && !ownedCourseIds.has("law"))
       : // "예"를 선택하고도 상담 방식을 하나도 안 고르면 아무 상품도 담기지
         // 않은 채 다음 단계로 넘어가 버렸다 — 최소 1개는 선택해야 진행 가능.
         !(step === 3 && counselingAnswer === "Y" && counselingTypes.size === 0);
@@ -667,6 +683,8 @@ export default function SentencingPage() {
               <Step1
                 selectedMain={selectedMain}
                 etcSelected={etcSelected}
+                lawSelected={lawSelected}
+                onToggleLaw={toggleLaw}
                 onToggleMain={toggleMain}
                 onToggleEtc={() => setEtcSelected((v) => !v)}
                 ownedCourseIds={ownedCourseIds}
@@ -959,6 +977,8 @@ function StepIndicator({
 function Step1({
   selectedMain,
   etcSelected,
+  lawSelected,
+  onToggleLaw,
   onToggleMain,
   onToggleEtc,
   ownedCourseIds,
@@ -967,6 +987,8 @@ function Step1({
 }: {
   selectedMain: Set<CourseId>;
   etcSelected: boolean;
+  lawSelected: boolean;
+  onToggleLaw: () => void;
   onToggleMain: (id: CourseId) => void;
   onToggleEtc: () => void;
   ownedCourseIds: Set<CourseId>;
@@ -983,9 +1005,10 @@ function Step1({
       </p>
 
       <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {MAIN_CARDS.map((card) => {
+        {[LAW_CARD, ...MAIN_CARDS].map((card) => {
           const course = catalog[card.id];
-          const active = selectedMain.has(card.id);
+          const isLaw = card.id === "law";
+          const active = isLaw ? lawSelected : selectedMain.has(card.id);
           const owned = ownedCourseIds.has(card.id);
           const previouslyPurchased = expiredCourseIds.has(card.id);
           return (
@@ -993,7 +1016,7 @@ function Step1({
               key={card.id}
               type="button"
               disabled={owned}
-              onClick={() => onToggleMain(card.id)}
+              onClick={() => (isLaw ? onToggleLaw() : onToggleMain(card.id))}
               className={`relative flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-all ${
                 owned
                   ? "cursor-not-allowed border-zinc-200 bg-zinc-50 opacity-60"
@@ -1027,6 +1050,10 @@ function Step1({
                   ) : previouslyPurchased ? (
                     <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-bold text-amber-700">
                       재구매 · 수강기간 만료
+                    </span>
+                  ) : isLaw ? (
+                    <span className="inline-flex items-center rounded-full bg-[var(--color-accent)] px-1.5 py-0.5 text-[11px] font-bold text-white">
+                      모든 사건 기본 추천
                     </span>
                   ) : null}
                 </div>
@@ -1080,7 +1107,7 @@ function Step1({
         </button>
       </div>
 
-      {selectedMain.size === 0 && !etcSelected ? (
+      {selectedMain.size === 0 && !etcSelected && !lawSelected ? (
         <p className="mt-4 text-sm text-slate-400">
           1개 이상 선택하시면 다음 단계로 진행할 수 있습니다.
         </p>
@@ -1663,7 +1690,7 @@ function CartSummary({
                   {c.name}
                   {c.id === "law" ? (
                     <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 align-middle text-[11px] font-bold text-slate-500">
-                      기본 포함
+                      기본 추천
                     </span>
                   ) : null}
                 </span>
