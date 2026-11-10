@@ -16,9 +16,23 @@ def course_mid() -> str | None:
     return None
 
 
+def counseling_mid() -> str | None:
+    """심리상담 결제를 받을 상점. 키가 덜 설정됐거나 시뮬레이션 모드면 None
+    (= 기본 상점으로 받음)."""
+    if (
+        settings.TOSS_SECRET_KEY
+        and settings.TOSS_COUNSELING_SECRET_KEY
+        and settings.TOSS_COUNSELING_CLIENT_KEY
+    ):
+        return settings.TOSS_COUNSELING_MID
+    return None
+
+
 def secret_key_for_mid(mid: str | None) -> str | None:
     if mid and mid == settings.TOSS_COURSE_MID and settings.TOSS_COURSE_SECRET_KEY:
         return settings.TOSS_COURSE_SECRET_KEY
+    if mid and mid == settings.TOSS_COUNSELING_MID and settings.TOSS_COUNSELING_SECRET_KEY:
+        return settings.TOSS_COUNSELING_SECRET_KEY
     return settings.TOSS_SECRET_KEY
 
 
@@ -26,4 +40,6 @@ def client_key_for_mid(mid: str | None) -> str | None:
     """None 이면 프런트가 기본 키(NEXT_PUBLIC_TOSS_CLIENT_KEY)를 쓴다."""
     if mid and mid == settings.TOSS_COURSE_MID:
         return settings.TOSS_COURSE_CLIENT_KEY
+    if mid and mid == settings.TOSS_COUNSELING_MID:
+        return settings.TOSS_COUNSELING_CLIENT_KEY
     return None

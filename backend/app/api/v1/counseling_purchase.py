@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.api.v1.counseling import _process_draft
 from app.api.v1.orders import _cancel_stale_pending, get_or_create_letter_course
 from app.core.database import get_db
+from app.core.toss import client_key_for_mid, counseling_mid
 from app.core.deps import get_current_user
 from app.models.counseling import CounselingStatus, CounselingSurvey
 from app.models.course import Course, CourseCategory
@@ -94,6 +95,8 @@ def purchase(
     # — 선택하지 않으면 예전과 완전히 동일한 단건 주문 흐름(하위호환).
     letter_types = list(dict.fromkeys(payload.legal_letters))  # 중복 제거, 순서 유지
     bundle_id = secrets.token_urlsafe(16) if letter_types else None
+    # 상담 상점(kcpeca9706)으로 — 키가 없으면 None(기본 상점).
+    toss_mid = counseling_mid()
 
     order = Order(
         user_id=current_user.id,
@@ -103,6 +106,7 @@ def purchase(
         amount=amount,
         status=OrderStatus.PENDING,
         bundle_id=bundle_id,
+        toss_mid=toss_mid,
     )
     db.add(order)
     db.flush()
@@ -120,6 +124,7 @@ def purchase(
             amount=letter_price,
             status=OrderStatus.PENDING,
             bundle_id=bundle_id,
+            toss_mid=toss_mid,
         )
         db.add(letter_order)
         db.flush()
@@ -141,6 +146,7 @@ def purchase(
         counseling_type=payload.counseling_type,
         bundle_id=bundle_id,
         legal_letter_orders=letter_refs,
+        toss_client_key=client_key_for_mid(toss_mid),
     )
 
 

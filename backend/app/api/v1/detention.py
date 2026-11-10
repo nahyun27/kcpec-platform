@@ -23,6 +23,7 @@ from app.core.admin import require_admin
 from app.core.cert_config import get_cert_template
 from app.core.cert_sequence import reserve_next_sequence
 from app.core.database import get_db
+from app.core.toss import client_key_for_mid, course_mid
 from app.core.deps import get_current_user
 from app.core.email import send_detention_certificates, send_detention_confirmed_notification
 from app.core.pdf import cert_course_code, generate_certificate_pdf, generate_pledge_pdf
@@ -228,6 +229,8 @@ def apply_detention(
 
     bundle_id = secrets.token_urlsafe(16)
     items: list[BundleItem] = []
+    # 교육 상품이라 강의 상점(kcpecbs0xp)으로 — 키 없으면 None(기본 상점).
+    toss_mid = course_mid()
     # (course, 수용자용 여부) — 마지막 항목에서 할인액을 차감.
     lines = [(courses[cid], True) for cid in course_ids] + [
         (own_courses[cid], False) for cid in own_ids
@@ -245,6 +248,7 @@ def apply_detention(
             status=OrderStatus.PENDING,
             bundle_id=bundle_id,
             detention_inmate=for_inmate,
+            toss_mid=toss_mid,
         )
         db.add(order)
         db.flush()
@@ -258,6 +262,7 @@ def apply_detention(
         status=OrderStatus.PENDING,
         bundle_id=bundle_id,
         detention_inmate=True,
+        toss_mid=toss_mid,
     )
     db.add(fee_order)
     db.flush()
@@ -300,6 +305,7 @@ def apply_detention(
         total=total,
         payment_method=payload.payment_method,
         items=items,
+        toss_client_key=client_key_for_mid(toss_mid),
     )
 
 

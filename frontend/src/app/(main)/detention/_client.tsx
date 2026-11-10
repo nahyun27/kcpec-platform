@@ -234,7 +234,7 @@ export default function DetentionClient() {
         agree_privacy: agree,
       });
 
-      const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
+      const tossClientKey = bundle.toss_client_key ?? process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
       if (!tossClientKey) {
         router.push(
           `/detention/success?bundle_id=${bundle.bundle_id}&amount=${bundle.total}&simulated=1`,

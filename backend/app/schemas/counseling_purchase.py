@@ -37,6 +37,8 @@ class CounselingPurchaseResponse(BaseModel):
     # 흐름을 쓰고, amount 는 심리상담+부가상품 합계로 바뀐다.
     bundle_id: str | None = None
     legal_letter_orders: list[LegalLetterOrderRef] = []
+    # 이 주문을 받을 상점의 클라이언트 키 — None 이면 프런트 기본 키.
+    toss_client_key: str | None = None
 
 
 class CounselingOrderItem(BaseModel):

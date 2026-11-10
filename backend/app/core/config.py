@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     TOSS_COURSE_MID: str = "kcpecbs0xp"
     TOSS_COURSE_CLIENT_KEY: str | None = None
     TOSS_COURSE_SECRET_KEY: str | None = None
+    # 상담/멘토링 전용 토스 상점(직접 계약, 2026-11-10 승인). 심리상담 단독
+    # 결제(반성문·탄원서를 함께 고른 경우 포함)를 받는다. 키가 없으면 예전처럼
+    # 기본 상점(TOSS_SECRET_KEY)으로 받는다.
+    TOSS_COUNSELING_MID: str = "kcpeca9706"
+    TOSS_COUNSELING_CLIENT_KEY: str | None = None
+    TOSS_COUNSELING_SECRET_KEY: str | None = None
 
     BANK_TRANSFER_ACCOUNT: str = (
         "국민은행 123-456-789012 (예금주: 한국범죄예방교육센터)"

@@ -100,6 +100,7 @@ export type CounselingPurchaseResponse = {
   // 묶음결제(bundle) 흐름으로 진행해야 한다.
   bundle_id: string | null;
   legal_letter_orders: LegalLetterOrderRef[];
+  toss_client_key?: string | null;
 };
 
 export type CounselingOrderItem = {

@@ -13,7 +13,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.email import send_new_order_notification
 from app.core.qr import generate_qr_png
-from app.core.toss import client_key_for_mid, course_mid, secret_key_for_mid
+from app.core.toss import client_key_for_mid, counseling_mid, course_mid, secret_key_for_mid
 from app.models.course import Course, CourseCategory
 from app.models.enrollment import Enrollment
 from app.models.lawyer_partner import LawyerPartner, LawyerPartnerStatus, generate_portal_token, generate_referral_code
@@ -268,9 +268,10 @@ def create_order(
                 detail="이미 입금 대기 중인 주문이 있습니다. 관리자 확인을 기다리거나 문의해 주세요.",
             )
 
-    # 온라인 강의만 강의 전용 상점으로 — 심리상담은 기본 상점.
-    toss_mid = course_mid() if course.category != CourseCategory.COUNSELING else None
-    if payload.payment_method in EASY_PAY_METHODS and toss_mid is None:
+    # 온라인 강의는 강의 상점, 심리상담은 상담 상점(키 없으면 둘 다 기본 상점).
+    # 간편결제는 강의 상점 계약에만 있어서 그 외 상점이면 막는다.
+    toss_mid = course_mid() if course.category != CourseCategory.COUNSELING else counseling_mid()
+    if payload.payment_method in EASY_PAY_METHODS and (toss_mid is None or toss_mid != course_mid()):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             detail="이 결제에서는 간편결제를 쓸 수 없습니다. 신용/체크카드를 선택해 주세요.",

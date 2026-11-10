@@ -80,7 +80,8 @@ export default function ApplyButton({
     setSubmitting(true);
     try {
       const order = await purchaseCounseling(counselingType, selectedLetters);
-      const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
+      // 상담 상점 키가 서버에 설정돼 있으면 그 키, 아니면 기본 키.
+      const tossClientKey = order.toss_client_key ?? process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
       // 반성문·탄원서를 함께 선택하면 서버가 묶음결제(bundle_id)로 만든다 —
       // 단건 결제(KCPEC-{id})가 아니라 묶음결제(KCPEC-BUNDLE-{bundle_id})
       // 흐름과 확인 페이지(/checkout/bundle/success)를 써야 한다.
