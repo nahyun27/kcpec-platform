@@ -46,7 +46,7 @@ import {
   type DocumentResponse,
   type OrderResponse,
 } from "@/types/order";
-import { BookOpen, Check, Clock, CreditCard, Download, FileSignature, FileText, Phone, User, ChevronRight, PlayCircle, Loader2, MessageSquare, Edit3, AlertCircle, Star } from "lucide-react";
+import { BookOpen, Clock, CreditCard, Download, FileSignature, FileText, Phone, User, ChevronRight, PlayCircle, Loader2, MessageSquare, Edit3, AlertCircle, Star } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { useDialog } from "@/components/ui/DialogProvider";
@@ -175,6 +175,12 @@ export default function MyPageClient() {
     }
     return groups;
   }, [visibleOrders]);
+  // 전부 취소·환불된 결제는 아래 "취소·환불 내역"으로 접는다(2026-11).
+  const isClosedGroup = (g: OrderDisplayGroup) =>
+    (g.kind === "solo" ? [g.order] : g.orders).every(
+      (o) => o.status === "cancelled" || o.status === "refunded",
+    );
+  const closedGroups = orderGroups.filter(isClosedGroup);
   const [counselingOrders, setCounselingOrders] = useState<CounselingOrderItem[]>([]);
   const [legalLetters, setLegalLetters] = useState<LegalLetterStatus[]>([]);
   const [unansweredInquiries, setUnansweredInquiries] = useState(0);
@@ -341,7 +347,7 @@ export default function MyPageClient() {
   return (
     <DetentionBundlesContext.Provider value={detentionBundles}>
     <div className="min-h-screen bg-slate-50/50 pb-24 animate-in fade-in duration-300">
-      <div className="bg-white pt-10 md:pt-16 relative z-10 border-b border-slate-100">
+      <div className="bg-white pt-6 md:pt-16 relative z-10 border-b border-slate-100">
         <div className="mx-auto max-w-5xl px-4 md:px-6">
           <PageHeader
             title="마이페이지"
@@ -352,7 +358,25 @@ export default function MyPageClient() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-5xl space-y-8 md:space-y-12 px-4 md:px-6 pt-8 md:pt-12">
+      <div className="mx-auto max-w-5xl space-y-6 md:space-y-10 px-4 md:px-6 pt-5 md:pt-10">
+      {/* 모바일: 계정 정보 카드가 긴 목록 맨 아래로 밀려나 안 보여서 위에 짧게 */}
+      {me ? (
+        <div className="flex items-center justify-between gap-3 lg:hidden">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">
+              {me.username.charAt(0).toUpperCase()}
+            </div>
+            <p className="truncate text-sm font-bold text-slate-800">{me.username}님</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setEditOpen(true)}
+            className="shrink-0 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600"
+          >
+            계정 설정
+          </button>
+        </div>
+      ) : null}
       <OverviewStrip
         overview={overview}
         unansweredInquiries={unansweredInquiries}
@@ -471,8 +495,9 @@ export default function MyPageClient() {
               {visibleOrders.length === 0 ? (
                 <EmptyState text="결제 내역이 존재하지 않습니다." />
               ) : (
-                <ul className="space-y-4">
-                  {orderGroups.map((g) =>
+                <>
+                <ul className="space-y-3">
+                  {orderGroups.filter((g) => !isClosedGroup(g)).map((g) =>
                     g.kind === "bundle" ? (
                       <BundleOrderGroup
                         key={g.bundleId}
@@ -503,6 +528,47 @@ export default function MyPageClient() {
                     ),
                   )}
                 </ul>
+                {closedGroups.length > 0 ? (
+                  <details className="group mt-4">
+                    <summary className="cursor-pointer list-none rounded-xl border border-dashed border-zinc-300 px-4 py-3 text-center text-sm font-semibold text-slate-500 hover:bg-white">
+                      취소·환불 내역 {closedGroups.length}건 <span className="group-open:hidden">보기</span>
+                      <span className="hidden group-open:inline">접기</span>
+                    </summary>
+                    <ul className="mt-3 space-y-3 opacity-80">
+                  {closedGroups.map((g) =>
+                    g.kind === "bundle" ? (
+                      <BundleOrderGroup
+                        key={g.bundleId}
+                        orders={g.orders}
+                        enrollments={enrollments}
+                        hasCounseling={counselingOrders.length > 0}
+                        onViewAnswers={(id) => setAnswersSurveyId(id)}
+                        onCancel={handleCancelOrder}
+                        onRetry={handleRetryBundlePayment}
+                      />
+                    ) : (
+                      <OrderRow
+                        key={g.order.id}
+                        order={g.order}
+                        isCourseCompleted={
+                          enrollments.find((e) => e.course_id === g.order.course_id)
+                            ?.is_completed ?? false
+                        }
+                        progressPct={
+                          enrollments.find((e) => e.course_id === g.order.course_id)
+                            ?.overall_progress_pct ?? 0
+                        }
+                        hasCounseling={counselingOrders.length > 0}
+                        onViewAnswers={(id) => setAnswersSurveyId(id)}
+                        onCancel={handleCancelOrder}
+                        onRetry={handleRetryPayment}
+                      />
+                    ),
+                  )}
+                    </ul>
+                  </details>
+                ) : null}
+                </>
               )}
             </Section>
           ) : null}
@@ -551,13 +617,13 @@ export default function MyPageClient() {
             ) : null}
           </Section>
 
-          {/* Quick Help Card */}
-          <div className="rounded-2xl border border-[var(--color-accent)]/30 bg-blue-50/50 p-6 shadow-sm">
+          {/* Quick Help Card — 모바일에선 "내 서류" 탭이 같은 역할이라 숨김 */}
+          <div className="hidden rounded-2xl border border-[var(--color-accent)]/30 bg-blue-50/50 p-6 shadow-sm lg:block">
             <h3 className="font-bold text-[var(--color-primary)] mb-2 flex items-center gap-2">
               <FileText className="h-4 w-4" /> 문서 발급 안내
             </h3>
             <p className="text-sm text-slate-600 leading-relaxed mb-4">
-              수료증, 심리상담 의견서, 반성문·탄원서 등 발급된 서류는 모두 '내 서류' 탭에서 바로 내려받을 수 있습니다. 법원 제출용으로 바로 사용 가능합니다.
+              수료증, 심리상담 의견서, 반성문·탄원서 등 발급된 서류는 모두 &lsquo;내 서류&rsquo; 탭에서 바로 내려받을 수 있습니다. 법원 제출용으로 바로 사용 가능합니다.
             </p>
             <Link href="/#faq" className="text-sm font-semibold text-[var(--color-accent)] hover:underline inline-flex items-center">
               자주 묻는 질문 보기 <ChevronRight className="h-4 w-4 ml-0.5" />
@@ -1139,6 +1205,67 @@ function EnrollmentRow({
   );
 }
 
+// 결제 내역 카드 머리 — 과목·금액·날짜·상태 한 줄 요약, 결제 완료 건은 눌러서 펼침.
+function OrderSummaryHeader({
+  meta,
+  titles,
+  amount,
+  status,
+  collapsible,
+  open,
+  onToggle,
+}: {
+  meta: string;
+  titles: string[];
+  amount: number;
+  status: OrderResponse["status"];
+  collapsible: boolean;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const body = (
+    <>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-slate-400">{meta}</p>
+        <p className="mt-0.5 truncate text-[15px] font-bold text-slate-900 sm:text-base">
+          {titles[0]}
+          {titles.length > 1 ? (
+            <span className="font-semibold text-slate-500"> 외 {titles.length - 1}건</span>
+          ) : null}
+        </p>
+        {titles.length > 1 && open ? (
+          <p className="mt-0.5 text-xs text-slate-500">{titles.join(" · ")}</p>
+        ) : null}
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <span className="text-base font-bold tabular-nums text-slate-900 sm:text-lg">
+          {amount.toLocaleString()}원
+        </span>
+        <span className="flex items-center gap-1.5">
+          <OrderStatusBadge status={status} />
+          {collapsible ? (
+            <ChevronRight
+              className={`h-4 w-4 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`}
+            />
+          ) : null}
+        </span>
+      </div>
+    </>
+  );
+  return collapsible ? (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      className="flex w-full items-start gap-3 px-4 py-3.5 text-left hover:bg-slate-50/70 sm:px-5 sm:py-4"
+    >
+      {body}
+    </button>
+  ) : (
+    <div className="flex items-start gap-3 px-4 py-3.5 sm:px-5 sm:py-4">{body}</div>
+  );
+}
+
 function OrderRow({
   order,
   isCourseCompleted,
@@ -1160,38 +1287,30 @@ function OrderRow({
   const isPendingBankTransfer =
     order.status === "pending" && order.payment_method === "bank_transfer";
   const isCounseling = order.order_type === "counseling";
+  // 결제 내역이 너무 길어(주문마다 큰 카드) 결제 완료 건은 요약 한 줄만
+  // 보이고 눌러야 펼쳐지게(2026-11). 입금 대기는 계좌 안내가 필요해 항상 펼침.
+  const [open, setOpen] = useState(false);
 
   return (
-    <li className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md">
-      <div className="flex flex-col gap-4 border-b border-zinc-100 bg-slate-50/50 p-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-400">
-            <span className="font-medium">주문번호 #{order.id}</span>
-            <span>•</span>
-            <span>{new Date(order.created_at).toLocaleString("ko-KR")}</span>
-          </div>
-          {order.course_title ? (
-            <p className="mb-2 font-sans text-lg font-bold text-slate-900">
-              {isCounseling ? counselingDisplayTitle(order.course_title) : order.course_title}
-            </p>
-          ) : null}
-          <div className="flex items-center gap-2">
-            <span className="font-sans text-2xl font-black text-slate-900">
-              {order.amount.toLocaleString()}
-              <span className="ml-0.5 text-base font-bold text-slate-500">원</span>
-            </span>
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
-              {PAYMENT_METHOD_LABEL[order.payment_method]}
-            </span>
-          </div>
-        </div>
-        <div className="self-start sm:self-center">
-          <OrderStatusBadge status={order.status} />
-        </div>
-      </div>
+    <li className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <OrderSummaryHeader
+        meta={`#${order.id} · ${new Date(order.created_at).toLocaleDateString("ko-KR")} · ${PAYMENT_METHOD_LABEL[order.payment_method]}`}
+        titles={[
+          order.course_title
+            ? isCounseling
+              ? counselingDisplayTitle(order.course_title)
+              : order.course_title
+            : "주문",
+        ]}
+        amount={order.amount}
+        status={order.status}
+        collapsible={isPaid}
+        open={open}
+        onToggle={() => setOpen((v) => !v)}
+      />
 
-      {isPaid ? (
-        <div className="space-y-3 p-6 bg-white">
+      {isPaid && open ? (
+        <div className="space-y-3 border-t border-zinc-100 bg-white p-4 sm:p-6">
           {isCounseling ? (
             <CounselingOrderDetails order={order} onViewAnswers={onViewAnswers} />
           ) : (
@@ -1391,49 +1510,23 @@ function BundleOrderGroup({
   const isPendingBankTransfer =
     first.status === "pending" && first.payment_method === "bank_transfer";
   const totalAmount = orders.reduce((sum, o) => sum + o.amount, 0);
-  const orderIdsLabel = orders.map((o) => `#${o.id}`).join(", ");
+  const [open, setOpen] = useState(false);
 
   return (
-    <li className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md">
-      <div className="flex flex-col gap-4 border-b border-zinc-100 bg-slate-50/50 p-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-400">
-            <span className="rounded-full bg-[var(--color-primary)]/10 px-2.5 py-0.5 text-xs font-bold text-[var(--color-primary)]">
-              묶음결제
-            </span>
-            <span className="font-medium">{orderIdsLabel}</span>
-            <span>•</span>
-            <span>{new Date(first.created_at).toLocaleString("ko-KR")}</span>
-          </div>
-          <ul className="mb-3 space-y-1.5">
-            {orders.map((o) => (
-              <li key={o.id} className="flex items-center gap-2">
-                <Check className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
-                <span className="font-sans text-base font-bold text-slate-900">
-                  {o.order_type === "counseling"
-                    ? counselingDisplayTitle(o.course_title)
-                    : o.course_title}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <div className="flex items-center gap-2">
-            <span className="font-sans text-2xl font-black text-slate-900">
-              {totalAmount.toLocaleString()}
-              <span className="ml-0.5 text-base font-bold text-slate-500">원</span>
-            </span>
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
-              {PAYMENT_METHOD_LABEL[first.payment_method]} · {orders.length}건
-            </span>
-          </div>
-        </div>
-        <div className="self-start sm:self-center">
-          <OrderStatusBadge status={first.status} />
-        </div>
-      </div>
-
-      {isPaid ? (
-        <div className="divide-y divide-zinc-100">
+    <li className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <OrderSummaryHeader
+        meta={`묶음결제 ${orders.length}건 · ${new Date(first.created_at).toLocaleDateString("ko-KR")} · ${PAYMENT_METHOD_LABEL[first.payment_method]}`}
+        titles={orders.map((o) =>
+          o.order_type === "counseling" ? counselingDisplayTitle(o.course_title) : (o.course_title ?? ""),
+        )}
+        amount={totalAmount}
+        status={first.status}
+        collapsible={isPaid}
+        open={open}
+        onToggle={() => setOpen((v) => !v)}
+      />
+      {isPaid && open ? (
+        <div className="divide-y divide-zinc-100 border-t border-zinc-100">
           {orders.map((o) =>
             o.order_type === "counseling" ? (
               <div key={o.id} className="p-6 bg-white">
