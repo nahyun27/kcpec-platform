@@ -995,6 +995,17 @@ export async function deleteAdminPost(postId: number): Promise<void> {
   await api.delete(`/admin/posts/${postId}`);
 }
 
+export async function aiDraftAdminPostReply(
+  postId: number,
+): Promise<{ draft: string; notes: string }> {
+  const { data } = await api.post<{ draft: string; notes: string }>(
+    `/admin/posts/${postId}/ai-draft`,
+    undefined,
+    { timeout: 90_000 },
+  );
+  return data;
+}
+
 export async function patchAdminPostReply(
   postId: number,
   reply: string,

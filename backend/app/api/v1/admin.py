@@ -2374,6 +2374,26 @@ def patch_post_reply(
     return PostDetail.model_validate(post)
 
 
+class InquiryDraftResponse(BaseModel):
+    draft: str
+    notes: str
+
+
+@router.post("/posts/{post_id}/ai-draft", response_model=InquiryDraftResponse)
+def ai_draft_post_reply(post_id: int, db: Session = Depends(get_db)) -> InquiryDraftResponse:
+    """1:1 문의 답변 초안을 AI 로 생성(저장·발송 안 함). 관리자가 검토 후 저장한다."""
+    from app.core.inquiry_ai import InquiryAIError, generate_inquiry_draft
+
+    post = db.get(Post, post_id)
+    if post is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="게시글을 찾을 수 없습니다.")
+    try:
+        result = generate_inquiry_draft(db, post)
+    except InquiryAIError as e:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=str(e)) from e
+    return InquiryDraftResponse(**result)
+
+
 # ---------- faq (자주 묻는 질문) -----------------------------------------------
 
 

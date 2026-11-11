@@ -19,6 +19,7 @@ import {
   patchAdminNotice,
   patchAdminPost,
   patchAdminPostReply,
+  aiDraftAdminPostReply,
   patchFaq,
   uploadNoticeAttachment,
 } from "@/lib/api";
@@ -1181,6 +1182,26 @@ function ReplyModal({
   const isDirty = reply !== (row.admin_reply ?? "");
   const safeClose = () => confirmClose(isDirty, onClose, dialog.confirm);
   const [err, setErr] = useState<string | null>(null);
+  const [drafting, setDrafting] = useState(false);
+  const [aiNotes, setAiNotes] = useState<string | null>(null);
+
+  async function handleAiDraft() {
+    if (reply.trim() && !(await dialog.confirm("지금 입력된 답변을 AI 초안으로 바꿀까요?"))) return;
+    setErr(null);
+    setDrafting(true);
+    try {
+      const r = await aiDraftAdminPostReply(row.id);
+      setReply(r.draft);
+      setAiNotes(r.notes || null);
+    } catch (caught) {
+      const detail = isAxiosError(caught)
+        ? (caught.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      setErr(detail ?? "AI 초안 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setDrafting(false);
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -1221,10 +1242,31 @@ function ReplyModal({
             ) : null}
           </div>
         </div>
+        {row.category === "qna" ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-indigo-100 bg-indigo-50/60 px-3 py-2.5">
+            <p className="text-xs text-indigo-900">
+              문의 내용과 이 회원의 결제·수강·서류 상태를 보고 답변 초안을 써 줍니다. 꼭 확인·수정 후 저장하세요.
+            </p>
+            <button
+              type="button"
+              onClick={handleAiDraft}
+              disabled={drafting || submitting}
+              className="shrink-0 rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {drafting ? "초안 작성 중..." : "AI 답변 초안"}
+            </button>
+          </div>
+        ) : null}
+        {aiNotes ? (
+          <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
+            <p className="mb-1 font-semibold">AI 메모 (고객에게 안 보임)</p>
+            <p className="whitespace-pre-wrap">{aiNotes}</p>
+          </div>
+        ) : null}
         <Field label="답변">
           <textarea
             required
-            rows={6}
+            rows={aiNotes !== null || reply.length > 200 ? 10 : 6}
             value={reply}
             onChange={(e) => setReply(e.target.value)}
             className={`${inputCls} resize-y`}
