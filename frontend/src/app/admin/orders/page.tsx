@@ -17,6 +17,7 @@ import {
   uploadFinalCertificate,
 } from "@/lib/api";
 import type { AdminOrderRow, AdminOrdersResponse, AdminUser } from "@/types/admin";
+import { REFUND_BANK_OPTIONS } from "@/lib/bankCodes";
 import { PAYMENT_METHOD_LABEL, type DocumentResponse, type OrderStatus } from "@/types/order";
 import { useDialog } from "@/components/ui/DialogProvider";
 import { UserEnrollmentsModal } from "@/components/features/UserEnrollmentsModal";
@@ -117,6 +118,7 @@ function AdminOrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [mutatingId, setMutatingId] = useState<number | null>(null);
+  const [vaRefund, setVaRefund] = useState<{ row: AdminOrderRow; amount: number } | null>(null);
   const [openUser, setOpenUser] = useState<AdminUser | null>(null);
   const [docsOrder, setDocsOrder] = useState<AdminOrderRow | null>(null);
 
@@ -182,10 +184,14 @@ function AdminOrdersPage() {
     // 결제취소 API가 가상계좌 건에는 환불받을 계좌 정보를 필수로 요구하는데
     // 그 입력 UI가 아직 없어 자동화 대상에서 제외해뒀다 — 계좌로 직접
     // 환불해야 한다(관리자가 헷갈리지 않도록 안내에 명시, 2026-09).
+    // (2026-11) 토스 가상계좌 건은 환불받을 계좌를 입력하면 토스가 자동 입금한다.
+    // 예전 아임웹 직접 무통장 입금 건(토스 미경유)만 계좌로 직접 이체해야 한다.
     const paymentNote =
-      row.payment_method === "bank_transfer"
-        ? "가상계좌 건은 자동으로 환불되지 않으니, 계좌로 직접 환불해 주세요."
-        : "토스 결제가 자동으로 취소되어 고객에게 실제 환불됩니다.";
+      row.payment_method !== "bank_transfer"
+        ? "토스 결제가 자동으로 취소되어 고객에게 실제 환불됩니다."
+        : row.is_virtual_account
+          ? "다음 화면에서 고객 환불계좌를 입력하면 토스가 그 계좌로 자동 입금합니다."
+          : "예전 직접 무통장 입금 건이라 자동 환불이 안 됩니다. 고객 계좌로 직접 이체해 주세요.";
 
     // 묶음결제여도 이 항목만 부분 환불된다. 일부 환불로 10만 원 할인 조건이
     // 깨지면 그 할인만큼 빼고 환불되므로, 실제 환불액을 서버에서 받아 보여준다.
@@ -225,6 +231,10 @@ function AdminOrdersPage() {
       }))
     )
       return;
+    if (row.is_virtual_account && refundAmount > 0) {
+      setVaRefund({ row, amount: refundAmount });
+      return;
+    }
     setMutatingId(row.id);
     try {
       await refundAdminOrder(row.id);
@@ -369,7 +379,9 @@ function AdminOrdersPage() {
                       ) : null}
                     </td>
                     <td className="px-4 py-3 text-slate-500">
-                      {PAYMENT_METHOD_LABEL[r.payment_method]}
+                      {r.payment_method === "bank_transfer" && !r.is_virtual_account
+                        ? "무통장입금"
+                        : PAYMENT_METHOD_LABEL[r.payment_method]}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="font-bold text-slate-900">{r.amount.toLocaleString()}원</div>
@@ -470,12 +482,115 @@ function AdminOrdersPage() {
         </div>
       ) : null}
 
+      {vaRefund ? (
+        <VaRefundModal
+          row={vaRefund.row}
+          amount={vaRefund.amount}
+          onClose={() => setVaRefund(null)}
+          onDone={async () => {
+            setVaRefund(null);
+            await load();
+          }}
+        />
+      ) : null}
       {docsOrder ? (
         <DocumentsModal order={docsOrder} onClose={() => setDocsOrder(null)} />
       ) : null}
       {openUser ? (
         <UserEnrollmentsModal user={openUser} onClose={() => setOpenUser(null)} />
       ) : null}
+    </div>
+  );
+}
+
+// 토스 가상계좌 환불 — 고객 환불계좌를 받아 토스가 자동 입금하게 한다(2026-11).
+function VaRefundModal({
+  row,
+  amount,
+  onClose,
+  onDone,
+}: {
+  row: AdminOrderRow;
+  amount: number;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const dialog = useDialog();
+  const [bank, setBank] = useState("");
+  const [account, setAccount] = useState("");
+  const [holder, setHolder] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const cls =
+    "w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-[var(--color-primary)] focus:outline-none";
+
+  async function run(withAccount: boolean) {
+    setError(null);
+    const digits = account.replace(/[^0-9]/g, "");
+    if (withAccount && (!bank || digits.length < 6 || !holder.trim())) {
+      setError("은행, 계좌번호, 예금주를 모두 입력해 주세요.");
+      return;
+    }
+    if (
+      !withAccount &&
+      !(await dialog.confirm(
+        "계좌 없이 처리하면 사이트에서만 환불로 바뀌고 돈은 나가지 않아요. 고객 계좌로 직접 이체하실 건가요?",
+        { confirmText: "직접 이체할게요", cancelText: "돌아가기" },
+      ))
+    )
+      return;
+    setSubmitting(true);
+    try {
+      await refundAdminOrder(
+        row.id,
+        withAccount ? { bank_code: bank, account_number: digits, holder_name: holder.trim() } : undefined,
+      );
+      onDone();
+    } catch (err) {
+      const d = isAxiosError(err) ? (err.response?.data as { detail?: unknown } | undefined)?.detail : null;
+      setError(typeof d === "string" ? d : "환불 처리에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !submitting && onClose()}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-lg font-bold text-slate-900">가상계좌 환불</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          {row.course_title} · {row.name ?? row.username} · {amount.toLocaleString()}원
+        </p>
+        <p className="mt-3 text-xs leading-relaxed text-slate-500">
+          고객에게 받은 환불계좌를 입력하면 토스가 그 계좌로 자동 입금합니다.
+        </p>
+        <div className="mt-3 space-y-2">
+          <select value={bank} onChange={(e) => setBank(e.target.value)} className={cls}>
+            <option value="">은행 선택</option>
+            {REFUND_BANK_OPTIONS.map(([code, name]) => (
+              <option key={code} value={code}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <input inputMode="numeric" placeholder="계좌번호" value={account} onChange={(e) => setAccount(e.target.value)} className={cls} />
+          <input placeholder="예금주" value={holder} onChange={(e) => setHolder(e.target.value)} className={cls} />
+        </div>
+        {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+          <button type="button" onClick={() => run(false)} disabled={submitting} className="text-xs font-semibold text-slate-500 underline underline-offset-2 disabled:opacity-50">
+            계좌 없이 처리(직접 이체)
+          </button>
+          <div className="flex gap-2">
+            <button type="button" onClick={onClose} disabled={submitting} className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold text-slate-700">
+              닫기
+            </button>
+            <button type="button" onClick={() => run(true)} disabled={submitting} className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
+              {submitting ? "처리 중..." : "환불하기"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

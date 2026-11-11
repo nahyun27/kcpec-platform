@@ -182,6 +182,9 @@ def _row_from_order(
         status=o.status,
         created_at=o.created_at,
         bundle_id=o.bundle_id,
+        is_virtual_account=(
+            o.payment_method == PaymentMethod.BANK_TRANSFER and bool(o.toss_payment_key)
+        ),
         lawyer_partner_name=(
             f"{lawyer_partner.law_firm_name} {lawyer_partner.lawyer_name}"
             if lawyer_partner
@@ -1025,13 +1028,64 @@ def refund_preview(order_id: int, db: Session = Depends(get_db)) -> RefundPrevie
     return RefundPreview(refund_amount=plan.amount, forfeited_discount=plan.forfeited_discount)
 
 
+class RefundAccount(BaseModel):
+    """토스 가상계좌 결제 건 환불받을 계좌. bank 는 토스 은행 숫자 코드."""
+
+    bank_code: str = Field(min_length=2, max_length=8)
+    account_number: str = Field(min_length=6, max_length=32)
+    holder_name: str = Field(min_length=1, max_length=60)
+
+
+class AdminRefundBody(BaseModel):
+    refund_account: RefundAccount | None = None
+
+
+def is_toss_virtual_account(order: Order) -> bool:
+    """토스 가상계좌로 결제된 건(예전 아임웹 직접 무통장 입금과 구분)."""
+    return order.payment_method == PaymentMethod.BANK_TRANSFER and bool(order.toss_payment_key)
+
+
 @router.post("/orders/{order_id}/refund", response_model=OkResponse)
-def refund_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
+def refund_order(
+    order_id: int,
+    body: AdminRefundBody | None = None,
+    db: Session = Depends(get_db),
+) -> OkResponse:
     """결제 완료(PAID) 주문 환불 — 수강등록 취소 + 발급된 서류(있다면) 무효화까지 한 번에.
 
     법원 제출용 서류라 환불된 강의의 수료증/의견서가 계속 유효한 채로
     남아있으면 안 되므로, 이미 발급된 문서가 있으면 같이 무효화한다.
     """
+    perform_refund(
+        db,
+        order_id,
+        refund_account=body.refund_account if body else None,
+        reason="관리자 환불 처리",
+    )
+    # 고객 환불 신청이 걸려 있던 주문을 관리자가 직접 환불했으면 신청도 닫는다.
+    from app.models.refund_request import RefundRequest, RefundRequestStatus
+
+    for r in db.scalars(
+        select(RefundRequest).where(
+            RefundRequest.order_id == order_id,
+            RefundRequest.status == RefundRequestStatus.PENDING,
+        )
+    ).all():
+        r.status = RefundRequestStatus.APPROVED
+        r.decided_at = datetime.now(timezone.utc)
+        r.refund_account_number = None
+    db.commit()
+    return OkResponse()
+
+
+def perform_refund(
+    db: Session,
+    order_id: int,
+    *,
+    refund_account: RefundAccount | None,
+    reason: str,
+) -> None:
+    """관리자 환불과 고객 환불 신청 승인이 같이 쓰는 실제 환불 처리."""
     order = db.get(Order, order_id)
     if order is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="주문을 찾을 수 없습니다.")
@@ -1061,22 +1115,32 @@ def refund_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
     # (2026-09 발견). 환불계좌 입력 UI를 따로 만들기 전까진 기존처럼
     # 관리자가 계좌로 직접 환불해야 한다.
     # 할인이 몰려 0원이 된 항목은 돌려줄 돈이 없으니 토스 호출 없이 상태만 바꾼다.
+    #
+    # (2026-11) 가상계좌도 환불받을 계좌(refund_account)를 받으면 토스에 같이
+    # 넘겨 자동 환불한다 — 아임웹 시절처럼 버튼 하나로 끝나게. 계좌 없이
+    # 누르면 예전처럼 상태만 바꾸고 관리자가 직접 이체한다.
+    is_va = order.payment_method == PaymentMethod.BANK_TRANSFER
     if (
         order.toss_payment_key
         and settings.TOSS_SECRET_KEY
-        and order.payment_method != PaymentMethod.BANK_TRANSFER
+        and (not is_va or refund_account is not None)
         and cancel_amount != 0
     ):
+        payload: dict = {"cancelReason": reason}
+        if cancel_amount is not None:
+            payload["cancelAmount"] = cancel_amount
+        if is_va and refund_account is not None:
+            payload["refundReceiveAccount"] = {
+                "bank": refund_account.bank_code,
+                "accountNumber": refund_account.account_number.replace("-", "").replace(" ", ""),
+                "holderName": refund_account.holder_name.strip(),
+            }
         try:
             with httpx.Client(timeout=10.0) as client:
                 res = client.post(
                     f"{settings.TOSS_API_BASE}/v1/payments/{order.toss_payment_key}/cancel",
                     auth=(secret_key_for_mid(order.toss_mid), ""),
-                    json=(
-                        {"cancelReason": "관리자 환불 처리", "cancelAmount": cancel_amount}
-                        if cancel_amount is not None
-                        else {"cancelReason": "관리자 환불 처리"}
-                    ),
+                    json=payload,
                 )
         except httpx.HTTPError as exc:
             raise HTTPException(
@@ -1126,7 +1190,6 @@ def refund_order(order_id: int, db: Session = Depends(get_db)) -> OkResponse:
             _revoke_issued_document(doc, db)
 
     db.commit()
-    return OkResponse()
 
 
 # ---------- surveys -----------------------------------------------------------
@@ -1728,7 +1791,19 @@ def admin_stats(db: Session = Depends(get_db)) -> AdminStats:
         or 0
     )
 
+    from app.models.refund_request import RefundRequest, RefundRequestStatus
+
+    refund_requests_pending = (
+        db.scalar(
+            select(func.count(RefundRequest.id)).where(
+                RefundRequest.status == RefundRequestStatus.PENDING
+            )
+        )
+        or 0
+    )
+
     todo = AdminTodoCounts(
+        refund_requests_pending=refund_requests_pending,
         detention_to_process=detention_to_process,
         legal_letter_review=legal_letter_review,
         pending_bank_transfer=pending_bank_transfer,

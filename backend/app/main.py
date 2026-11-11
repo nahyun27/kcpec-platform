@@ -14,6 +14,7 @@ from app.api.v1 import detention as detention_v1
 from app.api.v1 import documents as documents_v1
 from app.api.v1 import legal_letters as legal_letters_v1
 from app.api.v1 import orders as orders_v1
+from app.api.v1 import refund_requests as refund_requests_v1
 from app.core.config import settings
 
 app = FastAPI(title=settings.PROJECT_NAME)
@@ -59,6 +60,8 @@ app.include_router(detention_v1.router, prefix=settings.API_V1_PREFIX)
 app.include_router(detention_v1.admin_router, prefix=settings.API_V1_PREFIX)
 app.include_router(legal_letters_v1.router, prefix=settings.API_V1_PREFIX)
 app.include_router(legal_letters_v1.admin_router, prefix=settings.API_V1_PREFIX)
+app.include_router(refund_requests_v1.router, prefix=settings.API_V1_PREFIX)
+app.include_router(refund_requests_v1.admin_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/health", tags=["health"])

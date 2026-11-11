@@ -58,6 +58,8 @@ export type AdminOrderRow = {
   status: OrderStatus;
   created_at: string;
   bundle_id: string | null;
+  // 토스 가상계좌 결제 건(예전 직접 무통장 입금과 구분).
+  is_virtual_account?: boolean;
   // 결제 시 선택한 변호사 리퍼럴 — "{법무법인명} {변호사명}", 없으면 null.
   lawyer_partner_name: string | null;
 };
@@ -120,6 +122,32 @@ export type AdminTodoCounts = {
   unanswered_qna: number;
   detention_to_process?: number;
   legal_letter_review?: number;
+  refund_requests_pending?: number;
+};
+
+export type RefundRequestStatus = "pending" | "approved" | "rejected" | "cancelled";
+
+export type AdminRefundRequestRow = {
+  id: number;
+  order_id: number;
+  status: RefundRequestStatus;
+  username: string;
+  name: string | null;
+  course_title: string;
+  paid_amount: number;
+  expected_amount: number;
+  current_amount: number | null;
+  payment_method: PaymentMethod;
+  is_virtual_account: boolean;
+  bank_name: string | null;
+  account_number_masked: string | null;
+  holder_name: string | null;
+  reason: string | null;
+  reject_reason: string | null;
+  started_since_request: boolean;
+  bundle: boolean;
+  created_at: string;
+  decided_at: string | null;
 };
 
 export type AdminStats = {

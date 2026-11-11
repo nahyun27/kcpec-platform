@@ -135,6 +135,8 @@ class AdminOrderRow(BaseModel):
     status: OrderStatus
     created_at: datetime
     bundle_id: str | None = None
+    # 토스 가상계좌 결제 건(예전 아임웹 직접 무통장 입금과 구분, 2026-11).
+    is_virtual_account: bool = False
     # 결제 시 선택한 변호사 리퍼럴 — "{법무법인명} {변호사명}" 합쳐서, 없으면 None.
     lawyer_partner_name: str | None = None
 
@@ -338,6 +340,7 @@ class AdminTodoCounts(BaseModel):
     counseling_draft_review: int
     unanswered_qna: int
     detention_to_process: int = 0
+    refund_requests_pending: int = 0
     legal_letter_review: int = 0
 
 

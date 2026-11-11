@@ -593,10 +593,30 @@ def list_my_orders(
         return []
 
     course_ids = {o.course_id for o in orders}
-    course_titles: dict[int, str] = {
-        c.id: c.title
-        for c in db.scalars(select(Course).where(Course.id.in_(course_ids))).all()
+    courses_by_id = {
+        c.id: c for c in db.scalars(select(Course).where(Course.id.in_(course_ids))).all()
     }
+    course_titles: dict[int, str] = {cid: c.title for cid, c in courses_by_id.items()}
+
+    # 환불 신청 상태(가장 최근 신청)와 온라인 신청 가능 여부.
+    from app.api.v1.refund_requests import check_eligibility
+    from app.models.refund_request import RefundRequest
+
+    latest_req: dict[int, RefundRequest] = {}
+    for r in db.scalars(
+        select(RefundRequest)
+        .where(RefundRequest.order_id.in_([o.id for o in orders]))
+        .order_by(RefundRequest.id)
+    ).all():
+        latest_req[r.order_id] = r
+
+    def eligible(o: Order) -> bool:
+        if o.status != OrderStatus.PAID or o.order_type != OrderType.COURSE or o.detention_inmate:
+            return False
+        r = latest_req.get(o.id)
+        if r is not None and r.status.value == "pending":
+            return False
+        return check_eligibility(db, o, courses_by_id.get(o.course_id)) is None
 
     return [
         OrderResponse(
@@ -615,6 +635,9 @@ def list_my_orders(
             va_bank_code=o.va_bank_code,
             va_customer_name=o.va_customer_name,
             va_due_date=o.va_due_date,
+            refund_eligible=eligible(o),
+            refund_request_status=(latest_req[o.id].status.value if o.id in latest_req else None),
+            refund_reject_reason=(latest_req[o.id].reject_reason if o.id in latest_req else None),
         )
         for o in orders
     ]

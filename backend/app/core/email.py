@@ -729,3 +729,76 @@ def send_welcome_marketing_mail(*, to_email: str, unsubscribe_url: str) -> bool:
         logger.exception("SMTP 발송 실패: %s", exc)
         return False
     return True
+
+
+def _send_plain(*, to_email: str | None, subject: str, body: str, label: str) -> bool:
+    """단순 텍스트 메일. SMTP 미설정이면 콘솔 출력, 실패해도 예외를 삼킨다."""
+    if not (settings.SMTP_HOST and to_email):
+        logger.info("[EMAIL DEV MODE] %s — 콘솔 출력", label)
+        print("=" * 60)
+        print(f"To: {to_email or '(수신자 미설정)'}")
+        print(f"Subject: {subject}")
+        print("-" * 60)
+        print(body)
+        print("=" * 60)
+        return True
+    msg = EmailMessage()
+    msg["From"] = settings.SMTP_FROM or settings.SMTP_USER or "no-reply@kcpec.kr"
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg.set_content(body)
+    try:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
+            smtp.starttls()
+            if settings.SMTP_USER and settings.SMTP_PASSWORD:
+                smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            smtp.send_message(msg)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("SMTP 발송 실패(%s): %s", label, exc)
+        return False
+    return True
+
+
+def send_refund_requested_to_staff(
+    *, request_id: int, username: str, course_title: str, amount: int, reason: str | None
+) -> bool:
+    body = dedent(
+        f"""\
+        고객이 환불을 신청했습니다. 관리자 페이지 > 환불 신청에서 승인 또는 거절해 주세요.
+
+        신청번호: {request_id}
+        회원: {username}
+        강의: {course_title}
+        예상 환불액: {amount:,}원
+        사유: {reason or '-'}
+
+        — KCPEC 플랫폼 —
+        """
+    )
+    return _send_plain(
+        to_email=settings.STAFF_EMAIL,
+        subject=f"[KCPEC] 환불 신청 - {course_title} ({username})",
+        body=body,
+        label="환불 신청 알림",
+    )
+
+
+def send_refund_result_to_user(
+    *, to_email: str, course_title: str, approved: bool, amount: int, reject_reason: str | None
+) -> bool:
+    if approved:
+        subject = "[한국범죄예방교육센터] 환불이 완료되었습니다"
+        main = (
+            f"신청하신 '{course_title}' 강의 환불({amount:,}원)이 처리되었습니다.\n"
+            "카드 결제는 카드사에 따라 취소 반영까지 3~7영업일 정도 걸릴 수 있고,\n"
+            "가상계좌 결제는 입력하신 계좌로 입금됩니다."
+        )
+    else:
+        subject = "[한국범죄예방교육센터] 환불 신청 결과 안내"
+        main = (
+            f"신청하신 '{course_title}' 강의 환불이 처리되지 않았습니다.\n"
+            f"사유: {reject_reason or '-'}\n"
+            "궁금하신 점은 마이페이지 1:1 문의로 남겨 주세요."
+        )
+    body = f"안녕하세요, 한국범죄예방교육센터입니다.\n\n{main}\n\n감사합니다.\n"
+    return _send_plain(to_email=to_email, subject=subject, body=body, label="환불 결과 안내")

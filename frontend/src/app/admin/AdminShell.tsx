@@ -20,6 +20,7 @@ import {
   Package,
   Scale,
   ShoppingCart,
+  RotateCcw,
   Users,
   X,
 } from "lucide-react";
@@ -65,6 +66,13 @@ const NAV: (SingleNav | GroupNav)[] = [
       { value: "cancelled", label: "취소" },
       { value: "refunded", label: "환불" },
     ],
+  },
+  {
+    kind: "single",
+    href: "/admin/refunds",
+    label: "환불 신청",
+    icon: <RotateCcw className="h-4 w-4" />,
+    todoKey: "refund_requests_pending",
   },
   {
     kind: "single",

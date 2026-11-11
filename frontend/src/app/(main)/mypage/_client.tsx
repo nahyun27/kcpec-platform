@@ -51,6 +51,7 @@ import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { useDialog } from "@/components/ui/DialogProvider";
 import { VirtualAccountNotice } from "@/components/features/VirtualAccountNotice";
 import { DetentionCertificates } from "@/components/features/DetentionCertificates";
+import { RefundRequestControl } from "@/components/features/RefundRequestControl";
 import type { DetentionMineRow } from "@/types/detention";
 
 type OrderWithExtras = OrderResponse & {
@@ -381,9 +382,13 @@ export default function MyPageClient() {
                       key={e.course_id}
                       enrollment={e}
                       // 수용자용 주문(구속수용자 교육)은 본인 수강과 무관 — 제외.
-                      order={orders.find(
-                        (o) => o.course_id === e.course_id && !o.detention_inmate,
-                      )}
+                      order={
+                        orders.find(
+                          (o) =>
+                            o.course_id === e.course_id && !o.detention_inmate && o.status === "paid",
+                        ) ??
+                        orders.find((o) => o.course_id === e.course_id && !o.detention_inmate)
+                      }
                     />
                   ))}
                 </ul>
@@ -1086,6 +1091,7 @@ function EnrollmentRow({
               ) : null}
             </p>
           ) : null}
+          {order && order.status === "paid" ? <RefundRequestControl order={order} /> : null}
         </div>
       </div>
     </li>
@@ -1316,6 +1322,7 @@ function OrderPaidDetails({
             </Link>
           </div>
         )}
+        {!isDetention && !legalLetterType ? <RefundRequestControl order={order} /> : null}
       </div>
     </>
   );

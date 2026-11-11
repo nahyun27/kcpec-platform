@@ -18,6 +18,8 @@ import type {
   LawyerPartnerStatus,
   OrderResponse,
   PaymentMethod,
+  RefundAccountInput,
+  RefundCheck,
 } from "@/types/order";
 import type {
   AdminDetentionRow,
@@ -66,6 +68,8 @@ import type {
   HealthResponse,
   NoticePatch,
   PostPatch,
+  AdminRefundRequestRow,
+  RefundRequestStatus,
 } from "@/types/admin";
 import type {
   Faq,
@@ -736,8 +740,48 @@ export async function getAdminRefundPreview(
   return data;
 }
 
-export async function refundAdminOrder(orderId: number): Promise<void> {
-  await api.post(`/admin/orders/${orderId}/refund`);
+export async function refundAdminOrder(
+  orderId: number,
+  refundAccount?: RefundAccountInput,
+): Promise<void> {
+  await api.post(
+    `/admin/orders/${orderId}/refund`,
+    refundAccount ? { refund_account: refundAccount } : undefined,
+  );
+}
+
+// ---------- 고객 환불 신청(2026-11) ----------
+export async function getRefundCheck(orderId: number): Promise<RefundCheck> {
+  const { data } = await api.get<RefundCheck>(`/orders/${orderId}/refund-check`);
+  return data;
+}
+
+export async function createRefundRequest(
+  orderId: number,
+  body: { reason?: string; refund_account?: RefundAccountInput },
+): Promise<void> {
+  await api.post(`/orders/${orderId}/refund-request`, body);
+}
+
+export async function cancelRefundRequest(orderId: number): Promise<void> {
+  await api.post(`/orders/${orderId}/refund-request/cancel`);
+}
+
+export async function getAdminRefundRequests(
+  status?: RefundRequestStatus,
+): Promise<AdminRefundRequestRow[]> {
+  const { data } = await api.get<AdminRefundRequestRow[]>("/admin/refund-requests", {
+    params: status ? { status } : undefined,
+  });
+  return data;
+}
+
+export async function approveAdminRefundRequest(id: number, force = false): Promise<void> {
+  await api.post(`/admin/refund-requests/${id}/approve`, { force });
+}
+
+export async function rejectAdminRefundRequest(id: number, reason: string): Promise<void> {
+  await api.post(`/admin/refund-requests/${id}/reject`, { reason });
 }
 
 export async function getAdminOrderBundleSiblings(

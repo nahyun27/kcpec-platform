@@ -50,6 +50,25 @@ export type OrderResponse = {
   va_due_date?: string | null;
   // 결제 시 쓸 토스 클라이언트 키(강의 전용 상점). null 이면 기본 키.
   toss_client_key?: string | null;
+  // 고객 환불 신청(2026-11)
+  refund_eligible?: boolean;
+  refund_request_status?: "pending" | "approved" | "rejected" | "cancelled" | null;
+  refund_reject_reason?: string | null;
+};
+
+export type RefundAccountInput = {
+  bank_code: string;
+  account_number: string;
+  holder_name: string;
+};
+
+export type RefundCheck = {
+  eligible: boolean;
+  reason: string | null;
+  refund_amount: number;
+  forfeited_discount: number;
+  needs_account: boolean;
+  banks: Record<string, string>;
 };
 
 export type BundleItem = {

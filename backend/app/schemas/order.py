@@ -36,6 +36,10 @@ class OrderResponse(BaseModel):
     va_due_date: datetime | None = None
     # 이 주문을 결제할 때 쓸 토스 클라이언트 키. None 이면 기본 키.
     toss_client_key: str | None = None
+    # 고객 환불 신청(2026-11) — 마이페이지 "환불 신청" 버튼 노출/상태 표시용.
+    refund_eligible: bool = False
+    refund_request_status: str | None = None
+    refund_reject_reason: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
