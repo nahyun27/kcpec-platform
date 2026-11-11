@@ -1184,6 +1184,7 @@ function ReplyModal({
   const [err, setErr] = useState<string | null>(null);
   const [drafting, setDrafting] = useState(false);
   const [aiNotes, setAiNotes] = useState<string | null>(null);
+  const [aiTodo, setAiTodo] = useState<string | null>(null);
 
   async function handleAiDraft() {
     if (reply.trim() && !(await dialog.confirm("지금 입력된 답변을 AI 초안으로 바꿀까요?"))) return;
@@ -1193,6 +1194,7 @@ function ReplyModal({
       const r = await aiDraftAdminPostReply(row.id);
       setReply(r.draft);
       setAiNotes(r.notes || null);
+      setAiTodo(r.todo || null);
     } catch (caught) {
       const detail = isAxiosError(caught)
         ? (caught.response?.data as { detail?: string } | undefined)?.detail
@@ -1210,6 +1212,7 @@ function ReplyModal({
       setErr("답변 내용을 입력해 주세요.");
       return;
     }
+    if (aiTodo && !(await dialog.confirm(`아래 처리를 먼저 하셨나요?\n\n${aiTodo}`))) return;
     setSubmitting(true);
     try {
       await patchAdminPostReply(row.id, reply.trim());
@@ -1255,6 +1258,13 @@ function ReplyModal({
             >
               {drafting ? "초안 작성 중..." : "AI 답변 초안"}
             </button>
+          </div>
+        ) : null}
+        {aiTodo ? (
+          <div className="rounded border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-900">
+            <p className="mb-1 font-semibold">저장 전에 먼저 처리하세요</p>
+            <p className="whitespace-pre-wrap">{aiTodo}</p>
+            <p className="mt-1.5 text-red-700">답변은 처리가 끝난 것으로 쓰여 있어요. 처리하지 않을 거면 문구를 고쳐 주세요.</p>
           </div>
         ) : null}
         {aiNotes ? (

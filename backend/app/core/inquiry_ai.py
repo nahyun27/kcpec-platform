@@ -49,7 +49,12 @@ ANSWER_GUIDE = dedent(
     - 3~6문장 정도로 짧고 공손하게. 마크다운(**, #, - 목록) 금지, 평문만.
     - 확인되지 않은 사실을 단정하지 말 것. 계정 상태에 없는 내용은 지어내지 말 것.
     - 관리자가 직접 처리해야 하는 일(환불 실행, 수료증 정정, 의견서 수정 등)은
-      "처리해 드렸습니다"라고 쓰지 말고 "확인 후 처리해 드리겠습니다"로 쓴다.
+      관리자가 답변 저장 전에 먼저 처리하므로, 초안은 처리가 끝난 것으로 쓴다
+      (예: "준법의식 강화 강의를 환불 처리해 드렸습니다."). 그 일은 todo 에
+      빠짐없이 적는다.
+    - 단, 처리 대상이 불분명하거나 정책상 불가하면(어느 강의인지 모름, 이미 수강
+      시작, 정정할 정확한 생년월일이 없음 등) 처리한 것처럼 쓰지 말고 필요한
+      정보를 요청하거나 불가 사유를 안내한다. 이 경우 todo 는 비운다.
 
     [정책·안내 사실]
     수강
@@ -110,7 +115,9 @@ SYSTEM_PROMPT = dedent(
     수료증이 이미 발급됨) 답하고, 정보가 부족하면 필요한 정보를 정중히 요청하세요.
 
     반드시 JSON 한 개로만 출력:
-    {"draft": "고객에게 보낼 답변 본문", "notes": "관리자만 보는 메모(처리해야 할 일, 확인이 필요한 점, 근거). 없으면 빈 문자열"}
+    {"draft": "고객에게 보낼 답변 본문",
+     "todo": "답변 저장 전에 관리자가 먼저 해야 할 처리(어느 주문#/강의를 무엇을). 한 줄에 하나. 없으면 빈 문자열",
+     "notes": "관리자만 보는 참고 메모(판단 근거, 확인이 필요한 점). 없으면 빈 문자열"}
 
     """
 ) + "[답변 가이드]\n" + ANSWER_GUIDE
@@ -296,7 +303,11 @@ def generate_inquiry_draft(db: Session, post: Post) -> dict[str, str]:
             draft = str(data.get("draft") or "").strip()
             if not draft:
                 raise InquiryAIError("AI 응답이 비어 있습니다.")
-            return {"draft": draft, "notes": str(data.get("notes") or "").strip()}
+            return {
+                "draft": draft,
+                "todo": str(data.get("todo") or "").strip(),
+                "notes": str(data.get("notes") or "").strip(),
+            }
         except Exception as e:  # noqa: BLE001
             last_exc = e
             logger.warning("문의 초안 생성 실패(%s회차): %s", attempt + 1, e)

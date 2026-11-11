@@ -2376,6 +2376,7 @@ def patch_post_reply(
 
 class InquiryDraftResponse(BaseModel):
     draft: str
+    todo: str = ""
     notes: str
 
 
