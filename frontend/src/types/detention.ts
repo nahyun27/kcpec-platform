@@ -84,6 +84,15 @@ export type AdminDetentionRow = {
   orders: AdminDetentionOrder[];
 };
 
+export type DetentionMineCert = {
+  order_id: number;
+  document_id: number;
+  course_title: string;
+  issue_number: string;
+  pdf_url: string | null;
+  pledge_pdf_url: string | null;
+};
+
 export type DetentionMineRow = {
   id: number;
   bundle_id: string;
@@ -98,4 +107,5 @@ export type DetentionMineRow = {
   learning_confirmed_at: string | null;
   confirm_available_at: string | null;
   completed_at: string | null;
+  certificates: DetentionMineCert[];
 };

@@ -50,6 +50,8 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { useDialog } from "@/components/ui/DialogProvider";
 import { VirtualAccountNotice } from "@/components/features/VirtualAccountNotice";
+import { DetentionCertificates } from "@/components/features/DetentionCertificates";
+import type { DetentionMineRow } from "@/types/detention";
 
 type OrderWithExtras = OrderResponse & {
   documents: DocumentResponse[];
@@ -90,10 +92,14 @@ export default function MyPageClient() {
   // 로컬 state 로 분리해 클릭이 항상 즉시 반영되도록 하고, URL 은 공유용
   // best-effort 로만 맞춰준다(뒤로가기 등에서 완벽히 동기화되진 않음).
   const [detentionBundles, setDetentionBundles] = useState<Set<string>>(new Set());
+  const [detentionRows, setDetentionRows] = useState<DetentionMineRow[]>([]);
   useEffect(() => {
     if (!tokenStorage.getAccess()) return;
     getMyDetention()
-      .then((rows) => setDetentionBundles(new Set(rows.map((r) => r.bundle_id))))
+      .then((rows) => {
+        setDetentionBundles(new Set(rows.map((r) => r.bundle_id)));
+        setDetentionRows(rows);
+      })
       .catch(() => {});
   }, []);
   const [tab, setTabState] = useState<TabKey>(() => {
@@ -351,7 +357,19 @@ export default function MyPageClient() {
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out lg:col-span-8">
           {tab === "courses" ? (
             <Section icon={<BookOpen className="h-6 w-6 text-[var(--color-accent)]" />} title="내 강의실">
-              {enrollments.length === 0 ? (
+              {/* 구속수용자 교육 수료증은 수강(enrollment)이 아니라 결제 내역에만
+                  붙어 있어 기본 탭에서 못 찾는 문의가 있었다 — 맨 위에 바로 노출. */}
+              {detentionRows.some((r) => r.certificates.length > 0) ? (
+                <div className="mb-6 space-y-3">
+                  <p className="text-sm font-bold text-slate-700">구속수용자 교육 수료증</p>
+                  {detentionRows
+                    .filter((r) => r.certificates.length > 0)
+                    .map((r) => (
+                      <DetentionCertificates key={r.id} row={r} />
+                    ))}
+                </div>
+              ) : null}
+              {enrollments.length === 0 && !detentionRows.some((r) => r.certificates.length > 0) ? (
                 <EmptyState
                   text="현재 수강 중인 강의가 없습니다."
                   cta={{ href: "/courses", label: "강의 둘러보기" }}
@@ -1456,7 +1474,7 @@ function DetentionLink() {
       href="/detention/my"
       className="mb-4 flex items-center justify-between rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800 hover:bg-blue-100"
     >
-      구속수용자 교육 신청 내역 · 학습 완료 확인
+      구속수용자 교육 신청 내역 · 학습 완료 확인 · 수료증 받기
       <span aria-hidden>→</span>
     </Link>
   );

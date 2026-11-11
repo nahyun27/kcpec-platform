@@ -7,6 +7,7 @@ import { isAxiosError } from "axios";
 import { confirmDetentionLearning, getMyDetention, tokenStorage } from "@/lib/api";
 import { DETENTION_STATUS_LABEL, type DetentionMineRow } from "@/types/detention";
 import { useDialog } from "@/components/ui/DialogProvider";
+import { DetentionCertificates } from "@/components/features/DetentionCertificates";
 
 function fmt(iso: string | null): string {
   return iso ? new Date(iso).toLocaleDateString("ko-KR") : "-";
@@ -37,7 +38,7 @@ export default function DetentionMyClient() {
     try {
       const updated = await confirmDetentionLearning(r.id);
       setRows((prev) => (prev ?? []).map((x) => (x.id === updated.id ? updated : x)));
-      await dialog.alert("학습 완료가 확인되었습니다. 수료증이 발급되면 마이페이지 결제 내역에서 내려받으실 수 있습니다.");
+      await dialog.alert("학습 완료가 확인되었습니다. 수료증이 발급되면 이 페이지에서 바로 내려받으실 수 있습니다.");
     } catch (err) {
       const detail = isAxiosError(err)
         ? (err.response?.data as { detail?: string } | undefined)?.detail
@@ -113,13 +114,17 @@ export default function DetentionMyClient() {
                       </p>
                     ) : null}
                   </div>
-                ) : r.status === "completed" ? (
-                  <p className="text-sm font-semibold text-emerald-700">
-                    수료증이 발급되었습니다. 마이페이지 결제 내역에서 내려받으실 수 있습니다. ({fmt(r.completed_at)})
-                  </p>
+                ) : r.status === "completed" || r.certificates.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-emerald-700">
+                      수료증이 발급되었습니다. 아래 버튼으로 바로 내려받으세요.
+                      {r.completed_at ? ` (${fmt(r.completed_at)})` : ""}
+                    </p>
+                    <DetentionCertificates row={r} showHeader={false} />
+                  </div>
                 ) : (
                   <p className="text-sm text-slate-500">
-                    학습 완료가 확인되었습니다. 수료증이 발급되면 마이페이지 결제 내역에서 내려받으실 수 있습니다.
+                    학습 완료가 확인되었습니다. 수료증이 발급되면 이 페이지에서 바로 내려받으실 수 있습니다.
                   </p>
                 )}
               </li>

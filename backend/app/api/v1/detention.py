@@ -309,6 +309,15 @@ def apply_detention(
     )
 
 
+class DetentionMineCert(BaseModel):
+    order_id: int
+    document_id: int
+    course_title: str
+    issue_number: str
+    pdf_url: str | None
+    pledge_pdf_url: str | None
+
+
 class DetentionMineRow(BaseModel):
     id: int
     bundle_id: str
@@ -324,6 +333,9 @@ class DetentionMineRow(BaseModel):
     # 이 시각 이후부터 학습 완료 확인 가능(자료 발송 전이면 None).
     confirm_available_at: datetime | None
     completed_at: datetime | None
+    # 발급된 수료증(과정별). 마이페이지 결제 내역까지 찾아가지 않고 신청
+    # 내역·내 강의실에서 바로 내려받게 하려고 함께 내려준다.
+    certificates: list[DetentionMineCert] = []
 
 
 @router.get("/my", response_model=list[DetentionMineRow])
@@ -346,6 +358,41 @@ def my_detention_applications(
         paid = any(o.status == OrderStatus.PAID for o, _ in pairs)
         if not paid:
             continue
+        cert_orders = {
+            o.id: c.title
+            for o, c in pairs
+            if o.detention_inmate
+            and o.status == OrderStatus.PAID
+            and c.title != DETENTION_FEE_COURSE_TITLE
+        }
+        docs = (
+            db.scalars(
+                select(IssuedDocument)
+                .where(
+                    IssuedDocument.order_id.in_(cert_orders),
+                    IssuedDocument.status != IssuedDocumentStatus.REVOKED,
+                )
+                .order_by(IssuedDocument.order_id, IssuedDocument.id.desc())
+            ).all()
+            if cert_orders
+            else []
+        )
+        certificates: list[DetentionMineCert] = []
+        seen: set[int] = set()
+        for d in docs:
+            if d.order_id in seen or not d.pdf_url:
+                continue
+            seen.add(d.order_id)
+            certificates.append(
+                DetentionMineCert(
+                    order_id=d.order_id,
+                    document_id=d.id,
+                    course_title=cert_orders[d.order_id],
+                    issue_number=d.issue_number,
+                    pdf_url=d.pdf_url,
+                    pledge_pdf_url=d.pledge_pdf_url,
+                )
+            )
         rows.append(
             DetentionMineRow(
                 id=a.id,
@@ -365,6 +412,7 @@ def my_detention_applications(
                 learning_confirmed_at=a.learning_confirmed_at,
                 confirm_available_at=_eligible_at(a),
                 completed_at=a.completed_at,
+                certificates=certificates,
             )
         )
     return rows
