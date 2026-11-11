@@ -18,6 +18,7 @@ import {
   getMySurvey,
   getOrderDocuments,
   getPosts,
+  getLegalLetterStatus,
   getSurveyStatus,
   markDocumentDownloaded,
   tokenStorage,
@@ -52,6 +53,8 @@ import { useDialog } from "@/components/ui/DialogProvider";
 import { VirtualAccountNotice } from "@/components/features/VirtualAccountNotice";
 import { DetentionCertificates } from "@/components/features/DetentionCertificates";
 import { RefundRequestControl } from "@/components/features/RefundRequestControl";
+import { buildOverview, COUNSELING_BONUS_MATERIALS, DocumentsTab, OverviewStrip } from "./_documents";
+import type { LegalLetterStatus } from "@/types/legalLetter";
 import type { DetentionMineRow } from "@/types/detention";
 
 type OrderWithExtras = OrderResponse & {
@@ -71,17 +74,19 @@ function CounselingStatusText({ status }: { status: CounselingStatus }) {
   );
 }
 
-type TabKey = "courses" | "counseling" | "orders" | "inquiry";
+type TabKey = "courses" | "documents" | "counseling" | "orders" | "inquiry";
 
-const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-  { key: "courses", label: "내 강의실", icon: <BookOpen className="h-4 w-4" /> },
-  { key: "counseling", label: "전문가 심리상담", icon: <FileText className="h-4 w-4" /> },
-  { key: "orders", label: "결제 내역", icon: <CreditCard className="h-4 w-4" /> },
-  { key: "inquiry", label: "1:1 문의", icon: <MessageSquare className="h-4 w-4" /> },
+// short: 모바일에서 탭 5개가 한 줄에 다 보이도록 쓰는 짧은 이름(2026-11).
+const TABS: { key: TabKey; label: string; short: string; icon: React.ReactNode }[] = [
+  { key: "courses", label: "내 강의실", short: "강의실", icon: <BookOpen className="h-4 w-4" /> },
+  { key: "documents", label: "내 서류", short: "내 서류", icon: <Download className="h-4 w-4" /> },
+  { key: "counseling", label: "심리상담", short: "심리상담", icon: <FileText className="h-4 w-4" /> },
+  { key: "orders", label: "결제 내역", short: "결제", icon: <CreditCard className="h-4 w-4" /> },
+  { key: "inquiry", label: "1:1 문의", short: "문의", icon: <MessageSquare className="h-4 w-4" /> },
 ];
 
 function isTabKey(s: string | null): s is TabKey {
-  return s === "courses" || s === "counseling" || s === "orders" || s === "inquiry";
+  return TABS.some((t) => t.key === s);
 }
 
 export default function MyPageClient() {
@@ -171,6 +176,12 @@ export default function MyPageClient() {
     return groups;
   }, [visibleOrders]);
   const [counselingOrders, setCounselingOrders] = useState<CounselingOrderItem[]>([]);
+  const [legalLetters, setLegalLetters] = useState<LegalLetterStatus[]>([]);
+  const [unansweredInquiries, setUnansweredInquiries] = useState(0);
+  const overview = useMemo(
+    () => buildOverview({ orders, enrollments, counselingOrders, detentionRows, legalLetters }),
+    [orders, enrollments, counselingOrders, detentionRows, legalLetters],
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -275,6 +286,19 @@ export default function MyPageClient() {
             }),
         );
         if (!cancelled) setOrders(enriched);
+        // 반성문·탄원서 진행 상태("내 서류" 탭용)와 답변 대기 문의 수
+        const letterOrders = o.filter(
+          (x) => x.status === "paid" && legalLetterTypeFromCourseTitle(x.course_title),
+        );
+        const [letters, qna] = await Promise.all([
+          Promise.all(
+            letterOrders.map((x) => getLegalLetterStatus(x.id).catch(() => null)),
+          ),
+          getPosts("qna", 1, 100).catch(() => null),
+        ]);
+        if (cancelled) return;
+        setLegalLetters(letters.filter((x): x is LegalLetterStatus => x !== null));
+        setUnansweredInquiries(qna ? qna.items.filter((p) => !p.admin_reply).length : 0);
       } catch (err) {
         if (cancelled) return;
         if (isAxiosError(err) && err.response?.status === 401) {
@@ -329,9 +353,14 @@ export default function MyPageClient() {
       </div>
 
       <div className="mx-auto max-w-5xl space-y-8 md:space-y-12 px-4 md:px-6 pt-8 md:pt-12">
-      {/* 탭 네비게이션 */}
-      <div className="hide-scrollbar -mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
-        <div className="inline-flex w-max gap-1 rounded-full bg-slate-100/80 p-1 shadow-inner sm:w-auto sm:gap-1.5 border border-slate-200/60">
+      <OverviewStrip
+        overview={overview}
+        unansweredInquiries={unansweredInquiries}
+        onGo={(t) => setTab(t)}
+      />
+      {/* 탭 네비게이션 — 모바일은 5칸 균등(아이콘+짧은 이름), 데스크톱은 알약형 */}
+      <div className="pb-2">
+        <div className="grid grid-cols-5 gap-1 rounded-2xl border border-slate-200/60 bg-slate-100/80 p-1 shadow-inner sm:inline-flex sm:w-auto sm:gap-1.5 sm:rounded-full">
           {TABS.map((t) => {
             const active = tab === t.key;
             return (
@@ -339,14 +368,20 @@ export default function MyPageClient() {
                 key={t.key}
                 type="button"
                 onClick={() => setTab(t.key)}
-                className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 sm:gap-2 sm:px-6 sm:py-2.5 ${
+                className={`relative flex flex-col items-center justify-center gap-0.5 whitespace-nowrap rounded-xl px-1 py-2 text-[11px] font-semibold transition-all duration-300 sm:flex-row sm:gap-2 sm:rounded-full sm:px-5 sm:py-2.5 sm:text-sm ${
                   active
-                    ? "bg-white text-[var(--color-primary)] shadow-md ring-1 ring-black/5 scale-[1.02]"
+                    ? "bg-white text-[var(--color-primary)] shadow-md ring-1 ring-black/5"
                     : "text-slate-500 hover:bg-slate-200/60 hover:text-slate-800"
                 }`}
               >
                 {t.icon}
-                {t.label}
+                <span className="sm:hidden">{t.short}</span>
+                <span className="hidden sm:inline">{t.label}</span>
+                {t.key === "documents" && overview.ready.length > 0 ? (
+                  <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-emerald-500 sm:static sm:h-auto sm:w-auto sm:rounded-full sm:bg-emerald-100 sm:px-1.5 sm:text-[11px] sm:font-bold sm:text-emerald-700">
+                    <span className="hidden sm:inline">{overview.ready.length}</span>
+                  </span>
+                ) : null}
               </button>
             );
           })}
@@ -393,6 +428,12 @@ export default function MyPageClient() {
                   ))}
                 </ul>
               )}
+            </Section>
+          ) : null}
+
+          {tab === "documents" ? (
+            <Section icon={<Download className="h-6 w-6 text-[var(--color-accent)]" />} title="내 서류">
+              <DocumentsTab overview={overview} />
             </Section>
           ) : null}
 
@@ -516,7 +557,7 @@ export default function MyPageClient() {
               <FileText className="h-4 w-4" /> 문서 발급 안내
             </h3>
             <p className="text-sm text-slate-600 leading-relaxed mb-4">
-              수료증은 강의 수료(진도+퀴즈 통과) 후, 상담 의견서는 결제 후 해당 내역에서 직접 다운로드하실 수 있습니다. 법원 제출용으로 바로 사용 가능합니다.
+              수료증, 심리상담 의견서, 반성문·탄원서 등 발급된 서류는 모두 '내 서류' 탭에서 바로 내려받을 수 있습니다. 법원 제출용으로 바로 사용 가능합니다.
             </p>
             <Link href="/#faq" className="text-sm font-semibold text-[var(--color-accent)] hover:underline inline-flex items-center">
               자주 묻는 질문 보기 <ChevronRight className="h-4 w-4 ml-0.5" />
@@ -1570,12 +1611,7 @@ function OrderStatusBadge({ status }: { status: OrderResponse["status"] }) {
 // 심리상담 의견서와 함께 무료 제공되는 부가 자료(양형자료 페이지에서 안내하는
 // "4가지 서류") — 전부 본인이 직접 작성하는 빈 양식이라 개인화 없이 그대로
 // 첨부 다운로드로 제공한다(2026-09).
-const COUNSELING_BONUS_MATERIALS: { label: string; path: string }[] = [
-  { label: "자기성찰 리포트", path: "/static/resources/self_reflection_report.pdf" },
-  { label: "교육이수 소감문", path: "/static/resources/course_completion_journal.pdf" },
-  { label: "CBT 자가진단 검사지", path: "/static/resources/cbt_self_assessment.pdf" },
-  { label: "양형자료 준비 가이드북", path: "/static/resources/sentencing_materials_guidebook.pdf" },
-];
+
 
 function CounselingOrderCard({
   order,
