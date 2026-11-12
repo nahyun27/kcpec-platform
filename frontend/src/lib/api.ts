@@ -70,6 +70,8 @@ import type {
   PostPatch,
   AdminRefundRequestRow,
   RefundRequestStatus,
+  AdSpendMonthRow,
+  AdSpendUploadResult,
 } from "@/types/admin";
 import type {
   Faq,
@@ -635,6 +637,30 @@ export async function getMyCounselingOrders(): Promise<CounselingOrderItem[]> {
 
 export async function getAdminStats(): Promise<AdminStats> {
   const { data } = await api.get<AdminStats>("/admin/stats");
+  return data;
+}
+
+// ---------- 광고비(2026-11) ----------
+export async function getAdminAdSpend(): Promise<AdSpendMonthRow[]> {
+  const { data } = await api.get<AdSpendMonthRow[]>("/admin/ad-spend");
+  return data;
+}
+
+export async function uploadAdminAdSpendReport(file: File): Promise<AdSpendUploadResult> {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await api.post<AdSpendUploadResult>("/admin/ad-spend/upload", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+}
+
+export async function setAdminAdSpendMonth(
+  month: string,
+  channel: string,
+  cost: number,
+): Promise<AdSpendMonthRow[]> {
+  const { data } = await api.put<AdSpendMonthRow[]>("/admin/ad-spend/month", { month, channel, cost });
   return data;
 }
 

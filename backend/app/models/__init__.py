@@ -1,3 +1,4 @@
+from app.models.ad_spend import AdSpend
 from app.models.community import Notice, NoticeCategory, Post, PostCategory
 from app.models.counseling import CounselingStatus, CounselingSurvey
 from app.models.course import Course, CourseCategory

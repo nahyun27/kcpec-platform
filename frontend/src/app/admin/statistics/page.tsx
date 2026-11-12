@@ -25,6 +25,7 @@ import {
   ExternalLink,
   GraduationCap,
   HeartHandshake,
+  Megaphone,
   ReceiptText,
   Repeat,
   TrendingUp,
@@ -35,7 +36,8 @@ import {
 
 import { getAdminSalesStats, getAdminVisitorStats } from "@/lib/api";
 import { PAYMENT_METHOD_LABEL } from "@/types/order";
-import type { SalesStats, VisitorStats } from "@/types/admin";
+import type { SalesStats, SalesStatsMonthly, VisitorStats } from "@/types/admin";
+import { AdSpendSection, roas } from "./_adspend";
 import { getTierLabel } from "@/lib/courseTiers";
 
 const PIE_COLORS = ["#1C3461", "#2A4B8D", "#5B85C7", "#A6BFD9", "#D9A23E"];
@@ -80,6 +82,7 @@ function AdminStatsPage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     let cancelled = false;
     getAdminSalesStats(days, courseScope === "recent" ? 30 : undefined)
@@ -92,7 +95,7 @@ function AdminStatsPage() {
     return () => {
       cancelled = true;
     };
-  }, [days, courseScope]);
+  }, [days, courseScope, reloadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,6 +138,7 @@ function AdminStatsPage() {
           onDaysChange={setDays}
           courseScope={courseScope}
           onCourseScopeChange={setCourseScope}
+          onAdSpendChanged={() => setReloadKey((k) => k + 1)}
         />
       ) : (
         <VisitorStatsView
@@ -239,8 +243,10 @@ function SalesStatsView({
   onDaysChange,
   courseScope,
   onCourseScopeChange,
+  onAdSpendChanged,
 }: {
   data: SalesStats;
+  onAdSpendChanged: () => void;
   totalByCourseRevenue: number;
   mounted: boolean;
   days: number;
@@ -286,7 +292,7 @@ function SalesStatsView({
   return (
     <div className="space-y-6">
       {/* 요약 카드 */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <SummaryCard
           icon={<Wallet className="h-4 w-4" />}
           label="이번달 매출"
@@ -322,6 +328,24 @@ function SalesStatsView({
               : momChange?.dir === "down"
                 ? "bad"
                 : "neutral"
+          }
+        />
+        <SummaryCard
+          icon={<Megaphone className="h-4 w-4" />}
+          label="전월 광고비 · ROAS"
+          value={
+            data.last_month_ad_cost
+              ? `${data.last_month_ad_cost.toLocaleString()}원`
+              : "미입력"
+          }
+          sub={
+            data.last_month_ad_cost
+              ? `ROAS ${roas(data.last_month_revenue, data.last_month_ad_cost)}${
+                  data.this_month_ad_cost
+                    ? ` · 이번달 ${data.this_month_ad_cost.toLocaleString()}원`
+                    : ""
+                }`
+              : "아래에서 리포트를 올려 주세요"
           }
         />
         <SummaryCard
@@ -392,7 +416,11 @@ function SalesStatsView({
                   <Tooltip
                     formatter={(v, name) => [
                       `${Number(v).toLocaleString()}원`,
-                      name === "counseling_revenue" ? "심리상담 매출" : "전체 매출",
+                      name === "counseling_revenue"
+                        ? "심리상담 매출"
+                        : name === "ad_cost"
+                          ? "광고비"
+                          : "전체 매출",
                     ]}
                     labelFormatter={(d) => String(d)}
                     contentStyle={{ fontSize: 12 }}
@@ -401,7 +429,11 @@ function SalesStatsView({
                     verticalAlign="top"
                     height={28}
                     formatter={(value: string) =>
-                      value === "counseling_revenue" ? "심리상담 매출" : "전체 매출"
+                      value === "counseling_revenue"
+                        ? "심리상담 매출"
+                        : value === "ad_cost"
+                          ? "광고비"
+                          : "전체 매출"
                     }
                     wrapperStyle={{ fontSize: 11 }}
                   />
@@ -414,6 +446,18 @@ function SalesStatsView({
                     dot={false}
                     activeDot={{ r: 4 }}
                   />
+                  {data.daily_revenue.some((d) => (d.ad_cost ?? 0) > 0) ? (
+                    <Line
+                      type="monotone"
+                      dataKey="ad_cost"
+                      name="ad_cost"
+                      stroke="#F59E0B"
+                      strokeWidth={2}
+                      strokeDasharray="4 3"
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                  ) : null}
                   <Line
                     type="monotone"
                     dataKey="counseling_revenue"
@@ -441,16 +485,29 @@ function SalesStatsView({
                     width={48}
                   />
                   <Tooltip
-                    formatter={(v, _n, item) => [
-                      `${Number(v).toLocaleString()}원 · ${(
-                        (item?.payload as { orders?: number } | undefined)?.orders ?? 0
-                      ).toLocaleString()}건`,
-                      "매출",
-                    ]}
+                    formatter={(v, n, item) => {
+                      const p = item?.payload as SalesStatsMonthly | undefined;
+                      if (n === "ad_cost")
+                        return [
+                          `${Number(v).toLocaleString()}원 · ROAS ${roas(p?.revenue ?? 0, p?.ad_cost ?? 0)}`,
+                          "광고비",
+                        ];
+                      return [
+                        `${Number(v).toLocaleString()}원 · ${(p?.orders ?? 0).toLocaleString()}건`,
+                        "매출",
+                      ];
+                    }}
                     labelFormatter={(m) => String(m)}
                     contentStyle={{ fontSize: 12 }}
                   />
+                  <Legend
+                    verticalAlign="top"
+                    height={28}
+                    formatter={(value: string) => (value === "ad_cost" ? "광고비" : "매출")}
+                    wrapperStyle={{ fontSize: 11 }}
+                  />
                   <Bar dataKey="revenue" fill="#1C3461" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="ad_cost" fill="#F59E0B" radius={[3, 3, 0, 0]} />
                 </BarChart>
               )}
             </ResponsiveContainer>
@@ -463,6 +520,8 @@ function SalesStatsView({
           </p>
         ) : null}
       </section>
+
+      <AdSpendSection monthly={data.monthly_revenue} onChanged={onAdSpendChanged} />
 
       {/* 결제 발생 시간대 (한국 시간) — 일별 매출 그래프와 같은 기간(days) 기준 */}
       <section className="rounded-lg border border-zinc-200 bg-white p-4">

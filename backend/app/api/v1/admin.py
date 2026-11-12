@@ -1913,6 +1913,11 @@ def admin_sales_stats(
         bucket["orders"] += 1
         if category == CourseCategory.COUNSELING:
             bucket["counseling_revenue"] += amount
+    from app.api.v1.ad_spend import daily_ad_cost, monthly_ad_cost
+
+    daily_ads = daily_ad_cost(
+        db, thirty_days_ago.date(), (_kst_day_start(today) + timedelta(days=1)).date()
+    )
     daily_revenue: list[SalesStatsDaily] = []
     for i in range(days):
         d = (thirty_days_ago + timedelta(days=i)).date().isoformat()
@@ -1923,6 +1928,7 @@ def admin_sales_stats(
                 revenue=b["revenue"],
                 orders=b["orders"],
                 counseling_revenue=b["counseling_revenue"],
+                ad_cost=daily_ads.get(d, 0),
             )
         )
 
@@ -1956,11 +1962,14 @@ def admin_sales_stats(
         if bucket is not None:
             bucket["revenue"] += amount
             bucket["orders"] += 1
+    ads_by_month = monthly_ad_cost(db)
     monthly_revenue = [
         SalesStatsMonthly(
             month=f"{y:04d}-{m:02d}",
             revenue=monthly_buckets[(y, m)]["revenue"],
             orders=monthly_buckets[(y, m)]["orders"],
+            ad_cost=sum(ads_by_month.get(f"{y:04d}-{m:02d}", {}).values()),
+            ad_cost_by_channel=ads_by_month.get(f"{y:04d}-{m:02d}", {}),
         )
         for (y, m) in months
     ]
@@ -2021,6 +2030,10 @@ def admin_sales_stats(
         this_month_revenue=this_month_revenue,
         this_month_orders=this_month_orders,
         last_month_revenue=last_month_revenue,
+        this_month_ad_cost=sum(ads_by_month.get(f"{today.year:04d}-{today.month:02d}", {}).values()),
+        last_month_ad_cost=sum(
+            ads_by_month.get(last_month_start.strftime("%Y-%m"), {}).values()
+        ),
         avg_order_amount=avg_order_amount,
         daily_revenue=daily_revenue,
         monthly_revenue=monthly_revenue,

@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.api.v1 import ad_spend as ad_spend_v1
 from app.api.v1 import admin as admin_v1
 from app.api.v1 import auth as auth_v1
 from app.api.v1 import community as community_v1
@@ -56,6 +57,7 @@ app.include_router(counseling_v1.router, prefix=settings.API_V1_PREFIX)
 app.include_router(counseling_purchase_v1.router, prefix=settings.API_V1_PREFIX)
 app.include_router(community_v1.router, prefix=settings.API_V1_PREFIX)
 app.include_router(admin_v1.router, prefix=settings.API_V1_PREFIX)
+app.include_router(ad_spend_v1.router, prefix=settings.API_V1_PREFIX)
 app.include_router(detention_v1.router, prefix=settings.API_V1_PREFIX)
 app.include_router(detention_v1.admin_router, prefix=settings.API_V1_PREFIX)
 app.include_router(legal_letters_v1.router, prefix=settings.API_V1_PREFIX)

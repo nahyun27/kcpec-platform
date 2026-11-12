@@ -245,12 +245,15 @@ class SalesStatsDaily(BaseModel):
     revenue: int  # 강의+심리상담 합계(전체)
     orders: int
     counseling_revenue: int  # revenue 중 심리상담 몫(부분집합)
+    ad_cost: int = 0  # 그날 광고비(일자별 기록이 있는 경우만)
 
 
 class SalesStatsMonthly(BaseModel):
     month: str  # ISO YYYY-MM (한국 시간 기준)
     revenue: int
     orders: int
+    ad_cost: int = 0  # 그달 광고비 합계(ad_spend, 2026-11)
+    ad_cost_by_channel: dict[str, int] = {}
 
 
 class SalesStatsHourly(BaseModel):
@@ -276,6 +279,8 @@ class SalesStats(BaseModel):
     this_month_revenue: int
     this_month_orders: int
     last_month_revenue: int
+    this_month_ad_cost: int = 0
+    last_month_ad_cost: int = 0
     avg_order_amount: int
     daily_revenue: list[SalesStatsDaily]
     # 최근 12개월(이번달 포함) 월별 매출 — daily_revenue 의 days 선택기와

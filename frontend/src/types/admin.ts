@@ -319,12 +319,34 @@ export type SalesStatsDaily = {
   revenue: number;
   orders: number;
   counseling_revenue: number;
+  ad_cost?: number;
 };
 
 export type SalesStatsMonthly = {
   month: string; // "YYYY-MM"
   revenue: number;
   orders: number;
+  ad_cost?: number;
+  ad_cost_by_channel?: Record<string, number>;
+};
+
+export type AdSpendMonthRow = {
+  month: string;
+  channel: string;
+  channel_label: string;
+  cost: number;
+  impressions: number | null;
+  clicks: number | null;
+  has_daily: boolean;
+  from_weekly?: boolean;
+  source: "upload" | "manual";
+};
+
+export type AdSpendUploadResult = {
+  imported_days: number;
+  imported_months: number;
+  months: string[];
+  total_cost: number;
 };
 
 export type SalesStatsHourly = {
@@ -351,6 +373,8 @@ export type SalesStats = {
   this_month_revenue: number;
   this_month_orders: number;
   last_month_revenue: number;
+  this_month_ad_cost?: number;
+  last_month_ad_cost?: number;
   avg_order_amount: number;
   daily_revenue: SalesStatsDaily[];
   monthly_revenue: SalesStatsMonthly[];
