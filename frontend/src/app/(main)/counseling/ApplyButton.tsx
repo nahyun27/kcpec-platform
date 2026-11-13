@@ -1,5 +1,6 @@
 "use client";
 
+import { COUNSELING_CARD_REVIEW_NOTICE } from "@/lib/tossNotice";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
@@ -13,10 +14,6 @@ const LETTER_TYPES: LegalLetterType[] = ["repentance", "petition"];
 // 반성문·탄원서 — 노출 위치 확정(전문가 심리상담 탭) 후 켬(2026-09).
 const LEGAL_LETTERS_ENABLED = true;
 
-// 상담 전용 토스 상점(kcpeca9706)은 BC·우리카드 카드사 심사가 아직 진행 중이라
-// 두 카드로는 결제가 거절된다(2026-11-11 토스 안내, 2~3주 소요). 이 버튼의
-// 결제만 그 상점으로 가므로 여기에만 안내한다. 승인 나면 false 로 끌 것.
-const CARD_REVIEW_NOTICE = true;
 
 export default function ApplyButton({
   counselingType,
@@ -182,7 +179,7 @@ export default function ApplyButton({
       >
         {submitting ? "신청 처리 중..." : `${totalPrice.toLocaleString()}원 신청하기`}
       </button>
-      {CARD_REVIEW_NOTICE ? (
+      {COUNSELING_CARD_REVIEW_NOTICE ? (
         <p className="mt-2 text-center text-xs leading-relaxed text-slate-500">
           현재 BC카드·우리카드는 결제가 어렵습니다.
           <br />

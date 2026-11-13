@@ -1,5 +1,6 @@
 "use client";
 
+import { COUNSELING_CARD_REVIEW_NOTICE } from "@/lib/tossNotice";
 import { PaymentTrustNote } from "@/components/ui/PaymentTrustNote";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -513,6 +514,15 @@ export default function CheckoutBundleClient() {
                   );
                 })}
               </div>
+
+              {COUNSELING_CARD_REVIEW_NOTICE &&
+              paymentMethod === "card" &&
+              courses.some((c) => (c.category as string) === "심리상담") ? (
+                <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-500">
+                  심리상담이 포함된 카드결제는 현재 BC카드·우리카드로 결제가 어렵습니다. 다른 카드나
+                  간편결제·계좌이체를 이용해 주세요.
+                </p>
+              ) : null}
 
               {easyPay ? (
                 <div className="mt-6">

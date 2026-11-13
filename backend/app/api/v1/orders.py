@@ -536,7 +536,14 @@ def create_order_bundle(
 
     # 묶음결제도 강의 전용 상점으로 받는다(2026-11). 반성문·탄원서·심리상담이 섞인
     # 묶음도 어느 상점으로 받든 된다고 토스가 답했다. 결제 한 번엔 상점 하나만 쓸 수 있다.
-    toss_mid = course_mid()
+    # 단, 심리상담이 들어간 묶음을 카드로 결제하면 상담 상점으로 받는다(2026-11,
+    # 상담 상점 이용이 거의 없어 결제를 나눠 받기 위해). 간편결제·계좌이체·
+    # 가상계좌는 상담 상점 계약에 없으니 그대로 강의 상점.
+    has_counseling = any(c.category == CourseCategory.COUNSELING for c in all_courses)
+    if has_counseling and payload.payment_method == PaymentMethod.CARD and counseling_mid():
+        toss_mid = counseling_mid()
+    else:
+        toss_mid = course_mid()
     if payload.payment_method in EASY_PAY_METHODS and toss_mid is None:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
