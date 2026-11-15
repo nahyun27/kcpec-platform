@@ -7,6 +7,12 @@ toss_mid 가 비어 있는 주문(기존 주문 전부)은 기본 상점(TOSS_SE
 """
 from app.core.config import settings
 
+# 상담 상점(kcpeca9706)의 BC 카드사 심사가 끝났는지. 끝나기 전엔 상담이 든
+# 묶음결제라도 카드는 강의 상점으로 받는다(BC계열이 카드결제의 약 10%,
+# 2026-11-15 최근 276건 기준). 토스 상점관리자에서 BC가 "심사승인"이 되면
+# True 로 바꾸고 프런트 COUNSELING_CARD_REVIEW_NOTICE 를 false 로.
+COUNSELING_STORE_CARD_READY = False
+
 
 def course_mid() -> str | None:
     """온라인 강의 결제를 받을 상점. 키가 덜 설정됐거나 시뮬레이션 모드면 None

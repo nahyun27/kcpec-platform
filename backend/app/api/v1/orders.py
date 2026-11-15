@@ -13,7 +13,13 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.email import send_new_order_notification
 from app.core.qr import generate_qr_png
-from app.core.toss import client_key_for_mid, counseling_mid, course_mid, secret_key_for_mid
+from app.core.toss import (
+    COUNSELING_STORE_CARD_READY,
+    client_key_for_mid,
+    counseling_mid,
+    course_mid,
+    secret_key_for_mid,
+)
 from app.models.course import Course, CourseCategory
 from app.models.enrollment import Enrollment
 from app.models.lawyer_partner import LawyerPartner, LawyerPartnerStatus, generate_portal_token, generate_referral_code
@@ -269,9 +275,10 @@ def create_order(
             )
 
     # 온라인 강의는 강의 상점, 심리상담은 상담 상점(키 없으면 둘 다 기본 상점).
-    # 간편결제는 강의 상점 계약에만 있어서 그 외 상점이면 막는다.
+    # 간편결제는 강의·상담 상점 둘 다 계약돼 있다(2026-11-15 상담 상점 확인).
+    # 키가 없어 기본 상점으로 받는 경우에만 막는다.
     toss_mid = course_mid() if course.category != CourseCategory.COUNSELING else counseling_mid()
-    if payload.payment_method in EASY_PAY_METHODS and (toss_mid is None or toss_mid != course_mid()):
+    if payload.payment_method in EASY_PAY_METHODS and toss_mid is None:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             detail="이 결제에서는 간편결제를 쓸 수 없습니다. 신용/체크카드를 선택해 주세요.",
@@ -536,14 +543,19 @@ def create_order_bundle(
 
     # 묶음결제도 강의 전용 상점으로 받는다(2026-11). 반성문·탄원서·심리상담이 섞인
     # 묶음도 어느 상점으로 받든 된다고 토스가 답했다. 결제 한 번엔 상점 하나만 쓸 수 있다.
-    # 단, 심리상담이 들어간 묶음을 카드로 결제하면 상담 상점으로 받는다(2026-11,
-    # 상담 상점 이용이 거의 없어 결제를 나눠 받기 위해). 간편결제·계좌이체·
-    # 가상계좌는 상담 상점 계약에 없으니 그대로 강의 상점.
+    # 단, 심리상담이 들어간 묶음은 상담 상점으로 나눠 받는다(2026-11, 상담 상점
+    # 이용이 거의 없어서). 상담 상점 계약: 카드·계좌이체·간편결제 8종, 가상계좌 없음.
+    # - 간편결제: 상담 상점
+    # - 카드: BC 카드사 심사가 끝나면(COUNSELING_STORE_CARD_READY) 상담 상점.
+    #   그 전엔 BC계열(카드결제의 약 10%)이 막히므로 강의 상점.
+    # - 계좌이체: 상담 상점에 에스크로가 "사용"이라 강의 상점에 둔다.
+    # - 가상계좌: 상담 상점 계약에 없으니 강의 상점.
     has_counseling = any(c.category == CourseCategory.COUNSELING for c in all_courses)
-    if has_counseling and payload.payment_method == PaymentMethod.CARD and counseling_mid():
-        toss_mid = counseling_mid()
-    else:
-        toss_mid = course_mid()
+    to_counseling_store = has_counseling and (
+        payload.payment_method in EASY_PAY_METHODS
+        or (payload.payment_method == PaymentMethod.CARD and COUNSELING_STORE_CARD_READY)
+    )
+    toss_mid = counseling_mid() if to_counseling_store and counseling_mid() else course_mid()
     if payload.payment_method in EASY_PAY_METHODS and toss_mid is None:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
