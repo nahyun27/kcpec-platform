@@ -181,7 +181,7 @@ export default function ApplyButton({
       </button>
       {COUNSELING_CARD_REVIEW_NOTICE ? (
         <p className="mt-2 text-center text-xs leading-relaxed text-slate-500">
-          현재 BC카드·우리카드는 결제가 어렵습니다.
+          현재 BC카드(IBK기업·SC제일 등 BC계열 포함)는 결제가 어렵습니다.
           <br />
           간편결제 포함, 다른 카드로 결제해 주세요.
         </p>
