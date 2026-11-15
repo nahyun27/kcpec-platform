@@ -1090,6 +1090,15 @@ def toss_webhook(
         # 어느 쪽이든 우리가 할 일이 없으므로 정상 응답으로 재전송을 끊는다.
         return {"status": "ignored"}
 
+    # 이미 취소·처리 끝난 주문에 온 취소/만료 알림은 할 일이 없다. 고객이 주문을
+    # 취소하면 우리가 토스 가상계좌도 취소하고 va_secret 을 지우는데, 토스가 그
+    # 취소를 다시 웹훅(CANCELED)으로 알려 온다 — 아래 대조에서 400 이 나 토스가
+    # 7번 재전송하며 "콜백 호출 실패" 메일을 보냈다(2026-11-14). 상태를 바꾸지
+    # 않으니 검증 없이 200 으로 끊는다. 취소된 주문에 DONE(실제 입금)이 오면
+    # 지금처럼 400 으로 두어 실패 메일로 알아챌 수 있게 한다.
+    if payload.status != "DONE" and all(o.status != OrderStatus.PENDING for o in orders):
+        return {"status": "ignored"}
+
     # va_secret 대조 — HMAC 서명이 아니라 confirm 응답에서 미리 저장해둔
     # 값과의 단순 문자열 비교(토스 DEPOSIT_CALLBACK 검증 방식). 불일치하면
     # 위조/오발신으로 간주하고 아무 상태도 바꾸지 않는다.
