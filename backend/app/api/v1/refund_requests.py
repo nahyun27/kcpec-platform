@@ -5,8 +5,9 @@ admin.perform_refund(관리자 환불과 같은 처리: 토스 부분 취소, �
 수강 등록 삭제)가 실행된다. 토스 가상계좌 결제 건은 신청 때 환불받을 계좌를
 받아 토스가 자동 입금하게 한다.
 
-온라인 신청 대상은 강의 상품만이다. 심리상담·반성문·탄원서·구속수용자 교육은
-결제 직후 작업이 시작되므로 지금처럼 1:1 문의로 받는다.
+온라인 신청 대상은 강의 상품과 반성문·탄원서(작성 시작 전, 2026-11 추가)다.
+심리상담·구속수용자 교육은 결제 직후 작업이 시작되므로 1:1 문의로 받는다.
+묶음결제는 신청 가능한 항목을 한 번에 신청할 수도 있다(묶음 전체 환불 신청).
 """
 
 from __future__ import annotations
@@ -23,8 +24,13 @@ from app.api.v1.admin import (
     _plan_refund,
     is_toss_virtual_account,
     perform_refund,
+    plan_refund_set,
 )
-from app.api.v1.orders import NON_ENROLLABLE_COURSE_TITLES
+from app.api.v1.orders import (
+    NON_ENROLLABLE_COURSE_TITLES,
+    PETITION_LETTER_COURSE_TITLE,
+    REPENTANCE_LETTER_COURSE_TITLE,
+)
 from app.core.admin import require_admin
 from app.core.database import get_db
 from app.core.deps import get_current_user
@@ -32,6 +38,7 @@ from app.core.email import send_refund_requested_to_staff, send_refund_result_to
 from app.models.course import Course, CourseCategory
 from app.models.document import IssuedDocument, IssuedDocumentStatus
 from app.models.enrollment import Enrollment, LectureProgress
+from app.models.legal_letter import LegalLetter
 from app.models.order import Order, OrderStatus, OrderType, PaymentMethod
 from app.models.refund_request import RefundRequest, RefundRequestStatus
 from app.models.user import User
@@ -83,7 +90,18 @@ def _aware(dt: datetime | None) -> datetime | None:
     return dt
 
 
+LETTER_COURSE_TITLES = {REPENTANCE_LETTER_COURSE_TITLE, PETITION_LETTER_COURSE_TITLE}
+
+
+def _is_letter(db: Session, order: Order) -> bool:
+    course = db.get(Course, order.course_id)
+    return course is not None and course.title in LETTER_COURSE_TITLES
+
+
 def has_started(db: Session, order: Order) -> bool:
+    # 반성문·탄원서는 질문에 답해 작성을 제출하면(legal_letters 행 생성) 시작.
+    if _is_letter(db, order):
+        return db.scalar(select(LegalLetter.id).where(LegalLetter.order_id == order.id)) is not None
     enrollment = db.scalar(
         select(Enrollment).where(
             Enrollment.user_id == order.user_id, Enrollment.course_id == order.course_id
@@ -123,12 +141,16 @@ def check_eligibility(db: Session, order: Order, course: Course | None = None) -
         or order.detention_inmate
         or course is None
         or course.category == CourseCategory.COUNSELING
-        or course.title in NON_ENROLLABLE_COURSE_TITLES
+        or (course.title in NON_ENROLLABLE_COURSE_TITLES and course.title not in LETTER_COURSE_TITLES)
     ):
         return "강의 상품만 온라인으로 환불 신청할 수 있습니다. 1:1 문의로 요청해 주세요."
     # 예전 아임웹 직접 무통장 입금 건은 토스를 거치지 않아 자동 환불이 안 된다.
     if order.payment_method == PaymentMethod.BANK_TRANSFER and not order.toss_payment_key:
         return "이 결제 건은 1:1 문의로 환불을 요청해 주세요."
+    if course.title in LETTER_COURSE_TITLES:
+        if has_started(db, order):
+            return "이미 작성을 시작한 반성문·탄원서는 환불할 수 없습니다."
+        return None
     enrollment = db.scalar(
         select(Enrollment).where(
             Enrollment.user_id == order.user_id, Enrollment.course_id == order.course_id
@@ -180,6 +202,24 @@ class RefundRequestOut(BaseModel):
     decided_at: datetime | None
 
 
+def _validated_account(order: Order, account: RefundAccount | None) -> RefundAccount | None:
+    """가상계좌 결제면 환불계좌를 검증해 돌려주고, 아니면 None."""
+    if not is_toss_virtual_account(order):
+        return None
+    if account is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="환불받으실 계좌 정보를 입력해 주세요.")
+    if account.bank_code not in REFUND_BANKS:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="은행을 다시 선택해 주세요.")
+    digits = account.account_number.replace("-", "").replace(" ", "")
+    if not digits.isdigit() or not 6 <= len(digits) <= 20:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail="계좌번호는 숫자만 정확히 입력해 주세요."
+        )
+    return RefundAccount(
+        bank_code=account.bank_code, account_number=digits, holder_name=account.holder_name.strip()
+    )
+
+
 def _own_order(db: Session, order_id: int, user: User) -> Order:
     order = db.get(Order, order_id)
     if order is None or order.user_id != user.id:
@@ -225,24 +265,7 @@ def create_refund_request(
     reason = check_eligibility(db, order)
     if reason:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=reason)
-    account = payload.refund_account
-    if is_toss_virtual_account(order):
-        if account is None:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST, detail="환불받으실 계좌 정보를 입력해 주세요."
-            )
-        if account.bank_code not in REFUND_BANKS:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="은행을 다시 선택해 주세요.")
-        digits = account.account_number.replace("-", "").replace(" ", "")
-        if not digits.isdigit() or not 6 <= len(digits) <= 20:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST, detail="계좌번호는 숫자만 정확히 입력해 주세요."
-            )
-        account = RefundAccount(
-            bank_code=account.bank_code, account_number=digits, holder_name=account.holder_name.strip()
-        )
-    else:
-        account = None
+    account = _validated_account(order, payload.refund_account)
 
     plan = _plan_refund(db, order)
     req = RefundRequest(
@@ -291,6 +314,135 @@ def _clear_account(req: RefundRequest) -> None:
     # 계좌번호는 처리가 끝나면 보관할 이유가 없어 지운다(은행·예금주만 남김).
     req.refund_account_number = None
 
+
+
+# ---------- 고객: 묶음 전체 환불 신청 ----------------------------------------------
+
+
+class BundleRefundLine(BaseModel):
+    order_id: int
+    course_title: str
+    amount: int  # 이 항목에 돌려줄 금액(신청 가능한 항목만)
+
+
+class BundleRefundExcluded(BaseModel):
+    course_title: str
+    reason: str
+
+
+class BundleRefundCheckResponse(BaseModel):
+    items: list[BundleRefundLine]
+    excluded: list[BundleRefundExcluded]
+    total: int
+    forfeited_discount: int = 0
+    needs_account: bool = False
+    banks: dict[str, str] = {}
+
+
+def _bundle_plan(db: Session, bundle_id: str, user: User):
+    orders = list(
+        db.scalars(
+            select(Order)
+            .where(Order.bundle_id == bundle_id, Order.user_id == user.id)
+            .order_by(Order.id)
+        ).all()
+    )
+    if not orders:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="주문을 찾을 수 없습니다.")
+    eligible: list[Order] = []
+    excluded: list[tuple[Order, str]] = []
+    for o in orders:
+        if o.status != OrderStatus.PAID:
+            continue
+        if pending_request(db, o.id) is not None:
+            excluded.append((o, "이미 환불 신청이 접수되어 있습니다."))
+            continue
+        reason = check_eligibility(db, o)
+        if reason:
+            excluded.append((o, reason))
+        else:
+            eligible.append(o)
+    # 항목별 금액: 앞에서부터 차례로 환불한다고 보고 나눈다(관리자가 승인하는
+    # 순서와 같으면 합계가 정확히 맞는다).
+    amounts: dict[int, int] = {}
+    done: set[int] = set()
+    prev = 0
+    for o in eligible:
+        done.add(o.id)
+        cum = plan_refund_set(db, bundle_id, set(done)).amount
+        amounts[o.id] = cum - prev
+        prev = cum
+    plan = plan_refund_set(db, bundle_id, set(done)) if done else None
+    return orders, eligible, excluded, amounts, plan
+
+
+def _title(db: Session, order: Order) -> str:
+    c = db.get(Course, order.course_id)
+    return c.title if c else "?"
+
+
+@router.get("/bundle/{bundle_id}/refund-check", response_model=BundleRefundCheckResponse)
+def bundle_refund_check(
+    bundle_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> BundleRefundCheckResponse:
+    _, eligible, excluded, amounts, plan = _bundle_plan(db, bundle_id, current_user)
+    needs_account = bool(eligible) and is_toss_virtual_account(eligible[0])
+    return BundleRefundCheckResponse(
+        items=[
+            BundleRefundLine(order_id=o.id, course_title=_title(db, o), amount=amounts[o.id])
+            for o in eligible
+        ],
+        excluded=[BundleRefundExcluded(course_title=_title(db, o), reason=r) for o, r in excluded],
+        total=plan.amount if plan else 0,
+        forfeited_discount=plan.forfeited_discount if plan else 0,
+        needs_account=needs_account,
+        banks=REFUND_BANKS if needs_account else {},
+    )
+
+
+@router.post("/bundle/{bundle_id}/refund-request", response_model=list[RefundRequestOut])
+def create_bundle_refund_request(
+    bundle_id: str,
+    payload: RefundRequestCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[RefundRequestOut]:
+    # 같은 묶음에 동시에 두 번 신청되지 않게 묶음 주문 행을 잠근다.
+    db.scalars(
+        select(Order).where(Order.bundle_id == bundle_id, Order.user_id == current_user.id).with_for_update()
+    ).all()
+    _, eligible, _, amounts, plan = _bundle_plan(db, bundle_id, current_user)
+    if not eligible:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="환불 신청할 수 있는 항목이 없습니다.")
+    account = _validated_account(eligible[0], payload.refund_account)
+    reason = (payload.reason or "").strip() or None
+    reqs: list[RefundRequest] = []
+    for o in eligible:
+        req = RefundRequest(
+            order_id=o.id,
+            user_id=current_user.id,
+            status=RefundRequestStatus.PENDING,
+            expected_amount=amounts[o.id],
+            reason=reason,
+            refund_bank_code=account.bank_code if account else None,
+            refund_account_number=account.account_number if account else None,
+            refund_holder_name=account.holder_name if account else None,
+        )
+        db.add(req)
+        reqs.append(req)
+    db.commit()
+    for r in reqs:
+        db.refresh(r)
+    send_refund_requested_to_staff(
+        request_id=reqs[0].id,
+        username=current_user.username,
+        course_title=f"묶음 전체 {len(reqs)}건 ({', '.join(_title(db, o) for o in eligible)})",
+        amount=plan.amount if plan else 0,
+        reason=reason,
+    )
+    return [RefundRequestOut.model_validate(r, from_attributes=True) for r in reqs]
 
 # ---------- 관리자 ---------------------------------------------------------------
 

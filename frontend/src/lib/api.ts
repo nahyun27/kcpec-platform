@@ -20,6 +20,7 @@ import type {
   PaymentMethod,
   RefundAccountInput,
   RefundCheck,
+  BundleRefundCheck,
 } from "@/types/order";
 import type {
   AdminDetentionRow,
@@ -777,6 +778,43 @@ export async function refundAdminOrder(
 }
 
 // ---------- 고객 환불 신청(2026-11) ----------
+export async function getAdminBundleRefundPreview(bundleId: string): Promise<{
+  items: { order_id: number; course_title: string; amount: number }[];
+  total: number;
+  is_virtual_account: boolean;
+}> {
+  const { data } = await api.get(`/admin/orders/bundle/${encodeURIComponent(bundleId)}/refund-preview`);
+  return data;
+}
+
+export async function refundAdminBundle(
+  bundleId: string,
+  refundAccount?: RefundAccountInput,
+): Promise<void> {
+  await api.post(
+    `/admin/orders/bundle/${encodeURIComponent(bundleId)}/refund`,
+    refundAccount ? { refund_account: refundAccount } : undefined,
+  );
+}
+
+export async function getBundleRefundCheck(bundleId: string): Promise<BundleRefundCheck> {
+  const { data } = await api.get<BundleRefundCheck>(
+    `/orders/bundle/${encodeURIComponent(bundleId)}/refund-check`,
+  );
+  return data;
+}
+
+export async function createBundleRefundRequest(
+  bundleId: string,
+  body: { reason?: string; refund_account?: RefundAccountInput },
+): Promise<{ order_id: number }[]> {
+  const { data } = await api.post<{ order_id: number }[]>(
+    `/orders/bundle/${encodeURIComponent(bundleId)}/refund-request`,
+    body,
+  );
+  return data;
+}
+
 export async function getRefundCheck(orderId: number): Promise<RefundCheck> {
   const { data } = await api.get<RefundCheck>(`/orders/${orderId}/refund-check`);
   return data;

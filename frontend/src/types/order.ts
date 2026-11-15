@@ -71,6 +71,16 @@ export type RefundCheck = {
   banks: Record<string, string>;
 };
 
+// 묶음 전체 환불 신청(2026-11) — 신청 가능한 항목과 빠지는 항목.
+export type BundleRefundCheck = {
+  items: { order_id: number; course_title: string; amount: number }[];
+  excluded: { course_title: string; reason: string }[];
+  total: number;
+  forfeited_discount: number;
+  needs_account: boolean;
+  banks: Record<string, string>;
+};
+
 export type BundleItem = {
   order_id: number;
   course_id: number;

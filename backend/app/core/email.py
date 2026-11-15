@@ -789,14 +789,14 @@ def send_refund_result_to_user(
     if approved:
         subject = "[한국범죄예방교육센터] 환불이 완료되었습니다"
         main = (
-            f"신청하신 '{course_title}' 강의 환불({amount:,}원)이 처리되었습니다.\n"
+            f"신청하신 '{course_title}' 환불({amount:,}원)이 처리되었습니다.\n"
             "카드 결제는 카드사에 따라 취소 반영까지 3~7영업일 정도 걸릴 수 있고,\n"
             "가상계좌 결제는 입력하신 계좌로 입금됩니다."
         )
     else:
         subject = "[한국범죄예방교육센터] 환불 신청 결과 안내"
         main = (
-            f"신청하신 '{course_title}' 강의 환불이 처리되지 않았습니다.\n"
+            f"신청하신 '{course_title}' 환불이 처리되지 않았습니다.\n"
             f"사유: {reject_reason or '-'}\n"
             "궁금하신 점은 마이페이지 1:1 문의로 남겨 주세요."
         )

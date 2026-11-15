@@ -1,13 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
-import { cancelRefundRequest, createRefundRequest, getRefundCheck } from "@/lib/api";
+import {
+  cancelRefundRequest,
+  createBundleRefundRequest,
+  createRefundRequest,
+  getBundleRefundCheck,
+  getRefundCheck,
+} from "@/lib/api";
 import { useDialog } from "@/components/ui/DialogProvider";
-import type { OrderResponse, RefundCheck } from "@/types/order";
+import type { BundleRefundCheck, OrderResponse, RefundAccountInput } from "@/types/order";
+import { legalLetterTypeFromCourseTitle } from "@/types/legalLetter";
 
 // 수강 전 강의 환불 신청(2026-11). 고객이 신청하면 관리자가 승인해야 실제
 // 환불된다. 토스 가상계좌 결제 건은 환불받을 계좌를 함께 받는다.
+// 반성문·탄원서는 작성 시작 전까지, 묶음결제는 신청 가능한 항목을 한 번에
+// 신청할 수도 있다(BundleRefundControl).
 type Status = OrderResponse["refund_request_status"];
 
 function errDetail(err: unknown, fallback: string): string {
@@ -20,6 +29,12 @@ function errDetail(err: unknown, fallback: string): string {
 // 같은 주문이 마이페이지 "내 강의실"과 "결제 내역" 양쪽에 그려지고 탭을 바꾸면
 // 다시 마운트되므로, 한쪽에서 바꾼 상태를 다른 쪽이 이어받게 모듈에 기억해 둔다.
 const overrides = new Map<number, { status: Status; eligible: boolean }>();
+const CHANGED_EVENT = "kcpec-refund-changed";
+
+function markPending(orderIds: number[]) {
+  for (const id of orderIds) overrides.set(id, { status: "pending", eligible: false });
+  window.dispatchEvent(new Event(CHANGED_EVENT));
+}
 
 export function RefundRequestControl({ order }: { order: OrderResponse }) {
   const dialog = useDialog();
@@ -34,9 +49,23 @@ export function RefundRequestControl({ order }: { order: OrderResponse }) {
     overrides.set(order.id, merged);
     if (next.status !== undefined) setStatusState(next.status);
     if (next.eligible !== undefined) setEligibleState(next.eligible);
+    window.dispatchEvent(new Event(CHANGED_EVENT));
   }
   const setEligible = (v: boolean) => remember({ eligible: v });
-  const [check, setCheck] = useState<RefundCheck | null>(null);
+  // 묶음 전체 신청으로 이 항목도 신청되면 바로 "접수됨"으로 바꾼다.
+  useEffect(() => {
+    const sync = () => {
+      const o = overrides.get(order.id);
+      if (o) {
+        setStatusState(o.status);
+        setEligibleState(o.eligible);
+      }
+    };
+    window.addEventListener(CHANGED_EVENT, sync);
+    return () => window.removeEventListener(CHANGED_EVENT, sync);
+  }, [order.id]);
+  const isLetter = !!legalLetterTypeFromCourseTitle(order.course_title);
+  const [check, setCheck] = useState<ModalCheck | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function openForm() {
@@ -48,7 +77,15 @@ export function RefundRequestControl({ order }: { order: OrderResponse }) {
         setEligible(false);
         return;
       }
-      setCheck(c);
+      setCheck({
+        lines: [{ title: order.course_title ?? "", amount: c.refund_amount }],
+        excluded: [],
+        total: c.refund_amount,
+        forfeited_discount: c.forfeited_discount,
+        needs_account: c.needs_account,
+        banks: c.banks,
+        keepOthersNote: !!order.bundle_id,
+      });
     } catch (err) {
       await dialog.alert(errDetail(err, "환불 정보를 불러오지 못했습니다."));
     } finally {
@@ -94,7 +131,7 @@ export function RefundRequestControl({ order }: { order: OrderResponse }) {
       ) : null}
       {eligible ? (
         <div className="flex items-center justify-end gap-2 text-xs text-slate-400">
-          <span>수강 전이라 환불할 수 있어요</span>
+          <span>{isLetter ? "작성 전이라 환불할 수 있어요" : "수강 전이라 환불할 수 있어요"}</span>
           <button
             type="button"
             onClick={openForm}
@@ -107,8 +144,9 @@ export function RefundRequestControl({ order }: { order: OrderResponse }) {
       ) : null}
       {check ? (
         <RefundRequestModal
-          order={order}
+          title="환불 신청"
           check={check}
+          submit={(body) => createRefundRequest(order.id, body)}
           onClose={() => setCheck(null)}
           onDone={() => {
             setCheck(null);
@@ -123,14 +161,95 @@ export function RefundRequestControl({ order }: { order: OrderResponse }) {
 const inputCls =
   "w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-[var(--color-primary)] focus:outline-none";
 
+type ModalCheck = {
+  lines: { title: string; amount: number }[];
+  excluded: { course_title: string; reason: string }[];
+  total: number;
+  forfeited_discount: number;
+  needs_account: boolean;
+  banks: Record<string, string>;
+  keepOthersNote: boolean;
+};
+
+// 묶음결제에서 신청 가능한 항목을 한 번에 환불 신청(2026-11). 신청 가능한
+// 항목이 2개 이상일 때만 보인다.
+export function BundleRefundControl({ bundleId, orders }: { bundleId: string; orders: OrderResponse[] }) {
+  const dialog = useDialog();
+  const [, force] = useState(0);
+  useEffect(() => {
+    const f = () => force((n) => n + 1);
+    window.addEventListener(CHANGED_EVENT, f);
+    return () => window.removeEventListener(CHANGED_EVENT, f);
+  }, []);
+  const [check, setCheck] = useState<ModalCheck | null>(null);
+  const [busy, setBusy] = useState(false);
+  const eligibleCount = orders.filter((o) => {
+    const ov = overrides.get(o.id);
+    return o.status === "paid" && (ov ? ov.eligible : !!o.refund_eligible);
+  }).length;
+  if (eligibleCount < 2) return null;
+
+  async function open() {
+    setBusy(true);
+    try {
+      const c: BundleRefundCheck = await getBundleRefundCheck(bundleId);
+      if (c.items.length === 0) {
+        await dialog.alert("지금 환불 신청할 수 있는 항목이 없어요.");
+        return;
+      }
+      setCheck({
+        lines: c.items.map((i) => ({ title: i.course_title, amount: i.amount })),
+        excluded: c.excluded,
+        total: c.total,
+        forfeited_discount: c.forfeited_discount,
+        needs_account: c.needs_account,
+        banks: c.banks,
+        keepOthersNote: false,
+      });
+    } catch (err) {
+      await dialog.alert(errDetail(err, "환불 정보를 불러오지 못했습니다."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50/70 px-6 py-4 text-sm">
+      <span className="text-slate-500">아직 시작하지 않은 항목 {eligibleCount}개를 한 번에 환불 신청할 수 있어요.</span>
+      <button
+        type="button"
+        onClick={open}
+        disabled={busy}
+        className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-[13px] font-bold text-slate-700 hover:border-slate-400 disabled:opacity-50"
+      >
+        묶음 전체 환불 신청
+      </button>
+      {check ? (
+        <RefundRequestModal
+          title="묶음 전체 환불 신청"
+          check={check}
+          submit={async (body) => {
+            const reqs = await createBundleRefundRequest(bundleId, body);
+            markPending(reqs.map((r) => r.order_id));
+          }}
+          onClose={() => setCheck(null)}
+          onDone={() => setCheck(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function RefundRequestModal({
-  order,
+  title,
   check,
+  submit: submitRequest,
   onClose,
   onDone,
 }: {
-  order: OrderResponse;
-  check: RefundCheck;
+  title: string;
+  check: ModalCheck;
+  submit: (body: { reason?: string; refund_account?: RefundAccountInput }) => Promise<unknown>;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -152,7 +271,7 @@ function RefundRequestModal({
     }
     setSubmitting(true);
     try {
-      await createRefundRequest(order.id, {
+      await submitRequest({
         reason: reason.trim() || undefined,
         refund_account: check.needs_account
           ? { bank_code: bank, account_number: digits, holder_name: holder.trim() }
@@ -176,14 +295,22 @@ function RefundRequestModal({
         className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="font-sans text-lg font-bold text-slate-900">환불 신청</h2>
-        <p className="mt-1 text-sm text-slate-500">{order.course_title}</p>
+        <h2 className="font-sans text-lg font-bold text-slate-900">{title}</h2>
+        {check.lines.length === 1 ? (
+          <p className="mt-1 text-sm text-slate-500">{check.lines[0].title}</p>
+        ) : (
+          <ul className="mt-2 space-y-1 text-sm text-slate-600">
+            {check.lines.map((l) => (
+              <li key={l.title}>· {l.title}</li>
+            ))}
+          </ul>
+        )}
 
         <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3">
           <div className="flex items-baseline justify-between">
             <span className="text-sm text-slate-600">환불 예정 금액</span>
             <span className="text-xl font-bold tabular-nums text-slate-900">
-              {check.refund_amount.toLocaleString()}원
+              {check.total.toLocaleString()}원
             </span>
           </div>
           {check.forfeited_discount > 0 ? (
@@ -192,8 +319,18 @@ function RefundRequestModal({
               {check.forfeited_discount.toLocaleString()}원을 제외하고 환불됩니다.
             </p>
           ) : null}
-          {order.bundle_id ? (
-            <p className="mt-1.5 text-xs text-slate-500">함께 결제한 다른 강의는 그대로 유지돼요.</p>
+          {check.keepOthersNote ? (
+            <p className="mt-1.5 text-xs text-slate-500">함께 결제한 다른 항목은 그대로 유지돼요.</p>
+          ) : null}
+          {check.excluded.length > 0 ? (
+            <div className="mt-2 border-t border-slate-200 pt-2 text-xs leading-relaxed text-slate-500">
+              <p className="font-semibold text-slate-600">이 신청에서 빠지는 항목</p>
+              {check.excluded.map((e) => (
+                <p key={e.course_title}>
+                  · {e.course_title}: {e.reason}
+                </p>
+              ))}
+            </div>
           ) : null}
         </div>
 
@@ -239,7 +376,7 @@ function RefundRequestModal({
             />
           </div>
           <p className="text-xs leading-relaxed text-slate-500">
-            신청 후 확인을 거쳐 환불됩니다. 처리 전에 강의를 재생하면 환불이 어려울 수 있어요.
+            신청 후 확인을 거쳐 환불됩니다. 처리 전에 강의를 재생하거나 서식을 작성하면 환불이 어려울 수 있어요.
           </p>
         </div>
 

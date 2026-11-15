@@ -13,6 +13,8 @@ import {
   getAdminOrders,
   getAdminUser,
   refundAdminOrder,
+  refundAdminBundle,
+  getAdminBundleRefundPreview,
   getAdminRefundPreview,
   uploadFinalCertificate,
 } from "@/lib/api";
@@ -112,13 +114,19 @@ function AdminOrdersPage() {
         needsGapBefore: isGroupStart && !!prev?.bundle_id,
         groupSize: groupSize === -1 ? items.length - idx : groupSize,
         bundleTotal: bundleTotals.get(r.bundle_id),
+        paidCount: items.filter((x) => x.bundle_id === r.bundle_id && x.status === "paid").length,
       };
     });
   }, [data]);
   const [error, setError] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [mutatingId, setMutatingId] = useState<number | null>(null);
-  const [vaRefund, setVaRefund] = useState<{ row: AdminOrderRow; amount: number } | null>(null);
+  const [vaRefund, setVaRefund] = useState<{
+    row: AdminOrderRow;
+    amount: number;
+    // 묶음 전체 환불이면 묶음 ID와 제목(가상계좌 계좌 입력 후 묶음 전체를 환불)
+    bundle?: { id: string; label: string };
+  } | null>(null);
   const [openUser, setOpenUser] = useState<AdminUser | null>(null);
   const [docsOrder, setDocsOrder] = useState<AdminOrderRow | null>(null);
 
@@ -173,6 +181,57 @@ function AdminOrdersPage() {
         ? (err.response?.data as { detail?: string } | undefined)?.detail
         : null;
       await dialog.alert(detail ?? "취소에 실패했습니다.");
+    } finally {
+      setMutatingId(null);
+    }
+  }
+
+  // 묶음 전체 환불(2026-11) — 결제 완료로 남은 항목을 한 번에 환불한다.
+  async function handleBundleRefund(row: AdminOrderRow) {
+    if (!row.bundle_id) return;
+    let preview;
+    try {
+      preview = await getAdminBundleRefundPreview(row.bundle_id);
+    } catch (err) {
+      const detail = isAxiosError(err)
+        ? (err.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      await dialog.alert(detail ?? "환불 금액을 계산하지 못했습니다.");
+      return;
+    }
+    const lines = preview.items
+      .map((i) => `· ${i.course_title} ${i.amount.toLocaleString()}원`)
+      .join("\n");
+    const paymentNote = preview.is_virtual_account
+      ? "다음 화면에서 고객 환불계좌를 입력하면 토스가 그 계좌로 자동 입금합니다."
+      : row.payment_method === "bank_transfer"
+        ? "예전 직접 무통장 입금 건이라 자동 환불이 안 됩니다. 고객 계좌로 직접 이체해 주세요."
+        : "토스 결제가 자동으로 취소되어 고객에게 실제 환불됩니다.";
+    if (
+      !(await dialog.confirm(
+        `${row.name ?? row.username}님의 묶음결제 ${preview.items.length}건, 총 ${preview.total.toLocaleString()}원을 환불합니다.\n\n${lines}\n\n${paymentNote}\n모든 항목의 수강 등록이 취소되고, 발급된 서류가 있다면 함께 무효화됩니다.`,
+        { title: "묶음 전체를 환불할까요?", confirmText: "전체 환불하기", cancelText: "돌아가기" },
+      ))
+    )
+      return;
+    if (preview.is_virtual_account) {
+      setVaRefund({
+        row,
+        amount: preview.total,
+        bundle: { id: row.bundle_id, label: `묶음결제 ${preview.items.length}건` },
+      });
+      return;
+    }
+    setMutatingId(row.id);
+    try {
+      await refundAdminBundle(row.bundle_id);
+      await load();
+    } catch (err) {
+      const detail = isAxiosError(err)
+        ? (err.response?.data as { detail?: string } | undefined)?.detail
+        : null;
+      await dialog.alert(detail ?? "환불 처리에 실패했습니다.");
+      await load();
     } finally {
       setMutatingId(null);
     }
@@ -367,6 +426,16 @@ function AdminOrdersPage() {
                               묶음결제 {meta.groupSize}건
                             </span>
                           ) : null}
+                          {meta && meta.paidCount >= 2 ? (
+                            <button
+                              type="button"
+                              onClick={() => handleBundleRefund(r)}
+                              disabled={mutatingId === r.id}
+                              className="mt-1.5 block rounded-md border border-red-200 px-2.5 py-1 text-[11px] font-bold text-red-600 hover:bg-red-50 disabled:opacity-60"
+                            >
+                              {mutatingId === r.id ? "처리 중..." : "묶음 전체 환불"}
+                            </button>
+                          ) : null}
                         </td>
                       </>
                     ) : null}
@@ -486,6 +555,7 @@ function AdminOrdersPage() {
         <VaRefundModal
           row={vaRefund.row}
           amount={vaRefund.amount}
+          bundle={vaRefund.bundle}
           onClose={() => setVaRefund(null)}
           onDone={async () => {
             setVaRefund(null);
@@ -507,11 +577,13 @@ function AdminOrdersPage() {
 function VaRefundModal({
   row,
   amount,
+  bundle,
   onClose,
   onDone,
 }: {
   row: AdminOrderRow;
   amount: number;
+  bundle?: { id: string; label: string };
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -541,10 +613,11 @@ function VaRefundModal({
       return;
     setSubmitting(true);
     try {
-      await refundAdminOrder(
-        row.id,
-        withAccount ? { bank_code: bank, account_number: digits, holder_name: holder.trim() } : undefined,
-      );
+      const acct = withAccount
+        ? { bank_code: bank, account_number: digits, holder_name: holder.trim() }
+        : undefined;
+      if (bundle) await refundAdminBundle(bundle.id, acct);
+      else await refundAdminOrder(row.id, acct);
       onDone();
     } catch (err) {
       const d = isAxiosError(err) ? (err.response?.data as { detail?: unknown } | undefined)?.detail : null;
@@ -559,7 +632,7 @@ function VaRefundModal({
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-bold text-slate-900">가상계좌 환불</h2>
         <p className="mt-1 text-sm text-slate-500">
-          {row.course_title} · {row.name ?? row.username} · {amount.toLocaleString()}원
+          {bundle ? bundle.label : row.course_title} · {row.name ?? row.username} · {amount.toLocaleString()}원
         </p>
         <p className="mt-3 text-xs leading-relaxed text-slate-500">
           고객에게 받은 환불계좌를 입력하면 토스가 그 계좌로 자동 입금합니다.

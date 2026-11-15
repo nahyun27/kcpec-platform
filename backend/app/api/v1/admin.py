@@ -947,27 +947,33 @@ def _plan_refund(db: Session, order: Order) -> _RefundPlan:
     환불로 10만 원 조건이 깨져도 할인이 그대로 남았다. 그래서 "지금 고객이
     낸 돈 - 남는 항목들의 올바른 가격(정가 기준, 조건 다시 판단)"을 환불한다.
     """
+    if not order.bundle_id:
+        return _RefundPlan(order.amount, 0, {}, True)
+    return plan_refund_set(db, order.bundle_id, {order.id})
+
+
+def plan_refund_set(db: Session, bundle_id: str, refund_ids: set[int]) -> _RefundPlan:
+    """묶음 안의 여러 항목(refund_ids)을 함께 환불할 때 돌려줄 금액(2026-11, 묶음
+    전체 환불 신청용). 한 항목만 넘기면 _plan_refund 와 같다."""
     from app.api.v1.orders import (
         BULK_DISCOUNT_AMOUNT,
         BULK_DISCOUNT_THRESHOLD,
         DETENTION_FEE_COURSE_TITLE,
     )
 
-    if not order.bundle_id:
-        return _RefundPlan(order.amount, 0, {}, True)
     paid = list(
         db.scalars(
             select(Order)
-            .where(Order.bundle_id == order.bundle_id, Order.status == OrderStatus.PAID)
+            .where(Order.bundle_id == bundle_id, Order.status == OrderStatus.PAID)
             .order_by(Order.id)
         ).all()
     )
-    remaining = [o for o in paid if o.id != order.id]
+    remaining = [o for o in paid if o.id not in refund_ids]
     held = sum(o.amount for o in paid)
     if not remaining:
         return _RefundPlan(held, 0, {}, True)
-    fallback = _RefundPlan(order.amount, 0, None, False)
-    if order.bundle_id.startswith("legacy-") or any(o.list_price is None for o in paid):
+    fallback = _RefundPlan(sum(o.amount for o in paid if o.id in refund_ids), 0, None, False)
+    if bundle_id.startswith("legacy-") or any(o.list_price is None for o in paid):
         return fallback
 
     fee_ids = set(
@@ -1068,6 +1074,83 @@ def refund_order(
     for r in db.scalars(
         select(RefundRequest).where(
             RefundRequest.order_id == order_id,
+            RefundRequest.status == RefundRequestStatus.PENDING,
+        )
+    ).all():
+        r.status = RefundRequestStatus.APPROVED
+        r.decided_at = datetime.now(timezone.utc)
+        r.refund_account_number = None
+    db.commit()
+    return OkResponse()
+
+
+class BundleRefundItem(BaseModel):
+    order_id: int
+    course_title: str
+    amount: int
+
+
+class BundleRefundPreview(BaseModel):
+    items: list[BundleRefundItem]
+    total: int
+    is_virtual_account: bool
+
+
+def _paid_bundle_orders(db: Session, bundle_id: str) -> list[Order]:
+    return list(
+        db.scalars(
+            select(Order)
+            .where(Order.bundle_id == bundle_id, Order.status == OrderStatus.PAID)
+            .order_by(Order.id)
+        ).all()
+    )
+
+
+@router.get("/orders/bundle/{bundle_id}/refund-preview", response_model=BundleRefundPreview)
+def bundle_refund_preview(bundle_id: str, db: Session = Depends(get_db)) -> BundleRefundPreview:
+    """묶음 전체 환불 미리보기 — 결제 완료로 남아 있는 항목 전부."""
+    paid = _paid_bundle_orders(db, bundle_id)
+    if not paid:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="환불할 결제 완료 항목이 없습니다.")
+    titles = {
+        c.id: c.title
+        for c in db.scalars(select(Course).where(Course.id.in_({o.course_id for o in paid}))).all()
+    }
+    return BundleRefundPreview(
+        items=[
+            BundleRefundItem(order_id=o.id, course_title=titles.get(o.course_id, "?"), amount=o.amount)
+            for o in paid
+        ],
+        total=sum(o.amount for o in paid),
+        is_virtual_account=is_toss_virtual_account(paid[0]),
+    )
+
+
+@router.post("/orders/bundle/{bundle_id}/refund", response_model=OkResponse)
+def refund_bundle(
+    bundle_id: str,
+    body: AdminRefundBody | None = None,
+    db: Session = Depends(get_db),
+) -> OkResponse:
+    """묶음 전체 환불(2026-11) — 결제 완료로 남은 항목을 하나씩 환불한다. 항목마다
+    토스 부분 취소가 나가고 마지막 항목이 남은 금액 전부를 취소하므로, 합계는
+    고객이 낸 금액과 같다. 항목마다 커밋하므로 중간에 실패해도 그때까지 환불된
+    항목은 토스와 사이트 상태가 맞는다."""
+    from app.models.refund_request import RefundRequest, RefundRequestStatus
+
+    paid = _paid_bundle_orders(db, bundle_id)
+    if not paid:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="환불할 결제 완료 항목이 없습니다.")
+    for o in paid:
+        perform_refund(
+            db,
+            o.id,
+            refund_account=body.refund_account if body else None,
+            reason="관리자 묶음 전체 환불",
+        )
+    for r in db.scalars(
+        select(RefundRequest).where(
+            RefundRequest.order_id.in_([o.id for o in paid]),
             RefundRequest.status == RefundRequestStatus.PENDING,
         )
     ).all():

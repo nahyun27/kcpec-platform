@@ -52,7 +52,7 @@ import { CourseThumbnail } from "@/components/CourseThumbnail";
 import { useDialog } from "@/components/ui/DialogProvider";
 import { VirtualAccountNotice } from "@/components/features/VirtualAccountNotice";
 import { DetentionCertificates } from "@/components/features/DetentionCertificates";
-import { RefundRequestControl } from "@/components/features/RefundRequestControl";
+import { BundleRefundControl, RefundRequestControl } from "@/components/features/RefundRequestControl";
 import { buildOverview, COUNSELING_BONUS_MATERIALS, DocumentsTab, OverviewStrip } from "./_documents";
 import type { LegalLetterStatus } from "@/types/legalLetter";
 import type { DetentionMineRow } from "@/types/detention";
@@ -1482,7 +1482,7 @@ function OrderPaidDetails({
             </Link>
           </div>
         )}
-        {!isDetention && !legalLetterType ? <RefundRequestControl order={order} /> : null}
+        {!isDetention ? <RefundRequestControl order={order} /> : null}
       </div>
     </>
   );
@@ -1551,6 +1551,7 @@ function BundleOrderGroup({
               </div>
             ),
           )}
+          <BundleRefundControl bundleId={first.bundle_id ?? ""} orders={orders} />
           {/* 묶음 안의 강의마다 반복하면 동일 문구가 여러 번 뜨므로 묶음당 한 번만. */}
           {!hasCounseling ? (
             <div className="p-6 bg-white">
