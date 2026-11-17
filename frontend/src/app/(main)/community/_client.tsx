@@ -34,9 +34,14 @@ import {
   Download,
   Star,
   HelpCircle,
-  Lock,
   X,
+  Megaphone,
+  FileDown,
+  ArrowRight,
+  Search,
+  Phone,
 } from "lucide-react";
+import { createPortal } from "react-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ReviewWriteForm } from "@/components/features/ReviewWriteForm";
 
@@ -177,11 +182,14 @@ function AccordionRow({
 
 // ---------- 공지사항 / 자료실 -------------------------------------------------
 
+type NoticeFilter = "all" | "notice" | "resource";
+
 function NoticeTab() {
   const [items, setItems] = useState<NoticeListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [filter, setFilter] = useState<NoticeFilter>("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -198,18 +206,76 @@ function NoticeTab() {
   if (error) return <ErrorMessage text={error} />;
   if (items.length === 0) return <EmptyMessage text="등록된 공지사항이나 자료가 없습니다." icon={<Pin className="h-10 w-10 text-slate-300" />} />;
 
+  const counts = {
+    all: items.length,
+    notice: items.filter((n) => n.category === "notice").length,
+    resource: items.filter((n) => n.category !== "notice").length,
+  };
+  const visible = items.filter((n) =>
+    filter === "all" ? true : filter === "notice" ? n.category === "notice" : n.category !== "notice",
+  );
+
   return (
-    <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <ul className="divide-y divide-zinc-100">
-        {items.map((n) => (
-          <NoticeAccordion
-            key={n.id}
-            notice={n}
-            open={openId === n.id}
-            onToggle={() => setOpenId(openId === n.id ? null : n.id)}
-          />
-        ))}
-      </ul>
+    <div className="space-y-5">
+      <FilterChips
+        value={filter}
+        onChange={(v) => {
+          setFilter(v);
+          setOpenId(null);
+        }}
+        options={[
+          { key: "all", label: "전체", count: counts.all },
+          { key: "notice", label: "공지", count: counts.notice },
+          { key: "resource", label: "자료실", count: counts.resource },
+        ]}
+      />
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <ul className="divide-y divide-slate-100">
+          {visible.map((n) => (
+            <NoticeAccordion
+              key={n.id}
+              notice={n}
+              open={openId === n.id}
+              onToggle={() => setOpenId(openId === n.id ? null : n.id)}
+            />
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function FilterChips<K extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: K;
+  onChange: (k: K) => void;
+  options: { key: K; label: string; count?: number }[];
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((o) => {
+        const active = o.key === value;
+        return (
+          <button
+            key={o.key}
+            type="button"
+            onClick={() => onChange(o.key)}
+            className={`shrink-0 rounded-full border px-4 py-2 text-sm font-bold transition-colors ${
+              active
+                ? "border-slate-900 bg-slate-900 text-white"
+                : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
+            }`}
+          >
+            {o.label}
+            {o.count != null ? (
+              <span className={`ml-1 ${active ? "text-white/60" : "text-slate-400"}`}>{o.count}</span>
+            ) : null}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -245,38 +311,40 @@ function NoticeAccordion({
     };
   }, [open, notice.id, detail]);
 
+  const isNotice = notice.category === "notice";
+
   return (
     <AccordionRow
       open={open}
       onToggle={onToggle}
       header={
-        <div className="flex w-full flex-col gap-2.5">
-          <div className="flex items-start gap-3">
-            <span
-              className={`mt-0.5 shrink-0 inline-flex items-center justify-center rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide ${
-                notice.category === "notice"
-                  ? "bg-slate-100 text-slate-600"
-                  : "bg-blue-50 text-[var(--color-accent)] ring-1 ring-blue-500/20"
-              }`}
-            >
-              {notice.category === "notice" ? "공지" : "자료"}
-            </span>
-            <span className="flex-1 text-base font-bold text-slate-800 leading-snug text-left break-words line-clamp-2">
-              {notice.is_pinned && <Pin className="mr-1.5 inline-block h-4 w-4 text-rose-500" />}
+        <div className="flex items-center gap-4">
+          <span
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+              isNotice ? "bg-slate-100 text-slate-600" : "bg-blue-50 text-[var(--color-accent)]"
+            }`}
+          >
+            {isNotice ? <Megaphone className="h-5 w-5" /> : <FileDown className="h-5 w-5" />}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              {notice.is_pinned ? (
+                <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-rose-50 px-1.5 py-0.5 text-[11px] font-bold text-rose-600">
+                  <Pin className="h-3 w-3" /> 고정
+                </span>
+              ) : null}
+              <span className="text-[11px] font-bold text-slate-400">{isNotice ? "공지" : "자료실"}</span>
+            </div>
+            <p className="mt-1 line-clamp-2 break-words text-[15px] font-bold leading-snug text-slate-800 sm:text-base">
               {notice.title}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2.5 text-[12px] font-medium text-slate-400 sm:text-[13px]">
-            <span className="font-semibold text-slate-500">{notice.author_name}</span>
-            <span className="h-3 w-px bg-slate-200"></span>
-            <span>{new Date(notice.created_at).toLocaleDateString("ko-KR")}</span>
-            <span className="h-3 w-px bg-slate-200"></span>
-            <span>조회 {notice.view_count.toLocaleString()}</span>
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              {new Date(notice.created_at).toLocaleDateString("ko-KR")} · 조회 {notice.view_count.toLocaleString()}
+            </p>
           </div>
         </div>
       }
     >
-      
       {detail ? (
         <div className="space-y-6">
           <div
@@ -284,17 +352,15 @@ function NoticeAccordion({
             dangerouslySetInnerHTML={{ __html: richHtml(detail.content) }}
           />
           {detail.file_url && (
-            <div className="pt-4">
-              <a
-                href={detail.file_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl bg-white border border-zinc-200 px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-all hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] hover:shadow-md"
-              >
-                <Download className="h-4 w-4" />
-                첨부파일 다운로드
-              </a>
-            </div>
+            <a
+              href={detail.file_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[var(--color-primary-hover)]"
+            >
+              <Download className="h-4 w-4" />
+              첨부파일 다운로드
+            </a>
           )}
         </div>
       ) : (
@@ -307,14 +373,12 @@ function NoticeAccordion({
   );
 }
 
-
-
 // ---------- 전문가 칼럼 ------------------------------------------------------
 
 function ColumnTab() {
   const [items, setItems] = useState<PostListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openId, setOpenId] = useState<number | null>(null);
+  const [reading, setReading] = useState<PostListItem | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -329,113 +393,120 @@ function ColumnTab() {
   if (loading) return <Loading />;
   if (items.length === 0) return <EmptyMessage text="등록된 칼럼이 없습니다." icon={<FileText className="h-10 w-10 text-slate-300" />} />;
 
+  const [latest, ...rest] = items;
   return (
-    <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <ul className="divide-y divide-zinc-100">
-        {items.map((p) => (
-          <PostAccordion
+    <>
+      <div className="grid gap-4 md:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => setReading(latest)}
+          className="group relative overflow-hidden rounded-3xl bg-[#1C3461] p-6 text-left text-white shadow-md transition-transform hover:-translate-y-0.5 md:col-span-2 md:p-9"
+        >
+          <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-blue-500/20 blur-3xl" />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-blue-100">
+            <FileText className="h-3.5 w-3.5" /> 최신 칼럼
+          </span>
+          <p className="relative mt-4 text-xl font-extrabold leading-snug md:text-2xl">{latest.title}</p>
+          <p className="relative mt-3 text-sm text-blue-100/80">
+            {new Date(latest.created_at).toLocaleDateString("ko-KR")} · 조회 {latest.view_count.toLocaleString()}
+          </p>
+          <span className="relative mt-6 inline-flex items-center gap-1 text-sm font-bold text-white">
+            읽어보기 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          </span>
+        </button>
+        {rest.map((p) => (
+          <button
             key={p.id}
-            post={p}
-            open={openId === p.id}
-            onToggle={() => setOpenId(openId === p.id ? null : p.id)}
-            scrollableBody
-          />
+            type="button"
+            onClick={() => setReading(p)}
+            className="group flex flex-col justify-between gap-5 rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+          >
+            <p className="text-base font-bold leading-snug text-slate-900 md:text-[17px]">{p.title}</p>
+            <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
+              <span>
+                {new Date(p.created_at).toLocaleDateString("ko-KR")} · 조회 {p.view_count.toLocaleString()}
+              </span>
+              <span className="inline-flex items-center gap-1 font-bold text-slate-600 group-hover:text-[var(--color-accent)]">
+                읽기 <ArrowRight className="h-3.5 w-3.5" />
+              </span>
+            </div>
+          </button>
         ))}
-      </ul>
-    </div>
+      </div>
+      {reading ? <ColumnReader post={reading} onClose={() => setReading(null)} /> : null}
+    </>
   );
 }
 
-function PostAccordion({
-  post,
-  open,
-  onToggle,
-  scrollableBody,
-}: {
-  post: PostListItem;
-  open: boolean;
-  onToggle: () => void;
-  scrollableBody?: boolean;
-}) {
+// 칼럼 읽기 창 — 목록 안에서 500px 스크롤 상자로 읽던 것을 넓은 창으로.
+function ColumnReader({ post, onClose }: { post: PostListItem; onClose: () => void }) {
   const [content, setContent] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open || content !== null) return;
     let cancelled = false;
     import("@/lib/api").then(({ getPost }) =>
       getPost(post.id)
-        .then((d) => {
-          if (!cancelled) setContent(d.content);
-        })
-        .catch(() => {
-          /* ignore */
-        }),
+        .then((d) => !cancelled && setContent(d.content))
+        .catch(() => !cancelled && setContent("")),
     );
     return () => {
       cancelled = true;
     };
-  }, [open, post.id, content]);
+  }, [post.id]);
 
-  return (
-    <AccordionRow
-      open={open}
-      onToggle={onToggle}
-      header={
-        <div className="flex w-full flex-col gap-2.5">
-          <div className="flex items-start gap-3">
-            {post.category === "qna" && (
-              <span className={`mt-0.5 shrink-0 inline-flex items-center justify-center rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide ${post.admin_reply ? "bg-slate-100 text-slate-600" : "bg-[var(--color-primary)]/10 text-[var(--color-primary)] ring-1 ring-[var(--color-primary)]/20"}`}>
-                {post.admin_reply ? "답변완료" : "답변대기"}
-              </span>
-            )}
-            <span className="flex-1 text-base font-bold text-slate-800 leading-snug text-left break-words line-clamp-2">
-              {post.title}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2.5 text-[12px] font-medium text-slate-400 sm:text-[13px]">
-            <span className="font-semibold text-slate-500">{post.author_name}</span>
-            <span className="h-3 w-px bg-slate-200"></span>
-            <span>{new Date(post.created_at).toLocaleDateString("ko-KR")}</span>
-            <span className="h-3 w-px bg-slate-200"></span>
-            <span>조회 {post.view_count.toLocaleString()}</span>
-          </div>
-        </div>
-      }
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/45 md:items-center md:p-6"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={post.title}
     >
-      
-      {content === null ? (
-        <div className="flex items-center gap-2 text-slate-400 py-4">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>본문을 불러오는 중입니다...</span>
-        </div>
-      ) : post.category === "column" ? (
-        <div
-          className={`tiptap-content text-slate-700 text-[15px] ${
-            scrollableBody ? "max-h-[500px] overflow-y-auto pr-4 custom-scrollbar" : ""
-          }`}
-          dangerouslySetInnerHTML={{ __html: richHtml(content) }}
-        />
-      ) : (
-        <div
-          className={`whitespace-pre-wrap leading-relaxed text-slate-700 text-[15px] ${
-            scrollableBody ? "max-h-[500px] overflow-y-auto pr-4 custom-scrollbar" : ""
-          }`}
-        >
-          {content}
-        </div>
-      )}
-
-      {post.category === "qna" && post.admin_reply ? (
-        <div className="mt-6 rounded-xl border-l-4 border-emerald-500 bg-emerald-50/60 p-4">
-          <p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-700">
-            관리자 답변
-          </p>
-          <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-slate-800">
-            {post.admin_reply}
+      <div
+        className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl animate-in slide-in-from-bottom-8 duration-300 md:max-w-2xl md:rounded-3xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="relative shrink-0 border-b border-slate-100 px-6 pb-5 pt-6 md:px-9 md:pt-8">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+            className="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <p className="text-xs font-bold text-[var(--color-accent)]">전문가 칼럼</p>
+          <h2 className="mt-2 pr-8 text-xl font-extrabold leading-snug text-slate-900 md:text-2xl">{post.title}</h2>
+          <p className="mt-2 text-xs text-slate-400">
+            {post.author_name} · {new Date(post.created_at).toLocaleDateString("ko-KR")}
           </p>
         </div>
-      ) : null}
-    </AccordionRow>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 md:px-9 md:py-8">
+          {content === null ? (
+            <div className="flex items-center gap-2 py-8 text-slate-400">
+              <Loader2 className="h-4 w-4 animate-spin" /> 본문을 불러오는 중입니다...
+            </div>
+          ) : (
+            <div
+              className="tiptap-content text-[15px] leading-relaxed text-slate-700"
+              dangerouslySetInnerHTML={{ __html: richHtml(content) }}
+            />
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -798,10 +869,16 @@ function FaqTab() {
       .catch(() => setError("자주 묻는 질문을 불러오지 못했습니다."));
   }, []);
 
-  const visible = useMemo(
-    () => (faqs == null ? [] : cat === "all" ? faqs : faqs.filter((it) => it.category === cat)),
-    [faqs, cat],
-  );
+  const [query, setQuery] = useState("");
+  const visible = useMemo(() => {
+    if (faqs == null) return [];
+    const q = query.replace(/\s+/g, "");
+    return faqs.filter(
+      (it) =>
+        (cat === "all" || it.category === cat) &&
+        (!q || `${it.question}${it.answer}`.replace(/\s+/g, "").includes(q)),
+    );
+  }, [faqs, cat, query]);
 
   if (error) {
     return (
@@ -817,30 +894,40 @@ function FaqTab() {
   }
 
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap gap-2">
-        {FAQ_CATEGORY_TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => {
-              setCat(t.key);
-              setOpenIdx(0);
-            }}
-            className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
-              cat === t.key
-                ? "bg-[var(--color-primary)] text-white"
-                : "border border-zinc-200 bg-white text-slate-600 hover:border-[var(--color-primary)]"
-            }`}
-          >
-            {t.label}
+    <div className="space-y-5">
+      <label className="flex h-12 items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm focus-within:border-[var(--color-primary)] focus-within:ring-2 focus-within:ring-[var(--color-primary)]/15">
+        <Search className="h-4 w-4 shrink-0 text-slate-400" />
+        <input
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpenIdx(null);
+          }}
+          placeholder="궁금한 내용을 검색해 보세요 (예: 환불, 재발급)"
+          className="h-full min-w-0 flex-1 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
+        />
+        {query ? (
+          <button type="button" onClick={() => setQuery("")} aria-label="검색어 지우기" className="text-slate-400 hover:text-slate-700">
+            <X className="h-4 w-4" />
           </button>
-        ))}
-      </div>
+        ) : null}
+      </label>
+      <FilterChips
+        value={cat}
+        onChange={(k) => {
+          setCat(k);
+          setOpenIdx(0);
+        }}
+        options={FAQ_CATEGORY_TABS.map((t) => ({
+          key: t.key,
+          label: t.label,
+          count: t.key === "all" ? faqs.length : faqs.filter((f) => f.category === t.key).length,
+        }))}
+      />
 
       {visible.length === 0 ? (
         <EmptyMessage
-          text="해당 카테고리의 질문이 아직 없습니다."
+          text={query ? "검색 결과가 없습니다." : "해당 카테고리의 질문이 아직 없습니다."}
           icon={<HelpCircle className="h-10 w-10 text-slate-300" />}
         />
       ) : (
@@ -886,6 +973,27 @@ function FaqTab() {
           })}
         </ul>
       )}
+
+      <div className="flex flex-col items-start gap-4 rounded-3xl bg-slate-900 p-6 text-white sm:flex-row sm:items-center sm:justify-between md:p-8">
+        <div>
+          <p className="text-lg font-extrabold">찾는 답이 없으신가요?</p>
+          <p className="mt-1 text-sm text-slate-300">1:1 문의를 남기시거나 전화로 편하게 물어보세요.</p>
+        </div>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <Link
+            href="/mypage?tab=inquiry"
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-white px-5 text-sm font-bold text-slate-900 hover:bg-slate-100"
+          >
+            <MessageSquare className="h-4 w-4" /> 1:1 문의하기
+          </Link>
+          <a
+            href="tel:01063773325"
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-full border border-white/25 px-5 text-sm font-bold text-white hover:bg-white/10"
+          >
+            <Phone className="h-4 w-4" /> 010-6377-3325
+          </a>
+        </div>
+      </div>
     </div>
   );
 }
@@ -920,6 +1028,3 @@ function EmptyMessage({ text, icon }: { text: string, icon?: React.ReactNode }) 
     </div>
   );
 }
-
-// 외부에서 Link 가 사용되지 않더라도, 트리쉐이킹 일관성을 위해 빈 사용 처리 (ESLint 회피).
-void Link;
