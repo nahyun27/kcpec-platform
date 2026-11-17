@@ -48,10 +48,11 @@ import { ReviewWriteForm } from "@/components/features/ReviewWriteForm";
 type TabKey = "notice" | "column" | "review" | "faq";
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-  { key: "notice", label: "공지사항 및 자료실", icon: <Pin className="w-4 h-4" /> },
-  { key: "column", label: "전문가 칼럼", icon: <FileText className="w-4 h-4" /> },
+  // 예비 고객이 가장 먼저 볼 것(후기·FAQ)부터(2026-11).
   { key: "review", label: "강의 수강 및 상담 후기", icon: <Star className="w-4 h-4" /> },
   { key: "faq", label: "자주 묻는 질문", icon: <HelpCircle className="w-4 h-4" /> },
+  { key: "notice", label: "공지사항 및 자료실", icon: <Pin className="w-4 h-4" /> },
+  { key: "column", label: "전문가 칼럼", icon: <FileText className="w-4 h-4" /> },
 ];
 
 function isTabKey(s: string | null): s is TabKey {
@@ -67,7 +68,7 @@ export default function CommunityClient() {
   const router = useRouter();
   const search = useSearchParams();
   const tabParam = search.get("tab");
-  const tab: TabKey = isTabKey(tabParam) ? tabParam : "notice";
+  const tab: TabKey = isTabKey(tabParam) ? tabParam : "review";
 
   function setTab(next: TabKey) {
     const params = new URLSearchParams(search.toString());
