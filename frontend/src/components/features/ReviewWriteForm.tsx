@@ -5,6 +5,7 @@ import { isAxiosError } from "axios";
 import { AlertCircle, Edit3, Loader2, Star } from "lucide-react";
 import { createPost, getCourses } from "@/lib/api";
 import type { CourseListItem } from "@/types/course";
+import { ReviewPhraseChips } from "@/components/reviews/ReviewPhraseChips";
 
 interface Props {
   onCancel: () => void;
@@ -137,6 +138,13 @@ export function ReviewWriteForm({
           maxLength={2000}
           placeholder="강의를 들으신 소감이나 다른 분들께 도움이 될 만한 내용을 남겨주세요."
           className="w-full resize-y rounded-xl border border-zinc-200 bg-slate-50 p-4 text-sm font-medium leading-relaxed placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 custom-scrollbar"
+        />
+        <ReviewPhraseChips
+          rating={rating}
+          category={fixedCourseCategory ?? courses.find((c) => c.id === courseId)?.category}
+          value={content}
+          onChange={setContent}
+          maxLength={2000}
         />
       </div>
 

@@ -6,6 +6,7 @@ import { isAxiosError } from "axios";
 import { Check, Star } from "lucide-react";
 import { createPost, dismissReviewPrompt, getReviewPrompt } from "@/lib/api";
 import type { ReviewPromptState } from "@/types/community";
+import { ReviewPhraseChips } from "./ReviewPhraseChips";
 
 // 수료증 다운로드 직후 한 번만 묻는 후기 요청. 별점은 누르기만, 글은 선택.
 // "다음에"를 누르면 다시 묻지 않는다(서버에 기록). 이미 후기를 쓴 강의,
@@ -134,12 +135,24 @@ function ReviewPromptModal({
               ))}
             </div>
 
-            <input
+            <div className="mt-5">
+              <ReviewPhraseChips
+                rating={rating}
+                category={prompt.course_category}
+                value={content}
+                onChange={setContent}
+                maxLength={300}
+                count={4}
+              />
+            </div>
+            {/* 문구를 여러 개 고르면 한 줄을 넘어서 여러 줄 입력칸으로. */}
+            <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              maxLength={200}
+              maxLength={300}
+              rows={2}
               placeholder="한 줄 후기 (선택)"
-              className="mt-5 h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-sm placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+              className="mt-3 w-full resize-none rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm leading-relaxed placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
             />
             <p className="mt-2 text-[11px] text-slate-400">후기는 이름 없이 익명으로 공개됩니다.</p>
             {error ? <p className="mt-2 text-xs font-semibold text-red-600">{error}</p> : null}
