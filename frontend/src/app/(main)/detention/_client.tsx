@@ -297,7 +297,7 @@ export default function DetentionClient() {
               <b className="text-slate-800">교육자료·발송비 {fee.toLocaleString()}원</b> — 신청 1건당
               1회만 더해집니다. 여러 과정을 함께 신청해도 발송비는 한 번입니다.
             </p>
-            {info ? (
+            {info && info.bulk_discount_amount > 0 ? (
               <p>
                 교육·상담 금액 합계(발송비 제외)가 {info.bulk_discount_threshold.toLocaleString()}원
                 이상이면 {info.bulk_discount_amount.toLocaleString()}원이 할인됩니다. 신청자 본인이

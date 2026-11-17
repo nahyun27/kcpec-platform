@@ -13,7 +13,9 @@ from sqlalchemy.orm import Session
 
 from app.api.v1.orders import (
     BULK_DISCOUNT_AMOUNT,
+    BULK_DISCOUNT_ENABLED,
     BULK_DISCOUNT_THRESHOLD,
+    bulk_discount_for,
     DETENTION_FEE_COURSE_TITLE,
     DETENTION_FEE_DEFAULT,
     _cancel_stale_pending,
@@ -131,7 +133,8 @@ def detention_info(db: Session = Depends(get_db)) -> DetentionInfo:
         courses=courses,
         counseling=counseling,
         bulk_discount_threshold=BULK_DISCOUNT_THRESHOLD,
-        bulk_discount_amount=BULK_DISCOUNT_AMOUNT,
+        # 0 이면 프론트가 할인 안내를 숨긴다.
+        bulk_discount_amount=BULK_DISCOUNT_AMOUNT if BULK_DISCOUNT_ENABLED else 0,
     )
 
 
@@ -224,7 +227,7 @@ def apply_detention(
     subtotal = sum(courses[cid].price or 0 for cid in course_ids) + sum(
         own_courses[cid].price or 0 for cid in own_ids
     )
-    discount = BULK_DISCOUNT_AMOUNT if subtotal >= BULK_DISCOUNT_THRESHOLD else 0
+    discount = bulk_discount_for(subtotal)
     total = subtotal - discount + fee
 
     bundle_id = secrets.token_urlsafe(16)

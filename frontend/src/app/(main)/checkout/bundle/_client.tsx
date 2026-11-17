@@ -49,6 +49,8 @@ const EASY_PAY_METHODS: PaymentMethod[] = [
 // 표시용일 뿐, 실제 금액은 /orders/bundle 서버 응답이 최종 기준.
 const BULK_DISCOUNT_THRESHOLD = 100_000;
 const BULK_DISCOUNT_AMOUNT = 10_000;
+// 2026-11-17 이벤트 종료(서버 orders.BULK_DISCOUNT_ENABLED 와 맞출 것).
+const BULK_DISCOUNT_ENABLED = false;
 
 export default function CheckoutBundleClient() {
   const router = useRouter();
@@ -228,7 +230,8 @@ export default function CheckoutBundleClient() {
     return sum + (t === "repentance" ? letterInfo.repentance_price : letterInfo.petition_price);
   }, 0);
   const subtotal = coursesSubtotal + letterTotal;
-  const discount = subtotal >= BULK_DISCOUNT_THRESHOLD ? BULK_DISCOUNT_AMOUNT : 0;
+  const discount =
+    BULK_DISCOUNT_ENABLED && subtotal >= BULK_DISCOUNT_THRESHOLD ? BULK_DISCOUNT_AMOUNT : 0;
   const afterBundleDiscount = subtotal - discount;
   const lawyerDiscount = verifiedPartner ? Math.round(afterBundleDiscount * 0.1) : 0;
   const total = afterBundleDiscount - lawyerDiscount;

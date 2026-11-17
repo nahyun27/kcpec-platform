@@ -192,7 +192,7 @@ export default function CourseDetailPage({ id }: { id: string }) {
     // 구매 직전 — 다른 강의와 묶어 사면 할인받을 수 있는 "맞춤강의 추천"
     // 흐름으로 유도. 여기서 발길을 돌리지 않으면 이 강의만 바로 결제 진행.
     const wantsRecommendation = await dialog.confirm(
-      "여러 강의를 함께 구매하시면 최대 10,000원 할인을 받을 수 있어요.\n간단한 질문에 답하고 나에게 맞는 강의 조합을 추천받아보시겠어요?",
+      "여러 강의를 한 번에 결제할 수 있어요.\n간단한 질문에 답하고 나에게 맞는 강의 조합을 추천받아보시겠어요?",
       {
         title: "맞춤강의 추천",
         confirmText: "추천받기",

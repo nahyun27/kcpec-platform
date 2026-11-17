@@ -1,7 +1,6 @@
 import {
   AlertCircle,
   ArrowDown,
-  BadgePercent,
   BookOpenCheck,
   CalendarCheck,
   CheckCircle2,
@@ -132,13 +131,6 @@ export default function DetentionIntro() {
               </li>
             ))}
           </ul>
-          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-5 py-4">
-            <BadgePercent className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-            <p className="text-sm leading-relaxed text-emerald-900">
-              함께 결제하시면 금액이 합산되어{" "}
-              <b>묶음 할인(10만원 이상 시 1만원)</b>이 동일하게 적용됩니다.
-            </p>
-          </div>
         </section>
 
         {/* 이용 절차 */}

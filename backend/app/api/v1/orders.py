@@ -97,6 +97,16 @@ def get_or_create_letter_course(db: Session, letter_type: LegalLetterType) -> Co
 # 여기 서버 계산이 최종 기준).
 BULK_DISCOUNT_THRESHOLD = 100_000
 BULK_DISCOUNT_AMOUNT = 10_000
+# 2026-11-17 변호사님 요청으로 이벤트 종료 — 새 결제에는 할인 없음. 위 두 값은
+# 이미 할인받은 기존 묶음의 환불 계산(admin.plan_refund_set)에 그대로 쓰이니
+# 지우지 말 것.
+BULK_DISCOUNT_ENABLED = False
+
+
+def bulk_discount_for(subtotal: int) -> int:
+    if not BULK_DISCOUNT_ENABLED:
+        return 0
+    return BULK_DISCOUNT_AMOUNT if subtotal >= BULK_DISCOUNT_THRESHOLD else 0
 
 
 def _now() -> datetime:
@@ -514,7 +524,7 @@ def create_order_bundle(
     subtotal = sum(courses[cid].price or 0 for cid in course_ids) + sum(
         c.price or 0 for c in letter_courses
     )
-    discount = BULK_DISCOUNT_AMOUNT if subtotal >= BULK_DISCOUNT_THRESHOLD else 0
+    discount = bulk_discount_for(subtotal)
     after_bundle_discount = subtotal - discount
     lawyer_discount = round(after_bundle_discount * 0.1) if lawyer_partner else 0
     total = after_bundle_discount - lawyer_discount

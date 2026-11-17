@@ -183,6 +183,8 @@ const COUNSELING_QUESTION = "심리상담 의견서가 필요하신가요?";
 // TODO: 프로모션 종료/변경 시 이 두 값만 고치면 됨.
 const BULK_DISCOUNT_THRESHOLD = 100_000;
 const BULK_DISCOUNT_AMOUNT = 10_000;
+// 2026-11-17 이벤트 종료(서버 orders.BULK_DISCOUNT_ENABLED 와 맞출 것).
+const BULK_DISCOUNT_ENABLED = false;
 
 // 심리상담 의견서 구매 시 "함께 제공"되는 부가 자료 — 결제 전이라 다운로드
 // 링크는 없고, 어떤 게 포함되는지 안내용 목록으로만 노출.
@@ -557,7 +559,8 @@ export default function SentencingPage() {
         )
       : 0;
     const subtotal = activeCourses.reduce((sum, c) => sum + c.price, 0) + letterTotal;
-    const discount = subtotal >= BULK_DISCOUNT_THRESHOLD ? BULK_DISCOUNT_AMOUNT : 0;
+    const discount =
+      BULK_DISCOUNT_ENABLED && subtotal >= BULK_DISCOUNT_THRESHOLD ? BULK_DISCOUNT_AMOUNT : 0;
     const total = subtotal - discount;
     return {
       courses,
@@ -670,9 +673,11 @@ export default function SentencingPage() {
             <p className="text-sm font-medium text-slate-600">
               선택하시는 대로 예상 금액이 바로 계산돼요.
             </p>
-            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-3.5 py-1.5 text-sm font-bold text-white shadow-sm">
-              10만원 이상 구매 시 10,000원 할인
-            </span>
+            {BULK_DISCOUNT_ENABLED ? (
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-3.5 py-1.5 text-sm font-bold text-white shadow-sm">
+                10만원 이상 구매 시 10,000원 할인
+              </span>
+            ) : null}
           </div>
         ) : null}
 
@@ -1779,7 +1784,7 @@ function CartSummary({
                 <span className="ml-1 text-base font-bold text-slate-500">원</span>
               </span>
             </div>
-            {recommendation.discount === 0 && (
+            {BULK_DISCOUNT_ENABLED && recommendation.discount === 0 && (
               <p className="mt-3 flex items-start gap-1.5 text-sm font-medium text-[var(--color-accent)]">
                 <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>10만원 이상 구매 시 10,000원 할인</span>
