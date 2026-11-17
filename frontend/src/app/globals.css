@@ -188,3 +188,19 @@ body {
     padding-bottom: calc(76px + env(safe-area-inset-bottom));
   }
 }
+
+/* 셀렉트박스 화살표 — 브라우저 기본 화살표는 오른쪽 끝에 딱 붙어 보여서
+   (2026-11) 직접 그린 화살표를 안쪽으로 들여 놓는다. 레이어 밖에 둬서
+   각 select 의 px-* 유틸리티가 오른쪽 여백을 줄여도 화살표와 겹치지 않게. */
+select:not([multiple]):not([size]) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  background-size: 1rem 1rem;
+  padding-right: 2.6rem;
+}
+select:not([multiple]):not([size]):disabled {
+  opacity: 0.6;
+}

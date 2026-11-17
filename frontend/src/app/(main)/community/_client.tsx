@@ -7,9 +7,21 @@ import {
   getFaqs,
   getNotices,
   getPosts,
+  getReviewSummary,
+  getReviews,
   tokenStorage,
 } from "@/lib/api";
-import type { Faq, NoticeListItem, PostListItem } from "@/types/community";
+import type {
+  Faq,
+  NoticeListItem,
+  PostListItem,
+  ReviewCourseStat,
+  ReviewItem,
+  ReviewSummary,
+} from "@/types/community";
+import { counselingDisplayTitle } from "@/types/counseling";
+import { Stars } from "@/components/reviews/Stars";
+import { formatAverage } from "@/components/reviews/reviewSummary";
 import {
   ChevronDown,
   Pin,
@@ -22,7 +34,8 @@ import {
   Download,
   Star,
   HelpCircle,
-  Lock
+  Lock,
+  X,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ReviewWriteForm } from "@/components/features/ReviewWriteForm";
@@ -426,22 +439,7 @@ function PostAccordion({
   );
 }
 
-// ---------- 후기 (게시판 + 카테고리 필터) -------------------------------------
-
-// 통합 6개 카테고리 (alembic 0015 이후 courses.category 와 일치).
-const REVIEW_CATEGORIES: string[] = [
-  "성범죄", "폭력", "재산범죄", "약물·도박", "교통", "준법의식",
-];
-
-// 마이그레이션 0015 에서 review post 들의 course_category 도 같이
-// 새 카테고리로 갱신했으므로 정확 일치로 충분. 혹시 누락된 구버전
-// 데이터가 있을 경우엔 substring 폴백으로 관대하게 매칭.
-function matchesCategory(courseCategory: string | null, label: string): boolean {
-  if (!courseCategory) return false;
-  if (courseCategory === label) return true;
-  const norm = (s: string) => s.replace(/\s+/g, "");
-  return norm(courseCategory).includes(norm(label));
-}
+// ---------- 후기 (평점 요약 + 분야·강의 필터) --------------------------------
 
 const CATEGORY_BADGE: Record<string, string> = {
   성범죄: "bg-purple-50 text-purple-700 ring-purple-500/20",
@@ -450,61 +448,81 @@ const CATEGORY_BADGE: Record<string, string> = {
   "약물·도박": "bg-amber-50 text-amber-700 ring-amber-500/20",
   교통: "bg-rose-50 text-rose-700 ring-rose-500/20",
   준법의식: "bg-slate-100 text-slate-700 ring-slate-500/20",
+  심리상담: "bg-sky-50 text-sky-700 ring-sky-500/20",
 };
 
-function badgeClassFor(courseCategory: string | null): string {
-  if (!courseCategory) return "bg-zinc-100 text-zinc-700 ring-zinc-500/20";
-  for (const [label, cls] of Object.entries(CATEGORY_BADGE)) {
-    if (matchesCategory(courseCategory, label)) return cls;
-  }
-  return "bg-zinc-100 text-zinc-700 ring-zinc-500/20";
+function badgeClassFor(category: string | null): string {
+  return (category && CATEGORY_BADGE[category]) || "bg-zinc-100 text-zinc-700 ring-zinc-500/20";
+}
+
+// 서버 /reviews 의 category 는 강의 분야 값만 받는다("기타" 등은 필터 칩에서 뺌).
+const FILTERABLE_CATEGORIES = new Set(Object.keys(CATEGORY_BADGE));
+
+function reviewCourseLabel(title: string | null, category: string | null): string | null {
+  if (category === "심리상담") return counselingDisplayTitle(title);
+  return title;
 }
 
 const REVIEW_PAGE_SIZE = 20;
+const COURSE_STATS_PREVIEW = 6;
+const COURSE_STATS_PREVIEW_MOBILE = 3;
 
 function ReviewTab() {
   const router = useRouter();
-  const [items, setItems] = useState<PostListItem[]>([]);
+  const [summary, setSummary] = useState<ReviewSummary | null>(null);
+  const [items, setItems] = useState<ReviewItem[] | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [filter, setFilter] = useState<string | null>(null);
+  const [category, setCategory] = useState<string | null>(null);
+  const [course, setCourse] = useState<ReviewCourseStat | null>(null);
+  const [showAllCourses, setShowAllCourses] = useState(false);
   const [writing, setWriting] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  async function reload() {
-    const r = await getPosts("review", 1, REVIEW_PAGE_SIZE);
-    setItems(r.items);
-    setTotal(r.total);
-    setPage(1);
-  }
+  useEffect(() => {
+    getReviewSummary().then(setSummary).catch(() => {});
+  }, [reloadKey]);
+
+  useEffect(() => {
+    let alive = true;
+    getReviews({ category, course_id: course?.course_id, page: 1, size: REVIEW_PAGE_SIZE })
+      .then((r) => {
+        if (!alive) return;
+        setItems(r.items);
+        setTotal(r.total);
+        setPage(1);
+      })
+      .catch(() => alive && setItems([]));
+    return () => {
+      alive = false;
+    };
+  }, [category, course, reloadKey]);
 
   async function loadMore() {
     setLoadingMore(true);
     try {
-      const nextPage = page + 1;
-      const r = await getPosts("review", nextPage, REVIEW_PAGE_SIZE);
-      setItems((prev) => [...prev, ...r.items]);
-      setPage(nextPage);
+      const next = page + 1;
+      const r = await getReviews({ category, course_id: course?.course_id, page: next, size: REVIEW_PAGE_SIZE });
+      setItems((prev) => [...(prev ?? []), ...r.items]);
+      setPage(next);
     } finally {
       setLoadingMore(false);
     }
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    reload()
-      .catch(() => {})
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  function pickCategory(next: string | null) {
+    setCourse(null);
+    if (next === category) return;
+    setItems(null);
+    setCategory(next);
+  }
 
-  const visible = useMemo(
-    () => (filter == null ? items : items.filter((p) => matchesCategory(p.course_category, filter))),
-    [items, filter],
-  );
+  function pickCourse(next: ReviewCourseStat) {
+    setItems(null);
+    setCategory(null);
+    setCourse((cur) => (cur?.course_id === next.course_id ? null : next));
+  }
 
   function handleWriteToggle() {
     if (!tokenStorage.getAccess()) {
@@ -514,26 +532,128 @@ function ReviewTab() {
     setWriting((w) => !w);
   }
 
-  if (loading) return <Loading />;
+  const courseStats = useMemo(
+    () => (summary ? [...summary.courses].sort((a, b) => b.count - a.count || b.average - a.average) : []),
+    [summary],
+  );
+  const shownCourses = showAllCourses ? courseStats : courseStats.slice(0, COURSE_STATS_PREVIEW);
+  const chips = summary
+    ? [{ key: null as string | null, label: "전체", count: summary.count }].concat(
+        summary.categories
+          .filter((c) => FILTERABLE_CATEGORIES.has(c.key))
+          .map((c) => ({ key: c.key, label: c.key, count: c.count })),
+      )
+    : [];
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
-          카테고리
-          <select
-            value={filter ?? ""}
-            onChange={(e) => setFilter(e.target.value === "" ? null : e.target.value)}
-            className="min-w-[160px] rounded-lg border border-zinc-200 bg-white px-4 py-2 pr-12 text-sm font-bold text-slate-700 shadow-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
-          >
-            <option value="">전체</option>
-            {REVIEW_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
+      {summary && summary.count > 0 ? (
+        <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:p-8">
+          <div className="flex items-center gap-6 md:flex-col md:items-start md:justify-center md:gap-4 md:border-r md:border-slate-100 md:pr-8">
+            <div className="shrink-0">
+              <p className="text-xs font-bold text-slate-500">전체 평점</p>
+              <p className="mt-1 font-sans text-5xl font-black leading-none text-slate-900">
+                {formatAverage(summary.average)}
+              </p>
+              <div className="mt-2.5">
+                <Stars value={summary.average} className="h-5 w-5" />
+              </div>
+              <p className="mt-1.5 text-sm text-slate-500">
+                후기 <b className="text-slate-700">{summary.count.toLocaleString()}</b>개
+              </p>
+            </div>
+            <ul className="w-full min-w-0 flex-1 space-y-1.5">
+              {["5", "4", "3", "2", "1"].map((k) => {
+                const n = summary.distribution[k] ?? 0;
+                return (
+                  <li key={k} className="flex items-center gap-2 text-xs text-slate-500">
+                    <span className="w-6 shrink-0">{k}점</span>
+                    <span className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                      <span
+                        className="block h-full rounded-full bg-amber-400"
+                        style={{ width: `${(n / Math.max(1, summary.count)) * 100}%` }}
+                      />
+                    </span>
+                    <span className="w-8 shrink-0 text-right tabular-nums">{n}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-slate-800">강의별 평점</p>
+            <p className="mt-0.5 text-xs text-slate-400">강의를 누르면 그 강의 후기만 볼 수 있어요.</p>
+            <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">
+              {shownCourses.map((c, i) => {
+                const active = course?.course_id === c.course_id;
+                // 모바일은 세로로 길어져서 접힌 상태에선 3개만.
+                const mobileHidden = !showAllCourses && i >= COURSE_STATS_PREVIEW_MOBILE;
+                return (
+                  <li key={c.course_id} className={mobileHidden ? "hidden sm:block" : undefined}>
+                    <button
+                      type="button"
+                      onClick={() => pickCourse(c)}
+                      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors ${
+                        active
+                          ? "border-[var(--color-primary)] bg-blue-50/60"
+                          : "border-slate-100 bg-slate-50/60 hover:border-slate-300 hover:bg-white"
+                      }`}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-bold text-slate-800">
+                          {reviewCourseLabel(c.course_title, c.category)}
+                        </span>
+                        <span className="text-[11px] text-slate-400">{c.category}</span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                        <span className="text-sm font-extrabold tabular-nums text-slate-900">
+                          {formatAverage(c.average)}
+                        </span>
+                        <span className="text-xs tabular-nums text-slate-400">({c.count})</span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            {courseStats.length > COURSE_STATS_PREVIEW_MOBILE ? (
+              <button
+                type="button"
+                onClick={() => setShowAllCourses((v) => !v)}
+                className={`mt-2 items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-800 ${
+                  courseStats.length > COURSE_STATS_PREVIEW || showAllCourses ? "inline-flex" : "inline-flex sm:hidden"
+                }`}
+              >
+                {showAllCourses ? "접기" : `강의 ${courseStats.length}개 모두 보기`}
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAllCourses ? "rotate-180" : ""}`} />
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:pb-0">
+          {chips.map((chip) => {
+            const active = course == null && chip.key === category;
+            return (
+              <button
+                key={chip.label}
+                type="button"
+                onClick={() => pickCategory(chip.key)}
+                className={`shrink-0 rounded-full border px-4 py-2 text-sm font-bold transition-colors ${
+                  active
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
+                }`}
+              >
+                {chip.label} <span className={active ? "text-white/60" : "text-slate-400"}>{chip.count}</span>
+              </button>
+            );
+          })}
+        </div>
         <button
           type="button"
           onClick={handleWriteToggle}
@@ -547,29 +667,49 @@ function ReviewTab() {
         </button>
       </div>
 
+      {course ? (
+        <div className="flex items-center justify-between gap-3 rounded-2xl bg-blue-50/70 px-4 py-3 text-sm">
+          <span className="min-w-0 text-slate-700">
+            <b className="text-slate-900">{reviewCourseLabel(course.course_title, course.category)}</b> 후기만 보는 중
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setItems(null);
+              setCourse(null);
+            }}
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 shadow-sm hover:text-slate-900"
+          >
+            <X className="h-3.5 w-3.5" /> 전체 보기
+          </button>
+        </div>
+      ) : null}
+
       {writing && (
         <div className="animate-in fade-in slide-in-from-top-4 duration-300">
           <ReviewWriteForm
             onCancel={() => setWriting(false)}
             onCreated={async () => {
               setWriting(false);
-              await reload();
+              setReloadKey((k) => k + 1);
             }}
           />
         </div>
       )}
 
-      {visible.length === 0 ? (
-        <EmptyMessage text="해당 카테고리의 후기가 아직 없습니다." icon={<Star className="h-10 w-10 text-slate-300" />} />
+      {items == null ? (
+        <Loading />
+      ) : items.length === 0 ? (
+        <EmptyMessage text="아직 등록된 후기가 없습니다." icon={<Star className="h-10 w-10 text-slate-300" />} />
       ) : (
-        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-2">
-          {visible.map((p) => (
-            <ReviewListItem key={p.id} post={p} />
+        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {items.map((r) => (
+            <ReviewListItem key={r.id} review={r} />
           ))}
         </ul>
       )}
 
-      {filter == null && items.length < total ? (
+      {items != null && items.length < total ? (
         <div className="flex justify-center pt-2">
           <button
             type="button"
@@ -585,64 +725,51 @@ function ReviewTab() {
   );
 }
 
-function StarRow({ rating }: { rating: number }) {
-  return (
-    <div className="inline-flex gap-0.5 text-lg" aria-label={`${rating}점`}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <Star
-          key={n}
-          className={`h-4 w-4 ${n <= rating ? "fill-amber-400 text-amber-400" : "fill-slate-100 text-slate-200"}`}
-        />
-      ))}
-    </div>
-  );
-}
-
-function ReviewListItem({ post }: { post: PostListItem }) {
-  // 별점만 남긴 후기(글 선택, 2026-10)는 본문이 비어 있다.
-  const body = post.content ?? "";
-  // 목록에서는 4줄까지만 보이고, 긴 후기는 "더보기"로 전문을 펼친다
-  // (강의 상세 페이지 후기와 같은 기준 — 120자 넘으면 버튼 표시).
+function ReviewListItem({ review }: { review: ReviewItem }) {
+  // 별점만 남긴 후기(글 선택, 2026-10)는 본문이 비어 있다 — 서버가 맨 뒤로 보낸다.
+  const body = (review.content ?? "").trim();
+  // 목록에서는 4줄까지만 보이고, 긴 후기는 "더보기"로 전문을 펼친다.
   const [expanded, setExpanded] = useState(false);
+  const title = reviewCourseLabel(review.course_title, review.category);
   return (
-    <li className="flex flex-col rounded-3xl border border-slate-200 bg-white p-5 md:p-7 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-50 to-slate-100 font-bold text-[var(--color-primary)] ring-1 ring-slate-200/50">
-            익
-          </div>
-          <div>
-            <div className="text-sm font-bold text-slate-800">익명 수강생</div>
-            <div className="text-[11px] text-slate-400">{new Date(post.created_at).toLocaleDateString("ko-KR")}</div>
-          </div>
-        </div>
-        <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide ring-1 ${badgeClassFor(post.course_category)}`}>
-          {post.course_category ?? "기타"}
-        </span>
+    <li className="flex flex-col rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <p className="min-w-0 text-[15px] font-bold leading-snug text-slate-900">
+          {title ?? "수강 후기"}
+        </p>
+        {review.category ? (
+          <span className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1 ${badgeClassFor(review.category)}`}>
+            {review.category}
+          </span>
+        ) : null}
       </div>
-      
-      <div className="mb-3">
-        <StarRow rating={post.rating} />
+      <div className="mt-1.5 flex items-center gap-2 text-xs text-slate-400">
+        <Stars value={review.rating} className="h-3.5 w-3.5" />
+        <span>익명 · {new Date(review.created_at).toLocaleDateString("ko-KR")}</span>
       </div>
 
-      {body.trim() ? (
-        <p
-          className={`flex-1 whitespace-pre-wrap text-[15px] leading-relaxed text-slate-700 font-medium ${
-            expanded ? "" : "line-clamp-4"
-          }`}
-        >
-          &ldquo;{body}&rdquo;
-        </p>
-      ) : null}
-      {body.length > 120 ? (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="mt-3 self-start text-[13px] font-bold text-[var(--color-primary)] hover:underline"
-        >
-          {expanded ? "접기" : "더보기"}
-        </button>
-      ) : null}
+      {body ? (
+        <>
+          <p
+            className={`mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-slate-700 ${
+              expanded ? "" : "line-clamp-4"
+            }`}
+          >
+            {body}
+          </p>
+          {body.length > 120 ? (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-2 self-start text-[13px] font-bold text-[var(--color-primary)] hover:underline"
+            >
+              {expanded ? "접기" : "더보기"}
+            </button>
+          ) : null}
+        </>
+      ) : (
+        <p className="mt-3 text-xs text-slate-400">별점만 남긴 후기예요.</p>
+      )}
     </li>
   );
 }

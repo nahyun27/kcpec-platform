@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.admin import require_admin
@@ -248,10 +248,20 @@ def list_reviews(
     if course_id is not None:
         stmt = stmt.where(Post.course_id == course_id)
     if category:
-        stmt = stmt.where(Course.category == category)
+        # 강의가 지워졌거나 연결 전 후기는 글에 남은 카테고리로 맞춘다.
+        stmt = stmt.where(
+            or_(
+                Course.category == category,
+                and_(Course.id.is_(None), Post.course_category == category.value),
+            )
+        )
     total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    # 글이 있는 후기를 먼저, 그 안에서 최신순(2026-11). 별점만 남긴 후기는 뒤로.
+    has_text = func.length(func.trim(func.coalesce(Post.content, ""))) > 0
     rows = db.execute(
-        stmt.order_by(Post.created_at.desc()).offset((page - 1) * size).limit(size)
+        stmt.order_by(has_text.desc(), Post.created_at.desc(), Post.id.desc())
+        .offset((page - 1) * size)
+        .limit(size)
     ).all()
     return PaginatedReviews(
         items=[_to_review(p, t, c) for p, t, c in rows], total=total, page=page, size=size
