@@ -148,6 +148,7 @@ function Hero() {
       {/* Subtle Glows */}
       <div className="pointer-events-none absolute -left-[10%] top-0 h-[500px] w-[500px] rounded-full bg-[var(--color-accent)] opacity-20 blur-[120px]"></div>
       <div className="pointer-events-none absolute -right-[10%] bottom-0 h-[600px] w-[600px] rounded-full bg-blue-600 opacity-10 blur-[150px]"></div>
+      <HeroDocs />
 
       <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col items-center px-4 md:px-6 text-center">
         <div className="mb-6 mx-auto flex w-fit max-w-[92%] items-center gap-2 rounded-2xl sm:rounded-full bg-gradient-to-r from-amber-400 to-orange-400 px-4 py-2 sm:py-1.5 text-[12px] sm:text-sm font-extrabold text-[#1C3461] shadow-lg shadow-orange-500/20 text-center animate-in fade-in slide-in-from-top-4 duration-700 ease-out">
@@ -184,6 +185,35 @@ function Hero() {
         </div>
       </div>
     </section>
+  );
+}
+
+// 히어로 양옆에 실제 발급 서류 샘플을 은은하게 걸쳐 둔다(2026-11). 가운데
+// 문구와 겹치지 않게 넓은 화면(xl 이상)에서만, 천천히 몇 px 만 오르내린다.
+const HERO_DOCS: { src: string; alt: string; cls: string; delay: string }[] = [
+  { src: "/images/hero/certificate.jpg", alt: "수료증 샘플", cls: "left-[3%] top-[17%] w-[190px] -rotate-[8deg]", delay: "0s" },
+  { src: "/images/hero/counseling.jpg", alt: "심리상담 의견서 샘플", cls: "-left-[1%] top-[52%] w-[145px] rotate-[6deg]", delay: "-3s" },
+  { src: "/images/hero/repentance.jpg", alt: "반성문 샘플", cls: "right-[3%] top-[14%] w-[180px] rotate-[7deg]", delay: "-1.5s" },
+  { src: "/images/hero/pledge.jpg", alt: "서약서 샘플", cls: "-right-[1%] top-[56%] w-[140px] -rotate-[5deg]", delay: "-4.5s" },
+];
+
+function HeroDocs() {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 hidden xl:block">
+      {HERO_DOCS.map((d) => (
+        <div key={d.src} className={`absolute ${d.cls}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={d.src}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="hero-doc-float w-full rounded-md opacity-[0.16] shadow-2xl shadow-black/40 blur-[0.6px]"
+            style={{ animationDelay: d.delay }}
+          />
+        </div>
+      ))}
+    </div>
   );
 }
 
