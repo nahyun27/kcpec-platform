@@ -12,7 +12,7 @@ admin.perform_refund(관리자 환불과 같은 처리: 토스 부분 취소, �
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -98,6 +98,9 @@ def _is_letter(db: Session, order: Order) -> bool:
     return course is not None and course.title in LETTER_COURSE_TITLES
 
 
+REFUND_WINDOW_DAYS = 7
+
+
 def has_started(db: Session, order: Order) -> bool:
     # 반성문·탄원서는 질문에 답해 작성을 제출하면(legal_letters 행 생성) 시작.
     if _is_letter(db, order):
@@ -147,6 +150,11 @@ def check_eligibility(db: Session, order: Order, course: Course | None = None) -
     # 예전 아임웹 직접 무통장 입금 건은 토스를 거치지 않아 자동 환불이 안 된다.
     if order.payment_method == PaymentMethod.BANK_TRANSFER and not order.toss_payment_key:
         return "이 결제 건은 1:1 문의로 환불을 요청해 주세요."
+    # 결제 후 7일이 지나면 온라인 신청 불가(2026-11-17 고객사 결정). 관리자
+    # 환불·이미 접수된 신청 승인은 이 검사를 거치지 않는다.
+    paid_at = order.paid_at or order.created_at
+    if paid_at is not None and _now() > _aware(paid_at) + timedelta(days=REFUND_WINDOW_DAYS):
+        return f"결제 후 {REFUND_WINDOW_DAYS}일이 지나 온라인 환불 신청이 어렵습니다. 1:1 문의로 요청해 주세요."
     if course.title in LETTER_COURSE_TITLES:
         if has_started(db, order):
             return "이미 작성을 시작한 반성문·탄원서는 환불할 수 없습니다."

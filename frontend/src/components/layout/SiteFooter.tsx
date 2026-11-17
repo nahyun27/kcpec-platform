@@ -34,12 +34,6 @@ export function SiteFooter() {
                   admin@kcpec.co.kr
                 </a>
               </li>
-              <li>
-                <span className="block text-slate-500 mb-1">무통장 입금 계좌</span>
-                <span className="text-white">기업은행 232-160450-04-015</span>
-                <br />
-                <span className="text-slate-500 text-xs">(예금주: 한국범죄예방교육센터)</span>
-              </li>
             </ul>
           </div>
 

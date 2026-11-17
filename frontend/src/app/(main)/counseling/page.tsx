@@ -74,7 +74,7 @@ const COUNSELING_PRODUCTS: CounselingProduct[] = [
     process: [
       "온라인 설문지 작성",
       "전문 심리상담사 검토 및 작성",
-      "심리상담 의견서 PDF 발급 (상담 완료 다음 날)",
+      "심리상담 의견서 PDF 발급 (상담 완료 후 1~2영업일 이내)",
     ],
   },
   {
@@ -93,7 +93,7 @@ const COUNSELING_PRODUCTS: CounselingProduct[] = [
       "서면질의 작성",
       "상담사와 일정 조율",
       "전화 상담 진행 (회당 15분 × 3회)",
-      "심리상담 의견서 PDF 발급 (상담 종료 다음 날)",
+      "심리상담 의견서 PDF 발급 (상담 종료 후 1~2영업일 이내)",
     ],
   },
 ];

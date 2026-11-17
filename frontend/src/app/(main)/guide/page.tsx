@@ -59,7 +59,7 @@ const PRODUCTS: Product[] = [
     name: "전문가 심리상담",
     summary: "서면 설문 또는 전화 상담 후 전문 상담사가 의견서 작성",
     receive: "심리상담 의견서 + 부가 자료 4종",
-    where: "상담 완료 다음 날",
+    where: "상담 완료 후 1~2영업일",
     href: "/counseling",
     cta: "심리상담 알아보기",
   },
@@ -231,13 +231,13 @@ export default function GuidePage() {
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <p className="text-xs font-bold text-emerald-600">서면 심리상담</p>
               <p className="mt-1 text-lg font-extrabold text-slate-900">설문 작성으로 진행</p>
-              <MiniSteps items={["신청·결제", "온라인 설문 작성", "상담사 검토·작성", "의견서 발급 (상담 완료 다음 날)"]} />
+              <MiniSteps items={["신청·결제", "온라인 설문 작성", "상담사 검토·작성", "의견서 발급 (상담 완료 후 1~2영업일)"]} />
             </div>
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <p className="text-xs font-bold text-emerald-600">전화 심화상담</p>
               <p className="mt-1 text-lg font-extrabold text-slate-900">상담사와 전화 3회</p>
               <MiniSteps
-                items={["신청·결제", "서면 질문 작성", "상담사와 일정 조율 (연락드려요)", "전화 상담 15분 × 3회", "의견서 발급 (상담 종료 다음 날)"]}
+                items={["신청·결제", "서면 질문 작성", "상담사와 일정 조율 (연락드려요)", "전화 상담 15분 × 3회", "의견서 발급 (상담 종료 후 1~2영업일)"]}
               />
             </div>
           </div>
@@ -400,8 +400,8 @@ export default function GuidePage() {
                 <Undo2 className="h-5 w-5" /> 온라인으로 바로 신청
               </p>
               <ul className="mt-3 space-y-2 text-[15px] leading-relaxed text-slate-700">
-                <Bullet>아직 수강을 시작하지 않은 강의 (수강 기간 내, 수료증 발급 전)</Bullet>
-                <Bullet>아직 작성을 시작하지 않은 반성문·탄원서</Bullet>
+                <Bullet>결제 후 7일 이내, 아직 수강을 시작하지 않은 강의</Bullet>
+                <Bullet>결제 후 7일 이내, 아직 작성을 시작하지 않은 반성문·탄원서</Bullet>
               </ul>
               <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm leading-relaxed text-slate-600">
                 <b>마이페이지 › 결제 내역</b>(또는 내 강의실)의 <b>환불 신청</b>을 누르세요. 함께 결제한 항목이
@@ -417,6 +417,7 @@ export default function GuidePage() {
                 <Bullet>전문가 심리상담</Bullet>
                 <Bullet>구속수용자 교육 (자료 발송 후에는 환불이 어려워요)</Bullet>
                 <Bullet>결제 오류 등 그 밖의 경우</Bullet>
+                <Bullet>결제 후 7일이 지난 경우</Bullet>
               </ul>
               <p className="mt-4 text-sm leading-relaxed text-slate-500">
                 강의를 이미 시작했거나 수료증을 받은 경우, 반성문·탄원서 작성을 시작한 경우에는 환불이
