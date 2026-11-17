@@ -31,7 +31,12 @@ CHANNEL_LABEL = {
     "kakao": "카카오",
     "meta": "메타(인스타·페북)",
     "other": "기타",
+    "total": "총 광고비",
 }
+
+# 2026-11 변호사님 요청: 매체 구분 없이 "이달 총 광고비" 하나만 직접 입력한다.
+# 그 달에 total 값이 있으면 리포트·매체별 값은 무시하고 total 만 쓴다.
+TOTAL = "total"
 
 
 def _num(v) -> int | None:
@@ -231,6 +236,9 @@ def monthly_ad_cost(db: Session, start: date | None = None, end: date | None = N
     for gran in ("wday", "month", "day"):
         for (ym, ch), v in sums[gran].items():
             out[ym][ch] = v
+    for ym, chs in out.items():
+        if TOTAL in chs:
+            out[ym] = {TOTAL: chs[TOTAL]}
     return out
 
 
@@ -242,8 +250,17 @@ def daily_ad_cost(db: Session, start: date, end: date) -> dict[str, int]:
         )
     ).all()
     has_day = {(a.day.strftime("%Y-%m"), a.channel) for a in rows if a.granularity == "day"}
+    # 총액을 직접 넣은 달은 일자별 값이 총액과 안 맞으니 일별 그래프에서 뺀다.
+    total_months = {
+        a.day.strftime("%Y-%m")
+        for a in db.scalars(
+            select(AdSpend).where(AdSpend.channel == TOTAL, AdSpend.day >= start.replace(day=1), AdSpend.day < end)
+        ).all()
+    }
     out: dict[str, int] = defaultdict(int)
     for a in rows:
+        if a.day.strftime("%Y-%m") in total_months:
+            continue
         if a.granularity == "wday" and (a.day.strftime("%Y-%m"), a.channel) in has_day:
             continue
         out[a.day.isoformat()] += a.cost

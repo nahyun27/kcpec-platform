@@ -345,7 +345,7 @@ function SalesStatsView({
                     ? ` · 이번달 ${data.this_month_ad_cost.toLocaleString()}원`
                     : ""
                 }`
-              : "아래에서 리포트를 올려 주세요"
+              : "아래에서 총 광고비를 넣어 주세요"
           }
         />
         <SummaryCard
