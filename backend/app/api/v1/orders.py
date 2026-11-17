@@ -548,11 +548,12 @@ def create_order_bundle(
     # - 간편결제: 상담 상점
     # - 카드: BC 카드사 심사가 끝나면(COUNSELING_STORE_CARD_READY) 상담 상점.
     #   그 전엔 BC계열(카드결제의 약 10%)이 막히므로 강의 상점.
-    # - 계좌이체: 상담 상점에 에스크로가 "사용"이라 강의 상점에 둔다.
+    # - 계좌이체: 상담 상점 계좌이체 에스크로 "미사용" 승인(2026-11-17) 후 상담 상점.
     # - 가상계좌: 상담 상점 계약에 없으니 강의 상점.
     has_counseling = any(c.category == CourseCategory.COUNSELING for c in all_courses)
     to_counseling_store = has_counseling and (
         payload.payment_method in EASY_PAY_METHODS
+        or payload.payment_method == PaymentMethod.TRANSFER
         or (payload.payment_method == PaymentMethod.CARD and COUNSELING_STORE_CARD_READY)
     )
     toss_mid = counseling_mid() if to_counseling_store and counseling_mid() else course_mid()

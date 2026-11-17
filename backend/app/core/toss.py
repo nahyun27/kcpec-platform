@@ -11,7 +11,7 @@ from app.core.config import settings
 # 묶음결제라도 카드는 강의 상점으로 받는다(BC계열이 카드결제의 약 10%,
 # 2026-11-15 최근 276건 기준). 토스 상점관리자에서 BC가 "심사승인"이 되면
 # True 로 바꾸고 프런트 COUNSELING_CARD_REVIEW_NOTICE 를 false 로.
-COUNSELING_STORE_CARD_READY = False
+COUNSELING_STORE_CARD_READY = True  # 2026-11-17 BC 심사승인 확인
 
 
 def course_mid() -> str | None:
